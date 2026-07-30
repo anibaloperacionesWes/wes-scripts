@@ -1,0 +1,3039 @@
+{
+  "total_consumption": 7231.039999999999,
+  "aggregate_summary": {
+    "total": 7231.04,
+    "promedio_diario": 258.25142857142856,
+    "dias": 28,
+    "max": {
+      "date": "2026-02-22T00:00:00",
+      "total_m3": 194.69,
+      "details": {
+        "date": "2026-02-22",
+        "timestamp": 1771729200000,
+        "totalM3": 194.69,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "241415.6",
+          "consumption": "194.69"
+        },
+        "measures": null
+      }
+    },
+    "min": {
+      "date": "2026-02-02T00:00:00",
+      "total_m3": 7.0,
+      "details": {
+        "date": "2026-02-02",
+        "timestamp": 1770001200000,
+        "totalM3": 7.0,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "8680.0",
+          "consumption": "7.0"
+        },
+        "measures": null
+      }
+    }
+  },
+  "nodes_summary": [
+    {
+      "node_id": "000025-08",
+      "node_name": "Placa Bancaria",
+      "summary": {
+        "total": 1224.33,
+        "promedio_diario": 43.72607142857142,
+        "dias": 28,
+        "max": {
+          "date": "2026-02-17T00:00:00",
+          "total_m3": 136.5,
+          "details": {
+            "date": "2026-02-17",
+            "timestamp": 1771297200000,
+            "totalM3": 136.5,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "169260.0",
+              "consumption": "136.5"
+            },
+            "measures": null
+          }
+        },
+        "min": {
+          "date": "2026-02-02T00:00:00",
+          "total_m3": 7.0,
+          "details": {
+            "date": "2026-02-02",
+            "timestamp": 1770001200000,
+            "totalM3": 7.0,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "8680.0",
+              "consumption": "7.0"
+            },
+            "measures": null
+          }
+        }
+      },
+      "measures": [
+        {
+          "date": "2026-02-01T00:00:00",
+          "total_m3": 12.93,
+          "details": {
+            "date": "2026-02-01",
+            "timestamp": 1769914800000,
+            "totalM3": 12.93,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "16033.199999999999",
+              "consumption": "12.93"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-02T00:00:00",
+          "total_m3": 7.0,
+          "details": {
+            "date": "2026-02-02",
+            "timestamp": 1770001200000,
+            "totalM3": 7.0,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "8680.0",
+              "consumption": "7.0"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-03T00:00:00",
+          "total_m3": 9.33,
+          "details": {
+            "date": "2026-02-03",
+            "timestamp": 1770087600000,
+            "totalM3": 9.33,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "11569.2",
+              "consumption": "9.33"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-04T00:00:00",
+          "total_m3": 17.49,
+          "details": {
+            "date": "2026-02-04",
+            "timestamp": 1770174000000,
+            "totalM3": 17.49,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "21687.6",
+              "consumption": "17.49"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-05T00:00:00",
+          "total_m3": 14.870000000000001,
+          "details": {
+            "date": "2026-02-05",
+            "timestamp": 1770260400000,
+            "totalM3": 14.870000000000001,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "18438.800000000003",
+              "consumption": "14.870000000000001"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-06T00:00:00",
+          "total_m3": 23.43,
+          "details": {
+            "date": "2026-02-06",
+            "timestamp": 1770346800000,
+            "totalM3": 23.43,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "29053.2",
+              "consumption": "23.43"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-07T00:00:00",
+          "total_m3": 40.019999999999996,
+          "details": {
+            "date": "2026-02-07",
+            "timestamp": 1770433200000,
+            "totalM3": 40.019999999999996,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "49624.799999999996",
+              "consumption": "40.019999999999996"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-08T00:00:00",
+          "total_m3": 21.67,
+          "details": {
+            "date": "2026-02-08",
+            "timestamp": 1770519600000,
+            "totalM3": 21.67,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "26870.800000000003",
+              "consumption": "21.67"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-09T00:00:00",
+          "total_m3": 12.74,
+          "details": {
+            "date": "2026-02-09",
+            "timestamp": 1770606000000,
+            "totalM3": 12.74,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "15797.6",
+              "consumption": "12.74"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-10T00:00:00",
+          "total_m3": 11.81,
+          "details": {
+            "date": "2026-02-10",
+            "timestamp": 1770692400000,
+            "totalM3": 11.81,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "14644.400000000001",
+              "consumption": "11.81"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-11T00:00:00",
+          "total_m3": 49.33,
+          "details": {
+            "date": "2026-02-11",
+            "timestamp": 1770778800000,
+            "totalM3": 49.33,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "61169.2",
+              "consumption": "49.33"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-12T00:00:00",
+          "total_m3": 97.12,
+          "details": {
+            "date": "2026-02-12",
+            "timestamp": 1770865200000,
+            "totalM3": 97.12,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "120428.8",
+              "consumption": "97.12"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-13T00:00:00",
+          "total_m3": 49.629999999999995,
+          "details": {
+            "date": "2026-02-13",
+            "timestamp": 1770951600000,
+            "totalM3": 49.629999999999995,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "61541.2",
+              "consumption": "49.629999999999995"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-14T00:00:00",
+          "total_m3": 69.5,
+          "details": {
+            "date": "2026-02-14",
+            "timestamp": 1771038000000,
+            "totalM3": 69.5,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "86180.0",
+              "consumption": "69.5"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-15T00:00:00",
+          "total_m3": 52.46,
+          "details": {
+            "date": "2026-02-15",
+            "timestamp": 1771124400000,
+            "totalM3": 52.46,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "65050.4",
+              "consumption": "52.46"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-16T00:00:00",
+          "total_m3": 49.12,
+          "details": {
+            "date": "2026-02-16",
+            "timestamp": 1771210800000,
+            "totalM3": 49.12,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "60908.799999999996",
+              "consumption": "49.12"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-17T00:00:00",
+          "total_m3": 136.5,
+          "details": {
+            "date": "2026-02-17",
+            "timestamp": 1771297200000,
+            "totalM3": 136.5,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "169260.0",
+              "consumption": "136.5"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-18T00:00:00",
+          "total_m3": 104.83,
+          "details": {
+            "date": "2026-02-18",
+            "timestamp": 1771383600000,
+            "totalM3": 104.83,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "129989.2",
+              "consumption": "104.83"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-19T00:00:00",
+          "total_m3": 46.42,
+          "details": {
+            "date": "2026-02-19",
+            "timestamp": 1771470000000,
+            "totalM3": 46.42,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "57560.8",
+              "consumption": "46.42"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-20T00:00:00",
+          "total_m3": 47.23,
+          "details": {
+            "date": "2026-02-20",
+            "timestamp": 1771556400000,
+            "totalM3": 47.23,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "58565.2",
+              "consumption": "47.23"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-21T00:00:00",
+          "total_m3": 76.06,
+          "details": {
+            "date": "2026-02-21",
+            "timestamp": 1771642800000,
+            "totalM3": 76.06,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "94314.40000000001",
+              "consumption": "76.06"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-22T00:00:00",
+          "total_m3": 53.2,
+          "details": {
+            "date": "2026-02-22",
+            "timestamp": 1771729200000,
+            "totalM3": 53.2,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "65968.0",
+              "consumption": "53.2"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-23T00:00:00",
+          "total_m3": 43.71,
+          "details": {
+            "date": "2026-02-23",
+            "timestamp": 1771815600000,
+            "totalM3": 43.71,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "54200.4",
+              "consumption": "43.71"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-24T00:00:00",
+          "total_m3": 29.29,
+          "details": {
+            "date": "2026-02-24",
+            "timestamp": 1771902000000,
+            "totalM3": 29.29,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "36319.6",
+              "consumption": "29.29"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-25T00:00:00",
+          "total_m3": 19.47,
+          "details": {
+            "date": "2026-02-25",
+            "timestamp": 1771988400000,
+            "totalM3": 19.47,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "24142.8",
+              "consumption": "19.47"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-26T00:00:00",
+          "total_m3": 18.6,
+          "details": {
+            "date": "2026-02-26",
+            "timestamp": 1772074800000,
+            "totalM3": 18.6,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "23064.0",
+              "consumption": "18.6"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-27T00:00:00",
+          "total_m3": 64.44,
+          "details": {
+            "date": "2026-02-27",
+            "timestamp": 1772161200000,
+            "totalM3": 64.44,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "79905.59999999999",
+              "consumption": "64.44"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-28T00:00:00",
+          "total_m3": 46.13,
+          "details": {
+            "date": "2026-02-28",
+            "timestamp": 1772247600000,
+            "totalM3": 46.13,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "57201.200000000004",
+              "consumption": "46.13"
+            },
+            "measures": null
+          }
+        }
+      ]
+    },
+    {
+      "node_id": "000025-09",
+      "node_name": "Impulsión Falabella",
+      "summary": {
+        "total": 4450.44,
+        "promedio_diario": 158.9442857142857,
+        "dias": 28,
+        "max": {
+          "date": "2026-02-22T00:00:00",
+          "total_m3": 194.69,
+          "details": {
+            "date": "2026-02-22",
+            "timestamp": 1771729200000,
+            "totalM3": 194.69,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "241415.6",
+              "consumption": "194.69"
+            },
+            "measures": null
+          }
+        },
+        "min": {
+          "date": "2026-02-17T00:00:00",
+          "total_m3": 41.0,
+          "details": {
+            "date": "2026-02-17",
+            "timestamp": 1771297200000,
+            "totalM3": 41.0,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "50840.0",
+              "consumption": "41.0"
+            },
+            "measures": null
+          }
+        }
+      },
+      "measures": [
+        {
+          "date": "2026-02-01T00:00:00",
+          "total_m3": 159.83,
+          "details": {
+            "date": "2026-02-01",
+            "timestamp": 1769914800000,
+            "totalM3": 159.83,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "198189.2",
+              "consumption": "159.83"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-02T00:00:00",
+          "total_m3": 159.07,
+          "details": {
+            "date": "2026-02-02",
+            "timestamp": 1770001200000,
+            "totalM3": 159.07,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "197246.8",
+              "consumption": "159.07"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-03T00:00:00",
+          "total_m3": 155.62,
+          "details": {
+            "date": "2026-02-03",
+            "timestamp": 1770087600000,
+            "totalM3": 155.62,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "192968.80000000002",
+              "consumption": "155.62"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-04T00:00:00",
+          "total_m3": 154.56,
+          "details": {
+            "date": "2026-02-04",
+            "timestamp": 1770174000000,
+            "totalM3": 154.56,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "191654.4",
+              "consumption": "154.56"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-05T00:00:00",
+          "total_m3": 179.21,
+          "details": {
+            "date": "2026-02-05",
+            "timestamp": 1770260400000,
+            "totalM3": 179.21,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "222220.40000000002",
+              "consumption": "179.21"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-06T00:00:00",
+          "total_m3": 162.99,
+          "details": {
+            "date": "2026-02-06",
+            "timestamp": 1770346800000,
+            "totalM3": 162.99,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "202107.6",
+              "consumption": "162.99"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-07T00:00:00",
+          "total_m3": 159.85,
+          "details": {
+            "date": "2026-02-07",
+            "timestamp": 1770433200000,
+            "totalM3": 159.85,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "198214.0",
+              "consumption": "159.85"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-08T00:00:00",
+          "total_m3": 148.51,
+          "details": {
+            "date": "2026-02-08",
+            "timestamp": 1770519600000,
+            "totalM3": 148.51,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "184152.4",
+              "consumption": "148.51"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-09T00:00:00",
+          "total_m3": 178.09,
+          "details": {
+            "date": "2026-02-09",
+            "timestamp": 1770606000000,
+            "totalM3": 178.09,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "220831.6",
+              "consumption": "178.09"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-10T00:00:00",
+          "total_m3": 161.26,
+          "details": {
+            "date": "2026-02-10",
+            "timestamp": 1770692400000,
+            "totalM3": 161.26,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "199962.4",
+              "consumption": "161.26"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-11T00:00:00",
+          "total_m3": 116.84,
+          "details": {
+            "date": "2026-02-11",
+            "timestamp": 1770778800000,
+            "totalM3": 116.84,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "144881.6",
+              "consumption": "116.84"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-12T00:00:00",
+          "total_m3": 108.21,
+          "details": {
+            "date": "2026-02-12",
+            "timestamp": 1770865200000,
+            "totalM3": 108.21,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "134180.4",
+              "consumption": "108.21"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-13T00:00:00",
+          "total_m3": 181.76,
+          "details": {
+            "date": "2026-02-13",
+            "timestamp": 1770951600000,
+            "totalM3": 181.76,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "225382.4",
+              "consumption": "181.76"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-14T00:00:00",
+          "total_m3": 189.09,
+          "details": {
+            "date": "2026-02-14",
+            "timestamp": 1771038000000,
+            "totalM3": 189.09,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "234471.6",
+              "consumption": "189.09"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-15T00:00:00",
+          "total_m3": 175.24,
+          "details": {
+            "date": "2026-02-15",
+            "timestamp": 1771124400000,
+            "totalM3": 175.24,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "217297.6",
+              "consumption": "175.24"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-16T00:00:00",
+          "total_m3": 177.09,
+          "details": {
+            "date": "2026-02-16",
+            "timestamp": 1771210800000,
+            "totalM3": 177.09,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "219591.6",
+              "consumption": "177.09"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-17T00:00:00",
+          "total_m3": 41.0,
+          "details": {
+            "date": "2026-02-17",
+            "timestamp": 1771297200000,
+            "totalM3": 41.0,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "50840.0",
+              "consumption": "41.0"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-18T00:00:00",
+          "total_m3": 110.64,
+          "details": {
+            "date": "2026-02-18",
+            "timestamp": 1771383600000,
+            "totalM3": 110.64,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "137193.6",
+              "consumption": "110.64"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-19T00:00:00",
+          "total_m3": 178.76,
+          "details": {
+            "date": "2026-02-19",
+            "timestamp": 1771470000000,
+            "totalM3": 178.76,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "221662.4",
+              "consumption": "178.76"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-20T00:00:00",
+          "total_m3": 177.73,
+          "details": {
+            "date": "2026-02-20",
+            "timestamp": 1771556400000,
+            "totalM3": 177.73,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "220385.19999999998",
+              "consumption": "177.73"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-21T00:00:00",
+          "total_m3": 179.55,
+          "details": {
+            "date": "2026-02-21",
+            "timestamp": 1771642800000,
+            "totalM3": 179.55,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "222642.0",
+              "consumption": "179.55"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-22T00:00:00",
+          "total_m3": 194.69,
+          "details": {
+            "date": "2026-02-22",
+            "timestamp": 1771729200000,
+            "totalM3": 194.69,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "241415.6",
+              "consumption": "194.69"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-23T00:00:00",
+          "total_m3": 181.86,
+          "details": {
+            "date": "2026-02-23",
+            "timestamp": 1771815600000,
+            "totalM3": 181.86,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "225506.40000000002",
+              "consumption": "181.86"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-24T00:00:00",
+          "total_m3": 185.07999999999998,
+          "details": {
+            "date": "2026-02-24",
+            "timestamp": 1771902000000,
+            "totalM3": 185.07999999999998,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "229499.19999999998",
+              "consumption": "185.07999999999998"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-25T00:00:00",
+          "total_m3": 179.89,
+          "details": {
+            "date": "2026-02-25",
+            "timestamp": 1771988400000,
+            "totalM3": 179.89,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "223063.59999999998",
+              "consumption": "179.89"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-26T00:00:00",
+          "total_m3": 173.64,
+          "details": {
+            "date": "2026-02-26",
+            "timestamp": 1772074800000,
+            "totalM3": 173.64,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "215313.59999999998",
+              "consumption": "173.64"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-27T00:00:00",
+          "total_m3": 111.68,
+          "details": {
+            "date": "2026-02-27",
+            "timestamp": 1772161200000,
+            "totalM3": 111.68,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "138483.2",
+              "consumption": "111.68"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-28T00:00:00",
+          "total_m3": 168.7,
+          "details": {
+            "date": "2026-02-28",
+            "timestamp": 1772247600000,
+            "totalM3": 168.7,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "209188.0",
+              "consumption": "168.7"
+            },
+            "measures": null
+          }
+        }
+      ]
+    },
+    {
+      "node_id": "000025-10",
+      "node_name": "Impulsión Ripley",
+      "summary": {
+        "total": 1556.27,
+        "promedio_diario": 55.58107142857143,
+        "dias": 28,
+        "max": {
+          "date": "2026-02-24T00:00:00",
+          "total_m3": 105.94,
+          "details": {
+            "date": "2026-02-24",
+            "timestamp": 1771902000000,
+            "totalM3": 105.94,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "131365.6",
+              "consumption": "105.94"
+            },
+            "measures": null
+          }
+        },
+        "min": {
+          "date": "2026-02-17T00:00:00",
+          "total_m3": 41.07,
+          "details": {
+            "date": "2026-02-17",
+            "timestamp": 1771297200000,
+            "totalM3": 41.07,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "50926.8",
+              "consumption": "41.07"
+            },
+            "measures": null
+          }
+        }
+      },
+      "measures": [
+        {
+          "date": "2026-02-01T00:00:00",
+          "total_m3": 61.1,
+          "details": {
+            "date": "2026-02-01",
+            "timestamp": 1769914800000,
+            "totalM3": 61.1,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "75764.0",
+              "consumption": "61.1"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-02T00:00:00",
+          "total_m3": 45.43,
+          "details": {
+            "date": "2026-02-02",
+            "timestamp": 1770001200000,
+            "totalM3": 45.43,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "56333.2",
+              "consumption": "45.43"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-03T00:00:00",
+          "total_m3": 56.89,
+          "details": {
+            "date": "2026-02-03",
+            "timestamp": 1770087600000,
+            "totalM3": 56.89,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "70543.6",
+              "consumption": "56.89"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-04T00:00:00",
+          "total_m3": 45.11,
+          "details": {
+            "date": "2026-02-04",
+            "timestamp": 1770174000000,
+            "totalM3": 45.11,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "55936.4",
+              "consumption": "45.11"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-05T00:00:00",
+          "total_m3": 47.85,
+          "details": {
+            "date": "2026-02-05",
+            "timestamp": 1770260400000,
+            "totalM3": 47.85,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "59334.0",
+              "consumption": "47.85"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-06T00:00:00",
+          "total_m3": 57.47,
+          "details": {
+            "date": "2026-02-06",
+            "timestamp": 1770346800000,
+            "totalM3": 57.47,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "71262.8",
+              "consumption": "57.47"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-07T00:00:00",
+          "total_m3": 57.7,
+          "details": {
+            "date": "2026-02-07",
+            "timestamp": 1770433200000,
+            "totalM3": 57.7,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "71548.0",
+              "consumption": "57.7"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-08T00:00:00",
+          "total_m3": 49.0,
+          "details": {
+            "date": "2026-02-08",
+            "timestamp": 1770519600000,
+            "totalM3": 49.0,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "60760.0",
+              "consumption": "49.0"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-09T00:00:00",
+          "total_m3": 42.63,
+          "details": {
+            "date": "2026-02-09",
+            "timestamp": 1770606000000,
+            "totalM3": 42.63,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "52861.200000000004",
+              "consumption": "42.63"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-10T00:00:00",
+          "total_m3": 42.15,
+          "details": {
+            "date": "2026-02-10",
+            "timestamp": 1770692400000,
+            "totalM3": 42.15,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "52266.0",
+              "consumption": "42.15"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-11T00:00:00",
+          "total_m3": 50.769999999999996,
+          "details": {
+            "date": "2026-02-11",
+            "timestamp": 1770778800000,
+            "totalM3": 50.769999999999996,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "62954.799999999996",
+              "consumption": "50.769999999999996"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-12T00:00:00",
+          "total_m3": 44.45,
+          "details": {
+            "date": "2026-02-12",
+            "timestamp": 1770865200000,
+            "totalM3": 44.45,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "55118.0",
+              "consumption": "44.45"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-13T00:00:00",
+          "total_m3": 48.42,
+          "details": {
+            "date": "2026-02-13",
+            "timestamp": 1770951600000,
+            "totalM3": 48.42,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "60040.8",
+              "consumption": "48.42"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-14T00:00:00",
+          "total_m3": 59.98,
+          "details": {
+            "date": "2026-02-14",
+            "timestamp": 1771038000000,
+            "totalM3": 59.98,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "74375.2",
+              "consumption": "59.98"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-15T00:00:00",
+          "total_m3": 49.64,
+          "details": {
+            "date": "2026-02-15",
+            "timestamp": 1771124400000,
+            "totalM3": 49.64,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "61553.6",
+              "consumption": "49.64"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-16T00:00:00",
+          "total_m3": 47.2,
+          "details": {
+            "date": "2026-02-16",
+            "timestamp": 1771210800000,
+            "totalM3": 47.2,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "58528.0",
+              "consumption": "47.2"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-17T00:00:00",
+          "total_m3": 41.07,
+          "details": {
+            "date": "2026-02-17",
+            "timestamp": 1771297200000,
+            "totalM3": 41.07,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "50926.8",
+              "consumption": "41.07"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-18T00:00:00",
+          "total_m3": 44.730000000000004,
+          "details": {
+            "date": "2026-02-18",
+            "timestamp": 1771383600000,
+            "totalM3": 44.730000000000004,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "55465.200000000004",
+              "consumption": "44.730000000000004"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-19T00:00:00",
+          "total_m3": 48.68,
+          "details": {
+            "date": "2026-02-19",
+            "timestamp": 1771470000000,
+            "totalM3": 48.68,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "60363.2",
+              "consumption": "48.68"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-20T00:00:00",
+          "total_m3": 64.05,
+          "details": {
+            "date": "2026-02-20",
+            "timestamp": 1771556400000,
+            "totalM3": 64.05,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "79422.0",
+              "consumption": "64.05"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-21T00:00:00",
+          "total_m3": 72.6,
+          "details": {
+            "date": "2026-02-21",
+            "timestamp": 1771642800000,
+            "totalM3": 72.6,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "90024.0",
+              "consumption": "72.6"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-22T00:00:00",
+          "total_m3": 60.07,
+          "details": {
+            "date": "2026-02-22",
+            "timestamp": 1771729200000,
+            "totalM3": 60.07,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "74486.8",
+              "consumption": "60.07"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-23T00:00:00",
+          "total_m3": 82.58,
+          "details": {
+            "date": "2026-02-23",
+            "timestamp": 1771815600000,
+            "totalM3": 82.58,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "102399.2",
+              "consumption": "82.58"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-24T00:00:00",
+          "total_m3": 105.94,
+          "details": {
+            "date": "2026-02-24",
+            "timestamp": 1771902000000,
+            "totalM3": 105.94,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "131365.6",
+              "consumption": "105.94"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-25T00:00:00",
+          "total_m3": 56.68,
+          "details": {
+            "date": "2026-02-25",
+            "timestamp": 1771988400000,
+            "totalM3": 56.68,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "70283.2",
+              "consumption": "56.68"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-26T00:00:00",
+          "total_m3": 44.41,
+          "details": {
+            "date": "2026-02-26",
+            "timestamp": 1772074800000,
+            "totalM3": 44.41,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "55068.399999999994",
+              "consumption": "44.41"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-27T00:00:00",
+          "total_m3": 58.71,
+          "details": {
+            "date": "2026-02-27",
+            "timestamp": 1772161200000,
+            "totalM3": 58.71,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "72800.4",
+              "consumption": "58.71"
+            },
+            "measures": null
+          }
+        },
+        {
+          "date": "2026-02-28T00:00:00",
+          "total_m3": 70.96,
+          "details": {
+            "date": "2026-02-28",
+            "timestamp": 1772247600000,
+            "totalM3": 70.96,
+            "nodeKpi": {
+              "savingM3": "0.0",
+              "savingAmount": "0.0",
+              "efficiency": "0",
+              "expenses": "87990.4",
+              "consumption": "70.96"
+            },
+            "measures": null
+          }
+        }
+      ]
+    }
+  ],
+  "all_measures": [
+    {
+      "date": "2026-02-01T00:00:00",
+      "total_m3": 12.93,
+      "details": {
+        "date": "2026-02-01",
+        "timestamp": 1769914800000,
+        "totalM3": 12.93,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "16033.199999999999",
+          "consumption": "12.93"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-02T00:00:00",
+      "total_m3": 7.0,
+      "details": {
+        "date": "2026-02-02",
+        "timestamp": 1770001200000,
+        "totalM3": 7.0,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "8680.0",
+          "consumption": "7.0"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-03T00:00:00",
+      "total_m3": 9.33,
+      "details": {
+        "date": "2026-02-03",
+        "timestamp": 1770087600000,
+        "totalM3": 9.33,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "11569.2",
+          "consumption": "9.33"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-04T00:00:00",
+      "total_m3": 17.49,
+      "details": {
+        "date": "2026-02-04",
+        "timestamp": 1770174000000,
+        "totalM3": 17.49,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "21687.6",
+          "consumption": "17.49"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-05T00:00:00",
+      "total_m3": 14.870000000000001,
+      "details": {
+        "date": "2026-02-05",
+        "timestamp": 1770260400000,
+        "totalM3": 14.870000000000001,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "18438.800000000003",
+          "consumption": "14.870000000000001"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-06T00:00:00",
+      "total_m3": 23.43,
+      "details": {
+        "date": "2026-02-06",
+        "timestamp": 1770346800000,
+        "totalM3": 23.43,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "29053.2",
+          "consumption": "23.43"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-07T00:00:00",
+      "total_m3": 40.019999999999996,
+      "details": {
+        "date": "2026-02-07",
+        "timestamp": 1770433200000,
+        "totalM3": 40.019999999999996,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "49624.799999999996",
+          "consumption": "40.019999999999996"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-08T00:00:00",
+      "total_m3": 21.67,
+      "details": {
+        "date": "2026-02-08",
+        "timestamp": 1770519600000,
+        "totalM3": 21.67,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "26870.800000000003",
+          "consumption": "21.67"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-09T00:00:00",
+      "total_m3": 12.74,
+      "details": {
+        "date": "2026-02-09",
+        "timestamp": 1770606000000,
+        "totalM3": 12.74,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "15797.6",
+          "consumption": "12.74"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-10T00:00:00",
+      "total_m3": 11.81,
+      "details": {
+        "date": "2026-02-10",
+        "timestamp": 1770692400000,
+        "totalM3": 11.81,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "14644.400000000001",
+          "consumption": "11.81"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-11T00:00:00",
+      "total_m3": 49.33,
+      "details": {
+        "date": "2026-02-11",
+        "timestamp": 1770778800000,
+        "totalM3": 49.33,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "61169.2",
+          "consumption": "49.33"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-12T00:00:00",
+      "total_m3": 97.12,
+      "details": {
+        "date": "2026-02-12",
+        "timestamp": 1770865200000,
+        "totalM3": 97.12,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "120428.8",
+          "consumption": "97.12"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-13T00:00:00",
+      "total_m3": 49.629999999999995,
+      "details": {
+        "date": "2026-02-13",
+        "timestamp": 1770951600000,
+        "totalM3": 49.629999999999995,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "61541.2",
+          "consumption": "49.629999999999995"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-14T00:00:00",
+      "total_m3": 69.5,
+      "details": {
+        "date": "2026-02-14",
+        "timestamp": 1771038000000,
+        "totalM3": 69.5,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "86180.0",
+          "consumption": "69.5"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-15T00:00:00",
+      "total_m3": 52.46,
+      "details": {
+        "date": "2026-02-15",
+        "timestamp": 1771124400000,
+        "totalM3": 52.46,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "65050.4",
+          "consumption": "52.46"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-16T00:00:00",
+      "total_m3": 49.12,
+      "details": {
+        "date": "2026-02-16",
+        "timestamp": 1771210800000,
+        "totalM3": 49.12,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "60908.799999999996",
+          "consumption": "49.12"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-17T00:00:00",
+      "total_m3": 136.5,
+      "details": {
+        "date": "2026-02-17",
+        "timestamp": 1771297200000,
+        "totalM3": 136.5,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "169260.0",
+          "consumption": "136.5"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-18T00:00:00",
+      "total_m3": 104.83,
+      "details": {
+        "date": "2026-02-18",
+        "timestamp": 1771383600000,
+        "totalM3": 104.83,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "129989.2",
+          "consumption": "104.83"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-19T00:00:00",
+      "total_m3": 46.42,
+      "details": {
+        "date": "2026-02-19",
+        "timestamp": 1771470000000,
+        "totalM3": 46.42,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "57560.8",
+          "consumption": "46.42"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-20T00:00:00",
+      "total_m3": 47.23,
+      "details": {
+        "date": "2026-02-20",
+        "timestamp": 1771556400000,
+        "totalM3": 47.23,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "58565.2",
+          "consumption": "47.23"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-21T00:00:00",
+      "total_m3": 76.06,
+      "details": {
+        "date": "2026-02-21",
+        "timestamp": 1771642800000,
+        "totalM3": 76.06,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "94314.40000000001",
+          "consumption": "76.06"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-22T00:00:00",
+      "total_m3": 53.2,
+      "details": {
+        "date": "2026-02-22",
+        "timestamp": 1771729200000,
+        "totalM3": 53.2,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "65968.0",
+          "consumption": "53.2"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-23T00:00:00",
+      "total_m3": 43.71,
+      "details": {
+        "date": "2026-02-23",
+        "timestamp": 1771815600000,
+        "totalM3": 43.71,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "54200.4",
+          "consumption": "43.71"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-24T00:00:00",
+      "total_m3": 29.29,
+      "details": {
+        "date": "2026-02-24",
+        "timestamp": 1771902000000,
+        "totalM3": 29.29,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "36319.6",
+          "consumption": "29.29"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-25T00:00:00",
+      "total_m3": 19.47,
+      "details": {
+        "date": "2026-02-25",
+        "timestamp": 1771988400000,
+        "totalM3": 19.47,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "24142.8",
+          "consumption": "19.47"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-26T00:00:00",
+      "total_m3": 18.6,
+      "details": {
+        "date": "2026-02-26",
+        "timestamp": 1772074800000,
+        "totalM3": 18.6,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "23064.0",
+          "consumption": "18.6"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-27T00:00:00",
+      "total_m3": 64.44,
+      "details": {
+        "date": "2026-02-27",
+        "timestamp": 1772161200000,
+        "totalM3": 64.44,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "79905.59999999999",
+          "consumption": "64.44"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-28T00:00:00",
+      "total_m3": 46.13,
+      "details": {
+        "date": "2026-02-28",
+        "timestamp": 1772247600000,
+        "totalM3": 46.13,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "57201.200000000004",
+          "consumption": "46.13"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-01T00:00:00",
+      "total_m3": 159.83,
+      "details": {
+        "date": "2026-02-01",
+        "timestamp": 1769914800000,
+        "totalM3": 159.83,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "198189.2",
+          "consumption": "159.83"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-02T00:00:00",
+      "total_m3": 159.07,
+      "details": {
+        "date": "2026-02-02",
+        "timestamp": 1770001200000,
+        "totalM3": 159.07,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "197246.8",
+          "consumption": "159.07"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-03T00:00:00",
+      "total_m3": 155.62,
+      "details": {
+        "date": "2026-02-03",
+        "timestamp": 1770087600000,
+        "totalM3": 155.62,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "192968.80000000002",
+          "consumption": "155.62"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-04T00:00:00",
+      "total_m3": 154.56,
+      "details": {
+        "date": "2026-02-04",
+        "timestamp": 1770174000000,
+        "totalM3": 154.56,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "191654.4",
+          "consumption": "154.56"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-05T00:00:00",
+      "total_m3": 179.21,
+      "details": {
+        "date": "2026-02-05",
+        "timestamp": 1770260400000,
+        "totalM3": 179.21,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "222220.40000000002",
+          "consumption": "179.21"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-06T00:00:00",
+      "total_m3": 162.99,
+      "details": {
+        "date": "2026-02-06",
+        "timestamp": 1770346800000,
+        "totalM3": 162.99,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "202107.6",
+          "consumption": "162.99"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-07T00:00:00",
+      "total_m3": 159.85,
+      "details": {
+        "date": "2026-02-07",
+        "timestamp": 1770433200000,
+        "totalM3": 159.85,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "198214.0",
+          "consumption": "159.85"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-08T00:00:00",
+      "total_m3": 148.51,
+      "details": {
+        "date": "2026-02-08",
+        "timestamp": 1770519600000,
+        "totalM3": 148.51,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "184152.4",
+          "consumption": "148.51"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-09T00:00:00",
+      "total_m3": 178.09,
+      "details": {
+        "date": "2026-02-09",
+        "timestamp": 1770606000000,
+        "totalM3": 178.09,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "220831.6",
+          "consumption": "178.09"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-10T00:00:00",
+      "total_m3": 161.26,
+      "details": {
+        "date": "2026-02-10",
+        "timestamp": 1770692400000,
+        "totalM3": 161.26,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "199962.4",
+          "consumption": "161.26"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-11T00:00:00",
+      "total_m3": 116.84,
+      "details": {
+        "date": "2026-02-11",
+        "timestamp": 1770778800000,
+        "totalM3": 116.84,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "144881.6",
+          "consumption": "116.84"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-12T00:00:00",
+      "total_m3": 108.21,
+      "details": {
+        "date": "2026-02-12",
+        "timestamp": 1770865200000,
+        "totalM3": 108.21,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "134180.4",
+          "consumption": "108.21"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-13T00:00:00",
+      "total_m3": 181.76,
+      "details": {
+        "date": "2026-02-13",
+        "timestamp": 1770951600000,
+        "totalM3": 181.76,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "225382.4",
+          "consumption": "181.76"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-14T00:00:00",
+      "total_m3": 189.09,
+      "details": {
+        "date": "2026-02-14",
+        "timestamp": 1771038000000,
+        "totalM3": 189.09,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "234471.6",
+          "consumption": "189.09"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-15T00:00:00",
+      "total_m3": 175.24,
+      "details": {
+        "date": "2026-02-15",
+        "timestamp": 1771124400000,
+        "totalM3": 175.24,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "217297.6",
+          "consumption": "175.24"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-16T00:00:00",
+      "total_m3": 177.09,
+      "details": {
+        "date": "2026-02-16",
+        "timestamp": 1771210800000,
+        "totalM3": 177.09,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "219591.6",
+          "consumption": "177.09"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-17T00:00:00",
+      "total_m3": 41.0,
+      "details": {
+        "date": "2026-02-17",
+        "timestamp": 1771297200000,
+        "totalM3": 41.0,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "50840.0",
+          "consumption": "41.0"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-18T00:00:00",
+      "total_m3": 110.64,
+      "details": {
+        "date": "2026-02-18",
+        "timestamp": 1771383600000,
+        "totalM3": 110.64,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "137193.6",
+          "consumption": "110.64"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-19T00:00:00",
+      "total_m3": 178.76,
+      "details": {
+        "date": "2026-02-19",
+        "timestamp": 1771470000000,
+        "totalM3": 178.76,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "221662.4",
+          "consumption": "178.76"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-20T00:00:00",
+      "total_m3": 177.73,
+      "details": {
+        "date": "2026-02-20",
+        "timestamp": 1771556400000,
+        "totalM3": 177.73,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "220385.19999999998",
+          "consumption": "177.73"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-21T00:00:00",
+      "total_m3": 179.55,
+      "details": {
+        "date": "2026-02-21",
+        "timestamp": 1771642800000,
+        "totalM3": 179.55,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "222642.0",
+          "consumption": "179.55"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-22T00:00:00",
+      "total_m3": 194.69,
+      "details": {
+        "date": "2026-02-22",
+        "timestamp": 1771729200000,
+        "totalM3": 194.69,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "241415.6",
+          "consumption": "194.69"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-23T00:00:00",
+      "total_m3": 181.86,
+      "details": {
+        "date": "2026-02-23",
+        "timestamp": 1771815600000,
+        "totalM3": 181.86,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "225506.40000000002",
+          "consumption": "181.86"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-24T00:00:00",
+      "total_m3": 185.07999999999998,
+      "details": {
+        "date": "2026-02-24",
+        "timestamp": 1771902000000,
+        "totalM3": 185.07999999999998,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "229499.19999999998",
+          "consumption": "185.07999999999998"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-25T00:00:00",
+      "total_m3": 179.89,
+      "details": {
+        "date": "2026-02-25",
+        "timestamp": 1771988400000,
+        "totalM3": 179.89,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "223063.59999999998",
+          "consumption": "179.89"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-26T00:00:00",
+      "total_m3": 173.64,
+      "details": {
+        "date": "2026-02-26",
+        "timestamp": 1772074800000,
+        "totalM3": 173.64,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "215313.59999999998",
+          "consumption": "173.64"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-27T00:00:00",
+      "total_m3": 111.68,
+      "details": {
+        "date": "2026-02-27",
+        "timestamp": 1772161200000,
+        "totalM3": 111.68,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "138483.2",
+          "consumption": "111.68"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-28T00:00:00",
+      "total_m3": 168.7,
+      "details": {
+        "date": "2026-02-28",
+        "timestamp": 1772247600000,
+        "totalM3": 168.7,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "209188.0",
+          "consumption": "168.7"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-01T00:00:00",
+      "total_m3": 61.1,
+      "details": {
+        "date": "2026-02-01",
+        "timestamp": 1769914800000,
+        "totalM3": 61.1,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "75764.0",
+          "consumption": "61.1"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-02T00:00:00",
+      "total_m3": 45.43,
+      "details": {
+        "date": "2026-02-02",
+        "timestamp": 1770001200000,
+        "totalM3": 45.43,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "56333.2",
+          "consumption": "45.43"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-03T00:00:00",
+      "total_m3": 56.89,
+      "details": {
+        "date": "2026-02-03",
+        "timestamp": 1770087600000,
+        "totalM3": 56.89,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "70543.6",
+          "consumption": "56.89"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-04T00:00:00",
+      "total_m3": 45.11,
+      "details": {
+        "date": "2026-02-04",
+        "timestamp": 1770174000000,
+        "totalM3": 45.11,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "55936.4",
+          "consumption": "45.11"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-05T00:00:00",
+      "total_m3": 47.85,
+      "details": {
+        "date": "2026-02-05",
+        "timestamp": 1770260400000,
+        "totalM3": 47.85,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "59334.0",
+          "consumption": "47.85"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-06T00:00:00",
+      "total_m3": 57.47,
+      "details": {
+        "date": "2026-02-06",
+        "timestamp": 1770346800000,
+        "totalM3": 57.47,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "71262.8",
+          "consumption": "57.47"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-07T00:00:00",
+      "total_m3": 57.7,
+      "details": {
+        "date": "2026-02-07",
+        "timestamp": 1770433200000,
+        "totalM3": 57.7,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "71548.0",
+          "consumption": "57.7"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-08T00:00:00",
+      "total_m3": 49.0,
+      "details": {
+        "date": "2026-02-08",
+        "timestamp": 1770519600000,
+        "totalM3": 49.0,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "60760.0",
+          "consumption": "49.0"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-09T00:00:00",
+      "total_m3": 42.63,
+      "details": {
+        "date": "2026-02-09",
+        "timestamp": 1770606000000,
+        "totalM3": 42.63,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "52861.200000000004",
+          "consumption": "42.63"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-10T00:00:00",
+      "total_m3": 42.15,
+      "details": {
+        "date": "2026-02-10",
+        "timestamp": 1770692400000,
+        "totalM3": 42.15,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "52266.0",
+          "consumption": "42.15"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-11T00:00:00",
+      "total_m3": 50.769999999999996,
+      "details": {
+        "date": "2026-02-11",
+        "timestamp": 1770778800000,
+        "totalM3": 50.769999999999996,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "62954.799999999996",
+          "consumption": "50.769999999999996"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-12T00:00:00",
+      "total_m3": 44.45,
+      "details": {
+        "date": "2026-02-12",
+        "timestamp": 1770865200000,
+        "totalM3": 44.45,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "55118.0",
+          "consumption": "44.45"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-13T00:00:00",
+      "total_m3": 48.42,
+      "details": {
+        "date": "2026-02-13",
+        "timestamp": 1770951600000,
+        "totalM3": 48.42,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "60040.8",
+          "consumption": "48.42"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-14T00:00:00",
+      "total_m3": 59.98,
+      "details": {
+        "date": "2026-02-14",
+        "timestamp": 1771038000000,
+        "totalM3": 59.98,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "74375.2",
+          "consumption": "59.98"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-15T00:00:00",
+      "total_m3": 49.64,
+      "details": {
+        "date": "2026-02-15",
+        "timestamp": 1771124400000,
+        "totalM3": 49.64,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "61553.6",
+          "consumption": "49.64"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-16T00:00:00",
+      "total_m3": 47.2,
+      "details": {
+        "date": "2026-02-16",
+        "timestamp": 1771210800000,
+        "totalM3": 47.2,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "58528.0",
+          "consumption": "47.2"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-17T00:00:00",
+      "total_m3": 41.07,
+      "details": {
+        "date": "2026-02-17",
+        "timestamp": 1771297200000,
+        "totalM3": 41.07,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "50926.8",
+          "consumption": "41.07"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-18T00:00:00",
+      "total_m3": 44.730000000000004,
+      "details": {
+        "date": "2026-02-18",
+        "timestamp": 1771383600000,
+        "totalM3": 44.730000000000004,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "55465.200000000004",
+          "consumption": "44.730000000000004"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-19T00:00:00",
+      "total_m3": 48.68,
+      "details": {
+        "date": "2026-02-19",
+        "timestamp": 1771470000000,
+        "totalM3": 48.68,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "60363.2",
+          "consumption": "48.68"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-20T00:00:00",
+      "total_m3": 64.05,
+      "details": {
+        "date": "2026-02-20",
+        "timestamp": 1771556400000,
+        "totalM3": 64.05,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "79422.0",
+          "consumption": "64.05"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-21T00:00:00",
+      "total_m3": 72.6,
+      "details": {
+        "date": "2026-02-21",
+        "timestamp": 1771642800000,
+        "totalM3": 72.6,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "90024.0",
+          "consumption": "72.6"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-22T00:00:00",
+      "total_m3": 60.07,
+      "details": {
+        "date": "2026-02-22",
+        "timestamp": 1771729200000,
+        "totalM3": 60.07,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "74486.8",
+          "consumption": "60.07"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-23T00:00:00",
+      "total_m3": 82.58,
+      "details": {
+        "date": "2026-02-23",
+        "timestamp": 1771815600000,
+        "totalM3": 82.58,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "102399.2",
+          "consumption": "82.58"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-24T00:00:00",
+      "total_m3": 105.94,
+      "details": {
+        "date": "2026-02-24",
+        "timestamp": 1771902000000,
+        "totalM3": 105.94,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "131365.6",
+          "consumption": "105.94"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-25T00:00:00",
+      "total_m3": 56.68,
+      "details": {
+        "date": "2026-02-25",
+        "timestamp": 1771988400000,
+        "totalM3": 56.68,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "70283.2",
+          "consumption": "56.68"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-26T00:00:00",
+      "total_m3": 44.41,
+      "details": {
+        "date": "2026-02-26",
+        "timestamp": 1772074800000,
+        "totalM3": 44.41,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "55068.399999999994",
+          "consumption": "44.41"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-27T00:00:00",
+      "total_m3": 58.71,
+      "details": {
+        "date": "2026-02-27",
+        "timestamp": 1772161200000,
+        "totalM3": 58.71,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "72800.4",
+          "consumption": "58.71"
+        },
+        "measures": null
+      }
+    },
+    {
+      "date": "2026-02-28T00:00:00",
+      "total_m3": 70.96,
+      "details": {
+        "date": "2026-02-28",
+        "timestamp": 1772247600000,
+        "totalM3": 70.96,
+        "nodeKpi": {
+          "savingM3": "0.0",
+          "savingAmount": "0.0",
+          "efficiency": "0",
+          "expenses": "87990.4",
+          "consumption": "70.96"
+        },
+        "measures": null
+      }
+    }
+  ],
+  "start_date": "2026-02-01T00:00:00+00:00",
+  "end_date": "2026-02-28T23:59:59+00:00"
+}

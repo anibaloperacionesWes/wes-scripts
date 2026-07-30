@@ -1,0 +1,32 @@
+item,establecimiento,node_id,rango,horario_excel,lxm_l_min,prom_l_min_app,max_l_min_app,hora_pico,cumple,nota
+1,Complejo Educacional Consolidada,000010-10,Rango Alto,07:00 - 21:00,96.6667,6.556,8.333,9,SI,OK
+1,Complejo Educacional Consolidada,000010-10,Rango Medio,21:00 - 23:59,16.6667,6.111,6.667,22,SI,OK
+1,Complejo Educacional Consolidada,000010-10,Rango Bajo (nocturno),00:01 - 07:00,13.3333,6.875,8.333,0,SI,OK
+2,Escuela Villa Independencia,000010-02,Rango Alto,06:00 - 19:00,4.3333,0.036,0.167,12,SI,OK
+2,Escuela Villa Independencia,000010-02,Rango Medio,19:00 - 23:00,2.6667,0.067,0.167,20,SI,OK
+2,Escuela Villa Independencia,000010-02,Rango Bajo (nocturno),23:00 - 06:00,1.3333,0.062,0.167,2,SI,OK
+3,Escuela Andes del Sur,000010-01,Rango Alto,07:00 - 15:00,103.3333,2.963,3.333,7,SI,OK
+3,Escuela Andes del Sur,000010-01,Rango Medio,15:00 - 23:59,53.3333,3.333,3.333,15,SI,OK
+3,Escuela Andes del Sur,000010-01,Rango Bajo (nocturno),00:01 - 07:00,23.3333,3.333,3.333,0,SI,OK
+4,Escuela Padre Hurtado,000010-03,Rango Alto,06:00 - 19:00,45.0,5.595,16.667,11,SI,OK
+4,Escuela Padre Hurtado,000010-03,Rango Medio,19:00 - 20:00,10.0,7.5,8.333,19,SI,OK
+4,Escuela Padre Hurtado,000010-03,Rango Bajo (nocturno),20:00 - 06:00,8.3333,4.545,8.333,2,SI,OK
+5,Colegio Maipo,000010-04,Rango Alto,06:00 - 20:00,75.8333,3.833,4.333,6,SI,OK
+5,Colegio Maipo,000010-04,Rango Medio,20:00 - 23:00,8.0,3.917,4.333,23,SI,OK
+5,Colegio Maipo,000010-04,Rango Bajo (nocturno),23:00 - 06:00,3.1667,4.375,4.833,0,NO,Supera LXM (promedio)
+6,Escuela Luis Matte Larraín Central,000010-05,Rango Alto,06:30 - 20:00,23.3333,0.122,0.333,10,SI,OK
+6,Escuela Luis Matte Larraín Central,000010-05,Rango Bajo (nocturno),00:01 - 23:59,15.1667,0.125,0.333,10,SI,OK
+7,Escuela Gabriela,000010-06,Rango Alto,06:30 - 18:00,46.6667,0.0,0.0,6,SI,OK
+7,Escuela Gabriela,000010-06,Rango Medio,18:00 - 19:30,16.6667,0.0,0.0,18,SI,OK
+7,Escuela Gabriela,000010-06,Rango Bajo (nocturno),19:30 - 06:00,6.6667,0.0,0.0,19,SI,OK
+8,Escuela Juan Mackenna O'Reilly,000010-07,Rango Alto,06:30 - 15:20,58.1667,8.8,9.833,7,SI,OK
+8,Escuela Juan Mackenna O'Reilly,000010-07,Rango Medio,15:20 - 20:00,32.8333,8.444,8.667,18,SI,OK
+8,Escuela Juan Mackenna O'Reilly,000010-07,Rango Bajo (nocturno),20:00 - 06:30,8.8333,8.758,9.333,3,SI,OK
+9,Liceo Chiloé,000010-08,Rango Alto,06:30 - 23:00,87.3333,19.537,27.5,6,SI,OK
+9,Liceo Chiloé,000010-08,Rango Bajo (nocturno),00:01 - 23:59,16.8333,21.083,27.5,5,NO,Supera LXM (promedio)
+10,Escuela Los Andes,000010-09,Rango Alto,06:30 - 17:15,28.3333,0.139,1.667,6,SI,OK
+10,Escuela Los Andes,000010-09,Rango Medio,17:15 - 23:00,11.6667,0.0,0.0,17,SI,OK
+10,Escuela Los Andes,000010-09,Rango Bajo (nocturno),23:00 - 06:30,5.0,0.208,1.667,6,SI,OK
+11,Escuela Nonato Coo,000010-11,Rango Alto,06:30 - 19:30,76.8333,0.0,0.0,6,SI,OK
+11,Escuela Nonato Coo,000010-11,Rango Medio,19:30 - 23:00,3.1667,0.0,0.0,19,SI,OK
+11,Escuela Nonato Coo,000010-11,Rango Bajo (nocturno),23:00 - 06:30,2.5,0.0,0.0,23,SI,OK

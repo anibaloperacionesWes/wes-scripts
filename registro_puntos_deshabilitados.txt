@@ -1,0 +1,42 @@
+# =============================================================================
+# REGISTRO DE PUNTOS DESHABILITADOS (reportes WES)
+# =============================================================================
+#
+# Los NodeId listados abajo quedan fuera de: puntos en cero, agregados que
+# usan exclusiones_reportes, e informes individuales vía generar_reporte_word.
+#
+# FORMATO (una fila por punto):
+#   NODO_ID | Nombre / referencia | Motivo | Fecha registro (YYYY-MM-DD) | Notas
+#
+# - Líneas que empiezan por # o en blanco se ignoran.
+# - El NODO_ID debe ser el primer campo (ej. 000025-25) y separarse con |.
+#
+# REHABILITAR (si el cliente pide volver a reportar):
+#   1) Borrar o comentar (#) la línea del nodo en este archivo.
+#   2) Volver a ejecutar los scripts (no hace falta tocar exclusiones_reportes.py
+#      salvo que el ID también estuviera en el set fijo del .py).
+#
+# =============================================================================
+
+000025-25 | Baño N°5 Damas (Parque Arauco Kennedy) | Equipo retirado; punto inactivo en API | 2026-04-06 | Reemplazo operativo 000025-35 (PAK BAZAR GOURMET). Rehabilitar solo si el cliente confirma que el punto vuelve a monitorearse.
+000025-26 | Baño N°6 Varones (Parque Arauco Kennedy) | Equipo retirado; punto inactivo en API | 2026-04-06 | Reemplazo operativo 000025-36 (PAK DL KENNEDY). Rehabilitar solo si el cliente confirma que el punto vuelve a monitorearse.
+
+# --- Ajuste operativo (excluir de “puntos en cero” y reportes) ---
+000030-01 | Estadio Israelita Maccabi — Matriz Av. Las Condes | Excluir de reportes / puntos en cero | 2026-05-07 | Solicitud operativa (Aníbal).
+000030-02 | Estadio Israelita Maccabi — Matriz Chesterton | Excluir de reportes / puntos en cero | 2026-05-07 | Solicitud operativa (Aníbal).
+000025-15 | Parque Arauco — Matriz Principal (ID 000025-15) | Excluir de reportes / puntos en cero | 2026-05-07 | Solicitud operativa (Aníbal).
+000025-16 | Parque Arauco — Baños (ID 000025-16) | Excluir de reportes / puntos en cero | 2026-05-07 | Solicitud operativa (Aníbal).
+000022-01 | Colegio Juan Pablo II (Las Condes) | Excluir de reportes / puntos en cero | 2026-05-11 | Sin datos confiables en API; no incluir en informe de puntos en cero.
+000025-09 | Parque Arauco — Impulsión Falabella (sala de bombas) | Excluir de reportes / puntos en cero | 2026-05-18 | A la espera de reparación de sala de bombas; no incluir en informe de puntos en cero hasta rehabilitar.
+
+# --- BUPA (empresa 000029): fuera de reportes hasta instalación operativa ---
+000029-01 | BUPA — Llenado de Estanques | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+000029-02 | BUPA — Torre A | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+000029-03 | BUPA — Torre B1 | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+000029-04 | BUPA — Torre B2 | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+000029-05 | BUPA — Torre C | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+000029-06 | BUPA — Central Térmica | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+000029-07 | BUPA — Sala de Bomba Principal | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+000029-08 | BUPA — Sala de Bomba Sexto Piso | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+000029-09 | BUPA — Medidor Principal Sanitaria | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+000029-10 | BUPA — Sala de Bomba N°2 | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.

@@ -1,0 +1,38 @@
+---
+description: Estilo de informes WES (texto, Word, gráficos tipo app) según referencias del equipo
+globs: generar_reporte*.py,wes_estilo_graficos_app.py,generar_agregados*.py,reporte_*.py,control_nocturno.py
+alwaysApply: false
+---
+
+# Informes WES — estilo y gráficos
+
+## Objetivo
+
+Los reportes Word/PDF deben leerse como los informes de referencia del equipo (Diego Carrasco): tono técnico en español, tablas claras, conclusiones accionables. **No depender de capturas de pantalla de la app**; usar matplotlib con paleta WES.
+
+## Gráficos (equivalente app)
+
+- Módulo compartido: `wes_estilo_graficos_app.py`
+- Perfil 24 h: barras por hora, horas **00–06** en rojo/sombreado, línea azul, datos `control_nocturno.obtener_datos_horarios_dia` (hora Chile).
+- Comparación mensual: `build_monthly_comparison_chart` en `generar_reporte_word.py` (donut consumo nocturno vs efectivo).
+
+## Reportes agregados
+
+- Tabla por punto: consumo total, alertas, consumo nocturno (m³ + días + %), proyección de filtración.
+- Si hay **consumo nocturno** pero **cero alertas** (o alertas puntuales): insertar sección *Perfiles horarios y proyección (serie API — estilo app WES)* vía `agregar_perfiles_nocturnos_agregado_doc`.
+- Gráfica mensual agregada: usar proyección desde tabla/horaria cuando `aggregated_alert_stats["proyeccion_24h"] == 0` y `total_proyeccion_filtracion > 0`.
+
+## Proyección sin alertas
+
+- Madrugada 00:00–06:59; promedio horario × 24 h × 30 días para escenario comercial (equipo de control).
+- Umbral 75 % días con consumo nocturno: si no se cumple, igual mostrar proyección técnica con nota al pie.
+
+## Referencias en repo
+
+- Comparación app vs facturación: `generar_reporte_comparacion_app_vs_facturaciones_*.py`
+- Pedir a Diego/analista los 4 DOCX/PDF de referencia si el enlace del correo no está disponible.
+
+## Correo
+
+- Destinatarios habituales: Juan, Diego, Aníbal; BCC según indique el usuario.
+- SMTP: `agente.ia@wes.cl`, credencial en `gmail_oauth/app_password.txt` o `WES_SMTP_PASSWORD`.

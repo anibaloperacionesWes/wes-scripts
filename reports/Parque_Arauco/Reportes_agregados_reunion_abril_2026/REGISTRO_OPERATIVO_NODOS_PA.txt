@@ -1,0 +1,25 @@
+REGISTRO OPERATIVO — PARQUE ARAUCO (000025)
+Reunión abril 2026 / trazabilidad
+========================================
+
+1) Reemplazos El Bosque / Quilicura
+   - 000025-11 (Matriz principal 1° piso) — no operativo; reemplazado por 000025-30 (Matriz A.A).
+   - 000025-14 (Red de Incendio) — no operativo; reemplazado por 000025-34 (Alimentación Baños).
+   - La información de 11 y 14 puede conservarse según registro operativo / JO del mall.
+
+2) 000025-25 y 000025-26
+   - Equipos retirados el 30-03-2026.
+   - Para efectos de evaluación deben seguir considerándose, utilizando la información
+     histórica disponible en plataforma / periodos analizados.
+
+3) 000025-35 y 000025-36
+   - Corresponden a los equipos que reemplazan a los puntos retirados 000025-25 y 000025-26.
+   - 000025-35 en reemplazo de 000025-25.
+   - 000025-36 en reemplazo de 000025-26.
+   - Debe mencionarse esta relación en informes o evaluaciones cuando corresponda.
+
+4) Otros nodos fuera de operación (excluidos del listado estándar en script)
+   - 000025-02, 000025-03, 000025-05, 000025-06: no operativos (criterio operativo previo).
+
+---
+Documento de respaldo. El listado Excel incluye columna «Observaciones» cuando aplica.

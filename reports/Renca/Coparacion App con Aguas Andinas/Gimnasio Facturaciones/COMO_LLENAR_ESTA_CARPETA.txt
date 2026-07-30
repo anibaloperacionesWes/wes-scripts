@@ -1,0 +1,46 @@
+Carpeta: Gimnasio Facturaciones — informe comparación facturación Aguas Andinas vs App WES
+Nodo: 000017-05 (Gimnasio municipal, Renca)
+
+Qué poner aquí
+---------------
+Opción A — Boletas PDF con texto (descarga desde el sitio de Aguas Andinas)
+  · Guarde uno o más archivos .pdf en ESTA carpeta.
+
+Opción A2 — PDF «Historial de consumo» (página con tabla, a veces solo imagen)
+  · El script usa OCR automáticamente si el PDF no trae texto seleccionable.
+  · Requisitos Python: pip install pymupdf rapidocr-onnxruntime pypdf
+  · (También están en requirements.txt del proyecto.)
+
+Opción B — Solo tiene escaneo no reconocido
+  · No se puede leer el consumo automáticamente desde la imagen.
+  · Copie el archivo: plantilla_facturacion_aguas_andinas.csv
+  · Renómbrelo exactamente a: facturacion_aguas_andinas.csv
+  · Abra el CSV en Excel o bloc de notas y complete UNA FILA POR FACTURA con los datos de la boleta.
+
+Columnas obligatorias en facturacion_aguas_andinas.csv
+------------------------------------------------------
+  boleta              Número de factura o boleta
+  fecha_emision       Fecha emisión (DD-MM-AAAA o p.ej. 11-JUL-2025)
+  lectura_anterior    Fecha lectura anterior en la boleta
+  lectura_actual      Fecha lectura actual en la boleta
+  m3_cuenta           Consumo total facturado en m³ (número entero, sin separador de miles o con coma decimal)
+
+Opcionales: cuenta, medidor
+
+Criterio del informe (Renca Gimnasio)
+-------------------------------------
+Solo entran períodos cuya lectura_anterior y lectura_actual son el 06-06-2025 o posteriores.
+
+Comandos (ejecutar desde la carpeta raíz del proyecto wes-scripts)
+------------------------------------------------------------------
+  python generar_reporte_comparacion_app_vs_facturaciones_gimnasio_000017_05.py
+
+  Ese comando genera Word, PDF, gráficos PNG y Excel en la carpeta de salida (abajo).
+  Si solo quiere regenerar el Excel: python exportar_excel_comparacion_facturacion_vs_wes.py --site gimnasio
+
+Salida (carpeta reports\Renca\Coparacion App con Aguas Andinas\reporte_comparacion_Gimnasio\)
+----------------------------------------------------------------------------------------------
+  Comparacion_App_vs_Facturaciones_Gimnasio_Renca.docx
+  Comparacion_App_vs_Facturaciones_Gimnasio_Renca.pdf
+  Comparacion_Facturacion_vs_WES_Gimnasio_Renca.xlsx
+  chart_barras_gimnasio_*.png (gráficos del informe)

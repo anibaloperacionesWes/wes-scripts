@@ -1,0 +1,54 @@
+================================================================================
+LISTADO DE USUARIOS @linkes.cl y @parauco.com — LIMITACIÓN DE LA API WES
+================================================================================
+
+La API pública acl-entities (http://104.248.53.141:7001/.../v1) según api-docs
+solo permite:
+  • GET /users?email=correo_exacto
+  • GET /users/{userId}
+
+No existe endpoint para "todos los usuarios del dominio X" ni filtro por @linkes.cl
+o @parauco.com. Por eso no se puede obtener el universo completo solo con llamadas
+HTTP a esa API sin conocer cada correo de antemano.
+
+--------------------------------------------------------------------------------
+ALTERNATIVA 1 — Directorio corporativo (recomendada para listado completo)
+--------------------------------------------------------------------------------
+
+Si los correos @linkes.cl y @parauco.com están alojados en:
+
+  • Google Workspace: un administrador puede ir a Admin console → Usuarios →
+    exportar lista, o usar informes por dominio / API Admin SDK con cuenta de
+    servicio (requiere rol de administrador).
+
+  • Microsoft 365 / Entra ID (Azure AD): Centro de administración → Usuarios →
+    exportar, o Microsoft Graph (Application permissions User.Read.All) con
+    consentimiento del tenant.
+
+Esto es lo más cercano a un "listado oficial" de todas las cuentas de esos dominios.
+
+--------------------------------------------------------------------------------
+ALTERNATIVA 2 — Datos internos WES (backoffice / base de datos)
+--------------------------------------------------------------------------------
+
+Solicitar al equipo de plataforma WES o al administrador del backoffice:
+
+  • Export CSV de usuarios filtrados por companyId 000025 (Parque Arauco) y/o
+    por dominio de correo (linkes.cl, parauco.com).
+
+La información de usuarios suele residir en la base interna; la API que usan
+los scripts de reportes no expone ese listado masivo.
+
+--------------------------------------------------------------------------------
+COMPLEMENTO — Acercamiento local (sin garantía de exhaustividad)
+--------------------------------------------------------------------------------
+
+El script buscar_emails_linkes_parauco.py busca cadenas @linkes.cl y @parauco.com
+en archivos de texto del PC (logs, correos exportados, Excel, etc.). Puede
+ampliarse con --extra-dir para incluir carpetas (por ejemplo exportaciones de
+buzón o OneDrive).
+
+Eso NO sustituye al directorio corporativo ni al export WES, pero acerca a
+usuarios que hayan dejado rastro en archivos.
+
+================================================================================

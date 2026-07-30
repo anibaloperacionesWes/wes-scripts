@@ -1,0 +1,26 @@
+# Dominios: @linkes.cl y @parauco.com
+# Carpetas escaneadas: G:\Mi unidad\Agente WES\wes-scripts
+
+acortes@parauco.com
+an_ambiental_ach@linkes.cl
+an_ambiental_mam@linkes.cl
+an_ambiental_maq@linkes.cl
+an_ambiental_pae@linkes.cl
+an_ambiental_pak@linkes.cl
+antonieta.gomez@parauco.com
+cbustamante@linkes.cl
+djamrillo@parauco.com
+francisco.jeldres@parauco.com
+idustan@linkes.cl
+ignacio.gonzalez@parauco.com
+jlazo@parauco.com
+luis.castillo@parauco.com
+mfreitez@parauco.com
+mrupayan@parauco.com
+msaavedra@parauco.com
+pmartinez@parauco.com
+rcartes@linkes.cl
+rortes@parauco.com
+tiare.leviner@parauco.com
+tmartinez@linkes.cl
+tsaba@parauco.com

@@ -1,0 +1,10 @@
+Compañía: 000025 (Parque Arauco)
+Nodos en compañía: 37
+Correos consultados: 34
+Usuarios con nodos 000025: 19
+Correos sin usuario en API: 15
+Usuarios sin nodos 000025: 0
+
+LIMITACIÓN: la API no lista todos los usuarios de la compañía.
+Este reporte cubre el universo de correos conocidos en el proyecto.
+Para listado exhaustivo solicitar export al backoffice WES.

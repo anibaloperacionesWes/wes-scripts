@@ -1,0 +1,1481 @@
+﻿{
+    "swagger":  "2.0",
+    "info":  {
+                 "description":  "Micro Service to manage entities",
+                 "version":  "v1",
+                 "title":  "WES entities",
+                 "contact":  {
+                                 "name":  "Gonzalo Salas",
+                                 "url":  "https://web.telegram.org/#/im?p=@Gosalass",
+                                 "email":  "go.salass@gmail.com"
+                             },
+                 "license":  {
+                                 "name":  "GitHub resource",
+                                 "url":  "https://github.com/gosalass"
+                             }
+             },
+    "host":  "104.248.53.141:7001",
+    "basePath":  "/wes/api/acl-entities/v1",
+    "tags":  [
+                 {
+                     "name":  "audit-controller",
+                     "description":  "Audit Controller"
+                 },
+                 {
+                     "name":  "configuration-controller",
+                     "description":  "Configuration Controller"
+                 },
+                 {
+                     "name":  "entity-controller",
+                     "description":  "Entity Controller"
+                 }
+             ],
+    "paths":  {
+                  "/auditory":  {
+                                    "post":  {
+                                                 "tags":  [
+                                                              "audit-controller"
+                                                          ],
+                                                 "summary":  "Crear una auditoria",
+                                                 "description":  "Genera como repuesta el UUID (Identificador) de la auditorÃ­a y la eficiencia calculada.",
+                                                 "operationId":  "createAuditoryUsingPOST",
+                                                 "consumes":  [
+                                                                  "application/json"
+                                                              ],
+                                                 "produces":  [
+                                                                  "application/json"
+                                                              ],
+                                                 "parameters":  [
+                                                                    {
+                                                                        "in":  "body",
+                                                                        "name":  "createAuditRequest",
+                                                                        "description":  "createAuditRequest",
+                                                                        "required":  true,
+                                                                        "schema":  {
+                                                                                       "$ref":  "#/definitions/CreateAuditRequest"
+                                                                                   }
+                                                                    }
+                                                                ],
+                                                 "responses":  {
+                                                                   "200":  {
+                                                                               "description":  "OK",
+                                                                               "schema":  {
+                                                                                              "$ref":  "#/definitions/CreateAuditResponse"
+                                                                                          }
+                                                                           },
+                                                                   "404":  {
+                                                                               "description":  "RESOURCE NOT FOUND"
+                                                                           },
+                                                                   "500":  {
+                                                                               "description":  "INTERNAL SERVER ERROR"
+                                                                           }
+                                                               },
+                                                 "deprecated":  false
+                                             }
+                                },
+                  "/auditorys/{nodeId}":  {
+                                              "get":  {
+                                                          "tags":  [
+                                                                       "audit-controller"
+                                                                   ],
+                                                          "summary":  "Confirmar aplicaciÃ³n de auditoria",
+                                                          "description":  "Confirma la auditoria indicada, Publica eficiencia en Nodo, Elimina Eficiencia y ahorro del periodo Sin Control",
+                                                          "operationId":  "retrieveAuditorysUsingGET",
+                                                          "produces":  [
+                                                                           "application/json"
+                                                                       ],
+                                                          "parameters":  [
+                                                                             {
+                                                                                 "name":  "from",
+                                                                                 "in":  "query",
+                                                                                 "description":  "from",
+                                                                                 "required":  true,
+                                                                                 "type":  "string"
+                                                                             },
+                                                                             {
+                                                                                 "name":  "nodeId",
+                                                                                 "in":  "query",
+                                                                                 "description":  "nodeId",
+                                                                                 "required":  true,
+                                                                                 "type":  "string"
+                                                                             },
+                                                                             {
+                                                                                 "name":  "to",
+                                                                                 "in":  "query",
+                                                                                 "description":  "to",
+                                                                                 "required":  true,
+                                                                                 "type":  "string"
+                                                                             }
+                                                                         ],
+                                                          "responses":  {
+                                                                            "200":  {
+                                                                                        "description":  "OK",
+                                                                                        "schema":  {
+                                                                                                       "$ref":  "#/definitions/CreateAuditResponse"
+                                                                                                   }
+                                                                                    },
+                                                                            "404":  {
+                                                                                        "description":  "RESOURCE NOT FOUND"
+                                                                                    },
+                                                                            "500":  {
+                                                                                        "description":  "INTERNAL SERVER ERROR"
+                                                                                    }
+                                                                        },
+                                                          "deprecated":  false
+                                                      }
+                                          },
+                  "/auditorys/{uuid}/apply":  {
+                                                  "post":  {
+                                                               "tags":  [
+                                                                            "audit-controller"
+                                                                        ],
+                                                               "summary":  "Confirmar aplicaciÃ³n de auditoria",
+                                                               "description":  "Confirma la auditoria indicada, Publica eficiencia en Nodo, Elimina Eficiencia y ahorro del periodo Sin Control",
+                                                               "operationId":  "createAuditoryUsingPOST_1",
+                                                               "consumes":  [
+                                                                                "application/json"
+                                                                            ],
+                                                               "produces":  [
+                                                                                "application/json"
+                                                                            ],
+                                                               "parameters":  [
+                                                                                  {
+                                                                                      "name":  "uuid",
+                                                                                      "in":  "query",
+                                                                                      "description":  "uuid",
+                                                                                      "required":  true,
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                              ],
+                                                               "responses":  {
+                                                                                 "200":  {
+                                                                                             "description":  "OK",
+                                                                                             "schema":  {
+                                                                                                            "$ref":  "#/definitions/CreateAuditResponse"
+                                                                                                        }
+                                                                                         },
+                                                                                 "404":  {
+                                                                                             "description":  "RESOURCE NOT FOUND"
+                                                                                         },
+                                                                                 "500":  {
+                                                                                             "description":  "INTERNAL SERVER ERROR"
+                                                                                         }
+                                                                             },
+                                                               "deprecated":  false
+                                                           }
+                                              },
+                  "/companies":  {
+                                     "post":  {
+                                                  "tags":  [
+                                                               "entity-controller"
+                                                           ],
+                                                  "summary":  "Crear una nueva empresa",
+                                                  "operationId":  "createCompanyUsingPOST",
+                                                  "consumes":  [
+                                                                   "application/json"
+                                                               ],
+                                                  "produces":  [
+                                                                   "application/json"
+                                                               ],
+                                                  "parameters":  [
+                                                                     {
+                                                                         "in":  "body",
+                                                                         "name":  "createCompanyRequest",
+                                                                         "description":  "createCompanyRequest",
+                                                                         "required":  true,
+                                                                         "schema":  {
+                                                                                        "$ref":  "#/definitions/CreateCompanyRequest"
+                                                                                    }
+                                                                     }
+                                                                 ],
+                                                  "responses":  {
+                                                                    "200":  {
+                                                                                "description":  "OK",
+                                                                                "schema":  {
+                                                                                               "$ref":  "#/definitions/CreateCompanyResponse"
+                                                                                           }
+                                                                            },
+                                                                    "404":  {
+                                                                                "description":  "RESOURCE NOT FOUND"
+                                                                            },
+                                                                    "500":  {
+                                                                                "description":  "INTERNAL SERVER ERROR"
+                                                                            }
+                                                                },
+                                                  "deprecated":  false
+                                              }
+                                 },
+                  "/companies/{companyId}":  {
+                                                 "get":  {
+                                                             "tags":  [
+                                                                          "entity-controller"
+                                                                      ],
+                                                             "summary":  "Obtener la informaciÃ³n de configuraciÃ³n de una empresa mediante su companyId",
+                                                             "operationId":  "retrieveCompanyUsingGET_1",
+                                                             "produces":  [
+                                                                              "application/json"
+                                                                          ],
+                                                             "parameters":  [
+                                                                                {
+                                                                                    "name":  "companyId",
+                                                                                    "in":  "path",
+                                                                                    "description":  "companyId",
+                                                                                    "required":  true,
+                                                                                    "type":  "string"
+                                                                                }
+                                                                            ],
+                                                             "responses":  {
+                                                                               "200":  {
+                                                                                           "description":  "OK",
+                                                                                           "schema":  {
+                                                                                                          "$ref":  "#/definitions/RetrieveCompanyResponse"
+                                                                                                      }
+                                                                                       },
+                                                                               "404":  {
+                                                                                           "description":  "RESOURCE NOT FOUND"
+                                                                                       },
+                                                                               "500":  {
+                                                                                           "description":  "INTERNAL SERVER ERROR"
+                                                                                       }
+                                                                           },
+                                                             "deprecated":  false
+                                                         }
+                                             },
+                  "/companies/{companyId}/node/{nodeId}/alert/{type}/information":  {
+                                                                                        "get":  {
+                                                                                                    "tags":  [
+                                                                                                                 "entity-controller"
+                                                                                                             ],
+                                                                                                    "summary":  "Obtener la informaciÃ³n de alertas existentes de una empresa",
+                                                                                                    "operationId":  "retrieveCompanyAlarmInformationUsingGET",
+                                                                                                    "produces":  [
+                                                                                                                     "application/json"
+                                                                                                                 ],
+                                                                                                    "parameters":  [
+                                                                                                                       {
+                                                                                                                           "name":  "companyId",
+                                                                                                                           "in":  "path",
+                                                                                                                           "description":  "companyId",
+                                                                                                                           "required":  true,
+                                                                                                                           "type":  "string"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "name":  "nodeId",
+                                                                                                                           "in":  "path",
+                                                                                                                           "description":  "nodeId",
+                                                                                                                           "required":  true,
+                                                                                                                           "type":  "string"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "name":  "type",
+                                                                                                                           "in":  "path",
+                                                                                                                           "description":  "type",
+                                                                                                                           "required":  true,
+                                                                                                                           "type":  "string"
+                                                                                                                       }
+                                                                                                                   ],
+                                                                                                    "responses":  {
+                                                                                                                      "200":  {
+                                                                                                                                  "description":  "OK",
+                                                                                                                                  "schema":  {
+                                                                                                                                                 "$ref":  "#/definitions/RetrieveFiltrationAlertResponse"
+                                                                                                                                             }
+                                                                                                                              },
+                                                                                                                      "404":  {
+                                                                                                                                  "description":  "RESOURCE NOT FOUND"
+                                                                                                                              },
+                                                                                                                      "500":  {
+                                                                                                                                  "description":  "INTERNAL SERVER ERROR"
+                                                                                                                              }
+                                                                                                                  },
+                                                                                                    "deprecated":  false
+                                                                                                }
+                                                                                    },
+                  "/companies/{companyId}/nodes":  {
+                                                       "get":  {
+                                                                   "tags":  [
+                                                                                "entity-controller"
+                                                                            ],
+                                                                   "summary":  "Obtener los nodos de una empresa, mediante su companyId",
+                                                                   "operationId":  "retrieveCompanyUsingGET",
+                                                                   "produces":  [
+                                                                                    "application/json"
+                                                                                ],
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "companyId",
+                                                                                          "in":  "path",
+                                                                                          "description":  "companyId",
+                                                                                          "required":  true,
+                                                                                          "type":  "string"
+                                                                                      },
+                                                                                      {
+                                                                                          "name":  "ids",
+                                                                                          "in":  "query",
+                                                                                          "description":  "ids",
+                                                                                          "required":  true,
+                                                                                          "type":  "array",
+                                                                                          "items":  {
+                                                                                                        "type":  "string"
+                                                                                                    },
+                                                                                          "collectionFormat":  "multi"
+                                                                                      }
+                                                                                  ],
+                                                                   "responses":  {
+                                                                                     "200":  {
+                                                                                                 "description":  "OK",
+                                                                                                 "schema":  {
+                                                                                                                "type":  "object"
+                                                                                                            }
+                                                                                             },
+                                                                                     "404":  {
+                                                                                                 "description":  "RESOURCE NOT FOUND"
+                                                                                             },
+                                                                                     "500":  {
+                                                                                                 "description":  "INTERNAL SERVER ERROR"
+                                                                                             }
+                                                                                 },
+                                                                   "deprecated":  false
+                                                               }
+                                                   },
+                  "/configuration/companies":  {
+                                                   "get":  {
+                                                               "tags":  [
+                                                                            "configuration-controller"
+                                                                        ],
+                                                               "summary":  "Obtener toda la informaciÃ³n de configuraciones de todas las empresas existentes",
+                                                               "operationId":  "retrieveCompaniesUsingGET",
+                                                               "produces":  [
+                                                                                "application/json"
+                                                                            ],
+                                                               "responses":  {
+                                                                                 "200":  {
+                                                                                             "description":  "OK",
+                                                                                             "schema":  {
+                                                                                                            "type":  "array",
+                                                                                                            "items":  {
+                                                                                                                          "$ref":  "#/definitions/RetrieveCompanyResponse"
+                                                                                                                      }
+                                                                                                        }
+                                                                                         },
+                                                                                 "404":  {
+                                                                                             "description":  "RESOURCE NOT FOUND"
+                                                                                         },
+                                                                                 "500":  {
+                                                                                             "description":  "INTERNAL SERVER ERROR"
+                                                                                         }
+                                                                             },
+                                                               "deprecated":  false
+                                                           }
+                                               },
+                  "/configuration/companies/{companyId}":  {
+                                                               "delete":  {
+                                                                              "tags":  [
+                                                                                           "configuration-controller"
+                                                                                       ],
+                                                                              "summary":  "Eliminar una empresa",
+                                                                              "operationId":  "deleteCompanyUsingDELETE",
+                                                                              "produces":  [
+                                                                                               "text/plain"
+                                                                                           ],
+                                                                              "parameters":  [
+                                                                                                 {
+                                                                                                     "name":  "companyId",
+                                                                                                     "in":  "path",
+                                                                                                     "description":  "companyId",
+                                                                                                     "required":  true,
+                                                                                                     "type":  "string"
+                                                                                                 }
+                                                                                             ],
+                                                                              "responses":  {
+                                                                                                "200":  {
+                                                                                                            "description":  "OK",
+                                                                                                            "schema":  {
+                                                                                                                           "type":  "string"
+                                                                                                                       }
+                                                                                                        },
+                                                                                                "404":  {
+                                                                                                            "description":  "RESOURCE NOT FOUND"
+                                                                                                        },
+                                                                                                "500":  {
+                                                                                                            "description":  "INTERNAL SERVER ERROR"
+                                                                                                        }
+                                                                                            },
+                                                                              "deprecated":  false
+                                                                          }
+                                                           },
+                  "/configuration/companies/{companyId}/alert/nodes/{nodeId}":  {
+                                                                                    "post":  {
+                                                                                                 "tags":  [
+                                                                                                              "configuration-controller"
+                                                                                                          ],
+                                                                                                 "summary":  "Crear una nueva alerta de configuraciÃ³n a un nodo existente",
+                                                                                                 "operationId":  "addFiltrationAlertUsingPOST",
+                                                                                                 "consumes":  [
+                                                                                                                  "application/json"
+                                                                                                              ],
+                                                                                                 "produces":  [
+                                                                                                                  "application/json"
+                                                                                                              ],
+                                                                                                 "parameters":  [
+                                                                                                                    {
+                                                                                                                        "in":  "body",
+                                                                                                                        "name":  "addAlertRequest",
+                                                                                                                        "description":  "addAlertRequest",
+                                                                                                                        "required":  true,
+                                                                                                                        "schema":  {
+                                                                                                                                       "$ref":  "#/definitions/AddAlertRequest"
+                                                                                                                                   }
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "name":  "companyId",
+                                                                                                                        "in":  "path",
+                                                                                                                        "description":  "companyId",
+                                                                                                                        "required":  true,
+                                                                                                                        "type":  "string"
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "name":  "nodeId",
+                                                                                                                        "in":  "path",
+                                                                                                                        "description":  "nodeId",
+                                                                                                                        "required":  true,
+                                                                                                                        "type":  "string"
+                                                                                                                    }
+                                                                                                                ],
+                                                                                                 "responses":  {
+                                                                                                                   "200":  {
+                                                                                                                               "description":  "OK",
+                                                                                                                               "schema":  {
+                                                                                                                                              "$ref":  "#/definitions/RetrieveFiltrationAlertResponse"
+                                                                                                                                          }
+                                                                                                                           },
+                                                                                                                   "404":  {
+                                                                                                                               "description":  "RESOURCE NOT FOUND"
+                                                                                                                           },
+                                                                                                                   "500":  {
+                                                                                                                               "description":  "INTERNAL SERVER ERROR"
+                                                                                                                           }
+                                                                                                               },
+                                                                                                 "deprecated":  false
+                                                                                             },
+                                                                                    "put":  {
+                                                                                                "tags":  [
+                                                                                                             "configuration-controller"
+                                                                                                         ],
+                                                                                                "summary":  "Agregar usuario o un grupo de usuarios a una alerta existente",
+                                                                                                "operationId":  "addEmailsToAlertUsingPUT",
+                                                                                                "consumes":  [
+                                                                                                                 "application/json"
+                                                                                                             ],
+                                                                                                "produces":  [
+                                                                                                                 "application/json"
+                                                                                                             ],
+                                                                                                "parameters":  [
+                                                                                                                   {
+                                                                                                                       "in":  "body",
+                                                                                                                       "name":  "addAlertRequest",
+                                                                                                                       "description":  "addAlertRequest",
+                                                                                                                       "required":  true,
+                                                                                                                       "schema":  {
+                                                                                                                                      "$ref":  "#/definitions/AddAlertRequest"
+                                                                                                                                  }
+                                                                                                                   },
+                                                                                                                   {
+                                                                                                                       "name":  "companyId",
+                                                                                                                       "in":  "path",
+                                                                                                                       "description":  "companyId",
+                                                                                                                       "required":  true,
+                                                                                                                       "type":  "string"
+                                                                                                                   },
+                                                                                                                   {
+                                                                                                                       "name":  "nodeId",
+                                                                                                                       "in":  "path",
+                                                                                                                       "description":  "nodeId",
+                                                                                                                       "required":  true,
+                                                                                                                       "type":  "string"
+                                                                                                                   }
+                                                                                                               ],
+                                                                                                "responses":  {
+                                                                                                                  "200":  {
+                                                                                                                              "description":  "OK",
+                                                                                                                              "schema":  {
+                                                                                                                                             "$ref":  "#/definitions/RetrieveFiltrationAlertResponse"
+                                                                                                                                         }
+                                                                                                                          },
+                                                                                                                  "404":  {
+                                                                                                                              "description":  "RESOURCE NOT FOUND"
+                                                                                                                          },
+                                                                                                                  "500":  {
+                                                                                                                              "description":  "INTERNAL SERVER ERROR"
+                                                                                                                          }
+                                                                                                              },
+                                                                                                "deprecated":  false
+                                                                                            },
+                                                                                    "delete":  {
+                                                                                                   "tags":  [
+                                                                                                                "configuration-controller"
+                                                                                                            ],
+                                                                                                   "summary":  "Eliminar un usuario o grupo de usuarios a una alerta",
+                                                                                                   "operationId":  "deleteUserGroupUsingDELETE",
+                                                                                                   "produces":  [
+                                                                                                                    "application/json"
+                                                                                                                ],
+                                                                                                   "parameters":  [
+                                                                                                                      {
+                                                                                                                          "in":  "body",
+                                                                                                                          "name":  "addAlertRequest",
+                                                                                                                          "description":  "addAlertRequest",
+                                                                                                                          "required":  true,
+                                                                                                                          "schema":  {
+                                                                                                                                         "$ref":  "#/definitions/AddAlertRequest"
+                                                                                                                                     }
+                                                                                                                      },
+                                                                                                                      {
+                                                                                                                          "name":  "companyId",
+                                                                                                                          "in":  "path",
+                                                                                                                          "description":  "companyId",
+                                                                                                                          "required":  true,
+                                                                                                                          "type":  "string"
+                                                                                                                      },
+                                                                                                                      {
+                                                                                                                          "name":  "nodeId",
+                                                                                                                          "in":  "path",
+                                                                                                                          "description":  "nodeId",
+                                                                                                                          "required":  true,
+                                                                                                                          "type":  "string"
+                                                                                                                      }
+                                                                                                                  ],
+                                                                                                   "responses":  {
+                                                                                                                     "200":  {
+                                                                                                                                 "description":  "OK",
+                                                                                                                                 "schema":  {
+                                                                                                                                                "$ref":  "#/definitions/RetrieveFiltrationAlertResponse"
+                                                                                                                                            }
+                                                                                                                             },
+                                                                                                                     "404":  {
+                                                                                                                                 "description":  "RESOURCE NOT FOUND"
+                                                                                                                             },
+                                                                                                                     "500":  {
+                                                                                                                                 "description":  "INTERNAL SERVER ERROR"
+                                                                                                                             }
+                                                                                                                 },
+                                                                                                   "deprecated":  false
+                                                                                               }
+                                                                                },
+                  "/configuration/companies/{companyId}/nodes":  {
+                                                                     "put":  {
+                                                                                 "tags":  [
+                                                                                              "configuration-controller"
+                                                                                          ],
+                                                                                 "summary":  "Crear un nodo dentro de una empresa",
+                                                                                 "operationId":  "addNoteToCompanieUsingPUT",
+                                                                                 "consumes":  [
+                                                                                                  "application/json"
+                                                                                              ],
+                                                                                 "produces":  [
+                                                                                                  "application/json"
+                                                                                              ],
+                                                                                 "parameters":  [
+                                                                                                    {
+                                                                                                        "in":  "body",
+                                                                                                        "name":  "addNodeRequest",
+                                                                                                        "description":  "addNodeRequest",
+                                                                                                        "required":  true,
+                                                                                                        "schema":  {
+                                                                                                                       "$ref":  "#/definitions/AddNodeRequest"
+                                                                                                                   }
+                                                                                                    },
+                                                                                                    {
+                                                                                                        "name":  "companyId",
+                                                                                                        "in":  "path",
+                                                                                                        "description":  "companyId",
+                                                                                                        "required":  true,
+                                                                                                        "type":  "string"
+                                                                                                    }
+                                                                                                ],
+                                                                                 "responses":  {
+                                                                                                   "200":  {
+                                                                                                               "description":  "OK",
+                                                                                                               "schema":  {
+                                                                                                                              "$ref":  "#/definitions/CreateCompanyResponse"
+                                                                                                                          }
+                                                                                                           },
+                                                                                                   "404":  {
+                                                                                                               "description":  "RESOURCE NOT FOUND"
+                                                                                                           },
+                                                                                                   "500":  {
+                                                                                                               "description":  "INTERNAL SERVER ERROR"
+                                                                                                           }
+                                                                                               },
+                                                                                 "deprecated":  false
+                                                                             }
+                                                                 },
+                  "/configuration/companies/{companyId}/nodes/{nodeId}":  {
+                                                                              "delete":  {
+                                                                                             "tags":  [
+                                                                                                          "configuration-controller"
+                                                                                                      ],
+                                                                                             "summary":  "Eliminar un nodo (device o nodeId) desde una empresa",
+                                                                                             "operationId":  "deleteNodeFromCompanyUsingDELETE",
+                                                                                             "produces":  [
+                                                                                                              "application/json"
+                                                                                                          ],
+                                                                                             "parameters":  [
+                                                                                                                {
+                                                                                                                    "name":  "companyId",
+                                                                                                                    "in":  "path",
+                                                                                                                    "description":  "companyId",
+                                                                                                                    "required":  true,
+                                                                                                                    "type":  "string"
+                                                                                                                },
+                                                                                                                {
+                                                                                                                    "name":  "nodeId",
+                                                                                                                    "in":  "path",
+                                                                                                                    "description":  "nodeId",
+                                                                                                                    "required":  true,
+                                                                                                                    "type":  "string"
+                                                                                                                }
+                                                                                                            ],
+                                                                                             "responses":  {
+                                                                                                               "200":  {
+                                                                                                                           "description":  "OK",
+                                                                                                                           "schema":  {
+                                                                                                                                          "$ref":  "#/definitions/RetrieveCompanyResponse"
+                                                                                                                                      }
+                                                                                                                       },
+                                                                                                               "404":  {
+                                                                                                                           "description":  "RESOURCE NOT FOUND"
+                                                                                                                       },
+                                                                                                               "500":  {
+                                                                                                                           "description":  "INTERNAL SERVER ERROR"
+                                                                                                                       }
+                                                                                                           },
+                                                                                             "deprecated":  false
+                                                                                         }
+                                                                          },
+                  "/configuration/companies/{companyId}/nodes/{nodeId}/kpi":  {
+                                                                                  "put":  {
+                                                                                              "tags":  [
+                                                                                                           "configuration-controller"
+                                                                                                       ],
+                                                                                              "summary":  "Agregar configuraciÃ³n de KPI a un nodo existente",
+                                                                                              "operationId":  "addKpiUsingPUT",
+                                                                                              "consumes":  [
+                                                                                                               "application/json"
+                                                                                                           ],
+                                                                                              "produces":  [
+                                                                                                               "application/json"
+                                                                                                           ],
+                                                                                              "parameters":  [
+                                                                                                                 {
+                                                                                                                     "name":  "companyId",
+                                                                                                                     "in":  "path",
+                                                                                                                     "description":  "companyId",
+                                                                                                                     "required":  true,
+                                                                                                                     "type":  "string"
+                                                                                                                 },
+                                                                                                                 {
+                                                                                                                     "in":  "body",
+                                                                                                                     "name":  "kpi",
+                                                                                                                     "description":  "kpi",
+                                                                                                                     "required":  true,
+                                                                                                                     "schema":  {
+                                                                                                                                    "$ref":  "#/definitions/KpiRequest"
+                                                                                                                                }
+                                                                                                                 },
+                                                                                                                 {
+                                                                                                                     "name":  "nodeId",
+                                                                                                                     "in":  "path",
+                                                                                                                     "description":  "nodeId",
+                                                                                                                     "required":  true,
+                                                                                                                     "type":  "string"
+                                                                                                                 }
+                                                                                                             ],
+                                                                                              "responses":  {
+                                                                                                                "200":  {
+                                                                                                                            "description":  "OK",
+                                                                                                                            "schema":  {
+                                                                                                                                           "$ref":  "#/definitions/CreateCompanyResponse"
+                                                                                                                                       }
+                                                                                                                        },
+                                                                                                                "404":  {
+                                                                                                                            "description":  "RESOURCE NOT FOUND"
+                                                                                                                        },
+                                                                                                                "500":  {
+                                                                                                                            "description":  "INTERNAL SERVER ERROR"
+                                                                                                                        }
+                                                                                                            },
+                                                                                              "deprecated":  false
+                                                                                          }
+                                                                              },
+                  "/configuration/companies/{companyId}/nodes/{nodeId}/threshold":  {
+                                                                                        "put":  {
+                                                                                                    "tags":  [
+                                                                                                                 "configuration-controller"
+                                                                                                             ],
+                                                                                                    "summary":  "Agregar configuraciÃ³n de Threshold de alerta un nodo existente",
+                                                                                                    "operationId":  "defineThresholdUsingPUT",
+                                                                                                    "consumes":  [
+                                                                                                                     "application/json"
+                                                                                                                 ],
+                                                                                                    "produces":  [
+                                                                                                                     "application/json"
+                                                                                                                 ],
+                                                                                                    "parameters":  [
+                                                                                                                       {
+                                                                                                                           "name":  "companyId",
+                                                                                                                           "in":  "path",
+                                                                                                                           "description":  "companyId",
+                                                                                                                           "required":  true,
+                                                                                                                           "type":  "string"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "name":  "nodeId",
+                                                                                                                           "in":  "path",
+                                                                                                                           "description":  "nodeId",
+                                                                                                                           "required":  true,
+                                                                                                                           "type":  "string"
+                                                                                                                       },
+                                                                                                                       {
+                                                                                                                           "in":  "body",
+                                                                                                                           "name":  "thresholdRequest",
+                                                                                                                           "description":  "thresholdRequest",
+                                                                                                                           "required":  true,
+                                                                                                                           "schema":  {
+                                                                                                                                          "$ref":  "#/definitions/ThresholdRequest"
+                                                                                                                                      }
+                                                                                                                       }
+                                                                                                                   ],
+                                                                                                    "responses":  {
+                                                                                                                      "200":  {
+                                                                                                                                  "description":  "OK",
+                                                                                                                                  "schema":  {
+                                                                                                                                                 "$ref":  "#/definitions/CreateCompanyResponse"
+                                                                                                                                             }
+                                                                                                                              },
+                                                                                                                      "404":  {
+                                                                                                                                  "description":  "RESOURCE NOT FOUND"
+                                                                                                                              },
+                                                                                                                      "500":  {
+                                                                                                                                  "description":  "INTERNAL SERVER ERROR"
+                                                                                                                              }
+                                                                                                                  },
+                                                                                                    "deprecated":  false
+                                                                                                }
+                                                                                    },
+                  "/configuration/users":  {
+                                               "post":  {
+                                                            "tags":  [
+                                                                         "configuration-controller"
+                                                                     ],
+                                                            "summary":  "Crear un nuevo usuario",
+                                                            "operationId":  "createUserUsingPOST",
+                                                            "consumes":  [
+                                                                             "application/json"
+                                                                         ],
+                                                            "produces":  [
+                                                                             "text/plain"
+                                                                         ],
+                                                            "parameters":  [
+                                                                               {
+                                                                                   "in":  "body",
+                                                                                   "name":  "createUserRequest",
+                                                                                   "description":  "createUserRequest",
+                                                                                   "required":  true,
+                                                                                   "schema":  {
+                                                                                                  "$ref":  "#/definitions/CreateUserRequest"
+                                                                                              }
+                                                                               }
+                                                                           ],
+                                                            "responses":  {
+                                                                              "200":  {
+                                                                                          "description":  "OK",
+                                                                                          "schema":  {
+                                                                                                         "type":  "string"
+                                                                                                     }
+                                                                                      }
+                                                                          },
+                                                            "deprecated":  false
+                                                        }
+                                           },
+                  "/configuration/users/{userId}":  {
+                                                        "delete":  {
+                                                                       "tags":  [
+                                                                                    "configuration-controller"
+                                                                                ],
+                                                                       "summary":  "Eliminar un usuario mediante su userId",
+                                                                       "operationId":  "deleteUserUsingDELETE",
+                                                                       "produces":  [
+                                                                                        "text/plain"
+                                                                                    ],
+                                                                       "parameters":  [
+                                                                                          {
+                                                                                              "name":  "userId",
+                                                                                              "in":  "path",
+                                                                                              "description":  "userId",
+                                                                                              "required":  true,
+                                                                                              "type":  "string"
+                                                                                          }
+                                                                                      ],
+                                                                       "responses":  {
+                                                                                         "200":  {
+                                                                                                     "description":  "OK",
+                                                                                                     "schema":  {
+                                                                                                                    "type":  "string"
+                                                                                                                }
+                                                                                                 }
+                                                                                     },
+                                                                       "deprecated":  false
+                                                                   }
+                                                    },
+                  "/configuration/users/{userId}/allowed/{nodeId}":  {
+                                                                         "put":  {
+                                                                                     "tags":  [
+                                                                                                  "configuration-controller"
+                                                                                              ],
+                                                                                     "summary":  "Agregar un nodo existente a un usuario",
+                                                                                     "operationId":  "addNodeUsingPUT",
+                                                                                     "consumes":  [
+                                                                                                      "application/json"
+                                                                                                  ],
+                                                                                     "produces":  [
+                                                                                                      "application/json"
+                                                                                                  ],
+                                                                                     "parameters":  [
+                                                                                                        {
+                                                                                                            "name":  "nodeId",
+                                                                                                            "in":  "path",
+                                                                                                            "description":  "nodeId",
+                                                                                                            "required":  true,
+                                                                                                            "type":  "string"
+                                                                                                        },
+                                                                                                        {
+                                                                                                            "name":  "userId",
+                                                                                                            "in":  "path",
+                                                                                                            "description":  "userId",
+                                                                                                            "required":  true,
+                                                                                                            "type":  "string"
+                                                                                                        }
+                                                                                                    ],
+                                                                                     "responses":  {
+                                                                                                       "200":  {
+                                                                                                                   "description":  "OK",
+                                                                                                                   "schema":  {
+                                                                                                                                  "type":  "string"
+                                                                                                                              }
+                                                                                                               },
+                                                                                                       "404":  {
+                                                                                                                   "description":  "RESOURCE NOT FOUND"
+                                                                                                               },
+                                                                                                       "500":  {
+                                                                                                                   "description":  "INTERNAL SERVER ERROR"
+                                                                                                               }
+                                                                                                   },
+                                                                                     "deprecated":  false
+                                                                                 }
+                                                                     },
+                  "/configuration/users/{userId}/nodes/{nodeId}":  {
+                                                                       "delete":  {
+                                                                                      "tags":  [
+                                                                                                   "configuration-controller"
+                                                                                               ],
+                                                                                      "summary":  "Eliminar un nodo de un usuario (Quitar punto)",
+                                                                                      "operationId":  "deleteNodeFromUserUsingDELETE",
+                                                                                      "produces":  [
+                                                                                                       "application/json"
+                                                                                                   ],
+                                                                                      "parameters":  [
+                                                                                                         {
+                                                                                                             "name":  "nodeId",
+                                                                                                             "in":  "path",
+                                                                                                             "description":  "nodeId",
+                                                                                                             "required":  true,
+                                                                                                             "type":  "string"
+                                                                                                         },
+                                                                                                         {
+                                                                                                             "name":  "userId",
+                                                                                                             "in":  "path",
+                                                                                                             "description":  "userId",
+                                                                                                             "required":  true,
+                                                                                                             "type":  "string"
+                                                                                                         }
+                                                                                                     ],
+                                                                                      "responses":  {
+                                                                                                        "200":  {
+                                                                                                                    "description":  "OK",
+                                                                                                                    "schema":  {
+                                                                                                                                   "$ref":  "#/definitions/RetrieveFiltrationAlertResponse"
+                                                                                                                               }
+                                                                                                                },
+                                                                                                        "404":  {
+                                                                                                                    "description":  "RESOURCE NOT FOUND"
+                                                                                                                },
+                                                                                                        "500":  {
+                                                                                                                    "description":  "INTERNAL SERVER ERROR"
+                                                                                                                }
+                                                                                                    },
+                                                                                      "deprecated":  false
+                                                                                  }
+                                                                   },
+                  "/configuration/users/{userId}/on-off":  {
+                                                               "post":  {
+                                                                            "tags":  [
+                                                                                         "configuration-controller"
+                                                                                     ],
+                                                                            "summary":  "Switch de ON-OFF de nodos mediante un userId",
+                                                                            "operationId":  "switchOnOffUsingPOST",
+                                                                            "consumes":  [
+                                                                                             "application/json"
+                                                                                         ],
+                                                                            "produces":  [
+                                                                                             "text/plain"
+                                                                                         ],
+                                                                            "parameters":  [
+                                                                                               {
+                                                                                                   "name":  "userId",
+                                                                                                   "in":  "path",
+                                                                                                   "description":  "userId",
+                                                                                                   "required":  true,
+                                                                                                   "type":  "string"
+                                                                                               }
+                                                                                           ],
+                                                                            "responses":  {
+                                                                                              "200":  {
+                                                                                                          "description":  "OK",
+                                                                                                          "schema":  {
+                                                                                                                         "type":  "string"
+                                                                                                                     }
+                                                                                                      }
+                                                                                          },
+                                                                            "deprecated":  false
+                                                                        }
+                                                           },
+                  "/time/epoch":  {
+                                      "get":  {
+                                                  "tags":  [
+                                                               "entity-controller"
+                                                           ],
+                                                  "summary":  "retrieveUnixTimestamp",
+                                                  "operationId":  "retrieveUnixTimestampUsingGET",
+                                                  "produces":  [
+                                                                   "text/plain"
+                                                               ],
+                                                  "responses":  {
+                                                                    "200":  {
+                                                                                "description":  "OK",
+                                                                                "schema":  {
+                                                                                               "type":  "string"
+                                                                                           }
+                                                                            }
+                                                                },
+                                                  "deprecated":  false
+                                              }
+                                  },
+                  "/users":  {
+                                 "get":  {
+                                             "tags":  [
+                                                          "entity-controller"
+                                                      ],
+                                             "summary":  "Obtener informaciÃ³n de un usuario mediante su e-mail",
+                                             "operationId":  "retrieveUserByEmailUsingGET",
+                                             "produces":  [
+                                                              "application/json"
+                                                          ],
+                                             "parameters":  [
+                                                                {
+                                                                    "name":  "email",
+                                                                    "in":  "query",
+                                                                    "description":  "email",
+                                                                    "required":  true,
+                                                                    "type":  "string"
+                                                                }
+                                                            ],
+                                             "responses":  {
+                                                               "200":  {
+                                                                           "description":  "OK",
+                                                                           "schema":  {
+                                                                                          "$ref":  "#/definitions/RetrieveUserResponse"
+                                                                                      }
+                                                                       },
+                                                               "404":  {
+                                                                           "description":  "RESOURCE NOT FOUND"
+                                                                       },
+                                                               "500":  {
+                                                                           "description":  "INTERNAL SERVER ERROR"
+                                                                       }
+                                                           },
+                                             "deprecated":  false
+                                         }
+                             },
+                  "/users/changePassword":  {
+                                                "post":  {
+                                                             "tags":  [
+                                                                          "configuration-controller"
+                                                                      ],
+                                                             "summary":  "Metodo utilizado por procesos internos, NO UTILIZARLO DE MANERA DIRECTA, para cambiar una password utilice dashboard.wes.cl",
+                                                             "operationId":  "changePasswordUsingPOST",
+                                                             "consumes":  [
+                                                                              "application/json"
+                                                                          ],
+                                                             "produces":  [
+                                                                              "application/json"
+                                                                          ],
+                                                             "parameters":  [
+                                                                                {
+                                                                                    "in":  "body",
+                                                                                    "name":  "changePassword",
+                                                                                    "description":  "changePassword",
+                                                                                    "required":  true,
+                                                                                    "schema":  {
+                                                                                                   "$ref":  "#/definitions/ChangePassword"
+                                                                                               }
+                                                                                }
+                                                                            ],
+                                                             "responses":  {
+                                                                               "200":  {
+                                                                                           "description":  "OK",
+                                                                                           "schema":  {
+                                                                                                          "$ref":  "#/definitions/ChangePasswordResponse"
+                                                                                                      }
+                                                                                       },
+                                                                               "404":  {
+                                                                                           "description":  "RESOURCE NOT FOUND"
+                                                                                       },
+                                                                               "500":  {
+                                                                                           "description":  "INTERNAL SERVER ERROR"
+                                                                                       }
+                                                                           },
+                                                             "deprecated":  false
+                                                         }
+                                            },
+                  "/users/{userId}":  {
+                                          "get":  {
+                                                      "tags":  [
+                                                                   "entity-controller"
+                                                               ],
+                                                      "summary":  "Obtener informaciÃ³n de un usuario mediante su userId",
+                                                      "operationId":  "retrieveUserUsingGET",
+                                                      "produces":  [
+                                                                       "application/json"
+                                                                   ],
+                                                      "parameters":  [
+                                                                         {
+                                                                             "name":  "userId",
+                                                                             "in":  "path",
+                                                                             "description":  "userId",
+                                                                             "required":  true,
+                                                                             "type":  "string"
+                                                                         }
+                                                                     ],
+                                                      "responses":  {
+                                                                        "200":  {
+                                                                                    "description":  "OK",
+                                                                                    "schema":  {
+                                                                                                   "$ref":  "#/definitions/RetrieveUserResponse"
+                                                                                               }
+                                                                                },
+                                                                        "404":  {
+                                                                                    "description":  "RESOURCE NOT FOUND"
+                                                                                },
+                                                                        "500":  {
+                                                                                    "description":  "INTERNAL SERVER ERROR"
+                                                                                }
+                                                                    },
+                                                      "deprecated":  false
+                                                  }
+                                      }
+              },
+    "definitions":  {
+                        "AddAlertRequest":  {
+                                                "type":  "object",
+                                                "properties":  {
+                                                                   "alertType":  {
+                                                                                     "type":  "string",
+                                                                                     "enum":  [
+                                                                                                  "FILTRATION",
+                                                                                                  "LEAK"
+                                                                                              ]
+                                                                                 },
+                                                                   "notifyTo":  {
+                                                                                    "type":  "array",
+                                                                                    "items":  {
+                                                                                                  "type":  "string"
+                                                                                              }
+                                                                                }
+                                                               },
+                                                "title":  "AddAlertRequest"
+                                            },
+                        "AddNodeRequest":  {
+                                               "type":  "object",
+                                               "properties":  {
+                                                                  "nodes":  {
+                                                                                "type":  "array",
+                                                                                "items":  {
+                                                                                              "$ref":  "#/definitions/Node"
+                                                                                          }
+                                                                            }
+                                                              },
+                                               "title":  "AddNodeRequest"
+                                           },
+                        "AuditPeriod":  {
+                                            "type":  "object",
+                                            "properties":  {
+                                                               "endDate":  {
+                                                                               "type":  "string"
+                                                                           },
+                                                               "endHour":  {
+                                                                               "type":  "string"
+                                                                           },
+                                                               "startDate":  {
+                                                                                 "type":  "string"
+                                                                             },
+                                                               "startHour":  {
+                                                                                 "type":  "string"
+                                                                             }
+                                                           },
+                                            "title":  "AuditPeriod"
+                                        },
+                        "AuditoryDocument":  {
+                                                 "type":  "object",
+                                                 "properties":  {
+                                                                    "applyDate":  {
+                                                                                      "type":  "string",
+                                                                                      "format":  "date-time"
+                                                                                  },
+                                                                    "controllable":  {
+                                                                                         "$ref":  "#/definitions/PeriodResult"
+                                                                                     },
+                                                                    "efficiency":  {
+                                                                                       "type":  "string"
+                                                                                   },
+                                                                    "id":  {
+                                                                               "type":  "string"
+                                                                           },
+                                                                    "nodeId":  {
+                                                                                   "type":  "string"
+                                                                               },
+                                                                    "performance":  {
+                                                                                        "type":  "string"
+                                                                                    },
+                                                                    "status":  {
+                                                                                   "type":  "string"
+                                                                               },
+                                                                    "unControllable":  {
+                                                                                           "$ref":  "#/definitions/PeriodResult"
+                                                                                       },
+                                                                    "uuid":  {
+                                                                                 "type":  "string"
+                                                                             }
+                                                                },
+                                                 "title":  "AuditoryDocument"
+                                             },
+                        "ChangePassword":  {
+                                               "type":  "object",
+                                               "properties":  {
+                                                                  "email":  {
+                                                                                "type":  "string"
+                                                                            },
+                                                                  "password":  {
+                                                                                   "type":  "string"
+                                                                               }
+                                                              },
+                                               "title":  "ChangePassword"
+                                           },
+                        "ChangePasswordResponse":  {
+                                                       "type":  "object",
+                                                       "properties":  {
+                                                                          "response":  {
+                                                                                           "type":  "string"
+                                                                                       }
+                                                                      },
+                                                       "title":  "ChangePasswordResponse"
+                                                   },
+                        "Configuration":  {
+                                              "type":  "object",
+                                              "properties":  {
+                                                                 "kpi":  {
+                                                                             "type":  "array",
+                                                                             "items":  {
+                                                                                           "$ref":  "#/definitions/Kpi"
+                                                                                       }
+                                                                         },
+                                                                 "threshold":  {
+                                                                                   "type":  "string"
+                                                                               }
+                                                             },
+                                              "title":  "Configuration"
+                                          },
+                        "CreateAuditRequest":  {
+                                                   "type":  "object",
+                                                   "properties":  {
+                                                                      "controllablePeriod":  {
+                                                                                                 "$ref":  "#/definitions/AuditPeriod"
+                                                                                             },
+                                                                      "nodeId":  {
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                      "uncontrollablePeriod":  {
+                                                                                                   "$ref":  "#/definitions/AuditPeriod"
+                                                                                               }
+                                                                  },
+                                                   "title":  "CreateAuditRequest"
+                                               },
+                        "CreateAuditResponse":  {
+                                                    "type":  "object",
+                                                    "properties":  {
+                                                                       "controllable":  {
+                                                                                            "$ref":  "#/definitions/PeriodResult"
+                                                                                        },
+                                                                       "efficiency":  {
+                                                                                          "type":  "string"
+                                                                                      },
+                                                                       "performance":  {
+                                                                                           "type":  "string"
+                                                                                       },
+                                                                       "unControllable":  {
+                                                                                              "$ref":  "#/definitions/PeriodResult"
+                                                                                          },
+                                                                       "uuid":  {
+                                                                                    "type":  "string"
+                                                                                }
+                                                                   },
+                                                    "title":  "CreateAuditResponse"
+                                                },
+                        "CreateCompanyRequest":  {
+                                                     "type":  "object",
+                                                     "properties":  {
+                                                                        "companyId":  {
+                                                                                          "type":  "string"
+                                                                                      },
+                                                                        "imageUrl":  {
+                                                                                         "type":  "string"
+                                                                                     },
+                                                                        "name":  {
+                                                                                     "type":  "string"
+                                                                                 }
+                                                                    },
+                                                     "title":  "CreateCompanyRequest"
+                                                 },
+                        "CreateCompanyResponse":  {
+                                                      "type":  "object",
+                                                      "properties":  {
+                                                                         "companyId":  {
+                                                                                           "type":  "string"
+                                                                                       },
+                                                                         "internalId":  {
+                                                                                            "type":  "string"
+                                                                                        }
+                                                                     },
+                                                      "title":  "CreateCompanyResponse"
+                                                  },
+                        "CreateUserRequest":  {
+                                                  "type":  "object",
+                                                  "properties":  {
+                                                                     "allowedNodes":  {
+                                                                                          "type":  "array",
+                                                                                          "items":  {
+                                                                                                        "type":  "string"
+                                                                                                    }
+                                                                                      },
+                                                                     "companyId":  {
+                                                                                       "type":  "string"
+                                                                                   },
+                                                                     "lastName":  {
+                                                                                      "type":  "string"
+                                                                                  },
+                                                                     "name":  {
+                                                                                  "type":  "string"
+                                                                              },
+                                                                     "username":  {
+                                                                                      "type":  "string"
+                                                                                  }
+                                                                 },
+                                                  "title":  "CreateUserRequest"
+                                              },
+                        "Kpi":  {
+                                    "type":  "object",
+                                    "properties":  {
+                                                       "creationDate":  {
+                                                                            "type":  "string",
+                                                                            "example":  "2020-02-01"
+                                                                        },
+                                                       "efficiency":  {
+                                                                          "type":  "string",
+                                                                          "example":  30.0
+                                                                      },
+                                                       "expirationDate":  {
+                                                                              "type":  "string",
+                                                                              "example":  "3000-12-31"
+                                                                          },
+                                                       "rate":  {
+                                                                    "$ref":  "#/definitions/Rate"
+                                                                }
+                                                   },
+                                    "title":  "Kpi"
+                                },
+                        "KpiRequest":  {
+                                           "type":  "object",
+                                           "properties":  {
+                                                              "creationDate":  {
+                                                                                   "type":  "string",
+                                                                                   "example":  "2020-02-01"
+                                                                               },
+                                                              "efficiency":  {
+                                                                                 "type":  "string",
+                                                                                 "example":  30.0
+                                                                             },
+                                                              "rate":  {
+                                                                           "$ref":  "#/definitions/Rate"
+                                                                       }
+                                                          },
+                                           "title":  "KpiRequest"
+                                       },
+                        "Node":  {
+                                     "type":  "object",
+                                     "properties":  {
+                                                        "configuration":  {
+                                                                              "$ref":  "#/definitions/Configuration"
+                                                                          },
+                                                        "lat":  {
+                                                                    "type":  "string"
+                                                                },
+                                                        "lon":  {
+                                                                    "type":  "string"
+                                                                },
+                                                        "name":  {
+                                                                     "type":  "string",
+                                                                     "example":  "Nodo isla"
+                                                                 },
+                                                        "nodeId":  {
+                                                                       "type":  "string",
+                                                                       "example":  "000000-00"
+                                                                   }
+                                                    },
+                                     "title":  "Node"
+                                 },
+                        "PeriodResult":  {
+                                             "type":  "object",
+                                             "properties":  {
+                                                                "from":  {
+                                                                             "type":  "string"
+                                                                         },
+                                                                "measure":  {
+                                                                                "type":  "string"
+                                                                            },
+                                                                "to":  {
+                                                                           "type":  "string"
+                                                                       }
+                                                            },
+                                             "title":  "PeriodResult"
+                                         },
+                        "Rate":  {
+                                     "type":  "object",
+                                     "properties":  {
+                                                        "amount":  {
+                                                                       "type":  "integer",
+                                                                       "format":  "int32",
+                                                                       "example":  869
+                                                                   },
+                                                        "currency":  {
+                                                                         "type":  "string",
+                                                                         "example":  "CLP"
+                                                                     }
+                                                    },
+                                     "title":  "Rate"
+                                 },
+                        "Receiver":  {
+                                         "type":  "object",
+                                         "properties":  {
+                                                            "email":  {
+                                                                          "type":  "string"
+                                                                      },
+                                                            "firstName":  {
+                                                                              "type":  "string"
+                                                                          },
+                                                            "lastName":  {
+                                                                             "type":  "string"
+                                                                         }
+                                                        },
+                                         "title":  "Receiver"
+                                     },
+                        "RetrieveCompanyResponse":  {
+                                                        "type":  "object",
+                                                        "properties":  {
+                                                                           "companyId":  {
+                                                                                             "type":  "string"
+                                                                                         },
+                                                                           "imageUrl":  {
+                                                                                            "type":  "string"
+                                                                                        },
+                                                                           "name":  {
+                                                                                        "type":  "string"
+                                                                                    },
+                                                                           "nodes":  {
+                                                                                         "type":  "array",
+                                                                                         "items":  {
+                                                                                                       "$ref":  "#/definitions/Node"
+                                                                                                   }
+                                                                                     }
+                                                                       },
+                                                        "title":  "RetrieveCompanyResponse"
+                                                    },
+                        "RetrieveFiltrationAlertResponse":  {
+                                                                "type":  "object",
+                                                                "properties":  {
+                                                                                   "receiverList":  {
+                                                                                                        "type":  "array",
+                                                                                                        "items":  {
+                                                                                                                      "$ref":  "#/definitions/Receiver"
+                                                                                                                  }
+                                                                                                    },
+                                                                                   "venueName":  {
+                                                                                                     "type":  "string"
+                                                                                                 }
+                                                                               },
+                                                                "title":  "RetrieveFiltrationAlertResponse"
+                                                            },
+                        "RetrieveUserResponse":  {
+                                                     "type":  "object",
+                                                     "properties":  {
+                                                                        "allowedNodes":  {
+                                                                                             "type":  "array",
+                                                                                             "items":  {
+                                                                                                           "type":  "string"
+                                                                                                       }
+                                                                                         },
+                                                                        "companyId":  {
+                                                                                          "type":  "string"
+                                                                                      },
+                                                                        "lastName":  {
+                                                                                         "type":  "string"
+                                                                                     },
+                                                                        "name":  {
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                        "password":  {
+                                                                                         "type":  "string"
+                                                                                     },
+                                                                        "switchEnabled":  {
+                                                                                              "type":  "boolean"
+                                                                                          },
+                                                                        "userId":  {
+                                                                                       "type":  "string"
+                                                                                   },
+                                                                        "username":  {
+                                                                                         "type":  "string"
+                                                                                     }
+                                                                    },
+                                                     "title":  "RetrieveUserResponse"
+                                                 },
+                        "ThresholdRequest":  {
+                                                 "type":  "object",
+                                                 "properties":  {
+                                                                    "threshold":  {
+                                                                                      "type":  "string",
+                                                                                      "example":  30.0
+                                                                                  }
+                                                                },
+                                                 "title":  "ThresholdRequest"
+                                             }
+                    }
+}

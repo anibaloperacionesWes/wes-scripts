@@ -1,0 +1,44 @@
+============================================================
+ENVIANDO REPORTES BOM PARQUE ARAUCO
+============================================================
+Destinatario: benjamingumucio@wes.cl
+Periodo: 03/12/2025 - 08/12/2025
+============================================================
+
+Enviando reporte: San Ignacio 300
+  Archivo: Reporte_000025_000025-17_20251203_20251208.docx
+  0%|                                                    | 0/1 [00:00<?, ?it/s][DEBUG] docx2pdf falló: Open.SaveAs
+  0%|                                                    | 0/1 [00:00<?, ?it/s]
+[DEBUG] win32com falló: Open.SaveAs
+[ADVERTENCIA] No se encontró ninguna librería para convertir Word a PDF.
+[INFO] Instala una de estas opciones:
+  - pip install docx2pdf (requiere Microsoft Word)
+  - pip install pywin32 (para win32com)
+  - pip install comtypes (alternativa)
+[ADVERTENCIA] No se pudo convertir a PDF, adjuntando Word original
+[INFO] Conectando al servidor SMTP smtp.gmail.com:587...
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    from enviar_bom_directo import main; import sys; f = open('log_envio.txt', 'w', encoding='utf-8'); sys.stdout = f; sys.stderr = f; main(); f.close(); print('Script ejecutado')
+                                                                                                                                       ~~~~^^
+  File "C:\Users\joseo\Desktop\wes-scripts\enviar_bom_directo.py", line 62, in main
+    exito = enviar_reporte_por_correo(
+        reporte_path=reporte_path,
+    ...<8 lines>...
+        end_date=end_date_str,
+    )
+  File "C:\Users\joseo\Desktop\wes-scripts\generar_reporte_word.py", line 2838, in enviar_reporte_por_correo
+    server.starttls()
+    ~~~~~~~~~~~~~~~^^
+  File "C:\Users\joseo\AppData\Local\Programs\Python\Python314\Lib\smtplib.py", line 785, in starttls
+    (resp, reply) = self.docmd("STARTTLS")
+                    ~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\joseo\AppData\Local\Programs\Python\Python314\Lib\smtplib.py", line 439, in docmd
+    return self.getreply()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\joseo\AppData\Local\Programs\Python\Python314\Lib\smtplib.py", line 405, in getreply
+    line = self.file.readline(_MAXLINE + 1)
+  File "C:\Users\joseo\AppData\Local\Programs\Python\Python314\Lib\socket.py", line 725, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+KeyboardInterrupt

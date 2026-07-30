@@ -1,0 +1,15 @@
+RESUMEN PARA COBRO — MONITOREO WES
+==================================================
+Establecimiento: Las Condes — Juan Pablo II
+Nodo WES: 000022-01
+Periodo: 01/04/2026 al 12/04/2026
+Referencia factura: Ultima factura - periodo lectura 01-04-2026 al 12-04-2026
+
+Consumo total registrado en app WES: 223,7 m³
+Días con registro en periodo: 11
+
+Informe Word: Respaldo_Facturacion_Juan_Pablo_II_20260401_20260412.docx
+Informe PDF:  Respaldo_Facturacion_Juan_Pablo_II_20260401_20260412.pdf
+Generado: 15-05-2026
+
+Use el Word/PDF como respaldo del consumo medido en el periodo de la última factura.

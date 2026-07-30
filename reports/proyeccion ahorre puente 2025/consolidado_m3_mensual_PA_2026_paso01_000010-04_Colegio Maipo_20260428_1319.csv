@@ -1,0 +1,3 @@
+﻿node_id,colegio,pct_eficiencia_auditoria,pct_eficiencia_fuente,factor_sin_WES_vs_medicion,pct_eficiencia_kpi_app,2026-04,2026-04_sin_WES_est_m3,2026-04_dias_con_dato,2026-04_metodo,total_anio_m3,total_anio_sin_WES_est_m3
+000010-04,Colegio Maipo,29.2683,informe_csv,1.292683,0.0,601.5,777.5488,28,rango_mensual,601.5,777.5488
+TOTAL,SUMATORIA,,,,,601.5,777.5488,,,601.5,777.5488
