@@ -29,7 +29,12 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+# Acceso completo para consolidar en Agente WES/wes-scripts/reports
+SCOPES = ["https://www.googleapis.com/auth/drive"]
+
+# Carpeta Drive: Agente WES / wes-scripts / reports
+# (misma que G:\Mi unidad\Agente WES\wes-scripts\reports)
+DEFAULT_REPORTS_FOLDER_ID = "1r-eMj4SWkxJs045MDfky2x3jqrifalcj"
 
 
 def _env(name: str) -> str:
@@ -81,35 +86,50 @@ def asegurar_carpeta(
     parent_id: Optional[str] = None,
 ) -> Dict[str, str]:
     """Busca o crea una carpeta. Retorna id y link."""
-    parent = parent_id or _env("GOOGLE_DRIVE_FOLDER_ID") or "root"
-    safe = limpiar_nombre(nombre).replace("'", "\\'")
-    parent_clause = f"'{parent}' in parents" if parent != "root" else "'root' in parents"
-    query = (
-        f"name='{safe}' and mimeType='application/vnd.google-apps.folder' "
-        f"and {parent_clause} and trashed=false"
+    parent = (
+        parent_id
+        or _env("GOOGLE_DRIVE_FOLDER_ID")
+        or DEFAULT_REPORTS_FOLDER_ID
+        or "root"
     )
-    items = (
-        service.files()
-        .list(q=query, fields="files(id, name)", pageSize=5)
-        .execute()
-        .get("files", [])
-    )
-    if items:
-        folder_id = items[0]["id"]
-    else:
-        meta: Dict[str, Any] = {
-            "name": limpiar_nombre(nombre),
-            "mimeType": "application/vnd.google-apps.folder",
-        }
-        if parent and parent != "root":
-            meta["parents"] = [parent]
-        folder_id = (
-            service.files().create(body=meta, fields="id").execute()["id"]
+    # Permitir rutas tipo "UDD/ABREGADO"
+    partes = [p for p in re.split(r"[/\\]+", nombre.strip()) if p]
+    folder_id = parent
+    last_link = f"https://drive.google.com/drive/folders/{folder_id}"
+    for parte in partes:
+        safe = limpiar_nombre(parte).replace("'", "\\'")
+        parent_clause = (
+            f"'{folder_id}' in parents"
+            if folder_id != "root"
+            else "'root' in parents"
         )
+        query = (
+            f"name='{safe}' and mimeType='application/vnd.google-apps.folder' "
+            f"and {parent_clause} and trashed=false"
+        )
+        items = (
+            service.files()
+            .list(q=query, fields="files(id, name)", pageSize=5)
+            .execute()
+            .get("files", [])
+        )
+        if items:
+            folder_id = items[0]["id"]
+        else:
+            meta: Dict[str, Any] = {
+                "name": limpiar_nombre(parte),
+                "mimeType": "application/vnd.google-apps.folder",
+            }
+            if folder_id and folder_id != "root":
+                meta["parents"] = [folder_id]
+            folder_id = (
+                service.files().create(body=meta, fields="id").execute()["id"]
+            )
+        last_link = f"https://drive.google.com/drive/folders/{folder_id}"
 
     return {
         "id": folder_id,
-        "web_view_link": f"https://drive.google.com/drive/folders/{folder_id}",
+        "web_view_link": last_link,
     }
 
 
@@ -130,7 +150,7 @@ def subir_a_drive(
         raise FileNotFoundError(f"No existe el archivo: {path}")
 
     service = obtener_servicio_drive()
-    dest = folder_id or _env("GOOGLE_DRIVE_FOLDER_ID") or "root"
+    dest = folder_id or _env("GOOGLE_DRIVE_FOLDER_ID") or DEFAULT_REPORTS_FOLDER_ID
 
     if subcarpeta:
         dest = asegurar_carpeta(service, subcarpeta, parent_id=dest)["id"]

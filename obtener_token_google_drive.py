@@ -20,7 +20,9 @@ from pathlib import Path
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+# drive (no solo drive.file) para poder escribir en la carpeta
+# existente "Agente WES / wes-scripts / reports" del Drive sincronizado.
+SCOPES = ["https://www.googleapis.com/auth/drive"]
 CREDENTIALS = Path(__file__).resolve().parent / "gmail_oauth" / "credentials_drive.json"
 OUT_LOCAL = Path(__file__).resolve().parent / "gmail_oauth" / "drive_token_local.json"
 

@@ -8,12 +8,19 @@ alwaysApply: true
 Cuando el usuario pida un reporte y el agente corra **en la nube** (sin PC local):
 
 1. Generá el Word/PDF como siempre bajo `reports/...`.
-2. **Subí el resultado a Google Drive** con:
+2. **Subí el resultado a Google Drive** dentro de la carpeta del proyecto
+   `Agente WES / wes-scripts / reports` (misma estructura local):
    ```bash
-   python subir_archivo_drive.py RUTA_AL_PDF_O_DOCX --subcarpeta "Reportes_Cloud/NOMBRE_CLIENTE"
+   python subir_archivo_drive.py RUTA_AL_PDF --subcarpeta "Puntos_En_Cero"
+   python subir_archivo_drive.py RUTA_AL_DOCX --subcarpeta "Puntos_En_Cero"
    ```
-   Si hay PDF y DOCX, subí ambos.
+   Ejemplos de `--subcarpeta` según el reporte:
+   - puntos en cero → `Puntos_En_Cero`
+   - agregado UDD → `UDD/ABREGADO`
+   - agregado CORMUP → `CORMUP/ABREGADO`
+   Si el path local es `reports/CLIENTE/...`, usá esa misma ruta relativa como `--subcarpeta`.
 3. En la respuesta final al usuario, incluí el **link de Drive** (`web_view_link`) de forma destacada.
 4. Si falta autenticación (`GOOGLE_DRIVE_*`), explicá que hay que configurar los secretos en Cursor Dashboard → Cloud Agents → Secrets usando `obtener_token_google_drive.py` en el PC (una sola vez). No inventes links.
 
 No dependas de `G:\Mi unidad\...`: en la nube esa ruta no existe. Drive se alcanza solo por API.
+No uses carpetas sueltas tipo `Reportes_Cloud_*` en la raíz de Drive.
