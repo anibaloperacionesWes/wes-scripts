@@ -1,2 +1,10 @@
 # Contraseña de aplicación Gmail (no versionar)
 gmail_oauth/app_password.txt
+
+# Credenciales Google Drive / OAuth (no versionar)
+gmail_oauth/credentials_drive.json
+gmail_oauth/drive_token_local.json
+gmail_oauth/token_drive.pickle
+gmail_oauth/*.pickle
+gmail_oauth/client_secret_*.json
+gmail_oauth/_prueba*

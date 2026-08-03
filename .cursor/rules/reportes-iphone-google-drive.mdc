@@ -1,0 +1,19 @@
+---
+description: Al generar reportes desde Cloud Agent / iPhone, subir a Google Drive
+alwaysApply: true
+---
+
+# Reportes desde iPhone / Cloud Agent → Google Drive
+
+Cuando el usuario pida un reporte y el agente corra **en la nube** (sin PC local):
+
+1. Generá el Word/PDF como siempre bajo `reports/...`.
+2. **Subí el resultado a Google Drive** con:
+   ```bash
+   python subir_archivo_drive.py RUTA_AL_PDF_O_DOCX --subcarpeta "Reportes_Cloud/NOMBRE_CLIENTE"
+   ```
+   Si hay PDF y DOCX, subí ambos.
+3. En la respuesta final al usuario, incluí el **link de Drive** (`web_view_link`) de forma destacada.
+4. Si falta autenticación (`GOOGLE_DRIVE_*`), explicá que hay que configurar los secretos en Cursor Dashboard → Cloud Agents → Secrets usando `obtener_token_google_drive.py` en el PC (una sola vez). No inventes links.
+
+No dependas de `G:\Mi unidad\...`: en la nube esa ruta no existe. Drive se alcanza solo por API.
