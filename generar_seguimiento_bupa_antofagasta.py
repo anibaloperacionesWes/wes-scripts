@@ -55,7 +55,10 @@ BASELINE_PCT_GAP = 80.9
 
 FACTURA_M3 = 6696.0
 FACTURA_CLP = 18_538_860.0
-PRECIO_M3 = FACTURA_CLP / FACTURA_M3
+PRECIO_M3 = FACTURA_CLP / FACTURA_M3  # ~$2.769 CLP/m³ (ticket factura julio)
+
+# Día en que se consolida el descenso post-mejoras / pérdidas detectadas
+MEJORAS_DESDE = "2026-07-29"
 
 NODOS_DEF = [
     {"id": "000029-07", "nombre": "Sala de Bomba Principal", "tipo": "bomba"},
@@ -191,7 +194,7 @@ def _chart_comparacion_periodos(
     labels = [
         "Baseline\n23–27/07",
         "Actualizado\n23/07–ayer",
-        "Reciente\n28/07–ayer",
+        "Post-mejoras\n29/07–ayer",
     ]
     proms = [prom_base, prom_nuevo, prom_reciente]
     fig, ax = plt.subplots(figsize=(8.2, 4.6))
@@ -209,6 +212,49 @@ def _chart_comparacion_periodos(
             fontweight="bold",
         )
     ax.set_ylim(0, max(proms) * 1.35)
+    plt.tight_layout()
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def _chart_factura_fin_mes(
+    path: Path,
+    factura_clp: float,
+    proy_previa_clp: float,
+    proy_mejoras_clp: float,
+    cierre_agosto_clp: float,
+) -> Path:
+    labels = [
+        "Factura julio\n(ticket)",
+        "Proy. previa\n(con pérdidas)",
+        "Proy. 30 días\npost-mejoras",
+        "Estimación\ncierre agosto",
+    ]
+    values = [factura_clp, proy_previa_clp, proy_mejoras_clp, cierre_agosto_clp]
+    colors = ["#7f8c8d", "#c0392b", "#27ae60", "#0050b3"]
+    fig, ax = plt.subplots(figsize=(9.0, 4.8))
+    bars = ax.bar(labels, values, color=colors, edgecolor="#222", alpha=0.9)
+    ax.set_ylabel("CLP", fontsize=11, fontweight="bold")
+    ax.set_title(
+        "Proyección de pago (tarifa ticket julio)",
+        fontsize=12,
+        fontweight="bold",
+    )
+    ax.yaxis.set_major_formatter(
+        plt.FuncFormatter(lambda x, _: f"${x/1e6:.1f} M" if x >= 1e6 else f"${x:,.0f}")
+    )
+    for bar, v in zip(bars, values):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            format_currency_chilean(v),
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
+        )
+    ax.set_ylim(0, max(values) * 1.22)
     plt.tight_layout()
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -303,6 +349,39 @@ def build_report() -> tuple[Path, Path, dict]:
     sanit_reciente_prom = sanit_reciente_total / n_reciente if n_reciente else 0.0
     sanit_reciente_proy = sanit_reciente_prom * 30.0
 
+    # Post-mejoras / pérdidas corregidas (consolidado desde 29/07)
+    mejoras_dates = [d for d in all_dates if d >= MEJORAS_DESDE]
+    n_mejoras = len(mejoras_dates)
+    sanit_mej_total = sum(sanit_days.get(d, 0.0) for d in mejoras_dates)
+    sanit_mej_prom = sanit_mej_total / n_mejoras if n_mejoras else 0.0
+    sanit_mej_proy_m3 = sanit_mej_prom * 30.0
+    sanit_mej_proy_clp = sanit_mej_proy_m3 * PRECIO_M3
+
+    # Estimación cierre mes calendario (agosto 2026)
+    hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    mes_ini = hoy.replace(day=1)
+    if hoy.month == 12:
+        mes_fin = hoy.replace(year=hoy.year + 1, month=1, day=1) - timedelta(days=1)
+    else:
+        mes_fin = hoy.replace(month=hoy.month + 1, day=1) - timedelta(days=1)
+    dias_mes = mes_fin.day
+    ago_dates = [
+        d for d in all_dates
+        if d.startswith(hoy.strftime("%Y-%m"))
+    ]
+    consumo_ago_real = sum(sanit_days.get(d, 0.0) for d in ago_dates)
+    dias_ago_completos = len(ago_dates)
+    dias_restantes = max(0, dias_mes - dias_ago_completos)
+    # Ritmo proyectado restante = post-mejoras (más representativo del nuevo estado)
+    ritmo_cierre = sanit_mej_prom if sanit_mej_prom > 0 else sanit_reciente_prom
+    cierre_ago_m3 = consumo_ago_real + ritmo_cierre * dias_restantes
+    cierre_ago_clp = cierre_ago_m3 * PRECIO_M3
+
+    ahorro_vs_factura = FACTURA_CLP - sanit_mej_proy_clp
+    ahorro_vs_proy_prev = BASELINE_SANIT_PROY_CLP - sanit_mej_proy_clp
+    ahorro_cierre_vs_factura = FACTURA_CLP - cierre_ago_clp
+    ahorro_cierre_vs_proy_prev = BASELINE_SANIT_PROY_CLP - cierre_ago_clp
+
     # Día a día vs baseline + vs día anterior
     dia_rows = []
     prev_val = None
@@ -341,8 +420,15 @@ def build_report() -> tuple[Path, Path, dict]:
         BASELINE_SANIT_PROY,
         sanit["prom_dia"],
         sanit["proy_m3"],
-        sanit_reciente_prom,
-        sanit_reciente_proy,
+        sanit_mej_prom,
+        sanit_mej_proy_m3,
+    )
+    chart_factura = _chart_factura_fin_mes(
+        out_dir / "chart_proyeccion_factura_fin_mes.png",
+        FACTURA_CLP,
+        BASELINE_SANIT_PROY_CLP,
+        sanit_mej_proy_clp,
+        cierre_ago_clp,
     )
 
     result_noct = find_max_nocturnal_consumption_day(sanit_id, None, start, end)
@@ -371,7 +457,10 @@ def build_report() -> tuple[Path, Path, dict]:
         f"Periodo actualizado: {start.strftime('%d/%m/%Y')} – {end.strftime('%d/%m/%Y')} "
         f"({n_dias} días civiles completos). "
         f"Referencia: reporte previo 23–27/07/2026 (proyección ~"
-        f"{format_number_chilean(BASELINE_SANIT_PROY, 1)} m³ / 30 días)."
+        f"{format_number_chilean(BASELINE_SANIT_PROY, 1)} m³ / 30 días). "
+        f"Contexto operativo: el encargado de operaciones indicó que se realizaron "
+        f"mejoras y se detectaron/corrigieron pérdidas; el descenso de consumo desde "
+        f"fines de julio es coherente con ese trabajo."
     )
     sub.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     _set_black(sub)
@@ -381,6 +470,7 @@ def build_report() -> tuple[Path, Path, dict]:
     delta_prom = sanit["prom_dia"] - BASELINE_SANIT_PROM
     delta_proy = sanit["proy_m3"] - BASELINE_SANIT_PROY
     delta_rec = sanit_reciente_prom - BASELINE_SANIT_PROM
+    delta_mej = sanit_mej_prom - BASELINE_SANIT_PROM
     continua = abs(delta_prom) / BASELINE_SANIT_PROM < 0.10  # ±10%
 
     if continua:
@@ -391,24 +481,20 @@ def build_report() -> tuple[Path, Path, dict]:
             f"(proyección 30 días: {format_number_chilean(sanit['proy_m3'], 1)} m³)."
         )
     else:
-        sentido = "por debajo" if delta_prom < 0 else "por encima"
         veredicto = (
-            f"La proyección previa NO se sostiene al mismo ritmo. "
-            f"En 23–27/07 el Medidor Principal Sanitaria promedió "
-            f"{format_number_chilean(BASELINE_SANIT_PROM, 0)} m³/día "
-            f"(proyección {format_number_chilean(BASELINE_SANIT_PROY, 1)} m³ / "
-            f"{format_currency_chilean(BASELINE_SANIT_PROY_CLP)}). "
-            f"Con data actualizada ({n_dias} días) el promedio bajó a "
-            f"{format_number_chilean(sanit['prom_dia'], 1)} m³/día "
-            f"({sentido} en {format_number_chilean(abs(delta_prom), 1)} m³/día; "
-            f"proyección actualizada {format_number_chilean(sanit['proy_m3'], 1)} m³ / "
-            f"{format_currency_chilean(sanit['proy_clp'])}, "
-            f"{format_number_chilean(abs(delta_proy), 1)} m³ menos que la proyección previa). "
-            f"En el tramo reciente ({reciente_dates[0] if reciente_dates else '—'} a "
-            f"{reciente_dates[-1] if reciente_dates else '—'}, {n_reciente} días) el ritmo es aún "
-            f"más bajo: {format_number_chilean(sanit_reciente_prom, 1)} m³/día "
-            f"(proyección {format_number_chilean(sanit_reciente_proy, 1)} m³ / 30 días; "
-            f"{format_number_chilean(abs(delta_rec), 1)} m³/día bajo el baseline)."
+            f"La proyección previa (ritmo con pérdidas, ~"
+            f"{format_number_chilean(BASELINE_SANIT_PROM, 0)} m³/día → "
+            f"{format_number_chilean(BASELINE_SANIT_PROY, 1)} m³ / "
+            f"{format_currency_chilean(BASELINE_SANIT_PROY_CLP)}) "
+            f"ya no aplica: tras las mejoras y la corrección de pérdidas, "
+            f"el Medidor Principal Sanitaria bajó a "
+            f"{format_number_chilean(sanit_mej_prom, 1)} m³/día "
+            f"en el tramo post-mejoras ({MEJORAS_DESDE} a {mejoras_dates[-1] if mejoras_dates else '—'}, "
+            f"{n_mejoras} días). "
+            f"Eso implica una proyección de cuenta a 30 días de "
+            f"{format_number_chilean(sanit_mej_proy_m3, 1)} m³ "
+            f"({format_currency_chilean(sanit_mej_proy_clp)}), "
+            f"{format_number_chilean(abs(delta_mej), 1)} m³/día bajo el baseline."
         )
     p = doc.add_paragraph(veredicto)
     p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
@@ -416,6 +502,88 @@ def build_report() -> tuple[Path, Path, dict]:
 
     doc.add_paragraph("")
     add_picture_with_pagination(doc, str(chart_cmp), Inches(6.0), keep_with_next=True)
+
+    # --- PROYECCIÓN FACTURA FIN DE MES (pedido explícito) ---
+    add_formatted_title(doc, "Proyección de pago a fin de mes (tarifa ticket julio)")
+    intro_fac = doc.add_paragraph(
+        f"Valorización con la tarifa efectiva del ticket/factura de julio usado en el "
+        f"reporte anterior: {format_currency_chilean(FACTURA_CLP)} ÷ "
+        f"{format_number_chilean(FACTURA_M3, 0)} m³ = "
+        f"${format_number_chilean(PRECIO_M3, 0)} CLP/m³. "
+        f"Se proyecta cuánto pagarían si el ritmo post-mejoras se mantiene."
+    )
+    intro_fac.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    _set_black(intro_fac)
+
+    fac_table = [
+        (
+            "Escenario",
+            "Base de cálculo",
+            "m³",
+            "CLP (tarifa ticket)",
+            "Vs factura julio",
+        ),
+        (
+            "Factura julio (ticket de referencia)",
+            "Histórica",
+            format_number_chilean(FACTURA_M3, 0),
+            format_currency_chilean(FACTURA_CLP),
+            "—",
+        ),
+        (
+            "Proyección previa (23–27/07, con pérdidas)",
+            f"{format_number_chilean(BASELINE_SANIT_PROM, 0)} m³/día × 30",
+            format_number_chilean(BASELINE_SANIT_PROY, 1),
+            format_currency_chilean(BASELINE_SANIT_PROY_CLP),
+            f"+{format_currency_chilean(BASELINE_SANIT_PROY_CLP - FACTURA_CLP)}",
+        ),
+        (
+            "Proyección 30 días post-mejoras (recomendado)",
+            f"{format_number_chilean(sanit_mej_prom, 1)} m³/día × 30 "
+            f"({n_mejoras} días desde {datetime.strptime(MEJORAS_DESDE, '%Y-%m-%d').strftime('%d/%m')})",
+            format_number_chilean(sanit_mej_proy_m3, 1),
+            format_currency_chilean(sanit_mej_proy_clp),
+            f"{format_currency_chilean(ahorro_vs_factura)} "
+            f"({'ahorro' if ahorro_vs_factura > 0 else 'alza'})",
+        ),
+        (
+            f"Estimación cierre {hoy.strftime('%B %Y').replace('August', 'agosto')}",
+            f"{format_number_chilean(consumo_ago_real, 1)} m³ reales "
+            f"({dias_ago_completos} días) + "
+            f"{format_number_chilean(ritmo_cierre, 1)} m³/día × {dias_restantes} días restantes",
+            format_number_chilean(cierre_ago_m3, 1),
+            format_currency_chilean(cierre_ago_clp),
+            f"{format_currency_chilean(ahorro_cierre_vs_factura)} "
+            f"({'ahorro' if ahorro_cierre_vs_factura > 0 else 'alza'})",
+        ),
+    ]
+    add_table(doc, "Cuánto pagarían a fin de mes", fac_table, wes_style=True)
+
+    lectura_fac = doc.add_paragraph()
+    lectura_fac.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    lectura_fac.add_run("Lectura para el cliente: ").bold = True
+    lectura_fac.add_run(
+        f"si se mantiene el ritmo post-mejoras ("
+        f"{format_number_chilean(sanit_mej_prom, 1)} m³/día), la cuenta mensual "
+        f"se acerca a {format_number_chilean(sanit_mej_proy_m3, 1)} m³ / "
+        f"{format_currency_chilean(sanit_mej_proy_clp)}. "
+        f"Respecto al ticket de julio ({format_currency_chilean(FACTURA_CLP)}) "
+        f"eso implica un ahorro proyectado de "
+        f"{format_currency_chilean(ahorro_vs_factura)} "
+        f"({format_number_chilean(ahorro_vs_factura / FACTURA_CLP * 100, 1)}%). "
+        f"Frente a la proyección previa con pérdidas "
+        f"({format_currency_chilean(BASELINE_SANIT_PROY_CLP)}), el ahorro sería de "
+        f"{format_currency_chilean(ahorro_vs_proy_prev)}. "
+        f"Para el cierre de agosto {hoy.year}: "
+        f"{format_number_chilean(cierre_ago_m3, 1)} m³ / "
+        f"{format_currency_chilean(cierre_ago_clp)} "
+        f"(ahorro vs ticket julio: {format_currency_chilean(ahorro_cierre_vs_factura)}; "
+        f"vs proyección previa: {format_currency_chilean(ahorro_cierre_vs_proy_prev)})."
+    )
+    _set_black(lectura_fac)
+
+    doc.add_paragraph("")
+    add_picture_with_pagination(doc, str(chart_factura), Inches(6.2), keep_with_next=True)
 
     # Tabla comparación proyecciones
     add_formatted_title(doc, "Comparación de proyecciones (Medidor Principal Sanitaria)")
@@ -445,15 +613,15 @@ def build_report() -> tuple[Path, Path, dict]:
             f"{format_number_chilean(delta_prom, 1)} m³/día",
         ),
         (
-            f"Solo reciente (desde {datetime.strptime(reciente_start, '%Y-%m-%d').strftime('%d/%m')})",
-            str(n_reciente),
-            format_number_chilean(sanit_reciente_prom, 1),
-            format_number_chilean(sanit_reciente_proy, 1),
-            format_currency_chilean(sanit_reciente_proy * PRECIO_M3),
-            f"{format_number_chilean(delta_rec, 1)} m³/día",
+            f"Post-mejoras (desde {datetime.strptime(MEJORAS_DESDE, '%Y-%m-%d').strftime('%d/%m')})",
+            str(n_mejoras),
+            format_number_chilean(sanit_mej_prom, 1),
+            format_number_chilean(sanit_mej_proy_m3, 1),
+            format_currency_chilean(sanit_mej_proy_clp),
+            f"{format_number_chilean(delta_mej, 1)} m³/día",
         ),
         (
-            "Referencia: factura julio",
+            "Referencia: factura julio (ticket)",
             "—",
             "—",
             format_number_chilean(FACTURA_M3, 0),
@@ -513,9 +681,9 @@ def build_report() -> tuple[Path, Path, dict]:
     resumen_d.add_run(
         f"de {n_dias} días completos, {n_bajo} quedaron bajo la proyección previa, "
         f"{n_alto} por encima y {n_est} estables (±5 m³). "
-        f"El quiebre es claro desde el 28/07: en los {len(post)} días posteriores al baseline, "
-        f"Sanitaria promedió {format_number_chilean(sanit_reciente_prom, 1)} m³/día "
-        f"(frente a {format_number_chilean(BASELINE_SANIT_PROM, 0)} m³/día). "
+        f"El quiebre coincide con las mejoras/pérdidas corregidas: desde el 29/07 "
+        f"({n_mejoras} días) Sanitaria promedió {format_number_chilean(sanit_mej_prom, 1)} m³/día "
+        f"(frente a {format_number_chilean(BASELINE_SANIT_PROM, 0)} m³/día del baseline). "
         f"Mínimo del periodo: {format_number_chilean(min(r['sanitaria'] for r in dia_rows), 1)} m³ "
         f"({min(dia_rows, key=lambda x: x['sanitaria'])['fecha']}); "
         f"máximo: {format_number_chilean(max(r['sanitaria'] for r in dia_rows), 1)} m³ "
@@ -620,7 +788,7 @@ def build_report() -> tuple[Path, Path, dict]:
 
     nota_anom = doc.add_paragraph()
     nota_anom.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
-    nota_anom.add_run("Nota operativa: ").bold = True
+    nota_anom.add_run("Contexto operativo: ").bold = True
     # Check if salas rose while sanitaria fell
     base_dates = [d for d in all_dates if d <= "2026-07-27"]
     post_dates = reciente_dates
@@ -631,13 +799,13 @@ def build_report() -> tuple[Path, Path, dict]:
         sum(series[b["id"]].get(d, 0.0) for b in bombas) for d in post_dates
     ) / max(len(post_dates), 1)
     nota_anom.add_run(
-        f"mientras Sanitaria cayó de ~{format_number_chilean(BASELINE_SANIT_PROM, 0)} a "
-        f"~{format_number_chilean(sanit_reciente_prom, 0)} m³/día, las salas de bomba "
-        f"pasaron de ~{format_number_chilean(salas_base, 1)} a "
-        f"~{format_number_chilean(salas_post, 1)} m³/día. "
-        f"Conviene validar en terreno/telemetría si el descenso de Sanitaria es real "
-        f"(fuga corregida, cambio operativo) o un problema de medición, "
-        f"dado que las submediciones internas no acompañan la misma caída."
+        f"según el encargado de operaciones, se ejecutaron mejoras y se "
+        f"encontraron/corrigieron pérdidas. Eso explica la caída de Sanitaria "
+        f"de ~{format_number_chilean(BASELINE_SANIT_PROM, 0)} a "
+        f"~{format_number_chilean(sanit_mej_prom, 0)} m³/día. "
+        f"Las salas de bomba internas pasaron de ~{format_number_chilean(salas_base, 1)} a "
+        f"~{format_number_chilean(salas_post, 1)} m³/día (no acompañan la misma magnitud "
+        f"de baja, lo esperable si la pérdida corregida estaba fuera de esas submediciones)."
     )
     _set_black(nota_anom)
 
@@ -654,24 +822,30 @@ def build_report() -> tuple[Path, Path, dict]:
         (
             f"La proyección del reporte 23–27/07 (~{format_number_chilean(BASELINE_SANIT_PROY, 0)} m³ "
             f"/ ~{format_currency_chilean(BASELINE_SANIT_PROY_CLP)}) "
-            f"{'se mantiene' if continua else 'ya no se sostiene'}: "
-            f"promedio actualizado {format_number_chilean(sanit['prom_dia'], 1)} m³/día → "
-            f"{format_number_chilean(sanit['proy_m3'], 1)} m³ a 30 días."
+            f"correspondía al ritmo con pérdidas y ya no aplica tras las mejoras."
         ),
         (
-            f"Día a día: caída marcada desde el 28/07; tramo reciente "
-            f"{format_number_chilean(sanit_reciente_prom, 1)} m³/día "
-            f"(proyección {format_number_chilean(sanit_reciente_proy, 1)} m³)."
+            f"Proyección de pago post-mejoras (tarifa ticket julio "
+            f"${format_number_chilean(PRECIO_M3, 0)}/m³): "
+            f"{format_number_chilean(sanit_mej_proy_m3, 1)} m³ / "
+            f"{format_currency_chilean(sanit_mej_proy_clp)} a 30 días "
+            f"(ahorro vs ticket julio: {format_currency_chilean(ahorro_vs_factura)}; "
+            f"vs proyección previa: {format_currency_chilean(ahorro_vs_proy_prev)})."
+        ),
+        (
+            f"Estimación cierre agosto: {format_number_chilean(cierre_ago_m3, 1)} m³ / "
+            f"{format_currency_chilean(cierre_ago_clp)} "
+            f"({dias_ago_completos} días reales + {dias_restantes} proyectados al ritmo post-mejoras)."
+        ),
+        (
+            f"Día a día: quiebre desde el 28–29/07; tramo post-mejoras "
+            f"{format_number_chilean(sanit_mej_prom, 1)} m³/día."
         ),
         (
             f"Participación salas: de {format_number_chilean(BASELINE_PCT_SALAS, 1)}% "
             f"a {format_number_chilean(pct_salas, 1)}% de la cuenta proyectada; "
             f"no monitoreado de {format_number_chilean(BASELINE_PCT_GAP, 1)}% a "
             f"{format_number_chilean(pct_gap, 1)}%."
-        ),
-        (
-            "Revisar coherencia Sanitaria vs salas de bomba: el descenso de la cuenta "
-            "no se refleja en las submediciones internas."
         ),
     ]
     for b in bullets:
@@ -701,6 +875,14 @@ def build_report() -> tuple[Path, Path, dict]:
         "sanit_proy_clp": sanit["proy_clp"],
         "reciente_prom": sanit_reciente_prom,
         "reciente_proy": sanit_reciente_proy,
+        "mejoras_prom": sanit_mej_prom,
+        "mejoras_proy_m3": sanit_mej_proy_m3,
+        "mejoras_proy_clp": sanit_mej_proy_clp,
+        "cierre_agosto_m3": cierre_ago_m3,
+        "cierre_agosto_clp": cierre_ago_clp,
+        "ahorro_vs_factura": ahorro_vs_factura,
+        "ahorro_vs_proy_prev": ahorro_vs_proy_prev,
+        "precio_m3": PRECIO_M3,
         "continua": continua,
         "pct_salas": pct_salas,
         "pct_gap": pct_gap,
@@ -737,6 +919,19 @@ def main() -> int:
     print(
         f"     Reciente prom: {meta['reciente_prom']:.1f} m3/dia -> "
         f"proy {meta['reciente_proy']:.1f} m3"
+    )
+    print(
+        f"     Post-mejoras: {meta['mejoras_prom']:.1f} m3/dia -> "
+        f"proy {meta['mejoras_proy_m3']:.1f} m3 "
+        f"({format_currency_chilean(meta['mejoras_proy_clp'])})"
+    )
+    print(
+        f"     Cierre agosto: {meta['cierre_agosto_m3']:.1f} m3 "
+        f"({format_currency_chilean(meta['cierre_agosto_clp'])})"
+    )
+    print(
+        f"     Ahorro vs factura julio: {format_currency_chilean(meta['ahorro_vs_factura'])} | "
+        f"vs proy previa: {format_currency_chilean(meta['ahorro_vs_proy_prev'])}"
     )
     print(f"     Continua proyeccion previa: {'SI' if meta['continua'] else 'NO'}")
     print(f"     Dias bajo baseline: {meta['n_bajo']} | sobre: {meta['n_alto']}")
