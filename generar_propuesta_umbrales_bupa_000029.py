@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Estudio baseline + umbral +25% para Clínica Bupa (compañía 000029).
-Misma metodología que Parque Arauco (generar_propuesta_umbrales_pa_000025.py):
-  umbral = promedio_diario × 1,25
+Estudio baseline + umbral +25% — solo Clínica Bupa Antofagasta
+(nodos 000029-07, 000029-08, 000029-09, 000029-10).
 
-En la práctica operativa (corte 04/08/2026):
-  - Matriz (000029-01..06): sin data útil en la ventana → no se propone umbral.
-  - Antofagasta (000029-07..10): data desde ~julio 2026; baseline sobre días
-    operativos (desde primer día con consumo), excluyendo outliers de puesta en marcha.
+Misma metodología que Parque Arauco:
+  umbral = promedio_diario_operativo × 1,25
+
+No incluye puntos de matriz (000029-01..06).
 
 Genera Excel/Word técnicos + borrador de correo al cliente para aprobar activación.
 """
@@ -39,61 +38,56 @@ if sys.platform == "win32":
         pass
 
 ROOT = Path(__file__).resolve().parent
-OUT_DIR = ROOT / "reports" / "BUPA" / "umbrales_consumo"
+OUT_DIR = ROOT / "reports" / "Bupa_Antofagasta" / "umbrales_consumo"
 ENTITY_BASE = "http://104.248.53.141:7001/wes/api/acl-entities/v1"
 
 COMPANY_ID = "000029"
-COMPANY_LABEL = "Clínica Bupa"
+COMPANY_LABEL = "Clínica Bupa Antofagasta"
 REF = date(2026, 8, 4)
 DIAS_BASELINE_OBJETIVO = 90
 MULT = 1.25
 DESDE = (REF - timedelta(days=DIAS_BASELINE_OBJETIVO - 1)).strftime("%d/%m/%Y")
 HASTA = REF.strftime("%d/%m/%Y")
 
-SEDE_POR_NODO = {
-    "000029-01": "Clínica Bupa (matriz)",
-    "000029-02": "Clínica Bupa (matriz)",
-    "000029-03": "Clínica Bupa (matriz)",
-    "000029-04": "Clínica Bupa (matriz)",
-    "000029-05": "Clínica Bupa (matriz)",
-    "000029-06": "Clínica Bupa (matriz)",
-    "000029-07": "Clínica Bupa Antofagasta",
-    "000029-08": "Clínica Bupa Antofagasta",
-    "000029-09": "Clínica Bupa Antofagasta",
-    "000029-10": "Clínica Bupa Antofagasta",
-}
-
-# Nodos con data operativa actual (Antofagasta)
-NODOS_PROPUESTA_CLIENTE = {
+# Solo Antofagasta — no incluir matriz ni otros puntos Bupa
+NODOS_ANTOFAGASTA = (
     "000029-07",
     "000029-08",
     "000029-09",
     "000029-10",
+)
+
+NOMBRES_FALLBACK = {
+    "000029-07": "Sala de Bomba Principal",
+    "000029-08": "Sala de Bomba Sexto Piso",
+    "000029-09": "Medidor Principal Sanitaria",
+    "000029-10": "Sala de Bomba N°2",
 }
 
 
-def listar_nodos_bupa() -> list[dict]:
+def listar_nodos_antofagasta() -> list[dict]:
     import requests
 
     url = f"{ENTITY_BASE}/companies/{COMPANY_ID}"
     r = requests.get(url, timeout=30)
     r.raise_for_status()
     data = r.json()
-    company_name = data.get("name", COMPANY_LABEL)
+    company_name = data.get("name", "BUPA")
+    by_id = {
+        (n.get("nodeId") or "").strip(): (n.get("name") or "").strip()
+        for n in (data.get("nodes") or [])
+    }
     rows = []
-    for node in data.get("nodes") or []:
-        nid = (node.get("nodeId") or "").strip()
-        nm = (node.get("name") or "").strip()
-        if nid:
-            rows.append(
-                {
-                    "nodeId": nid,
-                    "nodeName": nm or nid,
-                    "companyName": company_name,
-                    "sede": SEDE_POR_NODO.get(nid, company_name),
-                }
-            )
-    rows.sort(key=lambda x: x["nodeId"])
+    for nid in NODOS_ANTOFAGASTA:
+        nm = by_id.get(nid) or NOMBRES_FALLBACK.get(nid) or nid
+        rows.append(
+            {
+                "nodeId": nid,
+                "nodeName": nm,
+                "companyName": company_name,
+                "sede": COMPANY_LABEL,
+            }
+        )
     return rows
 
 
@@ -180,7 +174,6 @@ def calcular_filas(nodos: list[dict]) -> list[dict]:
             "umbral": umbral,
             "mult": MULT,
             "nota": nota,
-            "proponer_cliente": nid in NODOS_PROPUESTA_CLIENTE and umbral is not None,
         }
 
     with ThreadPoolExecutor(max_workers=6) as ex:
@@ -205,7 +198,6 @@ def escribir_excel(rows: list[dict], path: Path) -> None:
         "Máximo diario usado (m³)",
         "Multiplicador",
         "Umbral recomendado (m³/día)",
-        "Proponer a cliente",
         "Nota",
     ]
     ws.append(headers)
@@ -227,7 +219,6 @@ def escribir_excel(rows: list[dict], path: Path) -> None:
                 r["max_periodo"] if r["max_periodo"] is not None else "Sin datos",
                 f"× {MULT:.2f} (+{(MULT - 1) * 100:.0f}%)",
                 r["umbral"] if r["umbral"] is not None else "N/D",
-                "Sí" if r["proponer_cliente"] else "No",
                 r["nota"],
             ]
         )
@@ -235,7 +226,8 @@ def escribir_excel(rows: list[dict], path: Path) -> None:
     ws.append([])
     ws.append(["Parámetros"])
     ws.append(["Compañía", COMPANY_ID])
-    ws.append(["Cliente", COMPANY_LABEL])
+    ws.append(["Cliente / sede", COMPANY_LABEL])
+    ws.append(["Nodos incluidos", ", ".join(NODOS_ANTOFAGASTA)])
     ws.append(["Ventana buscada", f"{DESDE} a {HASTA} ({DIAS_BASELINE_OBJETIVO} días)"])
     ws.append(["Corte", REF.strftime("%d/%m/%Y")])
     ws.append(["Fórmula", "umbral = promedio_diario_operativo × 1,25"])
@@ -246,7 +238,7 @@ def escribir_excel(rows: list[dict], path: Path) -> None:
         ]
     )
 
-    for i, w in enumerate([14, 28, 32, 14, 14, 22, 18, 14, 20, 14, 55], 1):
+    for i, w in enumerate([14, 28, 32, 14, 14, 22, 18, 14, 20, 55], 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -260,33 +252,35 @@ def escribir_word(rows: list[dict], path: Path) -> None:
     style.font.size = Pt(11)
 
     doc.add_heading(
-        f"Propuesta de umbrales de consumo diario — {COMPANY_LABEL} ({COMPANY_ID})",
+        f"Propuesta de umbrales de consumo diario — {COMPANY_LABEL}",
         0,
     )
     p = doc.add_paragraph()
     p.add_run(f"Fecha de corte: {REF.strftime('%d/%m/%Y')}\n").bold = True
     p.add_run(
+        f"Puntos incluidos: {', '.join(NODOS_ANTOFAGASTA)}\n"
         f"Ventana objetivo: últimos {DIAS_BASELINE_OBJETIVO} días ({DESDE} – {HASTA})\n"
         f"Multiplicador propuesto: × {MULT:.2f} (+{(MULT - 1) * 100:.0f}% sobre el promedio diario)\n"
-        "Metodología: misma regla estudiada para Parque Arauco (000025), adaptada a la "
-        "data operativa disponible en Clínica Bupa."
+        "Metodología: misma regla estudiada para Parque Arauco (000025). "
+        "Este estudio considera únicamente los puntos de Antofagasta."
     )
 
     doc.add_heading("1. Objetivo", 1)
     doc.add_paragraph(
-        f"Definir umbrales diarios (m³/día) por punto de monitoreo de {COMPANY_LABEL} "
-        "compatibles con la alerta por umbral de la API WES: cuando el consumo acumulado "
-        "del día supera ese número —independiente de la hora— se dispara aviso por correo."
+        f"Definir umbrales diarios (m³/día) para los 4 puntos de monitoreo de "
+        f"{COMPANY_LABEL} ({', '.join(NODOS_ANTOFAGASTA)}), compatibles con la alerta "
+        "por umbral de la API WES: cuando el consumo acumulado del día supera ese "
+        "número —independiente de la hora— se dispara aviso por correo."
     )
 
-    doc.add_heading("2. Hallazgo de data", 1)
+    doc.add_heading("2. Alcance", 1)
     doc.add_paragraph(
-        "• Puntos de matriz (000029-01 a 000029-06: Llenado de Estanques, Torres A/B1/B2/C, "
-        "Central Térmica): sin series de consumo útiles en la ventana analizada. "
-        "No se propone umbral hasta recuperar data estable.\n"
-        "• Clínica Bupa Antofagasta (000029-07 a 000029-10): con data operativa desde "
-        "julio 2026. Sobre estos puntos se calcula el baseline con la data disponible "
-        "(aún < 90 días) y la misma fórmula × 1,25."
+        "Solo se incluyen los nodos de Clínica Bupa Antofagasta:\n"
+        "• 000029-07 — Sala de Bomba Principal\n"
+        "• 000029-08 — Sala de Bomba Sexto Piso\n"
+        "• 000029-09 — Medidor Principal Sanitaria\n"
+        "• 000029-10 — Sala de Bomba N°2\n\n"
+        "No se incluyen otros puntos de la compañía 000029 (matriz u otras sedes)."
     )
 
     doc.add_heading("3. Criterio técnico", 1)
@@ -296,11 +290,12 @@ def escribir_word(rows: list[dict], path: Path) -> None:
         "Se excluyen ceros previos a la puesta en marcha y outliers claros de calibración (caso Sala de Bomba N°2).",
         "Misma lógica que Parque Arauco; el +25% avisa antes que un esquema +50%, dando margen de reacción en una clínica.",
         "Alerta API: un número por punto; se evalúa sobre el acumulado del día.",
+        "Histórico disponible aún < 90 días: se usa toda la data operativa con la misma fórmula; recalcular al completar 90 días.",
     ]:
         doc.add_paragraph(b, style="List Bullet")
 
-    propuesta = [r for r in rows if r["proponer_cliente"]]
-    doc.add_heading("4. Tabla recomendada para el cliente (Antofagasta)", 1)
+    con_umbral = [r for r in rows if r["umbral"] is not None]
+    doc.add_heading("4. Tabla recomendada", 1)
     table = doc.add_table(rows=1, cols=5)
     table.style = "Table Grid"
     hdr = table.rows[0].cells
@@ -309,38 +304,28 @@ def escribir_word(rows: list[dict], path: Path) -> None:
     hdr[2].text = "Días usados"
     hdr[3].text = "Baseline (m³/d)"
     hdr[4].text = "Umbral +25% (m³/d)"
-    for r in propuesta:
+    for r in rows:
         cells = table.add_row().cells
         cells[0].text = r["nodeId"]
         cells[1].text = r["nodeName"]
         cells[2].text = str(r["dias"])
-        cells[3].text = fn(r["baseline"], 1)
-        cells[4].text = fn(r["umbral"], 1)
+        cells[3].text = fn(r["baseline"], 1) if r["baseline"] is not None else "Sin datos"
+        cells[4].text = fn(r["umbral"], 1) if r["umbral"] is not None else "N/D"
 
-    if propuesta:
-        ej = max(propuesta, key=lambda r: r["baseline"] or 0)
+    if con_umbral:
+        ej = max(con_umbral, key=lambda r: r["baseline"] or 0)
         doc.add_paragraph(
             f"Ejemplo ({ej['nodeName']} / {ej['nodeId']}): "
             f"baseline ≈ {fn(ej['baseline'], 1)} m³/día → "
             f"umbral ≈ {fn(ej['umbral'], 1)} m³/día."
         )
 
-    doc.add_heading("5. Detalle completo compañía 000029", 1)
-    table2 = doc.add_table(rows=1, cols=6)
-    table2.style = "Table Grid"
-    hdr2 = table2.rows[0].cells
-    for i, t in enumerate(
-        ["Node ID", "Sede", "Punto", "Baseline", "Umbral", "Nota"]
-    ):
-        hdr2[i].text = t
+    doc.add_heading("5. Notas por punto", 1)
     for r in rows:
-        cells = table2.add_row().cells
-        cells[0].text = r["nodeId"]
-        cells[1].text = r["sede"]
-        cells[2].text = r["nodeName"]
-        cells[3].text = fn(r["baseline"], 1) if r["baseline"] is not None else "Sin datos"
-        cells[4].text = fn(r["umbral"], 1) if r["umbral"] is not None else "N/D"
-        cells[5].text = r["nota"]
+        doc.add_paragraph(
+            f"{r['nodeId']} — {r['nodeName']}: {r['nota']}",
+            style="List Bullet",
+        )
 
     doc.add_heading("6. Pedido al cliente", 1)
     doc.add_paragraph(
@@ -353,7 +338,7 @@ def escribir_word(rows: list[dict], path: Path) -> None:
 
     foot = doc.add_paragraph()
     foot.add_run(
-        "Documento generado por Sistema WES — propuesta de umbrales Clínica Bupa."
+        "Documento generado por Sistema WES — propuesta de umbrales Clínica Bupa Antofagasta."
     ).italic = True
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -366,9 +351,10 @@ def _tabla_texto(rows: list[dict]) -> str:
         "-" * 74,
     ]
     for r in rows:
+        b = fn(r["baseline"], 1) if r["baseline"] is not None else "N/D"
+        u = fn(r["umbral"], 1) if r["umbral"] is not None else "N/D"
         lines.append(
-            f"{r['nodeId']:<12} {r['nodeName'][:31]:<32} {r['dias']:>5} "
-            f"{fn(r['baseline'], 1):>10} {fn(r['umbral'], 1):>10}"
+            f"{r['nodeId']:<12} {r['nodeName'][:31]:<32} {r['dias']:>5} {b:>10} {u:>10}"
         )
     return "\n".join(lines)
 
@@ -398,7 +384,7 @@ def _tabla_html(rows: list[dict]) -> str:
 
 
 def escribir_correo_cliente(rows: list[dict], path_txt: Path, path_html: Path) -> None:
-    propuesta = [r for r in rows if r["proponer_cliente"]]
+    propuesta = [r for r in rows if r["umbral"] is not None]
     ejemplo = max(propuesta, key=lambda r: r["baseline"] or 0) if propuesta else None
     ejemplo_txt = ""
     if ejemplo:
@@ -415,10 +401,10 @@ def escribir_correo_cliente(rows: list[dict], path_txt: Path, path_html: Path) -
 
     cuerpo = f"""Estimados,
 
-Junto con saludar, les escribimos desde WES para presentar una propuesta de umbrales de alerta de consumo diario de agua en los puntos de monitoreo de Clínica Bupa Antofagasta, y solicitar su aprobación para activarlos en la plataforma.
+Junto con saludar, les escribimos desde WES para presentar una propuesta de umbrales de alerta de consumo diario de agua en los puntos de monitoreo de Clínica Bupa Antofagasta (nodos 000029-07, 000029-08, 000029-09 y 000029-10), y solicitar su aprobación para activarlos en la plataforma.
 
 ¿Qué queremos hacer?
-Activar, en cada punto de medición operativo, un umbral máximo diario (m³/día). Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta.
+Activar, en cada uno de estos 4 puntos, un umbral máximo diario (m³/día). Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta.
 
 ¿Cómo se calcularon los umbrales?
 Aplicamos la misma metodología ya estudiada y validada internamente en WES (también usada en otros clientes):
@@ -431,7 +417,7 @@ Nota: los medidores de Antofagasta tienen histórico reciente (aún menor a 90 d
 
 {ejemplo_txt}Tabla propuesta — Clínica Bupa Antofagasta (valores en m³/día):
 
-{_tabla_texto(propuesta)}
+{_tabla_texto(rows)}
 
 ¿Qué pedimos de su parte?
 1) Revisar la tabla y confirmar si están de acuerdo con la regla (promedio operativo × 1,25).
@@ -457,10 +443,11 @@ Equipo WES — Monitoreo y Control
 <p>Estimados,</p>
 <p>Junto con saludar, les escribimos desde WES para presentar una propuesta de
 <strong>umbrales de alerta de consumo diario de agua</strong> en los puntos de
-monitoreo de <strong>Clínica Bupa Antofagasta</strong>, y solicitar su
+monitoreo de <strong>Clínica Bupa Antofagasta</strong>
+(nodos 000029-07, 000029-08, 000029-09 y 000029-10), y solicitar su
 <strong>aprobación para activarlos</strong> en la plataforma.</p>
 <p><strong>¿Qué queremos hacer?</strong><br>
-Activar, en cada punto de medición operativo, un umbral máximo diario (m³/día).
+Activar, en cada uno de estos 4 puntos, un umbral máximo diario (m³/día).
 Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema
 enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así
 pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta.</p>
@@ -477,7 +464,7 @@ a 90 días). Usamos toda la data operativa disponible con la misma fórmula; cua
 se complete una ventana de 90 días, recalcularemos el baseline.</p>
 {f"<p>Por ejemplo, en <strong>{ejemplo['nodeName']}</strong> ({ejemplo['nodeId']}) el consumo promedio operativo es de aproximadamente <strong>{fn(ejemplo['baseline'], 1)} m³/día</strong>; el umbral propuesto sería <strong>{fn(ejemplo['umbral'], 1)} m³/día</strong> (+25%).</p>" if ejemplo else ""}
 <p><strong>Tabla propuesta — Clínica Bupa Antofagasta (m³/día):</strong></p>
-{_tabla_html(propuesta)}
+{_tabla_html(rows)}
 <p><strong>¿Qué pedimos de su parte?</strong></p>
 <ol>
 <li>Revisar la tabla y confirmar si están de acuerdo con la regla (promedio operativo × 1,25).</li>
@@ -495,7 +482,7 @@ se complete una ventana de 90 días, recalcularemos el baseline.</p>
 
 
 def escribir_word_correo_cliente(rows: list[dict], path: Path) -> None:
-    propuesta = [r for r in rows if r["proponer_cliente"]]
+    propuesta = [r for r in rows if r["umbral"] is not None]
     ejemplo = max(propuesta, key=lambda r: r["baseline"] or 0) if propuesta else None
 
     doc = Document()
@@ -508,7 +495,8 @@ def escribir_word_correo_cliente(rows: list[dict], path: Path) -> None:
     )
     doc.add_paragraph(
         "Usar este texto para enviar al cliente (completar destinatarios). "
-        "Adjuntos sugeridos: Excel y Word de la propuesta técnica."
+        "Adjuntos sugeridos: Excel y Word de la propuesta técnica. "
+        "Alcance: solo nodos 000029-07, 000029-08, 000029-09 y 000029-10."
     )
 
     asunto = (
@@ -524,11 +512,12 @@ def escribir_word_correo_cliente(rows: list[dict], path: Path) -> None:
     doc.add_paragraph(
         "Junto con saludar, les escribimos desde WES para presentar una propuesta de "
         "umbrales de alerta de consumo diario de agua en los puntos de monitoreo de "
-        "Clínica Bupa Antofagasta, y solicitar su aprobación para activarlos en la plataforma."
+        "Clínica Bupa Antofagasta (nodos 000029-07, 000029-08, 000029-09 y 000029-10), "
+        "y solicitar su aprobación para activarlos en la plataforma."
     )
     doc.add_paragraph("¿Qué queremos hacer?").runs[0].bold = True
     doc.add_paragraph(
-        "Activar, en cada punto de medición operativo, un umbral máximo diario (m³/día). "
+        "Activar, en cada uno de estos 4 puntos, un umbral máximo diario (m³/día). "
         "Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el "
         "sistema enviará automáticamente un correo de alerta al equipo que ustedes "
         "indiquen. Así pueden reaccionar el mismo día, sin esperar el cierre del período "
@@ -565,13 +554,13 @@ def escribir_word_correo_cliente(rows: list[dict], path: Path) -> None:
     hdr[2].text = "Días usados"
     hdr[3].text = "Baseline"
     hdr[4].text = "Umbral +25%"
-    for r in propuesta:
+    for r in rows:
         cells = table.add_row().cells
         cells[0].text = r["nodeId"]
         cells[1].text = r["nodeName"]
         cells[2].text = str(r["dias"])
-        cells[3].text = fn(r["baseline"], 1)
-        cells[4].text = fn(r["umbral"], 1)
+        cells[3].text = fn(r["baseline"], 1) if r["baseline"] is not None else "Sin datos"
+        cells[4].text = fn(r["umbral"], 1) if r["umbral"] is not None else "N/D"
 
     doc.add_paragraph("¿Qué pedimos de su parte?").runs[0].bold = True
     for item in [
@@ -594,17 +583,19 @@ def escribir_word_correo_cliente(rows: list[dict], path: Path) -> None:
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"Listando nodos {COMPANY_ID} ({COMPANY_LABEL})...")
-    nodos = listar_nodos_bupa()
+    print(f"Listando nodos Antofagasta ({', '.join(NODOS_ANTOFAGASTA)})...")
+    nodos = listar_nodos_antofagasta()
     print(f"Nodos: {len(nodos)}")
+    assert all(n["nodeId"] in NODOS_ANTOFAGASTA for n in nodos)
+    assert len(nodos) == 4
     rows = calcular_filas(nodos)
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    xlsx = OUT_DIR / f"Umbrales_000029_90d_x125_{stamp}.xlsx"
-    docx = OUT_DIR / f"Propuesta_umbrales_000029_90d_x125_{stamp}.docx"
-    mail_txt = OUT_DIR / f"Correo_cliente_aprobacion_umbrales_Bupa_{stamp}.txt"
-    mail_html = OUT_DIR / f"Correo_cliente_aprobacion_umbrales_Bupa_{stamp}.html"
-    mail_docx = OUT_DIR / f"Correo_cliente_aprobacion_umbrales_Bupa_{stamp}.docx"
+    xlsx = OUT_DIR / f"Umbrales_Antofagasta_000029_07_10_x125_{stamp}.xlsx"
+    docx = OUT_DIR / f"Propuesta_umbrales_Antofagasta_000029_07_10_x125_{stamp}.docx"
+    mail_txt = OUT_DIR / f"Correo_cliente_aprobacion_umbrales_Antofagasta_{stamp}.txt"
+    mail_html = OUT_DIR / f"Correo_cliente_aprobacion_umbrales_Antofagasta_{stamp}.html"
+    mail_docx = OUT_DIR / f"Correo_cliente_aprobacion_umbrales_Antofagasta_{stamp}.docx"
 
     escribir_excel(rows, xlsx)
     escribir_word(rows, docx)
@@ -618,13 +609,11 @@ def main() -> int:
     print(f"[OK] Correo docx: {mail_docx}")
 
     ok = sum(1 for r in rows if r["umbral"] is not None)
-    prop = sum(1 for r in rows if r["proponer_cliente"])
-    print(f"Con umbral calculado: {ok}/{len(rows)} | Proponer a cliente: {prop}")
+    print(f"Con umbral calculado: {ok}/{len(rows)} (solo Antofagasta)")
     for r in rows:
         print(
             f"  {r['nodeId']} | {r['nodeName'][:28]:<28} | "
-            f"d={r['dias']:3d} | base={r['baseline']} | umbral={r['umbral']} | "
-            f"cliente={'Sí' if r['proponer_cliente'] else 'No'}"
+            f"d={r['dias']:3d} | base={r['baseline']} | umbral={r['umbral']}"
         )
 
     (OUT_DIR / "_last_paths.txt").write_text(

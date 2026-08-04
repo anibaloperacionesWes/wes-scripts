@@ -4,10 +4,10 @@ WES — Propuesta de umbrales de alerta de consumo de agua — Clínica Bupa Ant
 CUERPO:
 Estimados,
 
-Junto con saludar, les escribimos desde WES para presentar una propuesta de umbrales de alerta de consumo diario de agua en los puntos de monitoreo de Clínica Bupa Antofagasta, y solicitar su aprobación para activarlos en la plataforma.
+Junto con saludar, les escribimos desde WES para presentar una propuesta de umbrales de alerta de consumo diario de agua en los puntos de monitoreo de Clínica Bupa Antofagasta (nodos 000029-07, 000029-08, 000029-09 y 000029-10), y solicitar su aprobación para activarlos en la plataforma.
 
 ¿Qué queremos hacer?
-Activar, en cada punto de medición operativo, un umbral máximo diario (m³/día). Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta.
+Activar, en cada uno de estos 4 puntos, un umbral máximo diario (m³/día). Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta.
 
 ¿Cómo se calcularon los umbrales?
 Aplicamos la misma metodología ya estudiada y validada internamente en WES (también usada en otros clientes):
@@ -18,15 +18,15 @@ Elegimos +25% (y no +50%) para avisar con mayor margen de reacción ante alzas, 
 
 Nota: los medidores de Antofagasta tienen histórico reciente (aún menor a 90 días). Usamos toda la data operativa disponible con la misma fórmula; cuando se complete una ventana de 90 días, recalcularemos el baseline.
 
-Por ejemplo, en Medidor Principal Sanitaria (000029-09) el consumo promedio operativo es de aproximadamente 159,4 m³/día; el umbral propuesto sería 199,2 m³/día (+25%).
+Por ejemplo, en Medidor Principal Sanitaria (000029-09) el consumo promedio operativo es de aproximadamente 159,7 m³/día; el umbral propuesto sería 199,6 m³/día (+25%).
 
 Tabla propuesta — Clínica Bupa Antofagasta (valores en m³/día):
 
 ID           Punto                             Días   Baseline     Umbral
 --------------------------------------------------------------------------
-000029-07    Sala de Bomba Principal             15       42,9       53,7
+000029-07    Sala de Bomba Principal             15       43,1       53,9
 000029-08    Sala de Bomba Sexto Piso            15        5,8        7,2
-000029-09    Medidor Principal Sanitaria         15      159,4      199,2
+000029-09    Medidor Principal Sanitaria         15      159,7      199,6
 000029-10    Sala de Bomba N°2                   14        0,9        1,2
 
 ¿Qué pedimos de su parte?
