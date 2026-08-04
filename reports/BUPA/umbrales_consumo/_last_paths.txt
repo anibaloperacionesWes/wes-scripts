@@ -1,0 +1,5 @@
+/workspace/reports/BUPA/umbrales_consumo/Umbrales_000029_90d_x125_20260804_155852.xlsx
+/workspace/reports/BUPA/umbrales_consumo/Propuesta_umbrales_000029_90d_x125_20260804_155852.docx
+/workspace/reports/BUPA/umbrales_consumo/Correo_cliente_aprobacion_umbrales_Bupa_20260804_155852.txt
+/workspace/reports/BUPA/umbrales_consumo/Correo_cliente_aprobacion_umbrales_Bupa_20260804_155852.html
+/workspace/reports/BUPA/umbrales_consumo/Correo_cliente_aprobacion_umbrales_Bupa_20260804_155852.docx

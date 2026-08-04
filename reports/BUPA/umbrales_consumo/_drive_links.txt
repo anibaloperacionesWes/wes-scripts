@@ -1,0 +1,6 @@
+Excel: https://docs.google.com/spreadsheets/d/1BjBe63SNL-NXorlirjaVd6cTmlqokLdu/edit?usp=drivesdk
+Propuesta Word: https://docs.google.com/document/d/1VIsHGs-bzZigh7m7k6ZEeX2QVYi_LfMs/edit?usp=drivesdk
+Correo cliente (Word): https://docs.google.com/document/d/1o3tvgek9uKnfbF0s6xZWfyQJdh_P8_qT/edit?usp=drivesdk
+Correo cliente (txt): https://drive.google.com/file/d/1yZnEV709K8yEuvVf1xx64mRRwhAfkLoP/view?usp=drivesdk
+Correo cliente (html): https://drive.google.com/file/d/1r-_z17Z-IykJExM86y2BnMUWTpxH5HI9/view?usp=drivesdk
+Carpeta Drive: BUPA/umbrales_consumo

@@ -1,0 +1,42 @@
+ASUNTO:
+WES — Propuesta de umbrales de alerta de consumo de agua — Clínica Bupa Antofagasta | solicitud de aprobación
+
+CUERPO:
+Estimados,
+
+Junto con saludar, les escribimos desde WES para presentar una propuesta de umbrales de alerta de consumo diario de agua en los puntos de monitoreo de Clínica Bupa Antofagasta, y solicitar su aprobación para activarlos en la plataforma.
+
+¿Qué queremos hacer?
+Activar, en cada punto de medición operativo, un umbral máximo diario (m³/día). Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta.
+
+¿Cómo se calcularon los umbrales?
+Aplicamos la misma metodología ya estudiada y validada internamente en WES (también usada en otros clientes):
+• Baseline = promedio del consumo diario operativo (días con data útil desde la puesta en marcha del medidor).
+• Umbral = baseline × 1,25 (+25% sobre el promedio).
+
+Elegimos +25% (y no +50%) para avisar con mayor margen de reacción ante alzas, fugas o comportamientos atípicos, manteniendo un umbral realista respecto al consumo habitual de la clínica.
+
+Nota: los medidores de Antofagasta tienen histórico reciente (aún menor a 90 días). Usamos toda la data operativa disponible con la misma fórmula; cuando se complete una ventana de 90 días, recalcularemos el baseline.
+
+Por ejemplo, en Medidor Principal Sanitaria (000029-09) el consumo promedio operativo es de aproximadamente 159,4 m³/día; el umbral propuesto sería 199,2 m³/día (+25%).
+
+Tabla propuesta — Clínica Bupa Antofagasta (valores en m³/día):
+
+ID           Punto                             Días   Baseline     Umbral
+--------------------------------------------------------------------------
+000029-07    Sala de Bomba Principal             15       42,9       53,7
+000029-08    Sala de Bomba Sexto Piso            15        5,8        7,2
+000029-09    Medidor Principal Sanitaria         15      159,4      199,2
+000029-10    Sala de Bomba N°2                   14        0,9        1,2
+
+¿Qué pedimos de su parte?
+1) Revisar la tabla y confirmar si están de acuerdo con la regla (promedio operativo × 1,25).
+2) Aprobar la aplicación (carga) de estos umbrales en la configuración de alertas WES.
+3) Indicar a qué correos deben llegar las alertas (si difieren de los contactos actuales).
+4) Señalar si algún punto debe excluirse por estar aún en estabilización o fuera de servicio.
+
+Quedamos atentos a su OK para proceder con la activación.
+
+Saludos cordiales,
+Equipo WES — Monitoreo y Control
+
