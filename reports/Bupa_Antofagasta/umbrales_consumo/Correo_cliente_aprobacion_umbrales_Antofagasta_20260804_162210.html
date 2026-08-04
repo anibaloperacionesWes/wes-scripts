@@ -14,24 +14,26 @@ monitoreo de <strong>Clínica Bupa Antofagasta</strong>
 Activar, en cada uno de estos 4 puntos, un umbral máximo diario (m³/día).
 Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema
 enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así
-pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta.</p>
+pueden reaccionar el mismo día. <strong>Esta alerta es importante para la clínica</strong>
+y por eso proponemos activarla ahora.</p>
 <p><strong>¿Cómo se calcularon los umbrales?</strong><br>
-Aplicamos la misma metodología ya estudiada y validada internamente en WES:</p>
+La <strong>regla estándar de WES</strong> (igual que en otros clientes) es:</p>
 <ul>
-<li>Baseline = promedio del consumo diario operativo (días con data útil desde la puesta en marcha).</li>
+<li>Ventana objetivo: <strong>90 días</strong>.</li>
+<li>Baseline = promedio del consumo diario, <strong>dejando ceros fuera</strong>.</li>
 <li>Umbral = baseline × 1,25 (+25% sobre el promedio).</li>
 </ul>
-<p>Elegimos +25% (y no +50%) para avisar con mayor margen de reacción ante alzas,
-fugas o comportamientos atípicos.</p>
-<p><em>Nota:</em> los medidores de Antofagasta tienen histórico reciente (aún menor
-a 90 días). Usamos toda la data operativa disponible con la misma fórmula; cuando
-se complete una ventana de 90 días, recalcularemos el baseline.</p>
+<p>Para Clínica Bupa Antofagasta <strong>evaluamos desde el 22/06/2026 hasta el 04/08/2026</strong>
+(sin esperar a completar los 90 días), dejando ceros fuera del cálculo. El motivo es
+<strong>poder mostrar y activar ya esta alerta</strong>, que es importante para la
+operación de la clínica. Cuando se complete una ventana de 90 días, recalcularemos
+el baseline con la misma fórmula.</p>
 <p>Por ejemplo, en <strong>Medidor Principal Sanitaria</strong> (000029-09) el consumo promedio operativo es de aproximadamente <strong>159,7 m³/día</strong>; el umbral propuesto sería <strong>199,6 m³/día</strong> (+25%).</p>
 <p><strong>Tabla propuesta — Clínica Bupa Antofagasta (m³/día):</strong></p>
 <table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:13px'><thead><tr style='background:#1F4E79;color:#fff'><th>Node ID</th><th>Punto</th><th>Días usados</th><th>Baseline (m³/día)</th><th>Umbral +25% (m³/día)</th></tr></thead><tbody><tr><td>000029-07</td><td>Sala de Bomba Principal</td><td style='text-align:right'>15</td><td style='text-align:right'>43,1</td><td style='text-align:right'>53,9</td></tr><tr><td>000029-08</td><td>Sala de Bomba Sexto Piso</td><td style='text-align:right'>15</td><td style='text-align:right'>5,8</td><td style='text-align:right'>7,2</td></tr><tr><td>000029-09</td><td>Medidor Principal Sanitaria</td><td style='text-align:right'>15</td><td style='text-align:right'>159,7</td><td style='text-align:right'>199,6</td></tr><tr><td>000029-10</td><td>Sala de Bomba N°2</td><td style='text-align:right'>14</td><td style='text-align:right'>0,9</td><td style='text-align:right'>1,2</td></tr></tbody></table>
 <p><strong>¿Qué pedimos de su parte?</strong></p>
 <ol>
-<li>Revisar la tabla y confirmar si están de acuerdo con la regla (promedio operativo × 1,25).</li>
+<li>Revisar la tabla y confirmar si están de acuerdo con la regla (90 días × 1,25, dejando ceros fuera) y con evaluar desde el 22/06/2026 para activar ya la alerta.</li>
 <li>Aprobar la aplicación (carga) de estos umbrales en la configuración de alertas WES.</li>
 <li>Indicar a qué correos deben llegar las alertas (si difieren de los contactos actuales).</li>
 <li>Señalar si algún punto debe excluirse por estar aún en estabilización o fuera de servicio.</li>

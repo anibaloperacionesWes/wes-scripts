@@ -1,7 +1,8 @@
-Excel: https://docs.google.com/spreadsheets/d/1La4rANkffI_eysNdLXKE7xQc5EtNl1lF/edit?usp=drivesdk
-Propuesta Word: https://docs.google.com/document/d/1D74q0TRUBqihOl2e0P8u5QwOtneanJsV/edit?usp=drivesdk
-Correo cliente (Word): https://docs.google.com/document/d/1RvrJ1me54ktbe2Xn8k4PaCO2d727z0Q5/edit?usp=drivesdk
-Correo cliente (txt): https://drive.google.com/file/d/11oyIdLZa6WbhyXWpwwaNcLxcNWKzL6Ur/view?usp=drivesdk
-Correo cliente (html): https://drive.google.com/file/d/1uWn6ppUnfdy1kHFDiKgal0nUqxoRwm7I/view?usp=drivesdk
+Excel: https://docs.google.com/spreadsheets/d/1VBpftmBqOjsksosTytYKeUnV-ULaw4KI/edit?usp=drivesdk
+Propuesta Word: https://docs.google.com/document/d/1qjqOOtPJGKTa0rzldnA-aVrwvrethW97/edit?usp=drivesdk
+Correo cliente (Word): https://docs.google.com/document/d/1pH8J_5afBQ51njpcvh6lpntKP4nJ_Tbl/edit?usp=drivesdk
+Correo cliente (txt): https://drive.google.com/file/d/1qdG1rjg9I0auH7wq6AvOF3cHzJZZ9kgv/view?usp=drivesdk
+Correo cliente (html): https://drive.google.com/file/d/1iBxAdHdK7bWoLr7ncL8zOR_4qDzXFP20/view?usp=drivesdk
 Carpeta Drive: Bupa_Antofagasta/umbrales_consumo
 Nodos: solo 000029-07, 000029-08, 000029-09, 000029-10
+Regla: 90 días × 1,25 dejando ceros fuera; evaluación desde 22/06/2026

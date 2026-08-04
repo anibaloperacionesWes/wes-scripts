@@ -3,8 +3,11 @@
 Estudio baseline + umbral +25% — solo Clínica Bupa Antofagasta
 (nodos 000029-07, 000029-08, 000029-09, 000029-10).
 
-Misma metodología que Parque Arauco:
-  umbral = promedio_diario_operativo × 1,25
+Regla estándar WES (como Parque Arauco):
+  umbral = promedio_diario × 1,25  (ventana objetivo 90 días, dejando ceros fuera)
+
+Para esta clínica se evalúa desde el 22/06/2026 (sin esperar los 90 días completos),
+para poder activar ya la alerta, que es importante para la operación.
 
 No incluye puntos de matriz (000029-01..06).
 
@@ -15,7 +18,7 @@ from __future__ import annotations
 
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 from statistics import median
 
@@ -44,10 +47,14 @@ ENTITY_BASE = "http://104.248.53.141:7001/wes/api/acl-entities/v1"
 COMPANY_ID = "000029"
 COMPANY_LABEL = "Clínica Bupa Antofagasta"
 REF = date(2026, 8, 4)
+# Regla estándar WES: ventana objetivo 90 días. En esta clínica se evalúa
+# desde el 22/06/2026 para poder mostrar/activar ya la alerta.
 DIAS_BASELINE_OBJETIVO = 90
+FECHA_INICIO_EVAL = date(2026, 6, 22)
 MULT = 1.25
-DESDE = (REF - timedelta(days=DIAS_BASELINE_OBJETIVO - 1)).strftime("%d/%m/%Y")
+DESDE = FECHA_INICIO_EVAL.strftime("%d/%m/%Y")
 HASTA = REF.strftime("%d/%m/%Y")
+DIAS_VENTANA_EVAL = (REF - FECHA_INICIO_EVAL).days + 1
 
 # Solo Antofagasta — no incluir matriz ni otros puntos Bupa
 NODOS_ANTOFAGASTA = (
@@ -107,24 +114,24 @@ def _baseline_operativo(daily: dict[date, float]) -> tuple[float | None, int, fl
     """
     Retorna (promedio, dias_usados, max_diario, dias_brutos, nota).
 
-    - Parte desde el primer día con consumo > 0,05 m³ (omite ceros de puesta en marcha).
+    - Deja ceros fuera: parte desde el primer día con consumo > 0,05 m³.
     - Excluye outliers claros (p. ej. lecturas absurdas de calibración en Sala Bomba N°2).
+    - Ventana de evaluación de esta clínica: desde FECHA_INICIO_EVAL (22/06/2026).
     """
     if not daily:
-        return None, 0, None, 0, "Sin datos en la ventana"
+        return None, 0, None, 0, "Sin datos en la ventana desde 22/06/2026"
 
     ordered = sorted(daily.items())
     dias_brutos = len(ordered)
     first_nz = next((d for d, v in ordered if v > 0.05), None)
     if first_nz is None:
-        return None, 0, None, dias_brutos, "Solo ceros / sin consumo medible"
+        return None, 0, None, dias_brutos, "Solo ceros / sin consumo medible (ceros dejados fuera)"
 
     series = [(d, v) for d, v in ordered if d >= first_nz]
     raw = [v for _, v in series]
     med = median(raw) if raw else 0.0
-    # Tope de outlier: 5× mediana (mín. 50 m³); para medidor principal más holgado
     lim = max(med * 5.0, 50.0)
-    if med > 80:  # medidor principal / caudales altos normales
+    if med > 80:
         lim = max(med * 3.0, 400.0)
 
     clean = [(d, v) for d, v in series if v <= lim]
@@ -135,17 +142,12 @@ def _baseline_operativo(daily: dict[date, float]) -> tuple[float | None, int, fl
     vals = [v for _, v in clean]
     mean = sum(vals) / len(vals)
     nota = (
-        f"Desde {first_nz.strftime('%d/%m/%Y')} (primer día con consumo); "
-        f"{len(vals)} días operativos"
+        f"Evaluación desde {DESDE} (no se espera ventana completa de "
+        f"{DIAS_BASELINE_OBJETIVO} días). Ceros dejados fuera; data operativa "
+        f"desde {first_nz.strftime('%d/%m/%Y')}: {len(vals)} día(s)"
     )
     if n_out:
         nota += f"; se excluyeron {n_out} día(s) outlier de puesta en marcha"
-    if len(vals) < DIAS_BASELINE_OBJETIVO:
-        nota += (
-            f". Histórico disponible < {DIAS_BASELINE_OBJETIVO} días "
-            "(medidores recientes); se usa toda la data operativa disponible "
-            "con la misma fórmula ×1,25"
-        )
     return mean, len(vals), max(vals), dias_brutos, nota
 
 
@@ -228,9 +230,21 @@ def escribir_excel(rows: list[dict], path: Path) -> None:
     ws.append(["Compañía", COMPANY_ID])
     ws.append(["Cliente / sede", COMPANY_LABEL])
     ws.append(["Nodos incluidos", ", ".join(NODOS_ANTOFAGASTA)])
-    ws.append(["Ventana buscada", f"{DESDE} a {HASTA} ({DIAS_BASELINE_OBJETIVO} días)"])
+    ws.append(
+        [
+            "Regla estándar WES",
+            f"umbral = promedio_diario × 1,25 (ventana objetivo {DIAS_BASELINE_OBJETIVO} días, dejando ceros fuera)",
+        ]
+    )
+    ws.append(
+        [
+            "Evaluación en esta clínica",
+            f"Desde {DESDE} hasta {HASTA} ({DIAS_VENTANA_EVAL} días de calendario) — "
+            "no se espera completar los 90 días para poder activar ya la alerta",
+        ]
+    )
     ws.append(["Corte", REF.strftime("%d/%m/%Y")])
-    ws.append(["Fórmula", "umbral = promedio_diario_operativo × 1,25"])
+    ws.append(["Ceros", "Dejados fuera del baseline (solo días con consumo operativo)"])
     ws.append(
         [
             "Comportamiento API",
@@ -259,10 +273,10 @@ def escribir_word(rows: list[dict], path: Path) -> None:
     p.add_run(f"Fecha de corte: {REF.strftime('%d/%m/%Y')}\n").bold = True
     p.add_run(
         f"Puntos incluidos: {', '.join(NODOS_ANTOFAGASTA)}\n"
-        f"Ventana objetivo: últimos {DIAS_BASELINE_OBJETIVO} días ({DESDE} – {HASTA})\n"
-        f"Multiplicador propuesto: × {MULT:.2f} (+{(MULT - 1) * 100:.0f}% sobre el promedio diario)\n"
-        "Metodología: misma regla estudiada para Parque Arauco (000025). "
-        "Este estudio considera únicamente los puntos de Antofagasta."
+        f"Regla estándar WES: {DIAS_BASELINE_OBJETIVO} días × 1,25, dejando ceros fuera.\n"
+        f"Evaluación en esta clínica: desde el {DESDE} hasta el {HASTA} "
+        f"({DIAS_VENTANA_EVAL} días de calendario) — sin esperar los 90 días "
+        "completos, para poder activar ya esta alerta, que es importante para la clínica."
     )
 
     doc.add_heading("1. Objetivo", 1)
@@ -283,14 +297,14 @@ def escribir_word(rows: list[dict], path: Path) -> None:
         "No se incluyen otros puntos de la compañía 000029 (matriz u otras sedes)."
     )
 
-    doc.add_heading("3. Criterio técnico", 1)
+    doc.add_heading("3. Criterio técnico (qué se declara y qué se evalúa)", 1)
     for b in [
-        "Baseline = promedio del consumo diario operativo (desde el primer día con consumo medible).",
-        "Umbral = baseline × 1,25 (+25%).",
-        "Se excluyen ceros previos a la puesta en marcha y outliers claros de calibración (caso Sala de Bomba N°2).",
-        "Misma lógica que Parque Arauco; el +25% avisa antes que un esquema +50%, dando margen de reacción en una clínica.",
-        "Alerta API: un número por punto; se evalúa sobre el acumulado del día.",
-        "Histórico disponible aún < 90 días: se usa toda la data operativa con la misma fórmula; recalcular al completar 90 días.",
+        f"Regla estándar WES (igual que Parque Arauco): umbral = promedio diario × 1,25, con ventana objetivo de {DIAS_BASELINE_OBJETIVO} días y dejando ceros fuera del cálculo.",
+        f"Evaluación de esta clínica: se calcula el baseline solo desde el {DESDE} (no desde 90 días atrás). Motivo: poder mostrar/activar ya la alerta, que es importante para la operación de la clínica, sin esperar a completar la ventana de 90 días.",
+        "Ceros dejados fuera: el promedio usa solo días con consumo operativo (se omiten ceros previos a la puesta en marcha).",
+        "También se excluyen outliers claros de calibración (caso Sala de Bomba N°2).",
+        "Alerta API: un número por punto; se evalúa sobre el acumulado del día al cruzar el umbral.",
+        f"Cuando se complete una ventana de {DIAS_BASELINE_OBJETIVO} días, se recalculará el baseline manteniendo la misma fórmula × 1,25.",
     ]:
         doc.add_paragraph(b, style="List Bullet")
 
@@ -329,7 +343,8 @@ def escribir_word(rows: list[dict], path: Path) -> None:
 
     doc.add_heading("6. Pedido al cliente", 1)
     doc.add_paragraph(
-        "1) Validar la regla (promedio operativo × 1,25) para Clínica Bupa Antofagasta.\n"
+        "1) Validar la regla estándar (90 días × 1,25, dejando ceros fuera) y la "
+        f"evaluación desde el {DESDE} para activar ya la alerta en Clínica Bupa Antofagasta.\n"
         "2) Aprobar la carga de los umbrales en la API de alertas WES.\n"
         "3) Confirmar destinatarios de las alertas.\n"
         "4) Indicar exclusiones puntuales si algún medidor aún no está estabilizado.\n"
@@ -404,23 +419,22 @@ def escribir_correo_cliente(rows: list[dict], path_txt: Path, path_html: Path) -
 Junto con saludar, les escribimos desde WES para presentar una propuesta de umbrales de alerta de consumo diario de agua en los puntos de monitoreo de Clínica Bupa Antofagasta (nodos 000029-07, 000029-08, 000029-09 y 000029-10), y solicitar su aprobación para activarlos en la plataforma.
 
 ¿Qué queremos hacer?
-Activar, en cada uno de estos 4 puntos, un umbral máximo diario (m³/día). Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta.
+Activar, en cada uno de estos 4 puntos, un umbral máximo diario (m³/día). Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta. Esta alerta es importante para la clínica y por eso proponemos activarla ahora.
 
 ¿Cómo se calcularon los umbrales?
-Aplicamos la misma metodología ya estudiada y validada internamente en WES (también usada en otros clientes):
-• Baseline = promedio del consumo diario operativo (días con data útil desde la puesta en marcha del medidor).
+La regla estándar de WES (la misma que usamos en otros clientes) es:
+• Ventana objetivo: 90 días.
+• Baseline = promedio del consumo diario, dejando ceros fuera.
 • Umbral = baseline × 1,25 (+25% sobre el promedio).
 
-Elegimos +25% (y no +50%) para avisar con mayor margen de reacción ante alzas, fugas o comportamientos atípicos, manteniendo un umbral realista respecto al consumo habitual de la clínica.
-
-Nota: los medidores de Antofagasta tienen histórico reciente (aún menor a 90 días). Usamos toda la data operativa disponible con la misma fórmula; cuando se complete una ventana de 90 días, recalcularemos el baseline.
+Para Clínica Bupa Antofagasta evaluamos desde el {DESDE} hasta el {HASTA} (sin esperar a completar los 90 días), dejando ceros fuera del cálculo. El motivo es poder mostrar y activar ya esta alerta, que es importante para la operación de la clínica. Cuando se complete una ventana de 90 días, recalcularemos el baseline con la misma fórmula.
 
 {ejemplo_txt}Tabla propuesta — Clínica Bupa Antofagasta (valores en m³/día):
 
 {_tabla_texto(rows)}
 
 ¿Qué pedimos de su parte?
-1) Revisar la tabla y confirmar si están de acuerdo con la regla (promedio operativo × 1,25).
+1) Revisar la tabla y confirmar si están de acuerdo con la regla (90 días × 1,25, dejando ceros fuera) y con evaluar desde el {DESDE} para activar ya la alerta.
 2) Aprobar la aplicación (carga) de estos umbrales en la configuración de alertas WES.
 3) Indicar a qué correos deben llegar las alertas (si difieren de los contactos actuales).
 4) Señalar si algún punto debe excluirse por estar aún en estabilización o fuera de servicio.
@@ -450,24 +464,26 @@ monitoreo de <strong>Clínica Bupa Antofagasta</strong>
 Activar, en cada uno de estos 4 puntos, un umbral máximo diario (m³/día).
 Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el sistema
 enviará automáticamente un correo de alerta al equipo que ustedes indiquen. Así
-pueden reaccionar el mismo día, sin esperar el cierre del período ni la boleta.</p>
+pueden reaccionar el mismo día. <strong>Esta alerta es importante para la clínica</strong>
+y por eso proponemos activarla ahora.</p>
 <p><strong>¿Cómo se calcularon los umbrales?</strong><br>
-Aplicamos la misma metodología ya estudiada y validada internamente en WES:</p>
+La <strong>regla estándar de WES</strong> (igual que en otros clientes) es:</p>
 <ul>
-<li>Baseline = promedio del consumo diario operativo (días con data útil desde la puesta en marcha).</li>
+<li>Ventana objetivo: <strong>90 días</strong>.</li>
+<li>Baseline = promedio del consumo diario, <strong>dejando ceros fuera</strong>.</li>
 <li>Umbral = baseline × 1,25 (+25% sobre el promedio).</li>
 </ul>
-<p>Elegimos +25% (y no +50%) para avisar con mayor margen de reacción ante alzas,
-fugas o comportamientos atípicos.</p>
-<p><em>Nota:</em> los medidores de Antofagasta tienen histórico reciente (aún menor
-a 90 días). Usamos toda la data operativa disponible con la misma fórmula; cuando
-se complete una ventana de 90 días, recalcularemos el baseline.</p>
+<p>Para Clínica Bupa Antofagasta <strong>evaluamos desde el {DESDE} hasta el {HASTA}</strong>
+(sin esperar a completar los 90 días), dejando ceros fuera del cálculo. El motivo es
+<strong>poder mostrar y activar ya esta alerta</strong>, que es importante para la
+operación de la clínica. Cuando se complete una ventana de 90 días, recalcularemos
+el baseline con la misma fórmula.</p>
 {f"<p>Por ejemplo, en <strong>{ejemplo['nodeName']}</strong> ({ejemplo['nodeId']}) el consumo promedio operativo es de aproximadamente <strong>{fn(ejemplo['baseline'], 1)} m³/día</strong>; el umbral propuesto sería <strong>{fn(ejemplo['umbral'], 1)} m³/día</strong> (+25%).</p>" if ejemplo else ""}
 <p><strong>Tabla propuesta — Clínica Bupa Antofagasta (m³/día):</strong></p>
 {_tabla_html(rows)}
 <p><strong>¿Qué pedimos de su parte?</strong></p>
 <ol>
-<li>Revisar la tabla y confirmar si están de acuerdo con la regla (promedio operativo × 1,25).</li>
+<li>Revisar la tabla y confirmar si están de acuerdo con la regla (90 días × 1,25, dejando ceros fuera) y con evaluar desde el {DESDE} para activar ya la alerta.</li>
 <li>Aprobar la aplicación (carga) de estos umbrales en la configuración de alertas WES.</li>
 <li>Indicar a qué correos deben llegar las alertas (si difieren de los contactos actuales).</li>
 <li>Señalar si algún punto debe excluirse por estar aún en estabilización o fuera de servicio.</li>
@@ -520,21 +536,20 @@ def escribir_word_correo_cliente(rows: list[dict], path: Path) -> None:
         "Activar, en cada uno de estos 4 puntos, un umbral máximo diario (m³/día). "
         "Cuando el consumo acumulado del día supere ese valor —a cualquier hora—, el "
         "sistema enviará automáticamente un correo de alerta al equipo que ustedes "
-        "indiquen. Así pueden reaccionar el mismo día, sin esperar el cierre del período "
-        "ni la boleta."
+        "indiquen. Así pueden reaccionar el mismo día. Esta alerta es importante para "
+        "la clínica y por eso proponemos activarla ahora."
     )
     doc.add_paragraph("¿Cómo se calcularon los umbrales?").runs[0].bold = True
     doc.add_paragraph(
-        "Aplicamos la misma metodología ya estudiada y validada internamente en WES:\n"
-        "• Baseline = promedio del consumo diario operativo (días con data útil desde la "
-        "puesta en marcha del medidor).\n"
+        "La regla estándar de WES (la misma que usamos en otros clientes) es:\n"
+        "• Ventana objetivo: 90 días.\n"
+        "• Baseline = promedio del consumo diario, dejando ceros fuera.\n"
         "• Umbral = baseline × 1,25 (+25% sobre el promedio).\n\n"
-        "Elegimos +25% (y no +50%) para avisar con mayor margen de reacción ante alzas, "
-        "fugas o comportamientos atípicos, manteniendo un umbral realista respecto al "
-        "consumo habitual de la clínica.\n\n"
-        "Nota: los medidores de Antofagasta tienen histórico reciente (aún menor a 90 días). "
-        "Usamos toda la data operativa disponible con la misma fórmula; cuando se complete "
-        "una ventana de 90 días, recalcularemos el baseline."
+        f"Para Clínica Bupa Antofagasta evaluamos desde el {DESDE} hasta el {HASTA} "
+        "(sin esperar a completar los 90 días), dejando ceros fuera del cálculo. "
+        "El motivo es poder mostrar y activar ya esta alerta, que es importante para "
+        "la operación de la clínica. Cuando se complete una ventana de 90 días, "
+        "recalcularemos el baseline con la misma fórmula."
     )
     if ejemplo:
         doc.add_paragraph(
@@ -564,7 +579,7 @@ def escribir_word_correo_cliente(rows: list[dict], path: Path) -> None:
 
     doc.add_paragraph("¿Qué pedimos de su parte?").runs[0].bold = True
     for item in [
-        "Revisar la tabla y confirmar si están de acuerdo con la regla (promedio operativo × 1,25).",
+        f"Revisar la tabla y confirmar si están de acuerdo con la regla (90 días × 1,25, dejando ceros fuera) y con evaluar desde el {DESDE} para activar ya la alerta.",
         "Aprobar la aplicación (carga) de estos umbrales en la configuración de alertas WES.",
         "Indicar a qué correos deben llegar las alertas (si difieren de los contactos actuales).",
         "Señalar si algún punto debe excluirse por estar aún en estabilización o fuera de servicio.",
