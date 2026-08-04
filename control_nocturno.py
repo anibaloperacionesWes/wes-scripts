@@ -657,10 +657,26 @@ def crear_reporte_word_control(
     total_fuera = len(puntos_fuera)
     total_cumplen = max(total_puntos - total_fuera, 0)
 
+    umbrales = sorted(
+        {
+            float(meta.get("umbral_alerta", umbral))
+            for meta in targets.values()
+        }
+    )
+    if len(umbrales) == 1:
+        umbral_txt = f"> {umbrales[0]:g} (mismo para todos)"
+    elif umbrales:
+        umbral_txt = (
+            f"según Excel por establecimiento "
+            f"(desde > {umbrales[0]:g} hasta > {umbrales[-1]:g})"
+        )
+    else:
+        umbral_txt = f"> {umbral:g}"
+
     resumen = (
-        f"Periodo evaluado: {desde:%Y-%m-%d} a {hasta:%Y-%m-%d}\n"
-        f"Ventana de control: segun horario de corte de cada establecimiento (Excel).\n"
-        f"Umbral de alerta: > {umbral:.1f}\n"
+        f"Periodo evaluado: {desde:%d-%m-%Y} a {hasta:%d-%m-%Y}\n"
+        f"Ventana de control: según horario de corte de cada establecimiento (Excel).\n"
+        f"Umbral de alerta: {umbral_txt}\n"
         f"Cantidad de puntos analizados: {total_puntos}\n"
         f"Puntos cumpliendo corte: {total_cumplen}\n"
         f"Puntos fuera de control: {total_fuera}\n"
@@ -684,20 +700,29 @@ def crear_reporte_word_control(
     if not rows:
         doc.add_paragraph("No se detectaron puntos fuera de control en su ventana de corte programada.")
     else:
-        doc.add_paragraph("Se listan los puntos que registraron consumo durante la ventana de corte programada:")
-        rows_sorted = sorted(rows, key=lambda r: (r.fecha, r.colegio, r.node_id))
+        doc.add_paragraph(
+            "Se listan los puntos que registraron consumo durante la ventana de corte "
+            "programada (ordenados por máximo horario, de mayor a menor):"
+        )
+        # Prioridad operativa: primero los mayores caudales (como en revisión de alertas).
+        rows_sorted = sorted(
+            rows,
+            key=lambda r: (-float(r.consumo_max_hora_00_06), r.fecha, r.colegio, r.node_id),
+        )
         table_rows = [
-            ("Fecha", "Cliente", "Establecimiento", "Horas detectadas", "Maximo por hora", "ID WES")
+            ("Fecha", "Cliente", "Establecimiento", "Horas detectadas", "Máximo por hora", "ID WES")
         ]
         for r in rows_sorted:
             cli, est = _cliente_y_establecimiento(r.colegio, targets)
             table_rows.append(
                 (
-                    r.fecha,
+                    datetime.strptime(r.fecha, "%Y-%m-%d").strftime("%d-%m-%Y")
+                    if r.fecha and len(r.fecha) == 10
+                    else r.fecha,
                     cli,
                     est,
                     r.horas_con_consumo,
-                    f"{r.consumo_max_hora_00_06:.3f}",
+                    _fmt_m3h(r.consumo_max_hora_00_06),
                     r.node_id,
                 )
             )
@@ -764,22 +789,64 @@ def crear_reporte_word_control(
     return output_docx
 
 
+def _fmt_m3h(value: float) -> str:
+    """Formato compacto de m³/h (evita 0.400; mantiene decimales útiles)."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    s = f"{v:.3f}".rstrip("0").rstrip(".")
+    return s if s else "0"
+
+
 def convertir_docx_a_pdf(docx_path: Path) -> Optional[Path]:
     """
-    Convierte DOCX a PDF usando docx2pdf si está disponible.
+    Convierte DOCX a PDF.
+
+    Orden (cloud Linux y PC):
+    1) LibreOffice / soffice (mismo resultado visual que los PDF antiguos del equipo)
+    2) docx2pdf (Windows + Microsoft Word)
     """
-    try:
-        from docx2pdf import convert  # type: ignore
-    except Exception:
-        return None
+    import subprocess
 
     pdf_path = docx_path.with_suffix(".pdf")
+    docx_path = Path(docx_path).resolve()
+    out_dir = docx_path.parent
+
+    for bin_name in ("soffice", "libreoffice"):
+        exe = shutil.which(bin_name)
+        if not exe:
+            continue
+        try:
+            subprocess.run(
+                [
+                    exe,
+                    "--headless",
+                    "--norestore",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    str(out_dir),
+                    str(docx_path),
+                ],
+                check=True,
+                capture_output=True,
+                timeout=180,
+            )
+            if pdf_path.exists() and pdf_path.stat().st_size > 0:
+                return pdf_path
+        except Exception as e:
+            print(f"[DEBUG] {bin_name} falló al convertir a PDF: {e}")
+
     try:
+        from docx2pdf import convert  # type: ignore
+
         convert(str(docx_path), str(pdf_path))
-        if pdf_path.exists():
+        if pdf_path.exists() and pdf_path.stat().st_size > 0:
             return pdf_path
-    except Exception:
-        return None
+    except Exception as e:
+        print(f"[DEBUG] docx2pdf falló: {e}")
+
     return None
 
 
@@ -799,11 +866,11 @@ def guardar_pdf_simple(
     from matplotlib.backends.backend_pdf import PdfPages
 
     resumen = [
-        "REPORTE DE INCUMPLIMIENTO - CONTROL NOCTURNO",
-        "Clientes monitoreo + control | Ventana segun Excel",
-        f"Periodo: {desde:%Y-%m-%d} a {hasta:%Y-%m-%d}",
-        f"Umbral de alerta: > {umbral:.1f}",
-        f"Alertas detectadas: {len(rows)}",
+        "REPORTE DE CONTROL NOCTURNO (CORTES PROGRAMADOS)",
+        "Clientes monitoreo + control | Ventana según Excel",
+        f"Periodo: {desde:%d-%m-%Y} a {hasta:%d-%m-%Y}",
+        f"Umbral de alerta: según Excel por establecimiento (default > {umbral:g})",
+        f"Puntos fuera de control: {len(rows)}",
     ]
 
     with PdfPages(out_path) as pdf:
@@ -831,19 +898,28 @@ def guardar_pdf_simple(
             return
 
         page_size = 22
-        headers = ["Fecha", "Cliente", "Establecimiento", "Horas detectadas", "Max hora", "ID WES"]
-        for start in range(0, len(rows), page_size):
-            chunk = rows[start : start + page_size]
+        headers = ["Fecha", "Cliente", "Establecimiento", "Horas detectadas", "Máx. hora", "ID WES"]
+        rows_sorted = sorted(
+            rows,
+            key=lambda r: (-float(r.consumo_max_hora_00_06), r.fecha, r.colegio, r.node_id),
+        )
+        for start in range(0, len(rows_sorted), page_size):
+            chunk = rows_sorted[start : start + page_size]
             table_data = [headers]
             for r in chunk:
                 cli, est = _cliente_y_establecimiento(r.colegio, targets)
+                fecha_txt = (
+                    datetime.strptime(r.fecha, "%Y-%m-%d").strftime("%d-%m-%Y")
+                    if r.fecha and len(r.fecha) == 10
+                    else r.fecha
+                )
                 table_data.append(
                     [
-                        r.fecha,
+                        fecha_txt,
                         cli,
                         est,
                         r.horas_con_consumo,
-                        f"{r.consumo_max_hora_00_06:.3f}",
+                        _fmt_m3h(r.consumo_max_hora_00_06),
                         r.node_id,
                     ]
                 )
