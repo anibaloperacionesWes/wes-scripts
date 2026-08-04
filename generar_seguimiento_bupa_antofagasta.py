@@ -159,7 +159,7 @@ def _chart_proyeccion(path: Path, rows: list[dict], n_dias: int) -> Path:
     )
     ax.set_ylabel("m³ / 30 días", fontsize=12, fontweight="bold")
     ax.set_title(
-        f"Proyección mensual actualizada (promedio {n_dias} días × 30)",
+        f"Proyección vigente post-mejoras (promedio {n_dias} días × 30)",
         fontsize=13,
         fontweight="bold",
     )
@@ -357,6 +357,33 @@ def build_report() -> tuple[Path, Path, dict]:
     sanit_mej_proy_m3 = sanit_mej_prom * 30.0
     sanit_mej_proy_clp = sanit_mej_proy_m3 * PRECIO_M3
 
+    # Filas por punto con ritmo POST-MEJORAS (esta es la proyección vigente)
+    rows_mejoras = []
+    for n in NODOS_DEF:
+        by_day = series[n["id"]]
+        total = sum(by_day.get(d, 0.0) for d in mejoras_dates)
+        prom = total / n_mejoras if n_mejoras else 0.0
+        proy = prom * 30.0
+        rows_mejoras.append(
+            {
+                **n,
+                "m3_periodo": total,
+                "prom_dia": prom,
+                "proy_m3": proy,
+                "proy_clp": proy * PRECIO_M3,
+            }
+        )
+    sanit_mej_row = next(r for r in rows_mejoras if r["tipo"] == "cuenta")
+    bombas_mej = [r for r in rows_mejoras if r["tipo"] == "bomba"]
+    salas_mej_m3 = sum(b["proy_m3"] for b in bombas_mej)
+    salas_mej_clp = sum(b["proy_clp"] for b in bombas_mej)
+    gap_mej_m3 = max(0.0, sanit_mej_row["proy_m3"] - salas_mej_m3)
+    gap_mej_clp = gap_mej_m3 * PRECIO_M3
+    pct_salas_mej = (
+        salas_mej_m3 / sanit_mej_row["proy_m3"] * 100.0 if sanit_mej_row["proy_m3"] else 0.0
+    )
+    pct_gap_mej = 100.0 - pct_salas_mej
+
     # Estimación cierre mes calendario (agosto 2026)
     hoy = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     mes_ini = hoy.replace(day=1)
@@ -412,7 +439,7 @@ def build_report() -> tuple[Path, Path, dict]:
         BASELINE_SANIT_PROM,
     )
     chart_proy = _chart_proyeccion(
-        out_dir / "chart_proyeccion_mensual_actualizada.png", rows, n_dias
+        out_dir / "chart_proyeccion_mensual_actualizada.png", rows_mejoras, n_mejoras
     )
     chart_cmp = _chart_comparacion_periodos(
         out_dir / "chart_comparacion_periodos_proyeccion.png",
@@ -621,7 +648,7 @@ def build_report() -> tuple[Path, Path, dict]:
             f"{format_number_chilean(delta_mej, 1)} m³/día",
         ),
         (
-            "Referencia: factura julio (ticket)",
+            "Ticket julio (solo referencia histórica — NO es proyección)",
             "—",
             "—",
             format_number_chilean(FACTURA_M3, 0),
@@ -694,14 +721,27 @@ def build_report() -> tuple[Path, Path, dict]:
     doc.add_paragraph("")
     add_picture_with_pagination(doc, str(chart_diario), Inches(6.2), keep_with_next=True)
 
-    # Proyección actualizada por punto
-    add_formatted_title(doc, "Proyección mensual actualizada (WES · días completos)")
+    # Proyección vigente por punto = POST-MEJORAS (no mezclar con días pre-29/07)
+    add_formatted_title(
+        doc,
+        f"Proyección mensual vigente (post-mejoras · desde "
+        f"{datetime.strptime(MEJORAS_DESDE, '%Y-%m-%d').strftime('%d/%m/%Y')})",
+    )
     intro_p = doc.add_paragraph(
-        f"Promedio diario de {n_dias} días completos "
-        f"({start.strftime('%d/%m/%Y')}–{end.strftime('%d/%m/%Y')}) × 30. "
-        f"Tarifa efectiva factura julio: ${format_number_chilean(PRECIO_M3, 0)} CLP/m³. "
-        f"La factura ({format_number_chilean(FACTURA_M3, 0)} m³ / "
-        f"{format_currency_chilean(FACTURA_CLP)}) es solo referencia histórica."
+        f"Esta es la proyección a usar para estimar la próxima cuenta. "
+        f"Se basa solo en los {n_mejoras} días completos posteriores a las mejoras "
+        f"({datetime.strptime(MEJORAS_DESDE, '%Y-%m-%d').strftime('%d/%m/%Y')}–"
+        f"{end.strftime('%d/%m/%Y')}): promedio diario × 30, "
+        f"valorizado a ${format_number_chilean(PRECIO_M3, 0)} CLP/m³ "
+        f"(tarifa del ticket de julio). "
+        f"Importante: el ticket histórico de julio "
+        f"({format_number_chilean(FACTURA_M3, 0)} m³ / "
+        f"{format_currency_chilean(FACTURA_CLP)}) "
+        f"NO es la proyección actualizada; es solo la tarifa de referencia. "
+        f"Tampoco se usa el promedio de los 12 días completos "
+        f"({format_number_chilean(sanit['prom_dia'], 1)} m³/día → "
+        f"{format_currency_chilean(sanit['proy_clp'])}), porque ese promedio "
+        f"aún incluye los días previos a la corrección de pérdidas."
     )
     intro_p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     _set_black(intro_p)
@@ -709,13 +749,13 @@ def build_report() -> tuple[Path, Path, dict]:
     table_proy = [
         (
             "Punto",
-            f"Consumo {n_dias} días (m³)",
+            f"Consumo {n_mejoras} días post-mejoras (m³)",
             "Promedio diario (m³)",
             "Proyección 30 días (m³)",
             "Proyección 30 días (CLP)",
         )
     ]
-    for r in sorted(rows, key=lambda x: x["proy_m3"], reverse=True):
+    for r in sorted(rows_mejoras, key=lambda x: x["proy_m3"], reverse=True):
         table_proy.append(
             (
                 f"{r['nombre']} ({r['id']})",
@@ -725,27 +765,31 @@ def build_report() -> tuple[Path, Path, dict]:
                 format_currency_chilean(r["proy_clp"]),
             )
         )
-    table_proy.append(
-        (
-            "Referencia: factura julio (histórica)",
-            "—",
-            "—",
-            format_number_chilean(FACTURA_M3, 0),
-            format_currency_chilean(FACTURA_CLP),
-        )
+    add_table(doc, "Proyección vigente post-mejoras (cuenta mensual)", table_proy, wes_style=True)
+
+    aclaracion = doc.add_paragraph()
+    aclaracion.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    aclaracion.add_run("Número clave: ").bold = True
+    aclaracion.add_run(
+        f"Medidor Principal Sanitaria → "
+        f"{format_number_chilean(sanit_mej_proy_m3, 1)} m³ / "
+        f"{format_currency_chilean(sanit_mej_proy_clp)} a 30 días "
+        f"(~{format_number_chilean(sanit_mej_prom, 1)} m³/día). "
+        f"Eso es ~7,8 millones CLP, no los ~18,5 millones del ticket histórico de julio."
     )
-    add_table(doc, "Proyección / cuenta mensual actualizada", table_proy, wes_style=True)
+    _set_black(aclaracion)
 
     doc.add_paragraph("")
     add_picture_with_pagination(doc, str(chart_proy), Inches(6.0), keep_with_next=True)
 
-    # Participación
-    add_formatted_title(doc, "Participación salas vs cuenta (proyección actualizada)")
+    # Participación POST-MEJORAS
+    add_formatted_title(doc, "Participación salas vs cuenta (proyección post-mejoras)")
     expl = doc.add_paragraph(
         "Sanitaria = 100% de la cuenta. Las salas son submediciones. "
         "El diferencial es volumen no monitoreado punto a punto. "
-        f"En el baseline era ~{format_number_chilean(BASELINE_PCT_GAP, 1)}% no monitoreado; "
-        f"con data actualizada queda en {format_number_chilean(pct_gap, 1)}%."
+        f"En el baseline (con pérdidas) el no monitoreado era ~"
+        f"{format_number_chilean(BASELINE_PCT_GAP, 1)}%; "
+        f"con el ritmo post-mejoras queda en {format_number_chilean(pct_gap_mej, 1)}%."
     )
     expl.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     _set_black(expl)
@@ -754,37 +798,37 @@ def build_report() -> tuple[Path, Path, dict]:
         ("Concepto", "Proy. 30 días (m³)", "Proy. 30 días (CLP)", "% sobre Sanitaria"),
         (
             "Medidor Principal Sanitaria (cuenta / 100%)",
-            format_number_chilean(sanit["proy_m3"], 1),
-            format_currency_chilean(sanit["proy_clp"]),
+            format_number_chilean(sanit_mej_row["proy_m3"], 1),
+            format_currency_chilean(sanit_mej_row["proy_clp"]),
             "100,0%",
         ),
     ]
-    for b in sorted(bombas, key=lambda x: x["proy_m3"], reverse=True):
+    for b in sorted(bombas_mej, key=lambda x: x["proy_m3"], reverse=True):
         part_rows.append(
             (
                 f"{b['nombre']} ({b['id']})",
                 format_number_chilean(b["proy_m3"], 1),
                 format_currency_chilean(b["proy_clp"]),
-                f"{format_number_chilean(b['proy_m3'] / sanit['proy_m3'] * 100, 1)}%",
+                f"{format_number_chilean(b['proy_m3'] / sanit_mej_row['proy_m3'] * 100, 1)}%",
             )
         )
     part_rows.append(
         (
             "TOTAL salas de bomba (07+08+10)",
-            format_number_chilean(salas_m3, 1),
-            format_currency_chilean(salas_clp),
-            f"{format_number_chilean(pct_salas, 1)}%",
+            format_number_chilean(salas_mej_m3, 1),
+            format_currency_chilean(salas_mej_clp),
+            f"{format_number_chilean(pct_salas_mej, 1)}%",
         )
     )
     part_rows.append(
         (
             "NO MONITOREADO (Sanitaria − salas)",
-            format_number_chilean(gap_m3, 1),
-            format_currency_chilean(gap_clp),
-            f"{format_number_chilean(pct_gap, 1)}%",
+            format_number_chilean(gap_mej_m3, 1),
+            format_currency_chilean(gap_mej_clp),
+            f"{format_number_chilean(pct_gap_mej, 1)}%",
         )
     )
-    add_table(doc, "Participación actualizada", part_rows, wes_style=True)
+    add_table(doc, "Participación post-mejoras", part_rows, wes_style=True)
 
     nota_anom = doc.add_paragraph()
     nota_anom.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
@@ -842,10 +886,10 @@ def build_report() -> tuple[Path, Path, dict]:
             f"{format_number_chilean(sanit_mej_prom, 1)} m³/día."
         ),
         (
-            f"Participación salas: de {format_number_chilean(BASELINE_PCT_SALAS, 1)}% "
-            f"a {format_number_chilean(pct_salas, 1)}% de la cuenta proyectada; "
+            f"Participación salas (post-mejoras): de {format_number_chilean(BASELINE_PCT_SALAS, 1)}% "
+            f"a {format_number_chilean(pct_salas_mej, 1)}% de la cuenta proyectada; "
             f"no monitoreado de {format_number_chilean(BASELINE_PCT_GAP, 1)}% a "
-            f"{format_number_chilean(pct_gap, 1)}%."
+            f"{format_number_chilean(pct_gap_mej, 1)}%."
         ),
     ]
     for b in bullets:
@@ -884,8 +928,8 @@ def build_report() -> tuple[Path, Path, dict]:
         "ahorro_vs_proy_prev": ahorro_vs_proy_prev,
         "precio_m3": PRECIO_M3,
         "continua": continua,
-        "pct_salas": pct_salas,
-        "pct_gap": pct_gap,
+        "pct_salas": pct_salas_mej,
+        "pct_gap": pct_gap_mej,
         "n_bajo": n_bajo,
         "n_alto": n_alto,
         "start": start.strftime("%d/%m/%Y"),
