@@ -1,5 +1,6 @@
 Excel: https://docs.google.com/spreadsheets/d/1VBpftmBqOjsksosTytYKeUnV-ULaw4KI/edit?usp=drivesdk
 Propuesta Word: https://docs.google.com/document/d/1qjqOOtPJGKTa0rzldnA-aVrwvrethW97/edit?usp=drivesdk
+Propuesta PDF: https://drive.google.com/file/d/1fvGZTumtgf-Jo8R2TBwcy6JgZSJbtfLu/view?usp=drivesdk
 Correo cliente (Word): https://docs.google.com/document/d/1pH8J_5afBQ51njpcvh6lpntKP4nJ_Tbl/edit?usp=drivesdk
 Correo cliente (txt): https://drive.google.com/file/d/1qdG1rjg9I0auH7wq6AvOF3cHzJZZ9kgv/view?usp=drivesdk
 Correo cliente (html): https://drive.google.com/file/d/1iBxAdHdK7bWoLr7ncL8zOR_4qDzXFP20/view?usp=drivesdk
