@@ -13,7 +13,7 @@ from exclusiones_reportes import (
     EXCLUDED_NODE_IDS_PUNTOS_EN_CERO,
 )
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from docx import Document
 from docx.shared import Inches, RGBColor, Pt
@@ -27,6 +27,13 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 from wes_paths import reporte_cero_dir
+
+try:
+    from zoneinfo import ZoneInfo
+
+    CHILE_TZ = ZoneInfo("America/Santiago")
+except Exception:
+    CHILE_TZ = timezone(timedelta(hours=-4))
 
 # Carpeta de salida por defecto: Google Drive (salvo WES_SCRIPTS_ROOT o si G: no existe).
 _DEFAULT_REPORTE_CERO_DIR = reporte_cero_dir()
@@ -240,58 +247,156 @@ def _horas_desde_csv_medidas(csv_content: str) -> Tuple[Dict[int, float], bool]:
     return hourly_data, True
 
 
+def _ref_datetime_utc() -> datetime:
+    global FECHA_REFERENCIA_UTC
+    if FECHA_REFERENCIA_UTC is not None:
+        ref = FECHA_REFERENCIA_UTC
+        if ref.tzinfo is None:
+            return ref.replace(tzinfo=timezone.utc)
+        return ref
+    return datetime.now(timezone.utc)
+
+
+def _dia_chile_desde_utc(dt: datetime) -> date:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(CHILE_TZ).date()
+
+
+def _parse_wes_stamp(stamp: object) -> Optional[datetime]:
+    """
+    Interpreta marcas WES tipo ``050826 09:59`` (ddMMyy HH:MM) como hora Chile.
+    """
+    if stamp is None:
+        return None
+    text = str(stamp).strip()
+    if not text:
+        return None
+    parts = text.split()
+    if len(parts) < 2:
+        return None
+    d_part, t_part = parts[0], parts[1]
+    if len(d_part) != 6:
+        return None
+    try:
+        day = int(d_part[0:2])
+        month = int(d_part[2:4])
+        year = 2000 + int(d_part[4:6])
+        hh_mm = t_part.split(":")
+        hour = int(hh_mm[0])
+        minute = int(hh_mm[1]) if len(hh_mm) > 1 else 0
+        return datetime(year, month, day, hour, minute, tzinfo=CHILE_TZ)
+    except (ValueError, TypeError, IndexError):
+        return None
+
+
+def _csv_dia_tiene_filas(node_id: str, dia_chile: date) -> Tuple[bool, float]:
+    """
+    Consulta CSV del día (start=end=ddMMyyyy del día Chile).
+    Retorna (tiene_filas, consumo_total).
+    """
+    url = f"{BASE_URL}/nodes/{node_id}/dates.measures.csv"
+    date_str = dia_chile.strftime("%d%m%Y")
+    try:
+        response = requests.get(
+            url, params=[("start", date_str), ("end", date_str)], timeout=30
+        )
+        if response.status_code != 200:
+            return False, 0.0
+        hourly_data, tiene = _horas_desde_csv_medidas(response.text)
+        if not tiene:
+            return False, 0.0
+        consumo = sum(hourly_data.values()) if hourly_data else 0.0
+        return True, consumo
+    except requests.exceptions.RequestException:
+        return False, 0.0
+    except Exception:
+        return False, 0.0
+
+
+def _nodo_tiene_actividad_hoy(node_id: str, dia_chile: date) -> bool:
+    """
+    Fallback cuando el CSV del día viene vacío: usa el estado en vivo del nodo
+    (``lastUpdate`` / ``measureUpdate`` / ``mch``), igual que se ve en la app.
+    """
+    url = f"{BASE_URL}/nodes/{node_id}"
+    try:
+        response = requests.get(url, timeout=20)
+        if response.status_code != 200:
+            return False
+        data = response.json()
+        if not isinstance(data, dict):
+            return False
+    except Exception:
+        return False
+
+    for key in ("measureUpdate", "lastUpdate"):
+        stamp = _parse_wes_stamp(data.get(key))
+        if stamp is not None and stamp.date() == dia_chile:
+            return True
+
+    # Stream vivo del día Chile (wesDate = ddMMyy)
+    wes_date = str(data.get("wesDate") or "").strip()
+    if len(wes_date) == 6:
+        try:
+            wd = date(2000 + int(wes_date[4:6]), int(wes_date[2:4]), int(wes_date[0:2]))
+            if wd == dia_chile:
+                try:
+                    mch = float(str(data.get("mch") or "0").replace(",", ".").strip())
+                except (ValueError, TypeError):
+                    mch = 0.0
+                status = str(data.get("wesStatus") or "").strip().upper()
+                if status == "ON" or mch > 0:
+                    return True
+        except (ValueError, TypeError):
+            pass
+    return False
+
+
 def verificar_consumo_cero(node_id: str, dias_revisar: int = 3) -> Tuple[bool, Optional[str]]:
     """
-    Verifica si un nodo está marcando cero en los últimos días.
-    
-    Args:
-        node_id: ID del nodo a verificar
-        dias_revisar: Número de días hacia atrás para revisar (default: 3)
-    
+    Verifica si un nodo está marcando cero / sin datos.
+
+    - **En cero**: revisa los últimos ``dias_revisar`` días Chile (default 3).
+    - **Sin datos**: solo el **día de hoy** (acción diaria). Si el CSV del día
+      está vacío pero el nodo tiene actividad en vivo (app / lastUpdate /
+      measureUpdate / mch), no se notifica como sin datos.
+
     Returns:
         Tuple[bool, Optional[str]]: (esta_en_cero, mensaje_error)
-        - esta_en_cero: True si está en cero, False si tiene consumo o hay error
-        - mensaje_error: None si OK, mensaje de error si hay problema
+        - esta_en_cero: True si está en cero, False si tiene consumo o sin datos
+        - mensaje_error: ``\"Sin datos disponibles\"`` solo si hoy no hay CSV ni actividad
     """
-    global FECHA_REFERENCIA_UTC
-    hoy = FECHA_REFERENCIA_UTC if FECHA_REFERENCIA_UTC is not None else datetime.now(timezone.utc)
+    ref = _ref_datetime_utc()
+    hoy_chile = _dia_chile_desde_utc(ref)
+    dias_revisar = max(1, int(dias_revisar))
 
-    # Una sola pasada por día (antes se repetían los mismos GET en un segundo bucle).
     any_day_with_data_rows = False
 
     for dias_atras in range(dias_revisar):
-        fecha = hoy - timedelta(days=dias_atras)
-        date_str = fecha.strftime("%d%m%Y")
-        url = f"{BASE_URL}/nodes/{node_id}/dates.measures.csv"
-        params = [("start", date_str), ("end", date_str)]
-
-        try:
-            response = requests.get(url, params=params, timeout=30)
-
-            if response.status_code != 200:
-                continue
-
-            csv_content = response.text
-            hourly_data, tiene_filas_datos = _horas_desde_csv_medidas(csv_content)
-            if not tiene_filas_datos:
-                continue
-
-            any_day_with_data_rows = True
-
-            if hourly_data:
-                valores = list(hourly_data.values())
-                consumo_total = sum(valores)
-
-                if consumo_total > 0:
-                    return False, None
-
-        except requests.exceptions.RequestException:
+        dia = hoy_chile - timedelta(days=dias_atras)
+        tiene_filas, consumo_total = _csv_dia_tiene_filas(node_id, dia)
+        if not tiene_filas:
             continue
-        except Exception:
-            continue
+        any_day_with_data_rows = True
+        if consumo_total > 0:
+            return False, None
 
     if any_day_with_data_rows:
         return True, None
+
+    # Sin filas CSV en la ventana de «en cero»: «sin datos» solo evalúa HOY.
+    tiene_hoy, consumo_hoy = _csv_dia_tiene_filas(node_id, hoy_chile)
+    if tiene_hoy:
+        if consumo_hoy > 0:
+            return False, None
+        return True, None
+
+    if _nodo_tiene_actividad_hoy(node_id, hoy_chile):
+        # Nodo vivo en app aunque el histórico CSV del día aún no tenga filas
+        # (caso 000012-06: lastUpdate/mch del día, measureUpdate atrasado).
+        return False, None
+
     return False, "Sin datos disponibles"
 
 
@@ -636,11 +741,12 @@ def crear_reporte_word(
         doc.add_paragraph("No se encontraron puntos marcando cero en el sistema.")
         doc.add_paragraph("")  # Espacio
 
-    # Sección: Puntos sin datos
+    # Sección: Puntos sin datos (solo el día de hoy — acción diaria)
     if puntos_sin_datos:
         doc.add_heading("PUNTOS SIN DATOS DISPONIBLES", 1)
         doc.add_paragraph(
-            "Los siguientes puntos no tienen datos disponibles en los últimos días (sin respuesta de la API o sin registros):"
+            "Los siguientes puntos no tienen datos disponibles hoy "
+            "(sin registros CSV del día ni actividad en vivo en la app):"
         )
         
         # Ordenar por empresa y luego por nombre del punto
@@ -710,19 +816,20 @@ def crear_reporte_word(
 
     # Nota al pie
     if dias_revisar <= 1:
-        ventana_txt = "solo el día de referencia (hoy)"
+        ventana_cero = "el día de hoy"
     else:
-        ventana_txt = f"los últimos {dias_revisar} días de datos"
+        ventana_cero = f"los últimos {dias_revisar} días de datos"
     if solo_sin_datos:
         texto_nota = (
-            f"Nota: Este reporte verifica {ventana_txt}. "
-            "Un punto se considera «sin datos» si no hay respuesta de la API o no hay registros en esa ventana."
+            "Nota: «Sin datos» se evalúa solo el día de hoy. "
+            "Se marca si no hay registros CSV del día ni actividad en vivo "
+            "(lastUpdate / measureUpdate / mch en la app)."
         )
     else:
         texto_nota = (
-            f"Nota: Este reporte verifica {ventana_txt}. "
-            "Un punto se considera 'en cero' si todos sus registros horarios son cero durante este periodo. "
-            "Un punto se considera 'sin datos' si no hay respuesta de la API o no hay registros en esa ventana."
+            f"Nota: «En cero» usa {ventana_cero}. "
+            "«Sin datos» se evalúa solo el día de hoy (acción diaria): sin CSV del día "
+            "ni actividad en vivo del nodo."
         )
     nota = doc.add_paragraph(texto_nota)
     nota.runs[0].font.italic = True
@@ -761,9 +868,10 @@ def main(
         else "REPORTE DE PUNTOS EN CERO"
     )
     if dias_revisar <= 1:
-        print("Ventana: solo el día de hoy (referencia UTC)")
+        print("Ventana en cero: solo el día de hoy (Chile)")
     else:
-        print(f"Ventana: últimos {dias_revisar} días")
+        print(f"Ventana en cero: últimos {dias_revisar} días (Chile)")
+    print("Ventana sin datos: solo el día de hoy (CSV o actividad en vivo)")
     print("=" * 70)
     print()
     
@@ -1023,7 +1131,10 @@ if __name__ == "__main__":
         type=int,
         default=3,
         metavar="N",
-        help="Días a revisar hacia atrás desde la fecha de referencia (default: 3). Use 1 para solo hoy.",
+        help=(
+            "Días Chile a revisar para «en cero» (default: 3). "
+            "«Sin datos» siempre evalúa solo el día de hoy."
+        ),
     )
     args = parser.parse_args()
     out = args.output_dir.resolve() if args.output_dir else None
