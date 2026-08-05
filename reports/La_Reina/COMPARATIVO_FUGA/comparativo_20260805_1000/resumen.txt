@@ -1,0 +1,5 @@
+Ventana: 2026-08-04 12:00 → 2026-08-05 10:00
+Volumen ventana m3: 239.2
+Live mch: 1.900 lpm: 22
+DOCX: /workspace/reports/La_Reina/COMPARATIVO_FUGA/comparativo_20260805_1000/Comparativo_Fuga_La_Reina_Hostos_20260805_1000.docx
+PDF: /workspace/reports/La_Reina/COMPARATIVO_FUGA/comparativo_20260805_1000/Comparativo_Fuga_La_Reina_Hostos_20260805_1000.pdf
