@@ -41,6 +41,8 @@ DIAS_BUSCAR_ULTIMA_MEDIDA = max(7, int(os.environ.get("WES_CERO_DIAS_ULTIMA_MEDI
 HORAS_UMBRAL_DESCONECTADO = float(os.environ.get("WES_CERO_HORAS_DESCONECTADO", "48"))
 # No notificar como «sin datos» si la última medida fue hace menos de N horas (<1 día).
 HORAS_OMITIR_SIN_DATOS = float(os.environ.get("WES_CERO_HORAS_OMITIR_SIN_DATOS", "24"))
+# App: si lastUpdate tiene más de N horas → se considera desconectado (wesStatus puede seguir ON).
+HORAS_UMBRAL_CONEXION_APP = float(os.environ.get("WES_CERO_HORAS_CONEXION_APP", "2"))
 
 # Carpeta de salida por defecto: Google Drive (salvo WES_SCRIPTS_ROOT o si G: no existe).
 _DEFAULT_REPORTE_CERO_DIR = reporte_cero_dir()
@@ -534,47 +536,115 @@ def _horas_desde(dt: Optional[datetime], ref: Optional[datetime] = None) -> Opti
     return (ahora - dt).total_seconds() / 3600.0
 
 
+def _parse_wes_local_timestamp(s: str) -> Optional[datetime]:
+    """
+    Parsea marcas de la app/API tipo ``DDMMYY HH:MM`` (hora Chile).
+    Ej.: ``030826 20:44`` → 2026-08-03 20:44 America/Santiago.
+    """
+    s = (s or "").strip()
+    if not s:
+        return None
+    parts = s.split()
+    if len(parts) < 2:
+        return None
+    d, t = parts[0], parts[1]
+    if len(d) != 6 or ":" not in t:
+        return None
+    try:
+        day, mon, yy = int(d[0:2]), int(d[2:4]), int(d[4:6])
+        hh_mm = t.split(":")
+        hh, mm = int(hh_mm[0]), int(hh_mm[1])
+        return datetime(2000 + yy, mon, day, hh, mm, tzinfo=_CHILE_TZ)
+    except (ValueError, TypeError, IndexError):
+        return None
+
+
+def obtener_estado_conexion_nodo(node_id: str) -> Dict[str, Optional[object]]:
+    """
+    Lee ``GET /nodes/{id}``: lastUpdate / measureUpdate (hora Chile) y wesStatus.
+    La app trata como desconectado cuando lastUpdate está viejo (aunque wesStatus=ON).
+    """
+    url = f"{BASE_URL}/nodes/{node_id}"
+    out: Dict[str, Optional[object]] = {
+        "wesStatus": None,
+        "lastUpdateRaw": None,
+        "lastUpdate": None,
+        "measureUpdate": None,
+        "mch": None,
+        "ok": False,
+    }
+    try:
+        response = requests.get(url, timeout=12)
+        if response.status_code != 200:
+            return out
+        data = response.json() if response.content else {}
+        out["ok"] = True
+        out["wesStatus"] = str(data.get("wesStatus") or "").strip() or None
+        out["lastUpdateRaw"] = str(data.get("lastUpdate") or "").strip() or None
+        out["mch"] = data.get("mch")
+        out["lastUpdate"] = _parse_wes_local_timestamp(str(data.get("lastUpdate") or ""))
+        out["measureUpdate"] = _parse_wes_local_timestamp(str(data.get("measureUpdate") or ""))
+        return out
+    except Exception:
+        return out
+
+
 def clasificar_motivo_sin_datos(
     ultima: Optional[datetime],
     estado_busqueda: str,
     *,
     dias_ventana_reporte: int,
     dias_busqueda: int = DIAS_BUSCAR_ULTIMA_MEDIDA,
-    umbral_horas_desconectado: float = HORAS_UMBRAL_DESCONECTADO,
+    last_update: Optional[datetime] = None,
+    umbral_conexion_horas: float = HORAS_UMBRAL_CONEXION_APP,
     ref: Optional[datetime] = None,
 ) -> str:
     """
-    Motivo para puntos **notificados** como sin datos (≥24 h sin medida).
+    Motivo para puntos **notificados** como sin datos (≥24 h sin medida):
 
-    No usa «Desconectado» aquí: los cortes <24 h se omiten del informe.
-    Los listados se tratan como equipo que sigue/volverá conectado, con hueco
-    desde la última medida (al reconectar no recupera el histórico de ese periodo).
+    - **Desconectado** si ``lastUpdate`` de la app tiene ≥ umbral (default 2 h):
+      indica desde qué fecha/hora no está conectado.
+    - **Conectado pero sin datos** si ``lastUpdate`` está fresco pero no hay medidas
+      en la ventana (no recupera histórico del hueco).
     """
-    del umbral_horas_desconectado  # reservado; el filtro <24 h vive en enriquecer_*
-    horas = _horas_desde(ultima, ref)
-    ultima_txt = _fmt_chile(ultima)
+    ref = ref if ref is not None else datetime.now(timezone.utc)
+    if ref.tzinfo is None:
+        ref = ref.replace(tzinfo=timezone.utc)
+    # Comparar lastUpdate (Chile) vs ahora
+    ref_chile = ref.astimezone(_CHILE_TZ) if ref.tzinfo else ref.replace(tzinfo=timezone.utc).astimezone(_CHILE_TZ)
 
-    if ultima is not None and horas is not None:
-        if horas < 0:
-            horas = 0.0
-        dias = max(1, int(horas // 24))
-        if horas % 24 >= 12:
-            dias = max(dias, int(round(horas / 24.0)))
-        if horas < 48:
-            antiguedad = f"~{int(round(horas))} h"
-        else:
-            antiguedad = f"{dias} día{'s' if dias != 1 else ''}"
+    horas_medida = _horas_desde(ultima, ref)
+    corte_conexion = last_update or ultima
+    horas_conexion = None
+    if corte_conexion is not None:
+        if corte_conexion.tzinfo is None:
+            corte_conexion = corte_conexion.replace(tzinfo=timezone.utc)
+        horas_conexion = (ref_chile - corte_conexion.astimezone(_CHILE_TZ)).total_seconds() / 3600.0
+
+    desconectado = horas_conexion is not None and horas_conexion >= float(umbral_conexion_horas)
+
+    if desconectado and corte_conexion is not None:
         return (
-            f"Equipo conectado — sin datos desde {ultima_txt} Chile "
-            f"({antiguedad}; no recupera histórico)"
+            f"Desconectado desde {_fmt_chile(corte_conexion)} Chile "
+            f"({_fmt_antiguedad(horas_conexion or 0)})"
+        )
+
+    if ultima is not None and horas_medida is not None:
+        return (
+            f"Conectado pero sin datos desde {_fmt_chile(ultima)} Chile "
+            f"({_fmt_antiguedad(horas_medida)}; no recupera histórico)"
         )
 
     if estado_busqueda == "sin respuesta API":
         return "Sin respuesta de API de medidas"
+    if last_update is not None and not desconectado:
+        return (
+            f"Conectado pero sin datos en ≥{dias_busqueda} días "
+            f"(última conexión app: {_fmt_chile(last_update)} Chile; no recupera histórico)"
+        )
     return (
-        f"Equipo conectado — sin medida en ≥{dias_busqueda} días "
-        f"(no recupera histórico; ventana reporte: "
-        f"{dias_ventana_reporte} día{'s' if dias_ventana_reporte != 1 else ''})"
+        f"Sin medida en ≥{dias_busqueda} días "
+        f"(ventana reporte: {dias_ventana_reporte} día{'s' if dias_ventana_reporte != 1 else ''})"
     )
 
 
@@ -657,17 +727,26 @@ def enriquecer_puntos_sin_datos(
     def _one(punto: Dict) -> Dict:
         node_id = str(punto.get("nodeId", "")).strip()
         ultima, estado = obtener_ultima_medida(node_id, dias_buscar=dias_buscar)
+        conexion = obtener_estado_conexion_nodo(node_id)
+        last_update = conexion.get("lastUpdate")
+        if isinstance(last_update, datetime):
+            last_upd_dt: Optional[datetime] = last_update
+        else:
+            last_upd_dt = None
         horas = _horas_desde(ultima, ref)
         motivo = clasificar_motivo_sin_datos(
             ultima,
             estado,
             dias_ventana_reporte=dias_ventana_reporte,
             dias_busqueda=dias_buscar,
+            last_update=last_upd_dt,
             ref=ref,
         )
         out = dict(punto)
         out["motivo"] = motivo
         out["ultimaMedidaChile"] = _fmt_chile(ultima)
+        out["lastUpdateChile"] = _fmt_chile(last_upd_dt)
+        out["wesStatus"] = conexion.get("wesStatus")
         out["haceHoras"] = round(horas, 1) if horas is not None else None
         out["estadoUltima"] = estado
         out["omitirPorCorteReciente"] = bool(
@@ -1048,8 +1127,9 @@ def crear_reporte_word(
         doc.add_paragraph(
             "Los siguientes puntos no tienen datos en la ventana del reporte y llevan "
             f"≥{HORAS_OMITIR_SIN_DATOS:.0f} h sin medida (desconexiones de menos de 1 día no se notifican). "
-            "Motivo: equipo conectado (o que volverá a conectar) con hueco desde la última medida; "
-            "al reconectar no recupera el histórico de ese periodo."
+            "Motivo: si la app no tiene conexión reciente (lastUpdate viejo) → "
+            "«Desconectado desde…»; si sigue conectado pero sin medidas → "
+            "«Conectado pero sin datos desde… (no recupera histórico)»."
         )
         
         # Ordenar por empresa y luego por nombre del punto
@@ -1136,7 +1216,8 @@ def crear_reporte_word(
             f"Nota: Este reporte verifica {ventana_txt}. "
             "Un punto se considera «sin datos» si no hay respuesta de la API o no hay registros en esa ventana. "
             f"Desconexiones <{HORAS_OMITIR_SIN_DATOS:.0f} h no se notifican. "
-            "Los listados se marcan como «Equipo conectado — sin datos desde… (no recupera histórico)»."
+            f"Conexión app: si lastUpdate tiene ≥{HORAS_UMBRAL_CONEXION_APP:.0f} h → «Desconectado desde…»; "
+            "si lastUpdate es reciente → «Conectado pero sin datos…»."
         )
     else:
         texto_nota = (
@@ -1146,8 +1227,8 @@ def crear_reporte_word(
             "Motivo en cero: desde cuándo (última hora con consumo > 0 hacia atrás, hasta 30 días). "
             "Un punto se considera 'sin datos' si no hay registros en esa ventana. "
             f"Filtro: desconexiones con última medida <{HORAS_OMITIR_SIN_DATOS:.0f} h no se listan. "
-            "Motivo sin datos: equipo conectado (o que reconectará) con hueco desde la última medida; "
-            "al reconectar no recupera el histórico de ese periodo."
+            f"Motivo sin datos: «Desconectado desde…» si lastUpdate app ≥{HORAS_UMBRAL_CONEXION_APP:.0f} h; "
+            "«Conectado pero sin datos…» si sigue con lastUpdate fresco (no recupera histórico)."
         )
     nota = doc.add_paragraph(texto_nota)
     nota.runs[0].font.italic = True
