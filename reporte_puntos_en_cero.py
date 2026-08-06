@@ -37,8 +37,10 @@ except Exception:
 
 # Ventana extendida para diagnosticar «sin datos» (última medida / desconexión).
 DIAS_BUSCAR_ULTIMA_MEDIDA = max(7, int(os.environ.get("WES_CERO_DIAS_ULTIMA_MEDIDA", "14")))
-# Si la última medida es más reciente que esto → motivo «Desconectado».
+# Si la última medida es más reciente que esto → motivo «Desconectado» (solo listados).
 HORAS_UMBRAL_DESCONECTADO = float(os.environ.get("WES_CERO_HORAS_DESCONECTADO", "48"))
+# No notificar como «sin datos» si la última medida fue hace menos de N horas (<1 día).
+HORAS_OMITIR_SIN_DATOS = float(os.environ.get("WES_CERO_HORAS_OMITIR_SIN_DATOS", "24"))
 
 # Carpeta de salida por defecto: Google Drive (salvo WES_SCRIPTS_ROOT o si G: no existe).
 _DEFAULT_REPORTE_CERO_DIR = reporte_cero_dir()
@@ -425,10 +427,18 @@ def enriquecer_puntos_sin_datos(
     puntos_sin_datos: List[Dict],
     dias_ventana_reporte: int,
     dias_buscar: int = DIAS_BUSCAR_ULTIMA_MEDIDA,
-) -> List[Dict]:
-    """Agrega motivo / última medida a cada punto sin datos (en paralelo)."""
+    horas_omitir: float = HORAS_OMITIR_SIN_DATOS,
+) -> Tuple[List[Dict], List[Dict]]:
+    """
+    Agrega motivo / última medida a cada punto sin datos (en paralelo).
+
+    Filtra (no notifica) puntos con última medida hace menos de ``horas_omitir``
+    (por defecto 24 h): corte reciente / equipo desconectado <1 día.
+
+    Retorna (a_reportar, omitidos_corte_reciente).
+    """
     if not puntos_sin_datos:
-        return puntos_sin_datos
+        return [], []
 
     ref = FECHA_REFERENCIA_UTC if FECHA_REFERENCIA_UTC is not None else datetime.now(timezone.utc)
 
@@ -448,10 +458,17 @@ def enriquecer_puntos_sin_datos(
         out["ultimaMedidaChile"] = _fmt_chile(ultima)
         out["haceHoras"] = round(horas, 1) if horas is not None else None
         out["estadoUltima"] = estado
+        out["omitirPorCorteReciente"] = bool(
+            horas is not None and horas < float(horas_omitir)
+        )
         return out
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS_CERO) as ex:
-        return list(ex.map(_one, puntos_sin_datos))
+        enriquecidos = list(ex.map(_one, puntos_sin_datos))
+
+    a_reportar = [p for p in enriquecidos if not p.get("omitirPorCorteReciente")]
+    omitidos = [p for p in enriquecidos if p.get("omitirPorCorteReciente")]
+    return a_reportar, omitidos
 
 
 def _parse_alert_hour(alert: Dict) -> str:
@@ -616,10 +633,12 @@ def crear_reporte_word(
     fecha_generacion_utc: Optional[datetime] = None,
     solo_sin_datos: bool = False,
     dias_revisar: int = 3,
+    omitidos_corte_reciente: int = 0,
 ) -> Path:
     """
     Crea un documento Word con el reporte de puntos en cero y sin datos.
     Con ``solo_sin_datos=True`` solo incluye resumen y tabla de puntos sin datos (sin sección «en cero»).
+    ``omitidos_corte_reciente``: puntos con última medida <24 h que no se notifican.
     """
     doc = Document()
 
@@ -650,21 +669,27 @@ def crear_reporte_word(
     doc.add_heading("RESUMEN EJECUTIVO", 1)
     puntos_con_datos = total_puntos - len(puntos_sin_datos)
     if solo_sin_datos:
-        summary_para = doc.add_paragraph(
+        summary_txt = (
             f"Total de puntos analizados: {total_puntos}\n"
-            f"Puntos sin datos disponibles: {len(puntos_sin_datos)}\n"
+            f"Puntos sin datos (notificados): {len(puntos_sin_datos)}\n"
             f"Puntos con al menos un registro en el periodo revisado: {puntos_con_datos}\n"
-            f"Porcentaje sin datos: {(len(puntos_sin_datos) / total_puntos * 100) if total_puntos > 0 else 0:.2f}%"
+            f"Porcentaje sin datos (notificados): {(len(puntos_sin_datos) / total_puntos * 100) if total_puntos > 0 else 0:.2f}%"
         )
     else:
-        summary_para = doc.add_paragraph(
+        summary_txt = (
             f"Total de puntos analizados: {total_puntos}\n"
             f"Puntos con datos disponibles: {puntos_con_datos}\n"
             f"Puntos marcando cero: {len(puntos_en_cero)}\n"
-            f"Puntos sin datos disponibles: {len(puntos_sin_datos)}\n"
+            f"Puntos sin datos (notificados): {len(puntos_sin_datos)}\n"
             f"Porcentaje en cero: {(len(puntos_en_cero) / puntos_con_datos * 100) if puntos_con_datos > 0 else 0:.2f}%\n"
-            f"Porcentaje sin datos: {(len(puntos_sin_datos) / total_puntos * 100) if total_puntos > 0 else 0:.2f}%"
+            f"Porcentaje sin datos (notificados): {(len(puntos_sin_datos) / total_puntos * 100) if total_puntos > 0 else 0:.2f}%"
         )
+    if omitidos_corte_reciente > 0:
+        summary_txt += (
+            f"\nCortes recientes omitidos (<{HORAS_OMITIR_SIN_DATOS:.0f} h desde última medida): "
+            f"{omitidos_corte_reciente} (no se notifican como sin datos)"
+        )
+    summary_para = doc.add_paragraph(summary_txt)
     summary_para.runs[0].font.color.rgb = RGBColor(0, 0, 0)
 
     doc.add_paragraph("")  # Espacio
@@ -799,9 +824,9 @@ def crear_reporte_word(
     if puntos_sin_datos:
         doc.add_heading("PUNTOS SIN DATOS DISPONIBLES", 1)
         doc.add_paragraph(
-            "Los siguientes puntos no tienen datos en la ventana del reporte. "
-            "La columna Motivo indica si el equipo parece desconectado (última medida reciente) "
-            "o si lleva varios días sin enviar datos."
+            "Los siguientes puntos no tienen datos en la ventana del reporte y llevan "
+            f"≥{HORAS_OMITIR_SIN_DATOS:.0f} h sin medida (cortes de menos de 1 día no se notifican). "
+            "La columna Motivo indica antigüedad de la última medida."
         )
         
         # Ordenar por empresa y luego por nombre del punto
@@ -880,18 +905,19 @@ def crear_reporte_word(
         texto_nota = (
             f"Nota: Este reporte verifica {ventana_txt}. "
             "Un punto se considera «sin datos» si no hay respuesta de la API o no hay registros en esa ventana. "
-            f"El Motivo se basa en la última medida encontrada en hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días: "
-            f"«Desconectado» si la última medida tiene ≤{int(HORAS_UMBRAL_DESCONECTADO)} h; "
-            "si no, se indica cuántos días lleva sin datos."
+            f"No se notifican cortes con última medida hace menos de {HORAS_OMITIR_SIN_DATOS:.0f} h "
+            "(desconexión reciente / <1 día). "
+            f"El Motivo de los listados usa hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días de historial."
         )
     else:
         texto_nota = (
             f"Nota: Este reporte verifica {ventana_txt}. "
             "Un punto se considera 'en cero' si todos sus registros horarios son cero durante este periodo. "
             "Un punto se considera 'sin datos' si no hay respuesta de la API o no hay registros en esa ventana. "
-            f"En la tabla sin datos, Motivo usa la última medida (hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días): "
-            f"«Desconectado» si ≤{int(HORAS_UMBRAL_DESCONECTADO)} h desde la última medida; "
-            "si no, «Sin datos hace N días»."
+            f"Filtro: no se listan como sin datos si la última medida tiene <{HORAS_OMITIR_SIN_DATOS:.0f} h "
+            "(corte reciente). "
+            f"Motivo (listados): última medida hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días; "
+            f"«Desconectado» si ≤{int(HORAS_UMBRAL_DESCONECTADO)} h; si no, «Sin datos hace N días»."
         )
     nota = doc.add_paragraph(texto_nota)
     nota.runs[0].font.italic = True
@@ -995,6 +1021,7 @@ def main(
                 f"en cero: {len(puntos_en_cero)} | sin datos: {len(puntos_sin_datos)}\n"
             )
 
+    omitidos_corte_reciente = 0
     if puntos_sin_datos:
         print()
         print("=" * 70)
@@ -1004,12 +1031,33 @@ def main(
             f"Buscando última medida (hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días) "
             f"en {len(puntos_sin_datos)} punto(s)..."
         )
-        puntos_sin_datos = enriquecer_puntos_sin_datos(
+        print(
+            f"Filtro: no notificar si última medida < {HORAS_OMITIR_SIN_DATOS:.0f} h "
+            "(desconexión / corte reciente)."
+        )
+        puntos_sin_datos, omitidos_recientes = enriquecer_puntos_sin_datos(
             puntos_sin_datos,
             dias_ventana_reporte=dias_revisar,
         )
-        for p in sorted(puntos_sin_datos, key=lambda x: (x["companyName"], x["nodeName"])):
-            print(f"  {p['nodeId']} | {p['nodeName'][:32]:<32} | {p.get('motivo', '')}")
+        omitidos_corte_reciente = len(omitidos_recientes)
+        if omitidos_recientes:
+            print(
+                f"\nOmitidos del informe ({len(omitidos_recientes)}; "
+                f"última medida < {HORAS_OMITIR_SIN_DATOS:.0f} h):"
+            )
+            for p in sorted(omitidos_recientes, key=lambda x: (x["companyName"], x["nodeName"])):
+                horas = p.get("haceHoras")
+                horas_txt = f"~{horas} h" if horas is not None else "?"
+                print(
+                    f"  [OMITIDO] {p['nodeId']} | {p['nodeName'][:32]:<32} | "
+                    f"última hace {horas_txt} ({p.get('ultimaMedidaChile', '—')} Chile)"
+                )
+        if puntos_sin_datos:
+            print(f"\nA notificar como sin datos: {len(puntos_sin_datos)}")
+            for p in sorted(puntos_sin_datos, key=lambda x: (x["companyName"], x["nodeName"])):
+                print(f"  {p['nodeId']} | {p['nodeName'][:32]:<32} | {p.get('motivo', '')}")
+        else:
+            print("\nA notificar como sin datos: 0 (todos los cortes eran <1 día).")
     
     print()
     print("=" * 70)
@@ -1037,6 +1085,7 @@ def main(
             fecha_generacion_utc=ref,
             solo_sin_datos=solo_sin_datos,
             dias_revisar=dias_revisar,
+            omitidos_corte_reciente=omitidos_corte_reciente,
         )
         print(f"[OK] Reporte generado exitosamente:")
         print(f"  {reporte_path}")
@@ -1055,6 +1104,11 @@ def main(
             print(f"Puntos sin datos disponibles: {len(puntos_sin_datos)}")
             print(f"Porcentaje en cero: {(len(puntos_en_cero) / puntos_con_datos * 100) if puntos_con_datos > 0 else 0:.2f}%")
         print(f"Porcentaje sin datos: {(len(puntos_sin_datos) / len(todos_nodos) * 100) if todos_nodos else 0:.2f}%")
+        if omitidos_corte_reciente:
+            print(
+                f"Cortes <{HORAS_OMITIR_SIN_DATOS:.0f} h omitidos (no notificados): "
+                f"{omitidos_corte_reciente}"
+            )
         if fallos_verificacion:
             print(f"Advertencia: {fallos_verificacion} punto(s) con error al verificar (revisar mensajes [ERROR] arriba).")
         print()
