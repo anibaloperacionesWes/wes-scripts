@@ -28,6 +28,18 @@ from collections import defaultdict
 
 from wes_paths import reporte_cero_dir
 
+try:
+    from zoneinfo import ZoneInfo
+
+    _CHILE_TZ = ZoneInfo("America/Santiago")
+except Exception:
+    _CHILE_TZ = timezone(timedelta(hours=-4))
+
+# Ventana extendida para diagnosticar «sin datos» (última medida / desconexión).
+DIAS_BUSCAR_ULTIMA_MEDIDA = max(7, int(os.environ.get("WES_CERO_DIAS_ULTIMA_MEDIDA", "14")))
+# Si la última medida es más reciente que esto → motivo «Desconectado».
+HORAS_UMBRAL_DESCONECTADO = float(os.environ.get("WES_CERO_HORAS_DESCONECTADO", "48"))
+
 # Carpeta de salida por defecto: Google Drive (salvo WES_SCRIPTS_ROOT o si G: no existe).
 _DEFAULT_REPORTE_CERO_DIR = reporte_cero_dir()
 
@@ -293,6 +305,153 @@ def verificar_consumo_cero(node_id: str, dias_revisar: int = 3) -> Tuple[bool, O
     if any_day_with_data_rows:
         return True, None
     return False, "Sin datos disponibles"
+
+
+def _parse_time_utc_medida(time_str: str) -> Optional[datetime]:
+    try:
+        return datetime.fromisoformat(time_str.strip().replace("Z", "+00:00"))
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def obtener_ultima_medida(
+    node_id: str,
+    dias_buscar: int = DIAS_BUSCAR_ULTIMA_MEDIDA,
+) -> Tuple[Optional[datetime], str]:
+    """
+    Busca la marca TIME más reciente en dates.measures.csv (ventana extendida).
+    Retorna (datetime UTC aware o None, estado).
+    """
+    global FECHA_REFERENCIA_UTC
+    ref = FECHA_REFERENCIA_UTC if FECHA_REFERENCIA_UTC is not None else datetime.now(timezone.utc)
+    ultima: Optional[datetime] = None
+    errores = 0
+    dias_buscar = max(1, int(dias_buscar))
+    url = f"{BASE_URL}/nodes/{node_id}/dates.measures.csv"
+
+    for dias_atras in range(dias_buscar):
+        fecha = ref - timedelta(days=dias_atras)
+        date_str = fecha.strftime("%d%m%Y")
+        try:
+            response = requests.get(url, params=[("start", date_str), ("end", date_str)], timeout=25)
+            if response.status_code != 200:
+                errores += 1
+                continue
+            for line in response.text.strip().splitlines()[1:]:
+                line = line.strip()
+                if not line or "," not in line:
+                    continue
+                time_str = line.split(",", 1)[0].strip()
+                dt = _parse_time_utc_medida(time_str)
+                if dt is not None and (ultima is None or dt > ultima):
+                    ultima = dt
+        except requests.RequestException:
+            errores += 1
+            continue
+        except Exception:
+            continue
+
+    if ultima is not None:
+        return ultima, "OK"
+    if errores >= dias_buscar:
+        return None, "sin respuesta API"
+    return None, "sin medida en ventana"
+
+
+def _fmt_chile(dt: Optional[datetime]) -> str:
+    if dt is None:
+        return "—"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_CHILE_TZ).strftime("%d-%m-%Y %H:%M")
+
+
+def _horas_desde(dt: Optional[datetime], ref: Optional[datetime] = None) -> Optional[float]:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    ahora = ref if ref is not None else datetime.now(timezone.utc)
+    if ahora.tzinfo is None:
+        ahora = ahora.replace(tzinfo=timezone.utc)
+    return (ahora - dt).total_seconds() / 3600.0
+
+
+def clasificar_motivo_sin_datos(
+    ultima: Optional[datetime],
+    estado_busqueda: str,
+    *,
+    dias_ventana_reporte: int,
+    dias_busqueda: int = DIAS_BUSCAR_ULTIMA_MEDIDA,
+    umbral_horas_desconectado: float = HORAS_UMBRAL_DESCONECTADO,
+    ref: Optional[datetime] = None,
+) -> str:
+    """
+    Motivo legible para la tabla «sin datos»:
+    - Desconectado hace ~Xh (última medida reciente fuera de la ventana del reporte)
+    - Sin datos hace N días
+    - Sin medida en ≥N días / sin respuesta API
+    """
+    horas = _horas_desde(ultima, ref)
+    ultima_txt = _fmt_chile(ultima)
+
+    if ultima is not None and horas is not None:
+        if horas < 0:
+            horas = 0.0
+        if horas <= umbral_horas_desconectado:
+            if horas < 1:
+                hace = "menos de 1 h"
+            elif horas < 48:
+                hace = f"~{int(round(horas))} h"
+            else:
+                dias = max(1, int(round(horas / 24.0)))
+                hace = f"~{dias} día{'s' if dias != 1 else ''}"
+            return f"Desconectado hace {hace} (última: {ultima_txt} Chile)"
+
+        dias = max(1, int(horas // 24))
+        if horas % 24 >= 12:
+            dias = max(dias, int(round(horas / 24.0)))
+        return f"Sin datos hace {dias} día{'s' if dias != 1 else ''} (última: {ultima_txt} Chile)"
+
+    if estado_busqueda == "sin respuesta API":
+        return "Sin respuesta de API de medidas"
+    return (
+        f"Sin medida en ≥{dias_busqueda} días "
+        f"(ventana reporte: {dias_ventana_reporte} día{'s' if dias_ventana_reporte != 1 else ''})"
+    )
+
+
+def enriquecer_puntos_sin_datos(
+    puntos_sin_datos: List[Dict],
+    dias_ventana_reporte: int,
+    dias_buscar: int = DIAS_BUSCAR_ULTIMA_MEDIDA,
+) -> List[Dict]:
+    """Agrega motivo / última medida a cada punto sin datos (en paralelo)."""
+    if not puntos_sin_datos:
+        return puntos_sin_datos
+
+    ref = FECHA_REFERENCIA_UTC if FECHA_REFERENCIA_UTC is not None else datetime.now(timezone.utc)
+
+    def _one(punto: Dict) -> Dict:
+        node_id = str(punto.get("nodeId", "")).strip()
+        ultima, estado = obtener_ultima_medida(node_id, dias_buscar=dias_buscar)
+        horas = _horas_desde(ultima, ref)
+        motivo = clasificar_motivo_sin_datos(
+            ultima,
+            estado,
+            dias_ventana_reporte=dias_ventana_reporte,
+            dias_busqueda=dias_buscar,
+            ref=ref,
+        )
+        out = dict(punto)
+        out["motivo"] = motivo
+        out["ultimaMedidaChile"] = _fmt_chile(ultima)
+        out["haceHoras"] = round(horas, 1) if horas is not None else None
+        out["estadoUltima"] = estado
+        return out
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS_CERO) as ex:
+        return list(ex.map(_one, puntos_sin_datos))
 
 
 def _parse_alert_hour(alert: Dict) -> str:
@@ -640,7 +799,9 @@ def crear_reporte_word(
     if puntos_sin_datos:
         doc.add_heading("PUNTOS SIN DATOS DISPONIBLES", 1)
         doc.add_paragraph(
-            "Los siguientes puntos no tienen datos disponibles en los últimos días (sin respuesta de la API o sin registros):"
+            "Los siguientes puntos no tienen datos en la ventana del reporte. "
+            "La columna Motivo indica si el equipo parece desconectado (última medida reciente) "
+            "o si lleva varios días sin enviar datos."
         )
         
         # Ordenar por empresa y luego por nombre del punto
@@ -649,13 +810,13 @@ def crear_reporte_word(
             key=lambda x: (x["companyName"], x["nodeName"])
         )
         
-        rows = [("Nodo ID", "Nombre del Punto", "Empresa", "ID Empresa")]
+        rows = [("Nodo ID", "Nombre del Punto", "Empresa", "Motivo")]
         for punto in puntos_sin_datos_ordenados:
             rows.append((
                 punto["nodeId"],
                 punto["nodeName"],
                 punto["companyName"],
-                punto["companyId"]
+                punto.get("motivo") or "Sin datos (motivo no determinado)",
             ))
         
         # Crear tabla
@@ -663,10 +824,10 @@ def crear_reporte_word(
         table.style = 'Light Grid Accent 1'
         
         # Ajustar ancho de columnas
-        table.columns[0].width = Inches(1.5)  # Nodo ID
-        table.columns[1].width = Inches(3.5)  # Nombre
-        table.columns[2].width = Inches(2.5)  # Empresa
-        table.columns[3].width = Inches(1.5)  # ID Empresa
+        table.columns[0].width = Inches(1.2)  # Nodo ID
+        table.columns[1].width = Inches(2.4)  # Nombre
+        table.columns[2].width = Inches(1.8)  # Empresa
+        table.columns[3].width = Inches(3.6)  # Motivo
         
         # Encabezados
         header_cells = table.rows[0].cells
@@ -691,6 +852,8 @@ def crear_reporte_word(
                 cell = table.rows[row_idx].cells[col_idx]
                 cell.text = str(value)
                 cell.paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
+                for run in cell.paragraphs[0].runs:
+                    run.font.size = Pt(9)
                 # Alternar color de fondo para mejor legibilidad
                 if row_idx % 2 == 0:
                     try:
@@ -716,13 +879,19 @@ def crear_reporte_word(
     if solo_sin_datos:
         texto_nota = (
             f"Nota: Este reporte verifica {ventana_txt}. "
-            "Un punto se considera «sin datos» si no hay respuesta de la API o no hay registros en esa ventana."
+            "Un punto se considera «sin datos» si no hay respuesta de la API o no hay registros en esa ventana. "
+            f"El Motivo se basa en la última medida encontrada en hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días: "
+            f"«Desconectado» si la última medida tiene ≤{int(HORAS_UMBRAL_DESCONECTADO)} h; "
+            "si no, se indica cuántos días lleva sin datos."
         )
     else:
         texto_nota = (
             f"Nota: Este reporte verifica {ventana_txt}. "
             "Un punto se considera 'en cero' si todos sus registros horarios son cero durante este periodo. "
-            "Un punto se considera 'sin datos' si no hay respuesta de la API o no hay registros en esa ventana."
+            "Un punto se considera 'sin datos' si no hay respuesta de la API o no hay registros en esa ventana. "
+            f"En la tabla sin datos, Motivo usa la última medida (hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días): "
+            f"«Desconectado» si ≤{int(HORAS_UMBRAL_DESCONECTADO)} h desde la última medida; "
+            "si no, «Sin datos hace N días»."
         )
     nota = doc.add_paragraph(texto_nota)
     nota.runs[0].font.italic = True
@@ -825,6 +994,22 @@ def main(
                 f"\nProgreso (listado): {i}/{len(todos_nodos)} | "
                 f"en cero: {len(puntos_en_cero)} | sin datos: {len(puntos_sin_datos)}\n"
             )
+
+    if puntos_sin_datos:
+        print()
+        print("=" * 70)
+        print("DIAGNÓSTICO SIN DATOS (última medida / motivo)")
+        print("=" * 70)
+        print(
+            f"Buscando última medida (hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días) "
+            f"en {len(puntos_sin_datos)} punto(s)..."
+        )
+        puntos_sin_datos = enriquecer_puntos_sin_datos(
+            puntos_sin_datos,
+            dias_ventana_reporte=dias_revisar,
+        )
+        for p in sorted(puntos_sin_datos, key=lambda x: (x["companyName"], x["nodeName"])):
+            print(f"  {p['nodeId']} | {p['nodeName'][:32]:<32} | {p.get('motivo', '')}")
     
     print()
     print("=" * 70)
