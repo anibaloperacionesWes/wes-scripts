@@ -389,38 +389,95 @@ def clasificar_motivo_sin_datos(
     ref: Optional[datetime] = None,
 ) -> str:
     """
-    Motivo legible para la tabla «sin datos»:
-    - Desconectado hace ~Xh (última medida reciente fuera de la ventana del reporte)
-    - Sin datos hace N días
-    - Sin medida en ≥N días / sin respuesta API
+    Motivo para puntos **notificados** como sin datos (≥24 h sin medida).
+
+    No usa «Desconectado» aquí: los cortes <24 h se omiten del informe.
+    Los listados se tratan como equipo que sigue/volverá conectado, con hueco
+    desde la última medida (al reconectar no recupera el histórico de ese periodo).
     """
+    del umbral_horas_desconectado  # reservado; el filtro <24 h vive en enriquecer_*
     horas = _horas_desde(ultima, ref)
     ultima_txt = _fmt_chile(ultima)
 
     if ultima is not None and horas is not None:
         if horas < 0:
             horas = 0.0
-        if horas <= umbral_horas_desconectado:
-            if horas < 1:
-                hace = "menos de 1 h"
-            elif horas < 48:
-                hace = f"~{int(round(horas))} h"
-            else:
-                dias = max(1, int(round(horas / 24.0)))
-                hace = f"~{dias} día{'s' if dias != 1 else ''}"
-            return f"Desconectado hace {hace} (última: {ultima_txt} Chile)"
-
         dias = max(1, int(horas // 24))
         if horas % 24 >= 12:
             dias = max(dias, int(round(horas / 24.0)))
-        return f"Sin datos hace {dias} día{'s' if dias != 1 else ''} (última: {ultima_txt} Chile)"
+        if horas < 48:
+            antiguedad = f"~{int(round(horas))} h"
+        else:
+            antiguedad = f"{dias} día{'s' if dias != 1 else ''}"
+        return (
+            f"Equipo conectado — sin datos desde {ultima_txt} Chile "
+            f"({antiguedad}; no recupera histórico)"
+        )
 
     if estado_busqueda == "sin respuesta API":
         return "Sin respuesta de API de medidas"
     return (
-        f"Sin medida en ≥{dias_busqueda} días "
-        f"(ventana reporte: {dias_ventana_reporte} día{'s' if dias_ventana_reporte != 1 else ''})"
+        f"Equipo conectado — sin medida en ≥{dias_busqueda} días "
+        f"(no recupera histórico; ventana reporte: "
+        f"{dias_ventana_reporte} día{'s' if dias_ventana_reporte != 1 else ''})"
     )
+
+
+def _set_cell_width(cell, width_inches: float) -> None:
+    """Fija ancho de celda en DXA (twips*20) para que Word/PDF respeten el layout."""
+    width = Inches(width_inches)
+    cell.width = width
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcW = tcPr.find(qn("w:tcW"))
+    if tcW is None:
+        tcW = parse_xml(
+            f'<w:tcW xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+            f'w:w="{width.twips}" w:type="dxa"/>'
+        )
+        tcPr.append(tcW)
+    else:
+        tcW.set(qn("w:w"), str(width.twips))
+        tcW.set(qn("w:type"), "dxa")
+
+
+def _aplicar_anchos_tabla(table, widths_inches: List[float]) -> None:
+    """Layout fijo mitad/mitad u otra proporción por columna."""
+    try:
+        table.autofit = False
+    except Exception:
+        pass
+    tbl = table._tbl
+    tblPr = tbl.tblPr
+    if tblPr is None:
+        tblPr = parse_xml(
+            '<w:tblPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'
+        )
+        tbl.insert(0, tblPr)
+    # Preferir layout fijo
+    if tblPr.find(qn("w:tblLayout")) is None:
+        tblPr.append(
+            parse_xml(
+                '<w:tblLayout xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+                'w:type="fixed"/>'
+            )
+        )
+    total = sum(widths_inches)
+    tblW = tblPr.find(qn("w:tblW"))
+    if tblW is None:
+        tblPr.append(
+            parse_xml(
+                f'<w:tblW xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+                f'w:w="{Inches(total).twips}" w:type="dxa"/>'
+            )
+        )
+    else:
+        tblW.set(qn("w:w"), str(Inches(total).twips))
+        tblW.set(qn("w:type"), "dxa")
+    for row in table.rows:
+        for idx, w in enumerate(widths_inches):
+            if idx < len(row.cells):
+                _set_cell_width(row.cells[idx], w)
 
 
 def enriquecer_puntos_sin_datos(
@@ -825,8 +882,9 @@ def crear_reporte_word(
         doc.add_heading("PUNTOS SIN DATOS DISPONIBLES", 1)
         doc.add_paragraph(
             "Los siguientes puntos no tienen datos en la ventana del reporte y llevan "
-            f"≥{HORAS_OMITIR_SIN_DATOS:.0f} h sin medida (cortes de menos de 1 día no se notifican). "
-            "La columna Motivo indica antigüedad de la última medida."
+            f"≥{HORAS_OMITIR_SIN_DATOS:.0f} h sin medida (desconexiones de menos de 1 día no se notifican). "
+            "Motivo: equipo conectado (o que volverá a conectar) con hueco desde la última medida; "
+            "al reconectar no recupera el histórico de ese periodo."
         )
         
         # Ordenar por empresa y luego por nombre del punto
@@ -844,15 +902,11 @@ def crear_reporte_word(
                 punto.get("motivo") or "Sin datos (motivo no determinado)",
             ))
         
-        # Crear tabla
+        # Crear tabla — mitad izquierda (ID/Nombre/Empresa) / mitad Motivo
         table = doc.add_table(rows=len(rows), cols=4)
         table.style = 'Light Grid Accent 1'
-        
-        # Ajustar ancho de columnas
-        table.columns[0].width = Inches(1.2)  # Nodo ID
-        table.columns[1].width = Inches(2.4)  # Nombre
-        table.columns[2].width = Inches(1.8)  # Empresa
-        table.columns[3].width = Inches(3.6)  # Motivo
+        # ~6.5" útiles: 50% izquierda (3.25") + 50% Motivo (3.25")
+        anchos = [0.95, 1.35, 0.95, 3.25]
         
         # Encabezados
         header_cells = table.rows[0].cells
@@ -861,6 +915,7 @@ def crear_reporte_word(
             header_cells[i].paragraphs[0].runs[0].font.bold = True
             header_cells[i].paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
             header_cells[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+            header_cells[i].paragraphs[0].runs[0].font.size = Pt(9)
             # Fondo naranja para encabezados
             try:
                 shading_xml = '<w:shd xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" w:val="clear" w:fill="E67E22"/>'
@@ -878,7 +933,7 @@ def crear_reporte_word(
                 cell.text = str(value)
                 cell.paragraphs[0].alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
                 for run in cell.paragraphs[0].runs:
-                    run.font.size = Pt(9)
+                    run.font.size = Pt(8 if col_idx == 3 else 9)
                 # Alternar color de fondo para mejor legibilidad
                 if row_idx % 2 == 0:
                     try:
@@ -889,11 +944,18 @@ def crear_reporte_word(
                             tc_pr.append(shading)
                     except Exception:
                         pass
+
+        _aplicar_anchos_tabla(table, anchos)
         
         doc.add_paragraph("")  # Espacio
     else:
         doc.add_heading("PUNTOS SIN DATOS DISPONIBLES", 1)
-        doc.add_paragraph("Todos los puntos tienen datos disponibles.")
+        doc.add_paragraph(
+            "No hay puntos sin datos para notificar "
+            f"(cortes con última medida <{HORAS_OMITIR_SIN_DATOS:.0f} h se omiten)."
+            if omitidos_corte_reciente
+            else "Todos los puntos tienen datos disponibles."
+        )
         doc.add_paragraph("")  # Espacio
 
     # Nota al pie
@@ -905,19 +967,17 @@ def crear_reporte_word(
         texto_nota = (
             f"Nota: Este reporte verifica {ventana_txt}. "
             "Un punto se considera «sin datos» si no hay respuesta de la API o no hay registros en esa ventana. "
-            f"No se notifican cortes con última medida hace menos de {HORAS_OMITIR_SIN_DATOS:.0f} h "
-            "(desconexión reciente / <1 día). "
-            f"El Motivo de los listados usa hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días de historial."
+            f"Desconexiones <{HORAS_OMITIR_SIN_DATOS:.0f} h no se notifican. "
+            "Los listados se marcan como «Equipo conectado — sin datos desde… (no recupera histórico)»."
         )
     else:
         texto_nota = (
             f"Nota: Este reporte verifica {ventana_txt}. "
             "Un punto se considera 'en cero' si todos sus registros horarios son cero durante este periodo. "
             "Un punto se considera 'sin datos' si no hay respuesta de la API o no hay registros en esa ventana. "
-            f"Filtro: no se listan como sin datos si la última medida tiene <{HORAS_OMITIR_SIN_DATOS:.0f} h "
-            "(corte reciente). "
-            f"Motivo (listados): última medida hasta {DIAS_BUSCAR_ULTIMA_MEDIDA} días; "
-            f"«Desconectado» si ≤{int(HORAS_UMBRAL_DESCONECTADO)} h; si no, «Sin datos hace N días»."
+            f"Filtro: desconexiones con última medida <{HORAS_OMITIR_SIN_DATOS:.0f} h no se listan. "
+            "Motivo en listados: equipo conectado (o que reconectará) con hueco desde la última medida; "
+            "al reconectar no recupera el histórico de ese periodo."
         )
     nota = doc.add_paragraph(texto_nota)
     nota.runs[0].font.italic = True
