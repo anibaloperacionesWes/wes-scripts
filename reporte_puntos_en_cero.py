@@ -254,66 +254,93 @@ def _horas_desde_csv_medidas(csv_content: str) -> Tuple[Dict[int, float], bool]:
     return hourly_data, True
 
 
-def verificar_consumo_cero(node_id: str, dias_revisar: int = 3) -> Tuple[bool, Optional[str]]:
-    """
-    Verifica si un nodo está marcando cero en los últimos días.
-    
-    Args:
-        node_id: ID del nodo a verificar
-        dias_revisar: Número de días hacia atrás para revisar (default: 3)
-    
-    Returns:
-        Tuple[bool, Optional[str]]: (esta_en_cero, mensaje_error)
-        - esta_en_cero: True si está en cero, False si tiene consumo o hay error
-        - mensaje_error: None si OK, mensaje de error si hay problema
-    """
-    global FECHA_REFERENCIA_UTC
-    hoy = FECHA_REFERENCIA_UTC if FECHA_REFERENCIA_UTC is not None else datetime.now(timezone.utc)
-
-    # Una sola pasada por día (antes se repetían los mismos GET en un segundo bucle).
-    any_day_with_data_rows = False
-
-    for dias_atras in range(dias_revisar):
-        fecha = hoy - timedelta(days=dias_atras)
-        date_str = fecha.strftime("%d%m%Y")
-        url = f"{BASE_URL}/nodes/{node_id}/dates.measures.csv"
-        params = [("start", date_str), ("end", date_str)]
-
-        try:
-            response = requests.get(url, params=params, timeout=30)
-
-            if response.status_code != 200:
-                continue
-
-            csv_content = response.text
-            hourly_data, tiene_filas_datos = _horas_desde_csv_medidas(csv_content)
-            if not tiene_filas_datos:
-                continue
-
-            any_day_with_data_rows = True
-
-            if hourly_data:
-                valores = list(hourly_data.values())
-                consumo_total = sum(valores)
-
-                if consumo_total > 0:
-                    return False, None
-
-        except requests.exceptions.RequestException:
-            continue
-        except Exception:
-            continue
-
-    if any_day_with_data_rows:
-        return True, None
-    return False, "Sin datos disponibles"
-
-
 def _parse_time_utc_medida(time_str: str) -> Optional[datetime]:
     try:
         return datetime.fromisoformat(time_str.strip().replace("Z", "+00:00"))
     except (ValueError, TypeError, AttributeError):
         return None
+
+
+def _iter_medidas_csv(csv_content: str) -> List[Tuple[datetime, float]]:
+    """Parsea TIME,VALUE del CSV de medidas a lista (datetime UTC aware, valor)."""
+    out: List[Tuple[datetime, float]] = []
+    lines = csv_content.strip().splitlines()
+    if len(lines) <= 1:
+        return out
+    for line in lines[1:]:
+        line = line.strip()
+        if not line or "," not in line:
+            continue
+        time_str, value_str = line.split(",", 1)
+        dt = _parse_time_utc_medida(time_str.strip())
+        if dt is None:
+            continue
+        try:
+            value = float(value_str.strip().replace(" ", "").replace(",", "."))
+        except (ValueError, TypeError):
+            continue
+        out.append((dt, value))
+    return out
+
+
+def verificar_consumo_cero(node_id: str, dias_revisar: int = 3) -> Tuple[bool, Optional[str]]:
+    """
+    Verifica si un nodo está marcando cero en una ventana móvil.
+
+    Ventana = últimas ``dias_revisar * 24`` horas hasta la referencia, en tiempo real
+    (hora Chile para el criterio operativo; los timestamps de API se interpretan en UTC).
+
+    - Si en esa ventana hay algún valor > 0 → NO está en cero (p. ej. ayer consumió
+      y hoy de madrugada va en 0: no se notifica).
+    - Si hay registros y todos son 0 → en cero.
+    - Si no hay registros en la ventana → sin datos.
+
+    Args:
+        node_id: ID del nodo a verificar
+        dias_revisar: días de ventana (1 = últimas 24 h, 3 = últimas 72 h)
+
+    Returns:
+        (esta_en_cero, mensaje_error)
+    """
+    global FECHA_REFERENCIA_UTC
+    ref = FECHA_REFERENCIA_UTC if FECHA_REFERENCIA_UTC is not None else datetime.now(timezone.utc)
+    if ref.tzinfo is None:
+        ref = ref.replace(tzinfo=timezone.utc)
+
+    dias_revisar = max(1, int(dias_revisar))
+    horas_ventana = dias_revisar * 24
+    inicio = ref - timedelta(hours=horas_ventana)
+
+    # Días calendario UTC a pedir (margen +1 por cruce de huso / borde de ventana).
+    dias_api = dias_revisar + 2
+    url = f"{BASE_URL}/nodes/{node_id}/dates.measures.csv"
+    medidas: List[Tuple[datetime, float]] = []
+    errores = 0
+
+    for dias_atras in range(dias_api):
+        fecha = ref - timedelta(days=dias_atras)
+        date_str = fecha.strftime("%d%m%Y")
+        try:
+            response = requests.get(url, params=[("start", date_str), ("end", date_str)], timeout=30)
+            if response.status_code != 200:
+                errores += 1
+                continue
+            medidas.extend(_iter_medidas_csv(response.text))
+        except requests.exceptions.RequestException:
+            errores += 1
+            continue
+        except Exception:
+            continue
+
+    en_ventana = [(dt, v) for dt, v in medidas if inicio <= dt <= ref]
+    if en_ventana:
+        if any(v > 0 for _, v in en_ventana):
+            return False, None
+        return True, None
+
+    if errores >= dias_api:
+        return False, "Sin datos disponibles"
+    return False, "Sin datos disponibles"
 
 
 def obtener_ultima_medida(
@@ -809,7 +836,9 @@ def crear_reporte_word(
     if not solo_sin_datos and puntos_en_cero:
         doc.add_heading("PUNTOS MARCANDO CERO", 1)
         doc.add_paragraph(
-            "Los siguientes puntos están registrando consumo cero en los últimos días:"
+            "Los siguientes puntos registran consumo cero en toda la ventana revisada "
+            "(si hubo consumo reciente fuera de un tramo en cero — p. ej. ayer con consumo y "
+            "madrugada en 0 — no aparecen aquí):"
         )
         
         # Ordenar por empresa y luego por nombre del punto
@@ -960,9 +989,12 @@ def crear_reporte_word(
 
     # Nota al pie
     if dias_revisar <= 1:
-        ventana_txt = "solo el día de referencia (hoy)"
+        ventana_txt = "las últimas 24 horas (ventana móvil; todas las horas con registro)"
     else:
-        ventana_txt = f"los últimos {dias_revisar} días de datos"
+        ventana_txt = (
+            f"las últimas {dias_revisar * 24} horas "
+            f"({dias_revisar} días móviles; todas las horas con registro)"
+        )
     if solo_sin_datos:
         texto_nota = (
             f"Nota: Este reporte verifica {ventana_txt}. "
@@ -973,8 +1005,9 @@ def crear_reporte_word(
     else:
         texto_nota = (
             f"Nota: Este reporte verifica {ventana_txt}. "
-            "Un punto se considera 'en cero' si todos sus registros horarios son cero durante este periodo. "
-            "Un punto se considera 'sin datos' si no hay respuesta de la API o no hay registros en esa ventana. "
+            "Un punto se considera 'en cero' solo si TODOS los registros de esa ventana son cero "
+            "(si hubo consumo ayer y hoy de madrugada va en 0, NO se notifica). "
+            "Un punto se considera 'sin datos' si no hay registros en esa ventana. "
             f"Filtro: desconexiones con última medida <{HORAS_OMITIR_SIN_DATOS:.0f} h no se listan. "
             "Motivo en listados: equipo conectado (o que reconectará) con hueco desde la última medida; "
             "al reconectar no recupera el histórico de ese periodo."
@@ -1016,9 +1049,9 @@ def main(
         else "REPORTE DE PUNTOS EN CERO"
     )
     if dias_revisar <= 1:
-        print("Ventana: solo el día de hoy (referencia UTC)")
+        print("Ventana en cero/sin datos: últimas 24 horas (móvil)")
     else:
-        print(f"Ventana: últimos {dias_revisar} días")
+        print(f"Ventana en cero/sin datos: últimas {dias_revisar * 24} horas ({dias_revisar} días móviles)")
     print("=" * 70)
     print()
     
