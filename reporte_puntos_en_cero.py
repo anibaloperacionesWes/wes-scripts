@@ -866,7 +866,7 @@ def crear_reporte_word(
     title_run = title.runs[0]
     title_run.font.color.rgb = color_titulo
     title_run.bold = True
-    title_run.font.size = Pt(20)
+    title_run.font.size = Pt(18)
 
     # Fecha de generación
     _gen = fecha_generacion_utc if fecha_generacion_utc is not None else datetime.now(timezone.utc)
@@ -874,10 +874,9 @@ def crear_reporte_word(
     gen_para = doc.add_paragraph(f"Reporte generado: {fecha_generacion} UTC")
     gen_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
     gen_para.runs[0].font.color.rgb = RGBColor(0, 0, 0)
+    gen_para.paragraph_format.space_after = Pt(6)
 
-    doc.add_paragraph("")  # Espacio
-
-    # Resumen ejecutivo
+    # Resumen ejecutivo (compacto) + gráfica en la PRIMERA hoja
     doc.add_heading("RESUMEN EJECUTIVO", 1)
     puntos_con_datos = total_puntos - len(puntos_sin_datos)
     if solo_sin_datos:
@@ -903,10 +902,10 @@ def crear_reporte_word(
         )
     summary_para = doc.add_paragraph(summary_txt)
     summary_para.runs[0].font.color.rgb = RGBColor(0, 0, 0)
+    summary_para.runs[0].font.size = Pt(10)
+    summary_para.paragraph_format.space_after = Pt(4)
 
-    doc.add_paragraph("")  # Espacio
-
-    # Gráfica de anillo
+    # Gráfica de anillo (tamaño reducido para caber en la 1ª hoja)
     try:
         en_cero = len(puntos_en_cero)
         sin_datos = len(puntos_sin_datos)
@@ -922,7 +921,7 @@ def crear_reporte_word(
             colores = ["#E74C3C", "#E67E22", "#2ECC71"]
             titulo_graf = "Distribución de puntos (en cero / sin datos / con datos)"
 
-        fig, ax = plt.subplots(figsize=(5.5, 4.5))
+        fig, ax = plt.subplots(figsize=(4.2, 3.4))
         ax.pie(
             valores,
             labels=etiquetas,
@@ -932,33 +931,42 @@ def crear_reporte_word(
                 if total_puntos > 0 else "0%"
             ),
             startangle=90,
-            pctdistance=0.8,
-            textprops={"fontsize": 9},
+            pctdistance=0.75,
+            textprops={"fontsize": 8},
         )
         centre_circle = plt.Circle((0, 0), 0.55, fc="white")
         fig.gca().add_artist(centre_circle)
         ax.axis("equal")
-        ax.set_title(titulo_graf, fontsize=11)
+        ax.set_title(titulo_graf, fontsize=10)
 
-        ax.text(0, 0, f"Total\n{total_puntos}", ha="center", va="center", fontsize=11, weight="bold")
+        ax.text(0, 0, f"Total\n{total_puntos}", ha="center", va="center", fontsize=10, weight="bold")
 
         chart_name = (
             "grafica_anillo_puntos_sin_datos.png" if solo_sin_datos else "grafica_anillo_puntos_en_cero.png"
         )
         chart_path = output_dir / chart_name
         fig.tight_layout()
-        fig.savefig(chart_path, dpi=200)
+        fig.savefig(chart_path, dpi=160, bbox_inches="tight")
         plt.close(fig)
 
         if chart_path.exists():
-            doc.add_paragraph("Gráfica de distribución de puntos:")
-            doc.add_picture(str(chart_path), width=Inches(5.5))
-            doc.add_paragraph("")  # Espacio
+            graf_label = doc.add_paragraph("Gráfica de distribución de puntos:")
+            graf_label.paragraph_format.space_before = Pt(2)
+            graf_label.paragraph_format.space_after = Pt(2)
+            graf_label.runs[0].font.size = Pt(10)
+            pic_para = doc.add_paragraph()
+            pic_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+            run = pic_para.add_run()
+            run.add_picture(str(chart_path), width=Inches(4.0))
+            pic_para.paragraph_format.space_after = Pt(2)
     except Exception:
         try:
             plt.close("all")
         except Exception:
             pass
+
+    # Tablas desde la 2ª hoja para que la torta quede completa en la 1ª
+    doc.add_page_break()
 
     # Sección: Puntos en cero
     if not solo_sin_datos and puntos_en_cero:
