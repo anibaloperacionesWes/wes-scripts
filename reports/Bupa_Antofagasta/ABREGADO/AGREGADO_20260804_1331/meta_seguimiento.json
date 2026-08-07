@@ -1,0 +1,150 @@
+{
+  "out_dir": "reports/Bupa_Antofagasta/ABREGADO/AGREGADO_20260804_1331",
+  "n_dias": 12,
+  "sanit_prom": 169.64166666666668,
+  "sanit_proy": 5089.25,
+  "sanit_proy_clp": 14090336.507616488,
+  "reciente_prom": 112.27285714285713,
+  "reciente_proy": 3368.185714285714,
+  "mejoras_prom": 94.07666666666667,
+  "mejoras_proy_m3": 2822.3,
+  "mejoras_proy_clp": 7813952.296594983,
+  "cierre_agosto_m3": 2896.6466666666665,
+  "cierre_agosto_clp": 8019791.968757466,
+  "ahorro_vs_factura": 10724907.703405017,
+  "ahorro_vs_proy_prev": 12947411.703405017,
+  "precio_m3": 2768.646953405018,
+  "continua": false,
+  "pct_salas": 31.900574740875378,
+  "pct_gap": 68.09942525912462,
+  "n_bajo": 9,
+  "n_alto": 2,
+  "start": "23/07/2026",
+  "end": "03/08/2026",
+  "drive_links": [
+    {
+      "id": "1u__A587XCe-_e8k2Hg5M_EAYf1lXnqfI",
+      "name": "Seguimiento_Proyeccion_Bupa_Antofagasta_20260723_20260803.docx",
+      "web_view_link": "https://docs.google.com/document/d/1u__A587XCe-_e8k2Hg5M_EAYf1lXnqfI/edit?usp=drivesdk&ouid=100937017029270883533&rtpof=true&sd=true",
+      "web_content_link": "https://drive.google.com/uc?id=1u__A587XCe-_e8k2Hg5M_EAYf1lXnqfI&export=download",
+      "folder_id": "1d0NWa3cpG-AWju3mV0Lw7LbW29nB6qd5"
+    },
+    {
+      "id": "1Iv3FKcnlhWDyyG15EcbJTevKeuHUUv4g",
+      "name": "Seguimiento_Proyeccion_Bupa_Antofagasta_20260723_20260803.pdf",
+      "web_view_link": "https://drive.google.com/file/d/1Iv3FKcnlhWDyyG15EcbJTevKeuHUUv4g/view?usp=drivesdk",
+      "web_content_link": "https://drive.google.com/uc?id=1Iv3FKcnlhWDyyG15EcbJTevKeuHUUv4g&export=download",
+      "folder_id": "1d0NWa3cpG-AWju3mV0Lw7LbW29nB6qd5"
+    }
+  ],
+  "dias": [
+    {
+      "fecha": "2026-07-23",
+      "sanitaria": 255.09,
+      "salas": 51.5,
+      "var_base": "aumentó",
+      "vs_base": 5.09,
+      "var_prev": "—",
+      "vs_prev": null
+    },
+    {
+      "fecha": "2026-07-24",
+      "sanitaria": 256.25,
+      "salas": 54.44,
+      "var_base": "aumentó",
+      "vs_base": 6.25,
+      "var_prev": "aumentó",
+      "vs_prev": 1.16
+    },
+    {
+      "fecha": "2026-07-25",
+      "sanitaria": 240.95,
+      "salas": 40.58,
+      "var_base": "bajó",
+      "vs_base": -9.05,
+      "var_prev": "bajó",
+      "vs_prev": -15.3
+    },
+    {
+      "fecha": "2026-07-26",
+      "sanitaria": 244.6,
+      "salas": 42.11,
+      "var_base": "bajó",
+      "vs_base": -5.4,
+      "var_prev": "aumentó",
+      "vs_prev": 3.65
+    },
+    {
+      "fecha": "2026-07-27",
+      "sanitaria": 252.9,
+      "salas": 50.63,
+      "var_base": "estable",
+      "vs_base": 2.9,
+      "var_prev": "aumentó",
+      "vs_prev": 8.3
+    },
+    {
+      "fecha": "2026-07-28",
+      "sanitaria": 221.45,
+      "salas": 65.14,
+      "var_base": "bajó",
+      "vs_base": -28.55,
+      "var_prev": "bajó",
+      "vs_prev": -31.45
+    },
+    {
+      "fecha": "2026-07-29",
+      "sanitaria": 108.21,
+      "salas": 65.93,
+      "var_base": "bajó",
+      "vs_base": -141.79,
+      "var_prev": "bajó",
+      "vs_prev": -113.24
+    },
+    {
+      "fecha": "2026-07-30",
+      "sanitaria": 98.58,
+      "salas": 55.92,
+      "var_base": "bajó",
+      "vs_base": -151.42,
+      "var_prev": "bajó",
+      "vs_prev": -9.63
+    },
+    {
+      "fecha": "2026-07-31",
+      "sanitaria": 95.17,
+      "salas": 54.85,
+      "var_base": "bajó",
+      "vs_base": -154.83,
+      "var_prev": "bajó",
+      "vs_prev": -3.41
+    },
+    {
+      "fecha": "2026-08-01",
+      "sanitaria": 88.1,
+      "salas": 56.12,
+      "var_base": "bajó",
+      "vs_base": -161.9,
+      "var_prev": "bajó",
+      "vs_prev": -7.07
+    },
+    {
+      "fecha": "2026-08-02",
+      "sanitaria": 77.07,
+      "salas": 48.53,
+      "var_base": "bajó",
+      "vs_base": -172.93,
+      "var_prev": "bajó",
+      "vs_prev": -11.03
+    },
+    {
+      "fecha": "2026-08-03",
+      "sanitaria": 97.33,
+      "salas": 63.65,
+      "var_base": "bajó",
+      "vs_base": -152.67,
+      "var_prev": "aumentó",
+      "vs_prev": 20.26
+    }
+  ]
+}
