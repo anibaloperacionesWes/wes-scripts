@@ -5266,6 +5266,52 @@ def convertir_word_a_pdf(word_path: Path) -> Optional[Path]:
             pass
         except Exception as e:
             print(f"[DEBUG] comtypes falló: {e}")
+
+        # Fallback Linux/Cloud: LibreOffice (soffice)
+        try:
+            import shutil
+            import subprocess
+            import tempfile
+
+            soffice = shutil.which("soffice") or shutil.which("libreoffice")
+            if soffice:
+                pdf_path = word_path.with_suffix(".pdf")
+                out_dir = Path(tempfile.mkdtemp(prefix="wes_docx2pdf_"))
+                try:
+                    result = subprocess.run(
+                        [
+                            soffice,
+                            "--headless",
+                            "--nologo",
+                            "--nolockcheck",
+                            "--nodefault",
+                            "--nofirststartwizard",
+                            "--convert-to",
+                            "pdf",
+                            "--outdir",
+                            str(out_dir),
+                            str(word_path.absolute()),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=180,
+                    )
+                    converted = out_dir / f"{word_path.stem}.pdf"
+                    if result.returncode == 0 and converted.exists():
+                        shutil.copy2(converted, pdf_path)
+                        if pdf_path.exists():
+                            print(f"[OK] PDF generado con LibreOffice: {pdf_path}")
+                            return pdf_path
+                    print(
+                        f"[DEBUG] LibreOffice falló (code={result.returncode}): "
+                        f"{(result.stderr or result.stdout or '').strip()[:400]}"
+                    )
+                finally:
+                    shutil.rmtree(out_dir, ignore_errors=True)
+            else:
+                print("[DEBUG] LibreOffice (soffice) no está instalado en PATH")
+        except Exception as e:
+            print(f"[DEBUG] LibreOffice falló: {e}")
         
         # Si ninguna librería está disponible, retornar None
         print("[ADVERTENCIA] No se encontró ninguna librería para convertir Word a PDF.")
@@ -5273,6 +5319,7 @@ def convertir_word_a_pdf(word_path: Path) -> Optional[Path]:
         print("  - pip install docx2pdf (requiere Microsoft Word)")
         print("  - pip install pywin32 (para win32com)")
         print("  - pip install comtypes (alternativa)")
+        print("  - LibreOffice (soffice) en Linux/Cloud Agents")
         
         return None
         
