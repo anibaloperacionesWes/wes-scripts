@@ -5266,6 +5266,43 @@ def convertir_word_a_pdf(word_path: Path) -> Optional[Path]:
             pass
         except Exception as e:
             print(f"[DEBUG] comtypes falló: {e}")
+
+        # Fallback Linux/cloud: LibreOffice (soffice)
+        try:
+            import shutil
+
+            soffice = shutil.which("soffice") or shutil.which("libreoffice")
+            if soffice:
+                pdf_path = word_path.with_suffix(".pdf")
+                out_dir = word_path.parent
+                cmd = [
+                    soffice,
+                    "--headless",
+                    "--nologo",
+                    "--nolockcheck",
+                    "--nodefault",
+                    "--nofirststartwizard",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    str(out_dir),
+                    str(word_path.absolute()),
+                ]
+                proc = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                    check=False,
+                )
+                if pdf_path.exists():
+                    return pdf_path
+                print(
+                    f"[DEBUG] LibreOffice falló (code={proc.returncode}): "
+                    f"{(proc.stderr or proc.stdout or '').strip()[:500]}"
+                )
+        except Exception as e:
+            print(f"[DEBUG] LibreOffice falló: {e}")
         
         # Si ninguna librería está disponible, retornar None
         print("[ADVERTENCIA] No se encontró ninguna librería para convertir Word a PDF.")
@@ -5273,6 +5310,7 @@ def convertir_word_a_pdf(word_path: Path) -> Optional[Path]:
         print("  - pip install docx2pdf (requiere Microsoft Word)")
         print("  - pip install pywin32 (para win32com)")
         print("  - pip install comtypes (alternativa)")
+        print("  - LibreOffice (soffice) en PATH para entornos Linux/cloud")
         
         return None
         
