@@ -1,0 +1,6 @@
+﻿node_id;colegio;primera_fecha_datos;consumo_desde_entrega_m3;dias_con_consumo;en_agregado_habitual;nocturno_julio_2026_m3;pct_dias_con_nocturno;proyeccion_mensual_control_m3;proyeccion_clp;cumple_umbral_75pct;nota
+000006-01;Liceo Lastarria;01/10/2025;2962,56;282;si;82,10;100,0;272,41;347045;si;
+000006-02;Carmela Carvajal;03/10/2025;5039,33;294;si;55,80;93,5;185,14;235872;si;
+000006-03;Arturo Alessandri Palma;01/10/2025;1335,30;93;no;0,00;0,0;0,00;0;no;"Excluido habitualmente de agregados; sin datos recientes (corte ~ene 2026)."
+000006-04;Liceo 7 Luisa Saavedra;03/10/2025;12368,63;199;si;310,80;41,9;1031,23;1313782;no;Consumo jul–ago 2026 anómalo (revisar medidor / fugas / lecturas).
+000006-05;Liceo Juan Pablo Duarte;06/10/2025;2601,73;264;si;23,90;93,8;79,30;101028;si;

@@ -1,0 +1,6 @@
+﻿node_id;colegio;implementacion;hasta;consumo_nocturno_acumulado_m3;valor_acumulado_clp;dias_con_datos;promedio_diario_nocturno_m3;ahorro_proyeccion_30d_m3;ahorro_proyeccion_30d_clp
+000006-01;Liceo Lastarria;01/10/2025;31/07/2026;222,40;283338;298;0,746;22,39;28524
+000006-02;Carmela Carvajal;03/10/2025;31/07/2026;315,98;402559;302;1,046;31,39;39989
+000006-04;Liceo 7 Luisa Saavedra;03/10/2025;31/07/2026;988,88;1259833;285;3,470;104,09;132614
+000006-05;Liceo Juan Pablo Duarte;06/10/2025;31/07/2026;372,36;474387;258;1,443;43,30;55161
+000006-03;Arturo Alessandri Palma;01/10/2025;31/07/2026;101,50;129311;98;1,036;31,07;39585
