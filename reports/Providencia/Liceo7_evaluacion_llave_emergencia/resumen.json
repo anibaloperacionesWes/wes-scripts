@@ -1,0 +1,23 @@
+{
+  "nodo": "000006-04",
+  "nombre": "Liceo 7 Luisa Saavedra (Providencia)",
+  "horario_corte": "23:00 a 06:00",
+  "julio_total_m3": 5005.5,
+  "avg_con_control_m3_dia": 392.6,
+  "avg_sin_control_habil_m3_dia": 577.3,
+  "avg_sin_control_finde_m3_dia": 406.5,
+  "avg_noche_con": 39.8,
+  "avg_noche_sin": 107.0,
+  "avg_strict_sin_1_5": 64.8,
+  "extra_diario_habil_m3": 184.7,
+  "extra_nocturno_m3": 67.2,
+  "proy_mensual_con_m3": 8637.0,
+  "proy_mensual_sin_m3": 15952.0,
+  "delta_mensual_m3": 7315.0,
+  "tarifa_ref_clp": 1400,
+  "costo_mensual_exceso_clp": 10240533.0,
+  "exceso_5dias_7_11_ago_m3": 1367.0,
+  "generado": "2026-08-12T20:05:09",
+  "pct_extra_dia_habil": 47.0,
+  "pct_extra_mensual": 84.7
+}
