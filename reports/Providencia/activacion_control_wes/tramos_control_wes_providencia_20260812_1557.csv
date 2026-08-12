@@ -1,0 +1,10 @@
+﻿node_id;liceo;tipo_tramo;desde;hasta;dias;firma
+000006-01;Liceo Lastarria;control_wes;01/10/2025;02/11/2025;33;noche+finde
+000006-01;Liceo Lastarria;control_wes;10/11/2025;18/01/2026;70;solo_noche
+000006-01;Liceo Lastarria;control_wes;26/01/2026;01/02/2026;7;noche+finde
+000006-01;Liceo Lastarria;control_wes;23/02/2026;01/03/2026;7;solo_noche
+000006-01;Liceo Lastarria;control_wes;16/03/2026;29/03/2026;14;solo_noche
+000006-01;Liceo Lastarria;control_wes;13/04/2026;19/04/2026;7;noche+finde
+000006-02;Carmela Carvajal;control_wes;26/01/2026;01/03/2026;35;solo_noche
+000006-04;Liceo 7 Luisa Saavedra;control_wes;29/06/2026;05/07/2026;7;noche+finde
+000006-05;Liceo Juan Pablo Duarte;sin_control_detectado;;;;
