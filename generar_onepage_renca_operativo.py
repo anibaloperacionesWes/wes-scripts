@@ -287,18 +287,18 @@ def build_docx(data: Dict, out_path: Path) -> Path:
 
     _p(doc, "3. Estado por establecimiento", size=11, bold=True, color=WES_BLUE, space_before=4, space_after=3)
     bullets = [
-        "ICCO (Colegio ICCO Renca): llave de emergencia activada ~hace dos semanas; esta semana soporte a partida de bombas — partieron; mantención Celebridad dejó el sistema funcionando.",
-        "Gimnasio: operando de forma estable y con buen comportamiento de consumo.",
-        "Piscina Municipal: control nocturno activo; perfil coherente con operación programada.",
-        "Esc. Lo Velásquez: control nocturno activo; el colegio tiende a ir a cero en noche/fines de semana. Se detectaron días con consumo residual por llaves dejadas abiertas; el proceso automático de control se activó correctamente.",
-        "Cumbre de cóndores (Cóndor / Exponente): operativo sin problemas.",
+        "ICCO: llave de emergencia ~hace dos semanas; esta semana bombas partieron con soporte WES + mantención Celebridad. Acta jun-2026: asesoramiento de corte hídrico manual.",
+        "Gimnasio: funcionando bien (actas 2026: equipo 100% operativo tras mantenciones).",
+        "Piscina Municipal: control nocturno activo; actas documentan programación de horario/presión y un evento de llave de emergencia abierta (jun-2026).",
+        "Esc. Lo Velásquez: control nocturno; tiende a cero; días con consumo por llaves abiertas → proceso automático activado.",
+        "Cumbre de cóndores: operativo sin problemas (acta: equipo operativo tras chequeo técnico).",
     ]
     for b in bullets:
         para = doc.add_paragraph(style="List Bullet")
         para.paragraph_format.space_after = Pt(1)
         para.paragraph_format.space_before = Pt(0)
         run = para.add_run(b)
-        run.font.size = Pt(8.5)
+        run.font.size = Pt(8)
         run.font.name = "Calibri"
 
     _p(doc, "4. Ahorro vs antes de operar (auditoría abril 2026)", size=11, bold=True, color=WES_BLUE, space_before=6, space_after=3)
@@ -350,25 +350,70 @@ def build_docx(data: Dict, out_path: Path) -> Path:
         space_after=4,
     )
 
-    _p(doc, "5. Seguimiento operativo (actas / mantención)", size=11, bold=True, color=WES_BLUE, space_after=3)
     _p(
         doc,
-        "Según el seguimiento de campo y las actas de mantención asociadas al ICCO: se registró "
-        "la activación de la llave de emergencia, el apoyo WES a la partida de bombas y la "
-        "intervención del equipo de Celebridad que dejó el sistema hidráulico funcionando. "
-        "En Lo Velásquez las actas/alertas de control nocturno confirman activaciones automáticas "
-        "ante consumo residual (p. ej. llaves abiertas). El detalle formal de cada acta se "
-        "consolidará junto con la auditoría de agosto.",
-        size=8.5,
-        space_after=4,
+        "5. Actas de mantención (Drive: Actas de Mantencion / RENCA / 2026 + Corporación)",
+        size=11,
+        bold=True,
+        color=WES_BLUE,
+        space_after=2,
+    )
+    _p(
+        doc,
+        "Revisión de formularios WES cargados en la carpeta indicada (escaneos). "
+        "Hito reciente ICCO (llave emergencia ~2 semanas + bombas Celebridad esta semana): "
+        "aún no figura acta formal de julio/agosto en esa carpeta; se reporta por seguimiento operativo.",
+        size=7.5,
+        color=WES_GRAY,
+        space_after=2,
     )
 
-    _p(doc, "6. Próximos pasos", size=11, bold=True, color=WES_BLUE, space_after=3)
+    t3 = doc.add_table(rows=1, cols=3)
+    t3.style = "Table Grid"
+    hdr3 = t3.rows[0].cells
+    for i, h in enumerate(["Fecha / Acta", "Punto", "Hallazgo (observaciones)"]):
+        hdr3[i].text = h
+        for p in hdr3[i].paragraphs:
+            p.runs[0].bold = True
+            p.runs[0].font.size = Pt(7.5)
+            p.runs[0].font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+        _shade(hdr3[i], "0B3D91")
+
+    actas_rows = [
+        ("20-06-2026 · N°2221", "ICCO", "Asesoramiento para corte hídrico MANUAL."),
+        (
+            "25-06-2026 · N°2216",
+            "Piscina",
+            "Llave emergencia abierta desde 19-06; fuga ~2,45 m³/h (ruido eléctrico).",
+        ),
+        ("13-05-2026 · N°2183", "Gimnasio", "Automático caído; levantado. Equipo 100% operativo."),
+        ("21-04-2026 · N°2149", "Gimnasio", "Reemplazo equipo + transductores. 100% operativo."),
+        ("06-04-2026", "Gimnasio", "Ruido eléctrico → filtro instalado para asegurar horario."),
+        ("30-01-2026", "Piscina", "Consumo nocturno ~1,3 m³/h; nuevo horario/presión. Operativo."),
+        ("26-05-2026 · N°2198", "Cóndores Ote.", "Chequeo caudalímetro + micro. Equipo operativo."),
+    ]
+    for fecha, punto, hallazgo in actas_rows:
+        row = t3.add_row().cells
+        for i, v in enumerate([fecha, punto, hallazgo]):
+            row[i].text = v
+            for p in row[i].paragraphs:
+                for r in p.runs:
+                    r.font.size = Pt(7)
+
+    _p(
+        doc,
+        "6. Próximos pasos",
+        size=11,
+        bold=True,
+        color=WES_BLUE,
+        space_before=4,
+        space_after=2,
+    )
     next_steps = [
-        "Lunes próximo (a más tardar): inicio de auditoría de agosto — consumo, nocturno y % ahorro por punto.",
-        "ICCO: confirmar retiro/normalización de llave de emergencia y retorno al control nocturno programado.",
-        "Mantener control nocturno en Piscina y Lo Velásquez; revisar eventos de llaves abiertas.",
-        "Seguimiento estable de Gimnasio y Cumbre de cóndores.",
+        "Lunes próximo (a más tardar): auditoría de agosto — consumos, nocturno y % ahorro por punto.",
+        "ICCO: normalizar llave de emergencia, retomar control nocturno y cargar acta de bombas/Celebridad en Drive.",
+        "Piscina / Lo Velásquez: mantener control nocturno; vigilar llaves abiertas / llave emergencia.",
+        "Gimnasio y Cóndores: seguimiento estable (equipos operativos según actas).",
     ]
     for s in next_steps:
         para = doc.add_paragraph(style="List Number")
@@ -378,11 +423,11 @@ def build_docx(data: Dict, out_path: Path) -> Path:
 
     _p(
         doc,
-        "Fuente consumos: API WES acl-node (total diario). Ahorros: auditoría Renca abr-2026; "
-        "Gimnasio = comparativo may-2026 vs línea sin WES abr. Tarifa referencial $1.300/m³.",
+        "Fuente consumos: API WES. Ahorros: auditoría abr-2026 (Gimnasio: may-2026). "
+        "Actas: Drive Actas de Mantencion/RENCA/2026 + Corporación Renca. Tarifa ref. $1.300/m³.",
         size=7,
         color=WES_GRAY,
-        space_before=6,
+        space_before=4,
         align=WD_ALIGN_PARAGRAPH.CENTER,
     )
 
@@ -573,11 +618,11 @@ def build_pdf(data: Dict, out_path: Path) -> Path:
 
     story.append(Paragraph("3. Estado por establecimiento", h))
     for txt in [
-        "<b>ICCO:</b> llave de emergencia hace ~2 semanas; esta semana soporte a partida de bombas (Celebridad) — sistema funcionando.",
-        "<b>Gimnasio:</b> funcionando bien, comportamiento estable.",
-        "<b>Piscina Municipal:</b> control nocturno activo.",
-        "<b>Esc. Lo Velásquez:</b> control nocturno; tiende a cero, con algunos días de consumo por llaves abiertas — proceso automático activado.",
-        "<b>Cumbre de cóndores:</b> operativo sin problema.",
+        "<b>ICCO:</b> llave emergencia ~2 semanas; bombas OK (Celebridad). Acta jun: corte hídrico MANUAL.",
+        "<b>Gimnasio:</b> funcionando bien (actas 2026: 100% operativo).",
+        "<b>Piscina:</b> control nocturno; acta jun documenta llave emergencia abierta (19–25 jun).",
+        "<b>Lo Velásquez:</b> control nocturno; tiende a cero; llaves abiertas → proceso automático.",
+        "<b>Cóndores:</b> operativo sin problema (acta: equipo operativo).",
     ]:
         story.append(Paragraph("• " + txt, bullet))
 
@@ -622,31 +667,29 @@ def build_pdf(data: Dict, out_path: Path) -> Path:
         )
     )
     story.append(t2)
-    story.append(Spacer(1, 2 * mm))
+    story.append(Spacer(1, 1.5 * mm))
     story.append(
         Paragraph(
-            "Con el sistema operando: Piscina ~57 % e ICCO ~37 % de ahorro; Lo Velásquez ~10 % "
-            "(y suele ir a cero en noche); Cóndores ~6 % estable; Gimnasio en régimen normal ~96 % "
-            "vs línea base previa.",
+            "Piscina ~57 % · ICCO ~37 % · Lo Velásquez ~10 % · Cóndores ~6 % · Gimnasio ~96 % (régimen normal).",
             body,
         )
     )
 
-    story.append(Paragraph("5. Seguimiento (actas / mantención) y próximos pasos", h))
+    story.append(Paragraph("5. Actas Drive (RENCA/2026 + Corporación) y próximos pasos", h))
     story.append(
         Paragraph(
-            "Actas/seguimiento de campo: activación llave de emergencia ICCO, soporte WES a partida "
-            "de bombas e intervención Celebridad (sistema hidráulico OK). En Lo Velásquez, "
-            "activaciones automáticas ante consumo residual. Detalle de actas se consolidará con la "
-            "auditoría de agosto. <b>Próximo lunes (a más tardar):</b> iniciar auditoría agosto; "
-            "normalizar llave de emergencia ICCO y retomar control nocturno; mantener vigilancia en "
-            "Piscina, Lo Velásquez, Gimnasio y Cóndores.",
+            "<b>ICCO N°2221 (20-06):</b> asesoramiento corte hídrico MANUAL. "
+            "<b>Piscina N°2216 (25-06):</b> llave emergencia abierta desde 19-06; fuga ~2,45 m³/h. "
+            "<b>Gimnasio:</b> abr–may operativos (filtro ruido eléctrico; reemplazo equipo; automático levantado). "
+            "<b>Cóndores Ote. N°2198 (26-05):</b> equipo operativo. "
+            "Hito reciente ICCO (llave emergencia + bombas Celebridad): sin acta jul/ago aún en carpeta. "
+            "<b>Próximo lunes:</b> auditoría agosto; normalizar llave ICCO; cargar acta bombas; mantener nocturno.",
             body,
         )
     )
     story.append(
         Paragraph(
-            "Fuente: API WES acl-node · Ahorros auditoría abr-2026 (Gimnasio: may-2026) · Tarifa ref. $1.300/m³",
+            "Fuente: API WES · Auditoría abr-2026 · Actas Drive Actas de Mantencion/RENCA · Tarifa ref. $1.300/m³",
             foot,
         )
     )
