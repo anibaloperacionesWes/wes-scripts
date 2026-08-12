@@ -3,7 +3,8 @@ Informe concreto por colegio Providencia:
 
   El colegio X consumió Y m³ en horario nocturno desde la implementación.
   La gestión hídrica CPA permite llevar a cero ese consumo nocturno.
-  En una proyección de 30 días el ahorro es Z m³ / CLP.
+  Proyección 30 días = Z m³ / CLP.
+  Esa proyección × meses de funcionamiento = ahorro en todo el periodo.
 
 Uso:
   python generar_informe_ahorro_nocturno_cpa_providencia.py
@@ -62,9 +63,16 @@ def _fmt_clp(v: float) -> str:
     return format_currency_chilean(v)
 
 
-def _grafico_barras(filas: List[dict], out_path: Path) -> None:
+def _grafico_barras(
+    filas: List[dict],
+    out_path: Path,
+    *,
+    campo: str,
+    ylabel: str,
+    titulo: str,
+) -> None:
     labels = [f["corto"] for f in filas if f["activo"]]
-    vals = [f["proy_30_m3"] for f in filas if f["activo"]]
+    vals = [f[campo] for f in filas if f["activo"]]
     fig, ax = plt.subplots(figsize=(8.8, 4.6))
     bars = ax.bar(labels, vals, color="#1f4788", edgecolor="white")
     ymax = max(vals) if vals else 1
@@ -77,10 +85,8 @@ def _grafico_barras(filas: List[dict], out_path: Path) -> None:
             va="bottom",
             fontsize=9,
         )
-    ax.set_ylabel("Ahorro proyección 30 días (m³)")
-    ax.set_title(
-        "Ahorro mensual si la gestión CPA lleva a cero el consumo nocturno"
-    )
+    ax.set_ylabel(ylabel)
+    ax.set_title(titulo)
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
@@ -117,10 +123,14 @@ def generar(output_dir: Optional[Path] = None) -> Path:
 
         # Ahorro = llevar nocturno a cero.
         # Proyección 30 d = promedio diario nocturno (sobre días con datos) × 30.
+        # Periodo completo = esa proyección × meses de funcionamiento (días cal / 30).
         prom_dia = (noct / d_datos) if d_datos > 0 else 0.0
         proy_30 = prom_dia * 30.0
         proy_clp = proy_30 * precio
         acum_clp = noct * precio
+        meses_func = dias_cal / 30.0
+        proy_periodo_m3 = proy_30 * meses_func
+        proy_periodo_clp = proy_periodo_m3 * precio
 
         corto = (
             nombre.replace("Liceo ", "")
@@ -143,15 +153,34 @@ def generar(output_dir: Optional[Path] = None) -> Path:
                 "prom_dia": prom_dia,
                 "proy_30_m3": proy_30,
                 "proy_30_clp": proy_clp,
+                "meses_func": meses_func,
+                "proy_periodo_m3": proy_periodo_m3,
+                "proy_periodo_clp": proy_periodo_clp,
             }
         )
         print(
-            f"    noct={noct:.1f} m³ | proy30={proy_30:.1f} m³ | {_fmt_clp(proy_clp)}"
+            f"    noct={noct:.1f} m³ | proy30={proy_30:.1f} m³ | "
+            f"meses={meses_func:.1f} | periodo={proy_periodo_m3:.1f} m³ | "
+            f"{_fmt_clp(proy_periodo_clp)}"
         )
 
     activos = [f for f in filas if f["activo"]]
     png = out_dir / f"ahorro_proy_30d_{ts}.png"
-    _grafico_barras(filas, png)
+    _grafico_barras(
+        filas,
+        png,
+        campo="proy_30_m3",
+        ylabel="Ahorro proyección 30 días (m³)",
+        titulo="Ahorro mensual si la gestión CPA lleva a cero el consumo nocturno",
+    )
+    png_periodo = out_dir / f"ahorro_proy_periodo_{ts}.png"
+    _grafico_barras(
+        filas,
+        png_periodo,
+        campo="proy_periodo_m3",
+        ylabel="Ahorro en todo el periodo (m³)",
+        titulo="Proyección 30 d × meses de funcionamiento — ahorro total CPA",
+    )
 
     # CSV
     csv_path = out_dir / f"ahorro_nocturno_cpa_providencia_{ts}.csv"
@@ -165,10 +194,14 @@ def generar(output_dir: Optional[Path] = None) -> Path:
                 "hasta",
                 "consumo_nocturno_acumulado_m3",
                 "valor_acumulado_clp",
+                "dias_calendario",
+                "meses_funcionamiento",
                 "dias_con_datos",
                 "promedio_diario_nocturno_m3",
                 "ahorro_proyeccion_30d_m3",
                 "ahorro_proyeccion_30d_clp",
+                "ahorro_proyeccion_periodo_m3",
+                "ahorro_proyeccion_periodo_clp",
             ]
         )
         for f in filas:
@@ -180,10 +213,14 @@ def generar(output_dir: Optional[Path] = None) -> Path:
                     HASTA_TXT,
                     f"{f['noct_m3']:.2f}".replace(".", ","),
                     f"{f['noct_clp']:.0f}",
+                    f["dias_cal"],
+                    f"{f['meses_func']:.2f}".replace(".", ","),
                     f["dias_datos"],
                     f"{f['prom_dia']:.3f}".replace(".", ","),
                     f"{f['proy_30_m3']:.2f}".replace(".", ","),
                     f"{f['proy_30_clp']:.0f}",
+                    f"{f['proy_periodo_m3']:.2f}".replace(".", ","),
+                    f"{f['proy_periodo_clp']:.0f}",
                 ]
             )
 
@@ -203,9 +240,10 @@ def generar(output_dir: Optional[Path] = None) -> Path:
     intro.add_run(
         "desde la implementación del medidor WES se registra consumo entre "
         "00:00 y 06:59 (hora Chile). La gestión hídrica CPA permite llevar ese "
-        "consumo nocturno a cero. El ahorro proyectado a 30 días es el promedio "
-        "diario nocturno observado × 30, valorizado a "
-        f"{_fmt_clp(precio)}/m³."
+        "consumo nocturno a cero. "
+        "1) Proyección 30 días = promedio diario nocturno × 30. "
+        "2) Ahorro en todo el periodo = esa proyección × meses de funcionamiento "
+        f"(días calendario ÷ 30). Valorizado a {_fmt_clp(precio)}/m³."
     )
 
     meta = doc.add_paragraph()
@@ -231,7 +269,7 @@ def generar(output_dir: Optional[Path] = None) -> Path:
                 f"{_fmt_m3(f['noct_m3'], 1)} m³ "
                 f"({_fmt_clp(f['noct_clp'])}). "
                 "Hoy no hay serie reciente (corte ~enero 2026); "
-                "no se entrega proyección 30 días hasta reactivar el punto."
+                "no se entrega proyección hasta reactivar el punto."
             )
             continue
 
@@ -257,23 +295,33 @@ def generar(output_dir: Optional[Path] = None) -> Path:
         )
         run.bold = True
 
+        p4 = doc.add_paragraph()
+        run4 = p4.add_run(
+            f"Llevado a {_fmt_m3(f['meses_func'], 1)} meses de funcionamiento "
+            f"(proyección 30 d × meses): ahorro "
+            f"{_fmt_m3(f['proy_periodo_m3'], 1)} m³ "
+            f"= {_fmt_clp(f['proy_periodo_clp'])}."
+        )
+        run4.bold = True
+
         det = doc.add_paragraph()
         det.add_run("Detalle: ").bold = True
         det.add_run(
-            f"{f['dias_datos']} días con datos horarios de "
-            f"{f['dias_cal']} días calendario; "
+            f"{f['dias_cal']} días calendario = {_fmt_m3(f['meses_func'], 1)} meses; "
+            f"{f['dias_datos']} días con datos horarios; "
             f"{f['dias_con_noche']} días con consumo nocturno > 0; "
-            f"promedio {_fmt_m3(f['prom_dia'], 2)} m³/día nocturno × 30."
+            f"promedio {_fmt_m3(f['prom_dia'], 2)} m³/día nocturno × 30 = "
+            f"proy. mensual; × {_fmt_m3(f['meses_func'], 1)} meses = periodo."
         )
 
-    # Resumen tabla
+    # Resumen tabla 30 d
     doc.add_heading("2. Resumen — proyección 30 días (colegios activos)", level=1)
     tbl = doc.add_table(rows=1 + len(activos) + 1, cols=5)
     tbl.style = "Table Grid"
     headers = [
         "Colegio",
-        "Nocturno desde impl. (m³)",
-        "Valor acum. (CLP)",
+        "Nocturno medido (m³)",
+        "Meses func.",
         "Ahorro 30 d (m³)",
         "Ahorro 30 d (CLP)",
     ]
@@ -282,21 +330,22 @@ def generar(output_dir: Optional[Path] = None) -> Path:
         for run in tbl.rows[0].cells[j].paragraphs[0].runs:
             run.bold = True
 
-    tot_noct = tot_proy = 0.0
+    tot_noct = tot_proy = tot_periodo = 0.0
     for i, f in enumerate(activos, 1):
         tot_noct += f["noct_m3"]
         tot_proy += f["proy_30_m3"]
+        tot_periodo += f["proy_periodo_m3"]
         row = tbl.rows[i].cells
         row[0].text = f["nombre"]
         row[1].text = _fmt_m3(f["noct_m3"], 1)
-        row[2].text = _fmt_clp(f["noct_clp"])
+        row[2].text = _fmt_m3(f["meses_func"], 1)
         row[3].text = _fmt_m3(f["proy_30_m3"], 1)
         row[4].text = _fmt_clp(f["proy_30_clp"])
 
     tot_row = tbl.rows[len(activos) + 1].cells
     tot_row[0].text = "TOTAL (4 colegios)"
     tot_row[1].text = _fmt_m3(tot_noct, 1)
-    tot_row[2].text = _fmt_clp(tot_noct * precio)
+    tot_row[2].text = "—"
     tot_row[3].text = _fmt_m3(tot_proy, 1)
     tot_row[4].text = _fmt_clp(tot_proy * precio)
     for c in tot_row:
@@ -307,24 +356,70 @@ def generar(output_dir: Optional[Path] = None) -> Path:
         doc.add_paragraph()
         doc.add_picture(str(png), width=Inches(5.8))
 
-    doc.add_heading("3. Mensaje para el cliente", level=1)
+    # Resumen periodo completo
+    doc.add_heading(
+        "3. Resumen — proyección llevada a meses de funcionamiento", level=1
+    )
+    doc.add_paragraph(
+        "Fórmula: ahorro periodo = (proyección 30 días) × (días calendario ÷ 30). "
+        "Es el ahorro total si la gestión CPA hubiera llevado a cero el nocturno "
+        "durante todo el tiempo de operación del medidor."
+    )
+    tbl2 = doc.add_table(rows=1 + len(activos) + 1, cols=5)
+    tbl2.style = "Table Grid"
+    headers2 = [
+        "Colegio",
+        "Meses func.",
+        "Ahorro 30 d (m³)",
+        "Ahorro periodo (m³)",
+        "Ahorro periodo (CLP)",
+    ]
+    for j, hd in enumerate(headers2):
+        tbl2.rows[0].cells[j].text = hd
+        for run in tbl2.rows[0].cells[j].paragraphs[0].runs:
+            run.bold = True
+
+    for i, f in enumerate(activos, 1):
+        row = tbl2.rows[i].cells
+        row[0].text = f["nombre"]
+        row[1].text = _fmt_m3(f["meses_func"], 1)
+        row[2].text = _fmt_m3(f["proy_30_m3"], 1)
+        row[3].text = _fmt_m3(f["proy_periodo_m3"], 1)
+        row[4].text = _fmt_clp(f["proy_periodo_clp"])
+
+    tot2 = tbl2.rows[len(activos) + 1].cells
+    tot2[0].text = "TOTAL (4 colegios)"
+    tot2[1].text = "—"
+    tot2[2].text = _fmt_m3(tot_proy, 1)
+    tot2[3].text = _fmt_m3(tot_periodo, 1)
+    tot2[4].text = _fmt_clp(tot_periodo * precio)
+    for c in tot2:
+        for run in c.paragraphs[0].runs:
+            run.bold = True
+
+    if png_periodo.is_file():
+        doc.add_paragraph()
+        doc.add_picture(str(png_periodo), width=Inches(5.8))
+
+    doc.add_heading("4. Mensaje para el cliente", level=1)
     cierre = doc.add_paragraph()
     cierre.add_run(
-        f"En los 4 colegios con data continua, desde la implementación se midieron "
-        f"{_fmt_m3(tot_noct, 1)} m³ en horario nocturno "
+        f"En los 4 colegios con data continua se midieron "
+        f"{_fmt_m3(tot_noct, 1)} m³ nocturnos "
         f"({_fmt_clp(tot_noct * precio)}). "
-        f"Si la gestión hídrica CPA lleva ese consumo a cero, el ahorro proyectado "
-        f"a 30 días es {_fmt_m3(tot_proy, 1)} m³ "
-        f"({_fmt_clp(tot_proy * precio)}) al ritmo actual."
+        f"Al ritmo actual, el ahorro CPA a 30 días es "
+        f"{_fmt_m3(tot_proy, 1)} m³ ({_fmt_clp(tot_proy * precio)}). "
+        f"Llevado a los meses de funcionamiento de cada colegio, el ahorro "
+        f"proyectado del periodo es {_fmt_m3(tot_periodo, 1)} m³ "
+        f"({_fmt_clp(tot_periodo * precio)})."
     )
 
     nota = doc.add_paragraph()
     nota.add_run("Nota: ").bold = True
     nota.add_run(
-        "el ahorro 30 días usa el promedio diario nocturno de todo el periodo "
-        "desde implementación (incluye vacaciones y baja ocupación). "
-        "Si se usa solo un mes de alta ocupación (p. ej. julio), la cifra sube; "
-        "esta proyección es la más conservadora y defendible con la serie completa."
+        "el promedio diario incluye vacaciones y baja ocupación; "
+        "la proyección es conservadora. "
+        "Meses de funcionamiento = días calendario desde implementación ÷ 30."
     )
 
     out_docx = out_dir / f"Ahorro_nocturno_CPA_Providencia_{ts}.docx"
@@ -357,6 +452,10 @@ def generar(output_dir: Optional[Path] = None) -> Path:
     print(f"[OK] CSV:  {csv_path}")
     print(
         f"[OK] TOTAL proy 30d: {_fmt_m3(tot_proy, 1)} m³ = {_fmt_clp(tot_proy * precio)}"
+    )
+    print(
+        f"[OK] TOTAL periodo: {_fmt_m3(tot_periodo, 1)} m³ = "
+        f"{_fmt_clp(tot_periodo * precio)}"
     )
     return out_docx
 
