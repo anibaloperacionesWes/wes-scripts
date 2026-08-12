@@ -1,0 +1,6 @@
+﻿node_id;liceo;desde;hasta;consumo_total_m3;dias_con_consumo;promedio_diario_m3;consumo_nocturno_total_m3;dias_con_datos_horarios;promedio_nocturno_00_06_m3_dia;pct_nocturno_sobre_total;nota
+000006-01;Liceo Lastarria;01/10/2025;12/08/2026;2963,16;282;10,508;243,30;310;0,785;8,2;
+000006-02;Carmela Carvajal;01/10/2025;12/08/2026;5045,53;294;17,162;337,58;314;1,075;6,7;
+000006-04;Liceo 7 Luisa Saavedra;01/10/2025;12/08/2026;12391,43;199;62,268;1537,48;299;5,142;12,4;Revisar jul–ago 2026 (consumo anómalo).
+000006-05;Liceo Juan Pablo Duarte;01/10/2025;12/08/2026;2603,06;264;9,860;386,73;273;1,417;14,9;
+000006-03;Arturo Alessandri Palma;01/10/2025;12/08/2026;1335,30;93;14,358;101,50;98;1,036;7,6;Sin data reciente (~ene 2026).
