@@ -1,0 +1,90 @@
+{
+  "tecnicos": [
+    "Mauricio Orellana",
+    "Anibal Aranda",
+    "Jose Otarola",
+    "Gabriel Prieto",
+    "Mirko Lorca",
+    "Cristian Sepulveda",
+    "Salvador Cantillana",
+    "Jeans Araya"
+  ],
+  "tipos_mtto": [
+    "Mtto Correctivo",
+    "Mtto Preventivo",
+    "Mtto Predictivo",
+    "Reubicacion CIR",
+    "Instalación Valvula On/Off",
+    "Instalación sistema CIR",
+    "Instalación sistema CPA"
+  ],
+  "estados_checklist": [
+    "OK",
+    "Observación",
+    "Falla",
+    "N/A"
+  ],
+  "motivos": [
+    "Mantenimiento",
+    "Auditoría",
+    "Emergencia"
+  ],
+  "tecnologias": [
+    "CPA y CIR",
+    "SAB",
+    "EYES",
+    "CPA",
+    "CIR"
+  ],
+  "cir": [
+    "Canalización 24V AC",
+    "Canalización 220V AC",
+    "Poste solar",
+    "Panel solar",
+    "Batería solar",
+    "Cargador solar",
+    "Router / Amplimax",
+    "Conectividad App",
+    "Fuente switching 12V",
+    "Batería respaldo CIR",
+    "Estado exterior caja CIR",
+    "Estado interior caja CIR",
+    "Enlace CIR",
+    "Voltaje 12V DC CIR",
+    "Voltaje 9V DC CIR",
+    "Voltaje 5V DC CIR",
+    "Equipo ultrasónico",
+    "Transductores",
+    "Sensor de pulso"
+  ],
+  "cpa": [
+    "Presurización cañerías",
+    "Cámara albañilería",
+    "Tapa metálica",
+    "Llaves de paso",
+    "Válvula presión alta",
+    "Válvula presión baja",
+    "Válvula presión nocturna",
+    "Solenoide válvula alta",
+    "Solenoide válvula baja",
+    "Solenoide válvula nocturna",
+    "Func. presión alta",
+    "Func. presión baja",
+    "Func. presión nocturna",
+    "Func. medidor"
+  ],
+  "sab": [
+    "Canalización 24V AC",
+    "Canalización 220V AC",
+    "Voltaje 12V DC",
+    "Voltaje 9V DC",
+    "Voltaje 5V DC",
+    "Temporización",
+    "Sensores",
+    "Presurización cañerías",
+    "Llaves de paso",
+    "Válvula solenoide",
+    "Tiempo de descarga",
+    "Caudal urinario"
+  ]
+}

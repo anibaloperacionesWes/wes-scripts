@@ -1,0 +1,36 @@
+Fuente operativa de actas / fallas
+=================================
+
+Nombre:  Registro de fallas WES (Google Sheet)
+Link:    https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
+Export:  mantenimiento wes/maestro/analisis_falla_google.xlsx
+Copia Anibal: G:\Mi unidad\Anibal\analisis de falla.xlsx (sin hoja Ingreso)
+
+Hojas del Sheet vivo
+--------------------
+Datos   = historial
+Ingreso = ingreso automatizado (listas en cascada)
+Base1   = Cliente + Máquina
+Base2   = FILTER máquinas según Cliente (Ingreso!C4)
+Base3   = Tipo falla + Falla específica
+Base 4  = FILTER fallas según Tipo (Ingreso!C14)
+
+Excel digital local
+-------------------
+FORMULARIO_MANTENCION_WES_DIGITAL.xlsx  (espejo Ingreso + acta checklist)
+python generar_formulario_digital.py
+python registrar_desde_ingreso.py
+
+Firma en teléfono (gratis, sin Google Form)
+-------------------------------------------
+python servir_firma.py
+Abrir en el celular (misma WiFi): http://IP-DEL-PC:8765
+PNG + JSON → mantenimiento wes/firmas/
+
+Flujo de visita
+---------------
+- Con firma:  firmar en pantalla (servir_firma.py) o acta PDF + Ingreso + correo
+- Sin firma:  solo Ingreso + correo de cierre
+- NO Google Form
+
+Resumen semanal → resumenes_semanales/ y Drive (mantenimiento wes)

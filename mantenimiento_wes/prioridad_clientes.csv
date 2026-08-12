@@ -1,0 +1,3 @@
+cliente,prioridad,notas
+# prioridad: 1 = más alta. Completar cuando el equipo cierre criterios.
+# Ejemplo:,1,Cliente crítico / contrato SLA
