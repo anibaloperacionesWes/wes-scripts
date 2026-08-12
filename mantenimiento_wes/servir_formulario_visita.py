@@ -117,7 +117,11 @@ def procesar_visita(data: Dict[str, Any]) -> Dict[str, Any]:
         data = dict(data)
         data["firma_png"] = firma  # para el PDF
 
-    xlsx_path, excel_row = registrar_visita_en_excel(data)
+    xlsx_path, excel_row = registrar_visita_en_excel(
+        data,
+        pdf_link="",  # se completa tras Drive si hay link
+        sync_google=True,
+    )
     pdf_path = generar_pdf_acta(data)
 
     # también copia a reports/
@@ -128,6 +132,22 @@ def procesar_visita(data: Dict[str, Any]) -> Dict[str, Any]:
 
     email_info = enviar_acta_pdf_cliente(pdf_path, data)
     drive_info = _maybe_upload_drive(report_pdf)
+
+    # Actualiza link PDF en la fila digital si hay Drive
+    pdf_link = drive_info.get("drive_link") or ""
+    if pdf_link:
+        try:
+            from openpyxl import load_workbook
+
+            wb = load_workbook(xlsx_path)
+            ws = wb["Datos"]
+            # col 19 = PDF / Drive (B=2 ... R=19)
+            ws.cell(excel_row, 19, pdf_link)
+            wb.save(xlsx_path)
+        except Exception:
+            pass
+
+    google_info = data.get("_google_sheet") or {}
 
     return {
         "ok": True,
@@ -143,6 +163,9 @@ def procesar_visita(data: Dict[str, Any]) -> Dict[str, Any]:
         "email_to": email_info.get("to"),
         "drive_link": drive_info.get("drive_link"),
         "drive_error": drive_info.get("drive_error"),
+        "google_sheet_ok": bool(google_info.get("ok")),
+        "google_sheet_range": google_info.get("updatedRange"),
+        "google_sheet_error": google_info.get("error"),
         "message": (
             f"PDF generado y correo enviado a {', '.join(email_info.get('to') or [])}"
             if email_info.get("ok") and not email_info.get("dry_run")
