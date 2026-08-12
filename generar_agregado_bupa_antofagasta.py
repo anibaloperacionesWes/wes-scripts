@@ -28,7 +28,7 @@ NODOS = [
 ]
 # Días civiles completos (excluye el día parcial de hoy)
 START_DATE = "23/07/2026"
-END_DATE = "27/07/2026"
+END_DATE = "11/08/2026"
 FOLDER = "Bupa_Antofagasta"
 
 

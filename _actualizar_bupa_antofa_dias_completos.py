@@ -1,14 +1,20 @@
 """
-Personaliza el agregado Bupa Antofagasta (días completos 23–27/07/2026):
+Personaliza el agregado Bupa Antofagasta (días civiles completos):
 - Quita métricas / proyección nocturna / comparación mensual nocturna.
 - Día mayor consumo nocturno del Medidor Principal Sanitaria.
 - Proyección mensual = promedio diario WES × 30 (todos los puntos, incl. Sanitaria).
 - Factura julio solo como referencia histórica.
 - Participación salas vs Sanitaria + gap no monitoreado.
+
+Uso:
+  python _actualizar_bupa_antofa_dias_completos.py
+  python _actualizar_bupa_antofa_dias_completos.py --doc PATH.docx
+  python _actualizar_bupa_antofa_dias_completos.py --start 23/07/2026 --end 11/08/2026
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -44,12 +50,12 @@ from generar_reporte_word import (
     summarize_consumption,
 )
 
-OUT_DIR = Path("reports/Bupa_Antofagasta/ABREGADO/AGREGADO_20260728_1950")
-DOC_PATH = OUT_DIR / "Reporte_Agregado_BUPA_20260723_20260727.docx"
-
-START = parse_date("23/07/2026")
-END = parse_date("27/07/2026", end_of_day=True)
-NUM_DIAS = 5  # días civiles completos
+# Defaults alineados con generar_agregado_bupa_antofagasta.py
+START_STR = "23/07/2026"
+END_STR = "11/08/2026"
+START = parse_date(START_STR)
+END = parse_date(END_STR, end_of_day=True)
+NUM_DIAS = (END.date() - START.date()).days + 1
 
 FACTURA_M3 = 6696.0
 FACTURA_CLP = 18_538_860.0
@@ -61,6 +67,29 @@ NODOS_DEF = [
     {"id": "000029-09", "nombre": "Medidor Principal Sanitaria", "tipo": "cuenta"},
     {"id": "000029-10", "nombre": "Sala de Bomba N°2", "tipo": "bomba"},
 ]
+
+ABREGADO_ROOT = Path("reports/Bupa_Antofagasta/ABREGADO")
+
+
+def _find_latest_doc() -> Path:
+    candidates = sorted(
+        ABREGADO_ROOT.glob("AGREGADO_*/Reporte_Agregado_BUPA_*.docx"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    # Preferir el docx "base" (sin _ordenado / _actualizado)
+    for p in candidates:
+        name = p.name.lower()
+        if "_ordenado" in name or "_actualizado" in name:
+            continue
+        return p
+    if candidates:
+        return candidates[0]
+    raise FileNotFoundError(f"No hay Word agregado en {ABREGADO_ROOT}")
+
+
+DOC_PATH = Path(".")  # se fija en main()
+OUT_DIR = Path(".")
 
 
 def _para_text(elem) -> str:
@@ -192,9 +221,28 @@ def _chart_participacion(path: Path, salas: float, sanit: float, gap: float) -> 
     return path
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    global DOC_PATH, OUT_DIR, START, END, NUM_DIAS, START_STR, END_STR
+
+    parser = argparse.ArgumentParser(description="Personaliza agregado Bupa Antofagasta")
+    parser.add_argument("--doc", type=Path, default=None, help="Word agregado a personalizar")
+    parser.add_argument("--start", default=START_STR, help="Inicio DD/MM/YYYY")
+    parser.add_argument("--end", default=END_STR, help="Fin DD/MM/YYYY (día completo)")
+    args = parser.parse_args(argv)
+
+    START_STR = args.start
+    END_STR = args.end
+    START = parse_date(START_STR)
+    END = parse_date(END_STR, end_of_day=True)
+    NUM_DIAS = (END.date() - START.date()).days + 1
+
+    DOC_PATH = args.doc if args.doc else _find_latest_doc()
+    OUT_DIR = DOC_PATH.parent
     if not DOC_PATH.exists():
         raise FileNotFoundError(DOC_PATH)
+
+    print(f"[INFO] Doc: {DOC_PATH}")
+    print(f"[INFO] Periodo: {START_STR} – {END_STR} ({NUM_DIAS} días completos)")
 
     rows = _fetch_rows()
     sanit = next(r for r in rows if r["tipo"] == "cuenta")
@@ -265,7 +313,7 @@ def main() -> None:
     # --- Proyección WES ---
     add_formatted_title(doc, "Proyección de consumo mensual (WES · días completos)")
     intro = doc.add_paragraph(
-        f"Se consideran solo días civiles completos ({NUM_DIAS} días: 23/07/2026–27/07/2026), "
+        f"Se consideran solo días civiles completos ({NUM_DIAS} días: {START_STR}–{END_STR}), "
         f"sin incluir el día en curso a fin de no distorsionar el promedio diario. "
         f"Para cada punto: promedio diario del periodo × 30. "
         f"La valorización usa la tarifa efectiva de la última factura "
@@ -406,7 +454,7 @@ def main() -> None:
         print(f"[ADVERTENCIA] Guardado como {out.name}")
 
     print("[OK]", out)
-    print(f"     Periodo: {NUM_DIAS} días completos 23-27/07/2026")
+    print(f"     Periodo: {NUM_DIAS} días completos {START_STR}–{END_STR}")
     print(
         f"     Sanitaria: {sanit['m3_periodo']:.1f} m3 periodo -> "
         f"{sanit['prom_dia']:.1f}/dia -> proy {sanit['proy_m3']:.1f} m3 "
