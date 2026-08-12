@@ -17,5 +17,7 @@
   "tarifa_ref_clp": 1400,
   "costo_mensual_exceso_clp": 10240533.0,
   "exceso_5dias_7_11_ago_m3": 1367.0,
-  "generado": "2026-08-12T20:05:09"
+  "generado": "2026-08-12T20:05:09",
+  "pct_extra_dia_habil": 47.0,
+  "pct_extra_mensual": 84.7
 }
