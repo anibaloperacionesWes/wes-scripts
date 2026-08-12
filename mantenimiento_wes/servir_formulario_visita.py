@@ -135,13 +135,19 @@ def procesar_visita(data: Dict[str, Any]) -> Dict[str, Any]:
         "excel_row": excel_row,
         "pdf_path": str(pdf_path),
         "pdf_name": pdf_path.name,
+        "pdf_url": f"/salidas/{pdf_path.name}",
         "json_path": str(json_path),
         "firma_path": str(firma_path) if firma_path else None,
-        "email_ok": bool(email_info.get("ok")),
+        "email_ok": bool(email_info.get("ok")) and not email_info.get("dry_run"),
         "email_skip": email_info.get("skip"),
         "email_to": email_info.get("to"),
         "drive_link": drive_info.get("drive_link"),
         "drive_error": drive_info.get("drive_error"),
+        "message": (
+            f"PDF generado y correo enviado a {', '.join(email_info.get('to') or [])}"
+            if email_info.get("ok") and not email_info.get("dry_run")
+            else f"PDF generado. Correo: {email_info.get('skip') or 'pendiente'}"
+        ),
     }
 
 

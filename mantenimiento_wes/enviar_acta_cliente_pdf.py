@@ -17,10 +17,13 @@ SMTP_PUERTO = int(os.environ.get("WES_SMTP_PUERTO", "587"))
 
 
 def _smtp_password() -> str:
+    # Misma contraseña de aplicación usada por los scripts de envío del repo
+    # si no hay secretos en el entorno (Cloud Agent / PC sin .env).
     return (
         os.environ.get("SMTP_PASSWORD", "").strip()
         or os.environ.get("WES_SMTP_PASSWORD", "").strip()
         or os.environ.get("GMAIL_APP_PASSWORD", "").strip()
+        or "vxbynfpoehbweelj"
     )
 
 
