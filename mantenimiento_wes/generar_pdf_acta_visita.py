@@ -46,10 +46,19 @@ def _slug(text: str) -> str:
     return (text.strip("_") or "sin-dato")[:40]
 
 
-def _p(text: Any, style: ParagraphStyle) -> Paragraph:
+def _esc(text: Any) -> str:
     s = "" if text is None else str(text)
-    s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    s = s.replace("\n", "<br/>")
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _p(text: Any, style: ParagraphStyle, *, raw_html: bool = False) -> Paragraph:
+    """Si raw_html=False, escapa el texto. Si True, deja <b>/<br/> de ReportLab."""
+    s = "" if text is None else str(text)
+    if not raw_html:
+        s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        s = s.replace("\n", "<br/>")
+    else:
+        s = s.replace("\n", "<br/>")
     return Paragraph(s or "—", style)
 
 
@@ -67,9 +76,9 @@ def _firma_image(data_url: str, max_w: float = 90 * mm, max_h: float = 28 * mm) 
 
 def _checklist_table(items: List[Dict[str, str]], styles) -> Table:
     data = [[
-        _p("<b>Elemento</b>", styles["cell"]),
-        _p("<b>Estado</b>", styles["cell"]),
-        _p("<b>Obs. / medición</b>", styles["cell"]),
+        _p("<b>Elemento</b>", styles["cell"], raw_html=True),
+        _p("<b>Estado</b>", styles["cell"], raw_html=True),
+        _p("<b>Obs. / medición</b>", styles["cell"], raw_html=True),
     ]]
     for it in items or []:
         data.append([
@@ -200,9 +209,9 @@ def generar_pdf_acta(data: Dict[str, Any], out_path: Optional[Path] = None) -> P
     meta_cells = []
     for row in meta:
         meta_cells.append([
-            _p(f"<b>{row[0]}</b>", styles["cell"]),
+            _p(f"<b>{row[0]}</b>", styles["cell"], raw_html=True),
             _p(row[1], styles["cell"]),
-            _p(f"<b>{row[2]}</b>", styles["cell"]),
+            _p(f"<b>{row[2]}</b>", styles["cell"], raw_html=True) if row[2] else _p("", styles["cell"]),
             _p(row[3], styles["cell"]),
         ])
     mt = Table(meta_cells, colWidths=[32 * mm, 53 * mm, 32 * mm, 53 * mm])
@@ -248,15 +257,24 @@ def generar_pdf_acta(data: Dict[str, Any], out_path: Optional[Path] = None) -> P
     firma_img = _firma_image(str(data.get("firma_png") or ""))
     firma_block = [
         [
-            _p(f"<b>Recibido por:</b> {data.get('recibido_por') or '—'}", styles["body"]),
-            _p(f"<b>Cargo:</b> {data.get('cargo') or '—'}", styles["body"]),
+            _p(
+                f"<b>Recibido por:</b> {_esc(data.get('recibido_por') or '—')}",
+                styles["body"],
+                raw_html=True,
+            ),
+            _p(
+                f"<b>Cargo:</b> {_esc(data.get('cargo') or '—')}",
+                styles["body"],
+                raw_html=True,
+            ),
         ],
         [
             firma_img or _p("(sin firma)", styles["small"]),
             _p(
-                f"Correo cliente: {data.get('email_cliente') or '—'}<br/>"
+                f"Correo cliente: {_esc(data.get('email_cliente') or '—')}<br/>"
                 f"Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                 styles["small"],
+                raw_html=True,
             ),
         ],
     ]
