@@ -4651,7 +4651,9 @@ def generate_aggregated_report(
     else:
         summary_para.add_run(f"Consumo total agregado: {format_number_chilean(total_consumption, 1)} m³.\n")
         summary_para.add_run(f"Consumo promedio por punto: {format_number_chilean(avg_consumption_per_node, 1)} m³.\n")
-    summary_para.add_run(f"Total de alertas registradas: {total_alerts}.\n")
+    # Bupa Antofagasta: informe sin foco en alertas (solo curvas de consumo del periodo).
+    if company_id != "000029":
+        summary_para.add_run(f"Total de alertas registradas: {total_alerts}.\n")
     if not es_agregado_fmt and sum_promedio_alerta > 0:
         summary_para.add_run(f"Promedio de alerta agregado: {format_number_chilean(sum_promedio_alerta, 1)} m³/h.\n")
         summary_para.add_run(f"Proyección diaria de consumo nocturno agregada: {format_number_chilean(sum_proyeccion_24h, 1)} m³/día.\n")
@@ -4719,9 +4721,16 @@ def generate_aggregated_report(
     # Tabla resumen por nodo (ordenar de mayor a menor consumo)
     add_formatted_heading(doc, "Resumen por punto de monitoreo", level=1)
     col_ultima = "Costo nocturno (CLP)" if es_agregado_fmt else "Proyección de filtración"
-    table_rows = [
-        ("Ranking", "Dispositivo", "Consumo total (m³)", "Número de alerta", "Consumo nocturno", col_ultima)
-    ]
+    # Bupa Antofagasta: sin columna de alertas en el resumen.
+    omitir_col_alertas = company_id == "000029"
+    if omitir_col_alertas:
+        table_rows = [
+            ("Ranking", "Dispositivo", "Consumo total (m³)", "Consumo nocturno", col_ultima)
+        ]
+    else:
+        table_rows = [
+            ("Ranking", "Dispositivo", "Consumo total (m³)", "Número de alerta", "Consumo nocturno", col_ultima)
+        ]
     
     # Ordenar nodes_data por consumo total de mayor a menor
     sorted_nodes_data = sorted(nodes_data, key=lambda d: d["summary"]["total"], reverse=True)
@@ -4820,14 +4829,23 @@ def generate_aggregated_report(
         node_names_for_chart.append(node_name)
         consumo_nocturno_values.append(consumo_nocturno)
         
-        table_rows.append((
-            str(rank),
-            node_name,
-            format_number_chilean(summary["total"], 1),
-            str(num_alertas),
-            consumo_nocturno_str,
-            proyeccion_filtracion_str,
-        ))
+        if omitir_col_alertas:
+            table_rows.append((
+                str(rank),
+                node_name,
+                format_number_chilean(summary["total"], 1),
+                consumo_nocturno_str,
+                proyeccion_filtracion_str,
+            ))
+        else:
+            table_rows.append((
+                str(rank),
+                node_name,
+                format_number_chilean(summary["total"], 1),
+                str(num_alertas),
+                consumo_nocturno_str,
+                proyeccion_filtracion_str,
+            ))
     
     # Agregar fila de totales
     ultima_col_total = (
@@ -4835,14 +4853,23 @@ def generate_aggregated_report(
         if es_agregado_fmt
         else format_number_chilean(total_proyeccion_filtracion, 1) + " m³"
     )
-    table_rows.append((
-        "",
-        "TOTAL",
-        format_number_chilean(total_consumo_total, 1),
-        str(total_num_alertas),
-        format_number_chilean(total_consumo_nocturno, 1) + " m³",
-        ultima_col_total,
-    ))
+    if omitir_col_alertas:
+        table_rows.append((
+            "",
+            "TOTAL",
+            format_number_chilean(total_consumo_total, 1),
+            format_number_chilean(total_consumo_nocturno, 1) + " m³",
+            ultima_col_total,
+        ))
+    else:
+        table_rows.append((
+            "",
+            "TOTAL",
+            format_number_chilean(total_consumo_total, 1),
+            str(total_num_alertas),
+            format_number_chilean(total_consumo_nocturno, 1) + " m³",
+            ultima_col_total,
+        ))
     
     add_table(
         doc,
