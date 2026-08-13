@@ -1,6 +1,8 @@
 """
-Convierte a PDF y envía el agregado Bupa Antofagasta (23–27/07/2026)
-a Juan, Diego y Aníbal.
+Envía el agregado Bupa / UPA Antofagasta (PDF + Word) a Juan, Diego y Aníbal.
+
+Uso:
+  python enviar_agregado_bupa_antofagasta_equipo.py
 """
 
 from __future__ import annotations
@@ -20,21 +22,17 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from generar_reporte_word import convertir_word_a_pdf
-
 ROOT = Path(__file__).resolve().parent
-OUT = ROOT / "reports" / "Bupa_Antofagasta" / "ABREGADO" / "AGREGADO_20260728_1950"
-DOCX_PATH = OUT / "Reporte_Agregado_BUPA_20260723_20260727.docx"
-PDF_PATH = OUT / "Reporte_Agregado_BUPA_20260723_20260727.pdf"
+ABREGADO = ROOT / "reports" / "Bupa_Antofagasta" / "ABREGADO"
 
 SMTP_USUARIO = "agente.ia@wes.cl"
 SMTP_SERVIDOR = "smtp.gmail.com"
 SMTP_PUERTO = 587
 
 TO_RECIPIENTS = [
+    "anibal.aoperaciones@wes.cl",
     "juanlopez@wes.cl",
     "diegocarrasco@wes.cl",
-    "anibal.aoperaciones@wes.cl",
 ]
 
 
@@ -54,37 +52,66 @@ def _smtp_password() -> str:
     return ""
 
 
+def _latest_pair() -> tuple[Path, Path]:
+    dirs = sorted(
+        [d for d in ABREGADO.glob("AGREGADO_*") if d.is_dir()],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for d in dirs:
+        pdfs = list(d.glob("Reporte_Agregado_BUPA_*.pdf"))
+        docs = list(d.glob("Reporte_Agregado_BUPA_*.docx"))
+        # Preferir el par con mismo stem
+        for pdf in sorted(pdfs, key=lambda p: p.stat().st_mtime, reverse=True):
+            docx = pdf.with_suffix(".docx")
+            if docx.is_file():
+                return docx, pdf
+        if docs and pdfs:
+            return docs[0], pdfs[0]
+    raise FileNotFoundError(f"No hay PDF/Word en {ABREGADO}")
+
+
 def main() -> int:
-    if not DOCX_PATH.is_file():
-        print(f"[ERROR] No existe: {DOCX_PATH}", file=sys.stderr)
+    try:
+        docx_path, pdf_path = _latest_pair()
+    except FileNotFoundError as e:
+        print(f"[ERROR] {e}", file=sys.stderr)
         return 1
 
-    print(f"[INFO] Word: {DOCX_PATH} ({DOCX_PATH.stat().st_size // 1024} KB)")
-    print("[INFO] Convirtiendo a PDF...")
-    pdf = convertir_word_a_pdf(DOCX_PATH)
-    if not pdf or not pdf.is_file():
-        print("[ERROR] No se pudo generar el PDF.", file=sys.stderr)
-        return 1
-    print(f"[OK] PDF: {pdf} ({pdf.stat().st_size // 1024} KB)")
+    print(f"[INFO] Word: {docx_path}")
+    print(f"[INFO] PDF:  {pdf_path}")
 
     pw = _smtp_password()
     if not pw:
-        print("[ERROR] Falta contraseña SMTP.", file=sys.stderr)
+        print(
+            "[ERROR] Falta contraseña SMTP. Configurá el secreto "
+            "WES_GMAIL_APP_PASSWORD (o WES_SMTP_PASSWORD) en Cursor → "
+            "Cloud Agents → Secrets, o gmail_oauth/app_password.txt",
+            file=sys.stderr,
+        )
         return 1
 
-    cuerpo = """Estimados Juan, Diego y Aníbal,
+    cuerpo = """Estimados Aníbal, Juan y Diego,
 
-Adjunto el reporte agregado de Clínica Bupa Antofagasta (nodos 000029-07, 000029-08, 000029-09 y 000029-10).
+Adjunto el reporte agregado de Clínica Bupa / UPA Antofagasta
+(nodos 000029-07, 000029-08, 000029-09 y 000029-10).
 
 Resumen
 -------
-• Periodo: 23/07/2026 – 27/07/2026 (5 días civiles completos).
-• Proyección mensual = promedio diario WES × 30 (sanitaria incluida).
-• Factura julio (6.696 m³ / $18.538.860) solo como referencia histórica y tarifa (~$2.769 CLP/m³).
-• Sanitaria (5 días): 1.249,8 m³ → ~250 m³/día → proyección ~7.498,7 m³ (~$20,8 M).
-• Salas de bomba proyectadas: ~19,1% de la cuenta; no monitoreado: ~80,9%.
+• Periodo: 23/07/2026 – 11/08/2026 (20 días civiles completos).
+• Formato clásico: curvas diarias por punto (sin alertas).
+• Punto verde el 29/07 solo en Medidor Principal Sanitaria (bajada por mejora de mantención).
+• Comparativo semanal del periodo (4 semanas) — sin historial de 6 meses.
+• Proyección cierre agosto vs ritmo previo:
+  - Sin mejora: ~7.601 m³
+  - Con mejora: ~3.037 m³
+  - Ahorro proyectado: ~4.565 m³ / ~$12,6 M (tarifa factura).
 
-Adjunto: PDF (y Word).
+También está en Drive:
+Agente WES → wes-scripts → reports → Bupa_Antofagasta → ABREGADO
+https://drive.google.com/drive/folders/1d0NWa3cpG-AWju3mV0Lw7LbW29nB6qd5
+
+Adjunto: PDF y Word.
 
 Saludos,
 Agente IA WES
@@ -94,13 +121,14 @@ Agente IA WES
     msg["From"] = SMTP_USUARIO
     msg["To"] = ", ".join(TO_RECIPIENTS)
     msg["Subject"] = (
-        "Bupa Antofagasta — Reporte agregado 23–27/07/2026 (proyección WES + participación)"
+        "Bupa / UPA Antofagasta — Reporte agregado 23/07–11/08/2026 "
+        "(mejora 29/07 + proyección agosto)"
     )
     msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
 
     for path, subtype in (
-        (pdf, "pdf"),
-        (DOCX_PATH, "vnd.openxmlformats-officedocument.wordprocessingml.document"),
+        (pdf_path, "pdf"),
+        (docx_path, "vnd.openxmlformats-officedocument.wordprocessingml.document"),
     ):
         with open(path, "rb") as f:
             part = MIMEApplication(f.read(), _subtype=subtype)
