@@ -40,14 +40,13 @@ TECNICOS_EMAILS = [
 ]
 
 HEADERS = [
-    "Folio",
+    "Folio / OT",
     "Fecha",
     "Hora",
     "Tecnico",
     "Cliente",
     "Maquina / sitio",
     "Comuna",
-    "N OT",
     "Motivo",
     "Tecnologia",
     "Tipo de Mantenimiento",
@@ -162,7 +161,6 @@ def armar_xlsx() -> Path:
         clientes[0],
         cats["clientes_maquinas"][clientes[0]][0],
         "",
-        "",
         motivos[0],
         tecno[0],
         tipos_mtto[0],
@@ -195,13 +193,13 @@ def armar_xlsx() -> Path:
     dv(f"LISTAS!$B$2:$B${n_tec}", 4)  # Tecnico
     dv(f"LISTAS!$A$2:$A${n_cli}", 5)  # Cliente
     dv(f"LISTAS!$I$2:$I${n_maq}", 6)  # Maquina
-    dv(f"LISTAS!$E$2:$E${n_mot}", 9)
-    dv(f"LISTAS!$F$2:$F${n_tecno}", 10)
-    dv(f"LISTAS!$C$2:$C${n_mtto}", 11)
-    dv(f"LISTAS!$D$2:$D${n_tf}", 12)
-    dv(f"LISTAS!$J$2:$J${n_fe}", 13)
-    dv(f"LISTAS!$G$2:$G${n_est}", 16)
-    dv(f"LISTAS!$H$2:$H${n_firma}", 21)
+    dv(f"LISTAS!$E$2:$E${n_mot}", 8)
+    dv(f"LISTAS!$F$2:$F${n_tecno}", 9)
+    dv(f"LISTAS!$C$2:$C${n_mtto}", 10)
+    dv(f"LISTAS!$D$2:$D${n_tf}", 11)
+    dv(f"LISTAS!$J$2:$J${n_fe}", 12)
+    dv(f"LISTAS!$G$2:$G${n_est}", 15)
+    dv(f"LISTAS!$H$2:$H${n_firma}", 20)
 
     note = wb.create_sheet("CATALOGO_CLIENTE_MAQUINA")
     note["A1"] = "Cliente"

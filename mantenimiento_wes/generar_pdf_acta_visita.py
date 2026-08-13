@@ -173,11 +173,11 @@ def generar_pdf_acta(data: Dict[str, Any], out_path: Optional[Path] = None) -> P
     story.append(Spacer(1, 6 * mm))
 
     meta = [
-        ["Folio", str(data.get("folio") or "—"), "N° OT", str(data.get("ot") or "—")],
+        ["Folio / OT", str(data.get("folio") or data.get("ot") or "—"), "Estado", str(data.get("estado_visita") or "—")],
         ["Cliente", str(data.get("cliente") or "—"), "Máquina / sitio", str(data.get("maquina") or "—")],
         ["Comuna", str(data.get("comuna") or "—"), "Fecha", str(data.get("fecha") or "—")],
         ["Hora", str(data.get("hora") or "—"), "Técnico WES", str(data.get("tecnico") or "—")],
-        ["Estado", str(data.get("estado_visita") or "—"), "Lectura medidor", str(data.get("lectura_medidor") or "—")],
+        ["Lectura medidor", str(data.get("lectura_medidor") or "—"), "", ""],
         [
             "Motivo",
             ", ".join(data.get("motivos") or []) or "—",

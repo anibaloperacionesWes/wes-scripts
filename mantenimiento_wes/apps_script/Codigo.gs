@@ -49,7 +49,7 @@ function procesarVisita(data) {
   }
 
   var folio = asignarFolio_();
-  data = Object.assign({}, data, { folio: folio });
+  data = Object.assign({}, data, { folio: folio, ot: String(folio) });
 
   var stamp = Utilities.formatDate(new Date(), 'America/Santiago', 'yyyyMMdd_HHmmss');
   var stem = sanitizar_(
@@ -167,13 +167,12 @@ function generarYGuardarPdf_(carpeta, stem, data, firmaFile) {
   var body = doc.getBody();
   body.clear();
   body.appendParagraph('WES · Acta de visita técnica').setHeading(DocumentApp.ParagraphHeading.HEADING1);
-  body.appendParagraph('Folio: ' + (data.folio || '—'));
+  body.appendParagraph('Folio / OT: ' + (data.folio || data.ot || '—'));
   body.appendParagraph('Cliente: ' + (data.cliente || ''));
   body.appendParagraph('Máquina / sitio: ' + (data.maquina || ''));
   body.appendParagraph('Comuna: ' + (data.comuna || ''));
   body.appendParagraph('Fecha: ' + (data.fecha || '') + '  Hora: ' + (data.hora || ''));
   body.appendParagraph('Técnico: ' + (data.tecnico || ''));
-  body.appendParagraph('OT: ' + (data.ot || ''));
   body.appendParagraph('Motivos: ' + joinList_(data.motivos));
   body.appendParagraph('Tecnologías: ' + joinList_(data.tecnologias));
   body.appendParagraph('Tipo mtto: ' + (data.tipo_mtto || ''));
@@ -253,7 +252,7 @@ function appendSheet_(data, pdfLink) {
     data.solucion || '',
     data.observaciones || '',
     data.recibido_por ? 'Sí - ' + data.recibido_por : 'Sí - firmada',
-    data.ot || '',
+    data.folio || data.ot || '', // N OT = mismo folio
     data.estado_visita || 'cerrada',
     'Formulario web permanente ' + Utilities.formatDate(new Date(), 'America/Santiago', 'yyyy-MM-dd HH:mm'),
     data.email_cliente || '',

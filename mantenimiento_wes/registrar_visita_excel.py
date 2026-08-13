@@ -107,6 +107,7 @@ def _row_values(data: Dict[str, Any], *, pdf_link: str = "") -> Dict[str, Any]:
     if folio in (None, ""):
         folio = _siguiente_folio()
         data["folio"] = folio
+    data["ot"] = str(folio)
     return {
         "Folio": folio,
         "Cliente": data.get("cliente"),
@@ -119,7 +120,7 @@ def _row_values(data: Dict[str, Any], *, pdf_link: str = "") -> Dict[str, Any]:
         "Solucion y/o Diagnostico": data.get("solucion"),
         "Observaciones": data.get("observaciones"),
         "Firma requerida": firma,
-        "N OT": data.get("ot"),
+        "N OT": str(folio),
         "Estado visita": data.get("estado_visita") or "cerrada",
         "Origen": f"Formulario web {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         "Email cliente": data.get("email_cliente"),

@@ -212,13 +212,13 @@
         <h2>Datos de la instalación</h2>
         <div class="row">
           <div>
-            <label for="folio">N° Folio</label>
+            <label for="folio">N° Folio / OT</label>
             <input id="folio" value="2250+" readonly />
-            <div class="note">Se asigna automáticamente desde 2250 al enviar.</div>
+            <div class="note">Un solo número automático desde 2250 (folio = OT).</div>
           </div>
           <div>
-            <label for="ot">N° OT / formulario</label>
-            <input id="ot" placeholder="OT-2026-...." />
+            <label for="tecnico">Técnico WES *</label>
+            <select id="tecnico" required></select>
           </div>
         </div>
         <div class="row">
@@ -244,13 +244,6 @@
             <label for="hora">Hora</label>
             <input id="hora" type="time" />
           </div>
-        </div>
-        <div class="row">
-          <div>
-            <label for="tecnico">Técnico WES *</label>
-            <select id="tecnico" required></select>
-          </div>
-          <div></div>
         </div>
         <label>Motivo de visita</label>
         <div class="chips" id="motivos"></div>
@@ -569,7 +562,7 @@
         fecha: document.getElementById("fecha").value,
         hora: document.getElementById("hora").value,
         tecnico: document.getElementById("tecnico").value,
-        ot: document.getElementById("ot").value.trim(),
+        ot: "", // igual al folio en servidor
         motivos: selectedChips("motivo"),
         tecnologias: selectedChips("tecnologia"),
         tipo_mtto: document.getElementById("tipo_mtto").value,
