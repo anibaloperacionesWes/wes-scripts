@@ -252,6 +252,7 @@ def generar_pdf_acta(data: Dict[str, Any], out_path: Optional[Path] = None) -> P
         "con la frase «Acuso recibo» o firmando digitalmente abajo. "
         "La constancia queda registrada en el sistema de análisis WES.",
         styles["body"],
+        raw_html=True,
     ))
 
     firma_img = _firma_image(str(data.get("firma_png") or ""))
