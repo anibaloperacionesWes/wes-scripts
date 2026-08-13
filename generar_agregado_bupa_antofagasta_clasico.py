@@ -36,13 +36,9 @@ from generar_reporte_word import (
     add_formatted_title,
     add_picture_with_pagination,
     add_table,
-    build_monthly_comparison_chart,
-    calculate_nocturnal_metrics,
-    estilizar_tabla_wes,
     format_currency_chilean,
     format_number_chilean,
     generate_aggregated_report,
-    get_water_price_per_m3,
     parse_date,
     acl_node_base_url,
     fetch_json,
@@ -143,31 +139,6 @@ def _plot_semanas(
     return out
 
 
-def _totales_periodo(start_dt: datetime, end_dt: datetime) -> Tuple[float, float, float]:
-    """Retorna (total_m3 todos los puntos, nocturno_m3, price)."""
-    total = 0.0
-    noct = 0.0
-    prices: List[float] = []
-    for nid in NODE_IDS:
-        raw = fetch_json(
-            f"{acl_node_base_url()}/nodes/measures/dates",
-            params=[
-                ("id", nid),
-                ("start", start_dt.strftime("%d%m%Y")),
-                ("end", end_dt.strftime("%d%m%Y")),
-            ],
-        )
-        payload = normalize_measures_payload(raw, nid)
-        measures = flatten_measures(payload)
-        summary = summarize_consumption(measures)
-        total += float(summary["total"])
-        nm = calculate_nocturnal_metrics(nid, start_dt, end_dt)
-        noct += float(nm.get("consumo_nocturno_total") or 0.0)
-        prices.append(get_water_price_per_m3(COMPANY_ID, nid, payload) or PRECIO_DEFAULT)
-    price = sum(prices) / len(prices) if prices else PRECIO_DEFAULT
-    return total, noct, price
-
-
 def _consumo_cuenta_periodo(start_dt: datetime, end_dt: datetime) -> float:
     raw = fetch_json(
         f"{acl_node_base_url()}/nodes/measures/dates",
@@ -259,8 +230,8 @@ def _append_proyeccion_agosto_y_mejora(doc: Document, out_dir: Path, price: floa
     r0 = hito.add_run("Hito 29/07/2026: ")
     r0.bold = True
     hito.add_run(
-        "en los gráficos diarios (punto verde) se marca la fecha en que el consumo de la "
-        "cuenta bajó de forma nítida. Ese día el Medidor Principal Sanitaria pasó de un "
+        "en el gráfico diario del Medidor Principal Sanitaria (punto verde) se marca la fecha "
+        "en que el consumo de la cuenta bajó de forma nítida. Ese día pasó de un "
         f"ritmo cercano a {format_number_chilean(before_avg, 1)} m³/día "
         f"(promedio {BEFORE_START}–{BEFORE_END}) a unos "
         f"{format_number_chilean(after_avg, 1)} m³/día "
@@ -368,18 +339,6 @@ def _append_comparativos(docx_path: Path) -> Path:
     end_dt = parse_date(END, end_of_day=True)
     out_dir = docx_path.parent
 
-    print("[INFO] Calculando totales periodo para comparativos...", flush=True)
-    total_m3, noct_total, price = _totales_periodo(start_dt, end_dt)
-    num_dias = (end_dt.date() - start_dt.date()).days + 1
-    factor_30 = 30.0 / max(num_dias, 1)
-    leak_monthly = noct_total * factor_30
-    efectivo_monthly = max(0.0, (total_m3 - noct_total) * factor_30)
-
-    chart_mes = out_dir / "chart_comparacion_mensual_extra.png"
-    built_mes = build_monthly_comparison_chart(
-        leak_monthly, efectivo_monthly, price, chart_mes
-    )
-
     print("[INFO] Armando comparativo semanal (cuenta Sanitaria)...", flush=True)
     daily = _daily_cuenta(start_dt, end_dt)
     cuenta_periodo = sum(daily.values())
@@ -404,19 +363,9 @@ def _append_comparativos(docx_path: Path) -> Path:
     )
 
     doc = Document(str(docx_path))
-    add_formatted_heading(doc, "Comparativo del mes (nocturno vs efectivo)", level=1)
-    p5 = doc.add_paragraph(
-        f"Proyección a 30 días a partir del periodo ({num_dias} días): "
-        f"nocturno proyectado {format_number_chilean(leak_monthly, 1)} m³ "
-        f"({format_currency_chilean(leak_monthly * price)}) y consumo efectivo "
-        f"{format_number_chilean(efectivo_monthly, 1)} m³ "
-        f"({format_currency_chilean(efectivo_monthly * price)})."
-    )
-    p5.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
-    if built_mes and Path(built_mes).exists():
-        add_picture_with_pagination(doc, str(chart_mes), Inches(4.5), keep_with_next=True)
 
     # En vez de 6 meses (aún no hay historial suficiente), comparamos las 4 semanas monitoreadas.
+    # Se omite el comparativo circular nocturno vs efectivo (no aporta en este cliente).
     add_formatted_heading(doc, "Comparativo semanal del periodo monitoreado", level=1)
     p6 = doc.add_paragraph(
         "Todavía no hay historial de varios meses en este medidor, por eso el comparativo "

@@ -343,9 +343,9 @@ def agregar_secciones_consumo_diario_y_max_dia(
         # (sin puntos rojos ni tabla de alertas).
         sin_alertas_grafico = company_id in {"000027", "000029"}
         alerts_para_grafico = None if sin_alertas_grafico else alerts
-        # Bupa Antofagasta: punto verde en la bajada por mejora de mantención (29/07/2026).
+        # Bupa Antofagasta: punto verde solo en Medidor Principal Sanitaria (cuenta).
         highlights = None
-        if company_id == "000029":
+        if company_id == "000029" and node_id == "000029-09":
             highlights = [
                 (datetime(2026, 7, 29), "Mejora mantención 29/07"),
             ]
