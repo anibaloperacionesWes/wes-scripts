@@ -1,6 +1,19 @@
 # Formulario técnico WES (vistoso) · PDF al cliente · Excel de análisis
 
-## Link permanente (técnicos WES)
+## Acceso para técnicos (usar este link)
+Planilla permanente — una fila por visita, listas desplegables:
+
+https://docs.google.com/spreadsheets/d/1B5gGXua055WO5V9Ff4Tm-ur4msN4fA5WG1XEiKs-RSE/edit?usp=sharing
+
+Compartida con `@wes.cl` y con el link (pueden escribir). Carpeta:
+
+https://drive.google.com/drive/folders/1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC
+
+```bash
+python3 mantenimiento_wes/compartir_acceso_tecnicos.py
+```
+
+## Formulario web con firma (Apps Script)
 ```bash
 python3 mantenimiento_wes/publicar_formulario_permanente.py
 ```
