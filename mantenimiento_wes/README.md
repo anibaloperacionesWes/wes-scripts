@@ -1,9 +1,19 @@
 # Formulario técnico WES (vistoso) · PDF al cliente · Excel de análisis
 
-## Flujo en terreno
+## Link permanente (técnicos WES)
+```bash
+python3 mantenimiento_wes/publicar_formulario_permanente.py
+```
+Eso crea/actualiza el Apps Script y la carpeta Drive `Tecnicos_WES_Formulario`.
+
+**Activación (1 vez):** abrí el Script → Implementar → Aplicación web → acceso **Cualquiera** → copiá la URL `/exec`.
+
+Ese `/exec` es el link fijo del celular (firma + PDF + correo + fila en Excel).
+
+## Flujo local / demo (túnel temporal)
 ```bash
 cd mantenimiento_wes
-python servir_formulario_visita.py
+python3 servir_formulario_visita.py
 ```
 Celular (misma WiFi): `http://IP-DEL-PC:8787`
 

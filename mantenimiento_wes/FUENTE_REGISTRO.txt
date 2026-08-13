@@ -23,9 +23,16 @@ python registrar_desde_ingreso.py
 
 Firma en teléfono (gratis, sin Google Form)
 -------------------------------------------
-python servir_firma.py
-Abrir en el celular (misma WiFi): http://IP-DEL-PC:8765
-PNG + JSON → mantenimiento wes/firmas/
+PERMANENTE (recomendado):
+  python3 mantenimiento_wes/publicar_formulario_permanente.py
+  Luego en el Script: Implementar → Aplicación web → acceso Cualquiera → URL /exec
+
+LOCAL / demo:
+  python servir_formulario_visita.py   (puerto 8787)
+  o python servir_firma.py             (puerto 8765)
+
+Carpeta técnicos Drive: Tecnicos_WES_Formulario
+
 
 Flujo de visita
 ---------------
