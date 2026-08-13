@@ -12,15 +12,14 @@ from __future__ import annotations
 
 import sys
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import requests
 from docx import Document
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Inches
@@ -51,7 +50,6 @@ from generar_reporte_word import (
     normalize_measures_payload,
     summarize_consumption,
 )
-from generar_consolidado_m3_mensual_puente_alto import consumo_mes_un_nodo
 
 COMPANY_ID = "000029"
 # Puntos UPA Antofagasta (clínica)
@@ -61,7 +59,7 @@ NODE_IDS = [
     "000029-09",  # Medidor Principal Sanitaria (cuenta)
     "000029-10",  # Sala de Bomba N°2
 ]
-# Para el comparativo de 6 meses usamos la cuenta (evita doble conteo con salas)
+# Comparativos de cuenta (evita doble conteo con salas)
 CUENTA_ID = "000029-09"
 START = "23/07/2026"
 END = "11/08/2026"
@@ -78,39 +76,62 @@ AFTER_END = "11/08/2026"  # ritmo post-mejora (días completos)
 AUGUST_YEAR = 2026
 AUGUST_DAYS = 31
 AUGUST_OBS_END = "11/08/2026"  # último día observado de agosto
+# 4 semanas de 5 días sobre el periodo monitoreado (20 días)
+NUM_SEMANAS = 4
+DIAS_POR_SEMANA = 5
 
 
-def _meses_ultimos_6(end_d: date) -> List[Tuple[int, int]]:
-    y, m = end_d.year, end_d.month
-    out: List[Tuple[int, int]] = []
-    for _ in range(6):
-        out.append((y, m))
-        m -= 1
-        if m == 0:
-            m = 12
-            y -= 1
-    out.reverse()
+def _semanas_periodo(start_d: date, end_d: date) -> List[Tuple[date, date]]:
+    """Parte el periodo en NUM_SEMANAS bloques de DIAS_POR_SEMANA días."""
+    out: List[Tuple[date, date]] = []
+    d = start_d
+    for _ in range(NUM_SEMANAS):
+        if d > end_d:
+            break
+        w_end = min(d + timedelta(days=DIAS_POR_SEMANA - 1), end_d)
+        out.append((d, w_end))
+        d = w_end + timedelta(days=1)
     return out
 
 
-def _plot_6_meses(series: List[Tuple[str, float]], out: Path) -> Path:
+def _daily_cuenta(start_dt: datetime, end_dt: datetime) -> Dict[date, float]:
+    raw = fetch_json(
+        f"{acl_node_base_url()}/nodes/measures/dates",
+        params=[
+            ("id", CUENTA_ID),
+            ("start", start_dt.strftime("%d%m%Y")),
+            ("end", end_dt.strftime("%d%m%Y")),
+        ],
+    )
+    measures = flatten_measures(normalize_measures_payload(raw, CUENTA_ID))
+    return {m.date.date(): float(m.total_m3) for m in measures}
+
+
+def _plot_semanas(
+    series: List[Tuple[str, float, float]],
+    out: Path,
+) -> Path:
+    """series: (label, total_m3, promedio_diario)."""
     labels = [s[0] for s in series]
     vals = [s[1] for s in series]
-    fig, ax = plt.subplots(figsize=(10, 5.5))
-    bars = ax.bar(labels, vals, color=COLOR_BARRA, width=0.65)
-    ax.set_ylabel("Consumo mensual cuenta (m³)", fontsize=11, fontweight="bold")
-    ax.set_xlabel("Mes", fontsize=11, fontweight="bold")
+    # Semana 1 (previa) en rojo; resto en azul WES — resalta la bajada
+    colors = ["#c0392b" if i == 0 else COLOR_BARRA for i in range(len(vals))]
+    fig, ax = plt.subplots(figsize=(9.5, 5.4))
+    bars = ax.bar(labels, vals, color=colors, width=0.62, edgecolor="#333333", linewidth=0.7)
+    ax.set_ylabel("Consumo semanal cuenta (m³)", fontsize=11, fontweight="bold")
+    ax.set_xlabel("Semana del periodo monitoreado", fontsize=11, fontweight="bold")
     ax.set_title(
-        "Comparativo últimos 6 meses — Medidor Principal Sanitaria",
+        "Comparativo semanal — Medidor Principal Sanitaria",
         fontsize=12,
         fontweight="bold",
     )
     ax.grid(axis="y", linestyle="--", alpha=0.35)
-    for bar, v in zip(bars, vals):
+    ax.set_ylim(bottom=0)
+    for bar, (_lab, tot, prom) in zip(bars, series):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height(),
-            f"{format_number_chilean(v, 0)}",
+            f"{format_number_chilean(tot, 0)} m³\n({format_number_chilean(prom, 0)} /día)",
             ha="center",
             va="bottom",
             fontsize=9,
@@ -359,36 +380,28 @@ def _append_comparativos(docx_path: Path) -> Path:
         leak_monthly, efectivo_monthly, price, chart_mes
     )
 
-    print("[INFO] Descargando últimos 6 meses (cuenta Sanitaria)...", flush=True)
-    sess = requests.Session()
-    cuenta_periodo = _consumo_cuenta_periodo(start_dt, end_dt)
-    series_6: List[Tuple[str, float]] = []
-    for y, m in _meses_ultimos_6(end_dt.date()):
-        # Primer y último día civil del mes
-        if m == 12:
-            last_day = date(y, 12, 31)
-        else:
-            last_day = date(y, m + 1, 1).fromordinal(date(y, m + 1, 1).toordinal() - 1)
-        first_day = date(y, m, 1)
-        # Tramo del periodo que cae dentro de este mes
-        seg_start = max(start_dt.date(), first_day)
-        seg_end = min(end_dt.date(), last_day)
-        overlaps_periodo = seg_start <= seg_end and (
-            (y == start_dt.year and m == start_dt.month)
-            or (y == end_dt.year and m == end_dt.month)
+    print("[INFO] Armando comparativo semanal (cuenta Sanitaria)...", flush=True)
+    daily = _daily_cuenta(start_dt, end_dt)
+    cuenta_periodo = sum(daily.values())
+    semanas = _semanas_periodo(start_dt.date(), end_dt.date())
+    series_sem: List[Tuple[str, float, float, int, str]] = []
+    for i, (w0, w1) in enumerate(semanas, start=1):
+        days = [w0 + timedelta(days=k) for k in range((w1 - w0).days + 1)]
+        tot = sum(daily.get(d, 0.0) for d in days)
+        n = len(days)
+        prom = tot / n if n else 0.0
+        rango = f"{w0.strftime('%d/%m')}–{w1.strftime('%d/%m')}"
+        label = f"Semana {i}\n{rango}"
+        nota = "Antes de la mejora" if i == 1 else (
+            "Transición (incluye 29/07)" if w0 <= MEJORA_DATE <= w1 else "Después de la mejora"
         )
-        if overlaps_periodo and (seg_start > first_day or seg_end < last_day):
-            m3 = _consumo_cuenta_periodo(
-                parse_date(seg_start.strftime("%d/%m/%Y")),
-                parse_date(seg_end.strftime("%d/%m/%Y"), end_of_day=True),
-            )
-            label = f"{y}-{m:02d}*"
-        else:
-            m3, _, _ = consumo_mes_un_nodo(sess, CUENTA_ID, y, m)
-            label = f"{y}-{m:02d}"
-        series_6.append((label, float(m3)))
-        print(f"  {label}: {m3:.1f} m³", flush=True)
-    chart_6m = _plot_6_meses(series_6, out_dir / "chart_ultimos_6_meses.png")
+        series_sem.append((label, tot, prom, n, nota))
+        print(f"  Semana {i} {rango}: {tot:.1f} m³ ({prom:.1f}/día) — {nota}", flush=True)
+
+    chart_sem = _plot_semanas(
+        [(s[0], s[1], s[2]) for s in series_sem],
+        out_dir / "chart_comparativo_semanal.png",
+    )
 
     doc = Document(str(docx_path))
     add_formatted_heading(doc, "Comparativo del mes (nocturno vs efectivo)", level=1)
@@ -403,24 +416,50 @@ def _append_comparativos(docx_path: Path) -> Path:
     if built_mes and Path(built_mes).exists():
         add_picture_with_pagination(doc, str(chart_mes), Inches(4.5), keep_with_next=True)
 
-    add_formatted_heading(doc, "Comparativo últimos 6 meses", level=1)
+    # En vez de 6 meses (aún no hay historial suficiente), comparamos las 4 semanas monitoreadas.
+    add_formatted_heading(doc, "Comparativo semanal del periodo monitoreado", level=1)
     p6 = doc.add_paragraph(
-        "Consumo mensual del Medidor Principal Sanitaria (cuenta de agua de la clínica). "
-        "Los meses marcados con * corresponden a tramos parciales del periodo de este reporte "
-        f"(desde {start_dt.strftime('%d/%m/%Y')} hasta {end_dt.strftime('%d/%m/%Y')}). "
-        f"En el periodo, la cuenta registró {format_number_chilean(cuenta_periodo, 1)} m³."
+        "Todavía no hay historial de varios meses en este medidor, por eso el comparativo "
+        "se hace sobre las 4 semanas del periodo con datos "
+        f"({start_dt.strftime('%d/%m/%Y')} – {end_dt.strftime('%d/%m/%Y')}, "
+        f"{format_number_chilean(cuenta_periodo, 1)} m³ en total en la cuenta). "
+        "Cada barra agrupa 5 días. La Semana 1 (rojo) refleja el ritmo alto previo a la "
+        f"mejora del {MEJORA_DATE.strftime('%d/%m/%Y')}; las siguientes muestran la bajada sostenida."
     )
     p6.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
-    add_picture_with_pagination(doc, str(chart_6m), Inches(6), keep_with_next=True)
+    add_picture_with_pagination(doc, str(chart_sem), Inches(6), keep_with_next=True)
 
-    table = doc.add_table(rows=1 + len(series_6), cols=2)
-    table.style = "Table Grid"
-    table.rows[0].cells[0].text = "Mes"
-    table.rows[0].cells[1].text = "Cuenta Sanitaria (m³)"
-    for i, (lab, v) in enumerate(series_6):
-        table.rows[i + 1].cells[0].text = lab
-        table.rows[i + 1].cells[1].text = format_number_chilean(v, 1)
-    estilizar_tabla_wes(table, has_total_row=False)
+    table_rows = [
+        ("Semana", "Rango", "Días", "Total (m³)", "Promedio diario (m³)", "Observación"),
+    ]
+    for i, (lab, tot, prom, n, nota) in enumerate(series_sem, start=1):
+        w0, w1 = semanas[i - 1]
+        table_rows.append(
+            (
+                f"Semana {i}",
+                f"{w0.strftime('%d/%m')}–{w1.strftime('%d/%m')}",
+                str(n),
+                format_number_chilean(tot, 1),
+                format_number_chilean(prom, 1),
+                nota,
+            )
+        )
+    # Fila de contraste S1 vs promedio S3–S4
+    if len(series_sem) >= 4:
+        s1 = series_sem[0][2]
+        post = (series_sem[2][2] + series_sem[3][2]) / 2.0
+        baja = (1.0 - post / s1) * 100.0 if s1 else 0.0
+        table_rows.append(
+            (
+                "Contraste",
+                "S1 vs S3–S4",
+                "—",
+                "—",
+                f"{format_number_chilean(s1, 0)} → {format_number_chilean(post, 0)}",
+                f"Bajada ~{format_number_chilean(baja, 0)} % en m³/día",
+            )
+        )
+    add_table(doc, "Consumo semanal — cuenta Sanitaria", table_rows, wes_style=True)
 
     # Proyección cierre agosto + narrativa mejora mantención / WES
     # Valorización con tarifa de factura julio (ref. cuenta), no el default API.
