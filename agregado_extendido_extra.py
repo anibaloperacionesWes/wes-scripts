@@ -33,6 +33,7 @@ AGREGADO_EXTENDIDO_COMPANY_IDS = frozenset({
     "000012",  # DERCO
     "000024",  # La Reina
     "000002",  # Lo Valledor
+    "000029",  # Bupa / UPA Antofagasta
 })
 
 _CLIENTE: Dict[str, dict] = {
@@ -107,6 +108,12 @@ _CLIENTE: Dict[str, dict] = {
         "sujeto": "Lo Valledor",
         "sujeto_min": "Lo Valledor",
         "total_label": "Total Lo Valledor (periodo):",
+    },
+    "000029": {
+        "prefijo": "bupa_antofa",
+        "sujeto": "Bupa Antofagasta",
+        "sujeto_min": "Bupa Antofagasta",
+        "total_label": "Total Bupa Antofagasta (periodo):",
     },
 }
 
