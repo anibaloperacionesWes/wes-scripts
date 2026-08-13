@@ -33,6 +33,7 @@ AGREGADO_EXTENDIDO_COMPANY_IDS = frozenset({
     "000012",  # DERCO
     "000024",  # La Reina
     "000002",  # Lo Valledor
+    "000029",  # Bupa / UPA Antofagasta
 })
 
 _CLIENTE: Dict[str, dict] = {
@@ -107,6 +108,12 @@ _CLIENTE: Dict[str, dict] = {
         "sujeto": "Lo Valledor",
         "sujeto_min": "Lo Valledor",
         "total_label": "Total Lo Valledor (periodo):",
+    },
+    "000029": {
+        "prefijo": "bupa_antofa",
+        "sujeto": "Bupa Antofagasta",
+        "sujeto_min": "Bupa Antofagasta",
+        "total_label": "Total Bupa Antofagasta (periodo):",
     },
 }
 
@@ -312,10 +319,16 @@ def agregar_secciones_consumo_diario_y_max_dia(
     pref = _cfg(company_id)["prefijo"]
 
     add_formatted_heading(doc, "Evolución del consumo diario por punto", level=1)
-    intro = doc.add_paragraph(
-        "Gráficos de consumo total diario (m³) de cada día del periodo analizado, "
-        "por punto de monitoreo."
-    )
+    if company_id in {"000027", "000029"}:
+        intro = doc.add_paragraph(
+            "Evolución del consumo diario (m³) de cada punto en el periodo. "
+            "Solo la curva de consumo."
+        )
+    else:
+        intro = doc.add_paragraph(
+            "Gráficos de consumo total diario (m³) de cada día del periodo analizado, "
+            "por punto de monitoreo."
+        )
     intro.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
 
     for data in nodes_data:
@@ -326,18 +339,30 @@ def agregar_secciones_consumo_diario_y_max_dia(
             continue
         chart_path = output_dir / f"{pref}_diario_{node_id.replace('-', '_')}.png"
         alerts = filtrar_alertas_informativas(data.get("alerts"))
-        # Fundo Zapallar: gráficos diarios sin marcadores ni tabla de alertas
-        # (el cliente pide solo la curva de consumo).
-        alerts_para_grafico = None if company_id == "000027" else alerts
+        # Fundo Zapallar / Bupa Antofagasta: solo curva de consumo del periodo
+        # (sin puntos rojos ni tabla de alertas).
+        sin_alertas_grafico = company_id in {"000027", "000029"}
+        alerts_para_grafico = None if sin_alertas_grafico else alerts
+        # Bupa Antofagasta: punto verde solo en Medidor Principal Sanitaria (cuenta).
+        highlights = None
+        if company_id == "000029" and node_id == "000029-09":
+            highlights = [
+                (datetime(2026, 7, 29), "Mejora mantención 29/07"),
+            ]
         built = build_consumption_chart(
-            measures, chart_path, start_dt, end_dt, alerts_para_grafico
+            measures,
+            chart_path,
+            start_dt,
+            end_dt,
+            alerts_para_grafico,
+            highlight_dates=highlights,
         )
         if not built or not chart_path.is_file():
             continue
         doc.add_paragraph("")
         add_formatted_title(doc, node_name.upper())
         add_picture_with_pagination(doc, str(chart_path), Inches(6), keep_with_next=True)
-        if es_agregado_extendido(company_id) and company_id != "000027":
+        if es_agregado_extendido(company_id) and not sin_alertas_grafico:
             alerts_marcadas = alertas_marcadas_grafico_diario(alerts, measures, start_dt, end_dt)
             if alerts_marcadas:
                 agregar_tabla_alertas_grafico_diario(doc, alerts_marcadas, wes_style=True)
@@ -345,6 +370,10 @@ def agregar_secciones_consumo_diario_y_max_dia(
             total_periodo = float((data.get("summary") or {}).get("total") or 0.0)
             if total_periodo <= 0:
                 _agregar_nota_estanque_reutilizacion_copec(doc)
+
+    # Bupa Antofagasta: no incluir "día de mayor consumo" (solo gráficos del periodo por punto).
+    if company_id == "000029":
+        return
 
     add_formatted_heading(doc, "Día de mayor consumo diario por punto", level=1)
     intro2 = doc.add_paragraph(
