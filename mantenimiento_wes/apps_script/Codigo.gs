@@ -7,6 +7,9 @@
 
 var SHEET_REGISTRO_ID = '1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM';
 var SHEET_DATOS = 'Datos';
+/** Excel/Sheet de contactos To/CC (Cliente · punto). */
+var SHEET_CONTACTOS_ID = '1Tpjm1eXRXKuKvxachtbYVr9503wICJdsYDTjkbm__o8';
+var SHEET_CONTACTOS_NOMBRE = 'Contactos';
 var CARPETA_TECNICOS = 'Tecnicos_WES_Formulario';
 /**
  * G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes
@@ -723,10 +726,10 @@ function guardarContactosDesdeVisita_(data) {
 }
 
 function asegurarHojaContactos_() {
-  var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
-  var sh = ss.getSheetByName('Contactos');
+  var ss = SpreadsheetApp.openById(SHEET_CONTACTOS_ID);
+  var sh = ss.getSheetByName(SHEET_CONTACTOS_NOMBRE);
   if (!sh) {
-    sh = ss.insertSheet('Contactos');
+    sh = ss.insertSheet(SHEET_CONTACTOS_NOMBRE);
   }
   var headers = ['Cliente', 'Máquina', 'Rol', 'Nombre', 'Cargo', 'Email', 'Actualizado'];
   var row1 = sh.getRange(1, 1, 1, headers.length).getValues()[0];
