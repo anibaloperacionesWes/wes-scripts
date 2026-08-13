@@ -9,8 +9,19 @@ var SHEET_REGISTRO_ID = '1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM';
 var SHEET_DATOS = 'Datos';
 var CARPETA_ACTAS = 'Actas_visita_PDF';
 var CARPETA_TECNICOS = 'Tecnicos_WES_Formulario';
-/** Carpeta Drive fija del proyecto (evita searchFolders / duplicados). */
+/**
+ * G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes
+ * Todo lo del formulario / actas digitales vive bajo esta carpeta (no en la raíz de Mi unidad).
+ */
+var CARPETA_MANTENIMIENTO_WES_ID = '150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX';
+/** Tecnicos_WES_Formulario (dentro de mantenimiento wes). */
 var CARPETA_TECNICOS_ID = '1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC';
+/**
+ * Carpeta histórica de actas escaneadas (carpetas por cliente).
+ * Vacío hasta que Aníbal pase el link/ID; mientras tanto se ordena por cliente
+ * bajo Tecnicos_WES_Formulario/Actas_visita_PDF/{CLIENTE}/.
+ */
+var CARPETA_ACTAS_HISTORICAS_ID = '';
 /** Logo WES en Drive (Tecnicos_WES_Formulario). */
 var LOGO_WES_ID = '1t4XYXYibZu_dwLftjjMw7hCX9CcSc4tY';
 var CC_DEFAULT = 'anibal.aoperaciones@wes.cl';
@@ -77,7 +88,7 @@ function procesarVisita(data) {
     'folio_' + folio + '_' + (data.fecha || '') + '_' + data.cliente + '_' + data.maquina + '_' + stamp
   );
 
-  var carpeta = asegurarCarpetaActas_();
+  var carpeta = asegurarCarpetaActas_(data.cliente);
   var firmaFile = guardarFirma_(carpeta, stem, data.firma_png);
   var pdfFile = generarYGuardarPdf_(carpeta, stem, data, firmaFile);
   var row = appendSheet_(data, pdfFile.getUrl());
@@ -150,14 +161,41 @@ function sanitizar_(name) {
     .substring(0, 120);
 }
 
-function asegurarCarpetaActas_() {
-  var parent;
-  try {
-    parent = DriveApp.getFolderById(CARPETA_TECNICOS_ID);
-  } catch (e) {
-    parent = asegurarCarpetaPorNombre_(CARPETA_TECNICOS, null);
+function asegurarCarpetaActas_(cliente) {
+  // Siempre bajo: mantenimiento wes / Tecnicos_WES_Formulario / Actas_visita_PDF / {CLIENTE}
+  // Si más adelante hay CARPETA_ACTAS_HISTORICAS_ID, se usa esa raíz (carpetas por cliente).
+  var rootActas;
+  if (CARPETA_ACTAS_HISTORICAS_ID) {
+    try {
+      rootActas = DriveApp.getFolderById(CARPETA_ACTAS_HISTORICAS_ID);
+    } catch (e) {
+      rootActas = null;
+    }
   }
-  return asegurarCarpetaPorNombre_(CARPETA_ACTAS, parent.getId());
+  if (!rootActas) {
+    var mant;
+    try {
+      mant = DriveApp.getFolderById(CARPETA_MANTENIMIENTO_WES_ID);
+    } catch (e2) {
+      mant = null;
+    }
+    var tecnicos;
+    try {
+      tecnicos = DriveApp.getFolderById(CARPETA_TECNICOS_ID);
+    } catch (e3) {
+      tecnicos = null;
+    }
+    if (!tecnicos) {
+      if (mant) {
+        tecnicos = asegurarCarpetaPorNombre_(CARPETA_TECNICOS, mant.getId());
+      } else {
+        tecnicos = asegurarCarpetaPorNombre_(CARPETA_TECNICOS, null);
+      }
+    }
+    rootActas = asegurarCarpetaPorNombre_(CARPETA_ACTAS, tecnicos.getId());
+  }
+  var cli = String(cliente || 'SIN_CLIENTE').trim() || 'SIN_CLIENTE';
+  return asegurarCarpetaPorNombre_(cli, rootActas.getId());
 }
 
 function asegurarCarpetaPorNombre_(nombre, parentId) {

@@ -1,0 +1,26 @@
+DESTINOS GOOGLE DRIVE — mantenimiento WES
+==========================================
+
+Raíz obligatoria (no usar Mi unidad suelta ni reports/ para estos archivos):
+
+  G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes
+  https://drive.google.com/drive/folders/150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX
+
+Formulario / técnicos / PDF digitales del web:
+
+  ...\mantenimiento wes\Tecnicos_WES_Formulario
+  https://drive.google.com/drive/folders/1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC
+
+Actas generadas por el formulario (mientras no exista carpeta histórica):
+
+  ...\Tecnicos_WES_Formulario\Actas_visita_PDF\{CLIENTE}\
+  Ejemplo: ...\Actas_visita_PDF\CDUC\
+
+Pendiente (lo define Aníbal):
+  Carpeta donde antes se subían las actas escaneadas (una carpeta por cliente).
+  Cuando pase el link/ID, se configura CARPETA_ACTAS_HISTORICAS_ID en Apps Script
+  y las actas nuevas se ordenan ahí automáticamente por cliente.
+
+Notas:
+  - Reportes de consumo/API siguen en Agente WES\wes-scripts\reports (otra carpeta).
+  - Scripts Python: usar subir_a_mantenimiento_wes() o folder_id de mantenimiento wes.

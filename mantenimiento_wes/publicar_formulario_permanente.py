@@ -33,7 +33,11 @@ REPO = ROOT.parent
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from wes_google_drive import asegurar_carpeta, obtener_servicio_drive  # noqa: E402
+from wes_google_drive import (  # noqa: E402
+    DEFAULT_MANTENIMIENTO_FOLDER_ID,
+    asegurar_carpeta,
+    obtener_servicio_drive,
+)
 
 SCRIPT_NAME = "Formulario Visita WES Permanente"
 FOLDER_TECH = "Tecnicos_WES_Formulario"
@@ -232,7 +236,10 @@ Carpeta Drive de técnicos: Tecnicos_WES_Formulario
 
 def main() -> int:
     service = obtener_servicio_drive()
-    folder = asegurar_carpeta(service, FOLDER_TECH)
+    # Siempre bajo Agente WES / wes-scripts / mantenimiento wes
+    folder = asegurar_carpeta(
+        service, FOLDER_TECH, parent_id=DEFAULT_MANTENIMIENTO_FOLDER_ID
+    )
     script = publicar_script(service)
     # mover script a la carpeta si se puede (add parent)
     try:

@@ -36,6 +36,17 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 # (misma que G:\Mi unidad\Agente WES\wes-scripts\reports)
 DEFAULT_REPORTS_FOLDER_ID = "1r-eMj4SWkxJs045MDfky2x3jqrifalcj"
 
+# Carpeta Drive: Agente WES / wes-scripts
+# (misma que G:\Mi unidad\Agente WES\wes-scripts)
+DEFAULT_WES_SCRIPTS_FOLDER_ID = "1WvEmtl3bexNvffxheGIQ6bUkN-iA4Lhg"
+
+# Carpeta Drive: Agente WES / wes-scripts / mantenimiento wes
+# (misma que G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes)
+DEFAULT_MANTENIMIENTO_FOLDER_ID = "150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX"
+
+# Subcarpeta del formulario / actas digitales dentro de mantenimiento wes
+DEFAULT_TECNICOS_FORMULARIO_FOLDER_ID = "1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC"
+
 
 def _env(name: str) -> str:
     return os.environ.get(name, "").strip()
@@ -212,3 +223,21 @@ def subir_varios(
     return [
         subir_a_drive(p, subcarpeta=subcarpeta, folder_id=folder_id) for p in paths
     ]
+
+
+def subir_a_mantenimiento_wes(
+    file_path: Path | str,
+    *,
+    subcarpeta: Optional[str] = None,
+    nombre: Optional[str] = None,
+) -> Dict[str, str]:
+    """
+    Sube bajo Agente WES / wes-scripts / mantenimiento wes
+    (nunca a la raíz de Mi unidad ni suelto en reports).
+    """
+    return subir_a_drive(
+        file_path,
+        folder_id=DEFAULT_MANTENIMIENTO_FOLDER_ID,
+        subcarpeta=subcarpeta,
+        nombre=nombre,
+    )
