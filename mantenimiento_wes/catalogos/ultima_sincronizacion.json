@@ -1,7 +1,7 @@
 {
   "fuente": "/workspace/mantenimiento_wes/maestro/analisis_falla_google.xlsx",
   "clientes": 29,
-  "pares_maquina": 165,
+  "pares_maquina": 166,
   "tipos_falla": 9,
   "fallas_especificas": 62,
   "clientes_lista": [
@@ -35,5 +35,5 @@
     "RENCA",
     "UDD"
   ],
-  "sync_at": "2026-08-13T16:16:06"
+  "sync_at": "2026-08-13T17:49:33"
 }
