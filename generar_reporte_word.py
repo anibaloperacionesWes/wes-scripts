@@ -1070,7 +1070,18 @@ def agregar_tabla_alertas_grafico_diario(doc: Document, alerts: List[dict], *, w
     add_table(doc, "Alertas detectadas en el gráfico", rows, wes_style=wes_style, has_total_row=False)
 
 
-def build_consumption_chart(measures: List[MeasurePoint], output: Path, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None, alerts: Optional[List[dict]] = None) -> Optional[Path]:
+def build_consumption_chart(
+    measures: List[MeasurePoint],
+    output: Path,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    alerts: Optional[List[dict]] = None,
+    highlight_dates: Optional[List[tuple]] = None,
+) -> Optional[Path]:
+    """
+    highlight_dates: lista opcional de (date|datetime, etiqueta) para marcar hitos
+    (p. ej. bajada por mejora de mantención) con un punto destacado, distinto de alertas.
+    """
     if not measures:
         return None
     
@@ -1090,6 +1101,15 @@ def build_consumption_chart(measures: List[MeasurePoint], output: Path, start_da
             if dt:
                 alert_dates.add(dt.date())
 
+    highlight_map = {}
+    if highlight_dates:
+        for item in highlight_dates:
+            if not item:
+                continue
+            d_raw, label = item[0], item[1] if len(item) > 1 else "Hito"
+            d = d_raw.date() if hasattr(d_raw, "date") else d_raw
+            highlight_map[d] = label
+
     plt.figure(figsize=(10, 5))
     
     # Crear gráfica de línea con área sombreada
@@ -1105,6 +1125,40 @@ def build_consumption_chart(measures: List[MeasurePoint], output: Path, start_da
             label = "Alerta detectada" if not alert_label_added else ""
             plt.plot(date, totals[i], 'ro', markersize=12, markeredgewidth=2, markeredgecolor='darkred', zorder=5, label=label)
             alert_label_added = True
+
+    # Hitos (p. ej. mejora de mantención): punto verde destacado
+    highlight_labels_used = set()
+    for i, date in enumerate(dates):
+        d = date.date()
+        if d not in highlight_map:
+            continue
+        label = highlight_map[d]
+        legend_label = label if label not in highlight_labels_used else ""
+        plt.plot(
+            date,
+            totals[i],
+            marker="o",
+            markersize=14,
+            color="#2ecc71",
+            markeredgewidth=2.2,
+            markeredgecolor="#1e8449",
+            zorder=6,
+            label=legend_label,
+        )
+        ax = plt.gca()
+        ax.annotate(
+            label,
+            xy=(date, totals[i]),
+            xytext=(0, 18),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
+            color="#1e8449",
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="white", edgecolor="#2ecc71", alpha=0.92),
+        )
+        highlight_labels_used.add(label)
     
     plt.title("Consumo diario (m³)", fontsize=14, fontweight="bold")
     plt.xlabel("Fecha", fontsize=11)
@@ -1131,10 +1185,8 @@ def build_consumption_chart(measures: List[MeasurePoint], output: Path, start_da
     plt.grid(True, linestyle="--", alpha=0.3, axis="y")
     # Mover leyenda abajo de la gráfica, más abajo para que no tape el eje X
     # Ajustar bbox_to_anchor para dar más espacio al eje X
-    if alert_dates:
-        plt.legend(loc="upper center", bbox_to_anchor=(0.5, -0.20), ncol=2, fontsize=9)
-    else:
-        plt.legend(loc="upper center", bbox_to_anchor=(0.5, -0.20), ncol=1, fontsize=9)
+    n_legend = 1 + (1 if alert_dates else 0) + (1 if highlight_labels_used else 0)
+    plt.legend(loc="upper center", bbox_to_anchor=(0.5, -0.20), ncol=min(3, n_legend), fontsize=9)
     # Ajustar layout para dar más espacio en la parte inferior
     plt.tight_layout(rect=[0, 0.05, 1, 0.95])  # Dejar más espacio abajo para la leyenda
     plt.gcf().autofmt_xdate()
