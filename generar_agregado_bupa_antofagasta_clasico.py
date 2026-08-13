@@ -423,7 +423,8 @@ def _append_comparativos(docx_path: Path) -> Path:
     estilizar_tabla_wes(table, has_total_row=False)
 
     # Proyección cierre agosto + narrativa mejora mantención / WES
-    _append_proyeccion_agosto_y_mejora(doc, out_dir, price)
+    # Valorización con tarifa de factura julio (ref. cuenta), no el default API.
+    _append_proyeccion_agosto_y_mejora(doc, out_dir, PRECIO_DEFAULT)
 
     doc.save(str(docx_path))
     print(f"[OK] Comparativos agregados a {docx_path}")
