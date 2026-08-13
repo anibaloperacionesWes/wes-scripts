@@ -22,5 +22,9 @@
   ],
   "catalogos_sync_at": "2026-08-13T17:50:06",
   "catalogos_clientes": 29,
-  "catalogos_maquinas": 166
+  "catalogos_maquinas": 166,
+  "pdf_acta_version": "hermoseado_v1",
+  "pdf_logo_id": "1t4XYXYibZu_dwLftjjMw7hCX9CcSc4tY",
+  "deployment_version": 8,
+  "updated_at": "2026-08-13T17:59:42"
 }
