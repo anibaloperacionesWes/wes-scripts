@@ -9,6 +9,8 @@ var SHEET_REGISTRO_ID = '1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM';
 var SHEET_DATOS = 'Datos';
 var CARPETA_ACTAS = 'Actas_visita_PDF';
 var CARPETA_TECNICOS = 'Tecnicos_WES_Formulario';
+/** Carpeta Drive fija del proyecto (evita searchFolders / duplicados). */
+var CARPETA_TECNICOS_ID = '1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC';
 var CC_DEFAULT = 'anibal.aoperaciones@wes.cl';
 var FOLIO_INICIAL = 2250;
 
@@ -137,19 +139,24 @@ function sanitizar_(name) {
 }
 
 function asegurarCarpetaActas_() {
-  var parent = asegurarCarpetaPorNombre_(CARPETA_TECNICOS, null);
+  var parent;
+  try {
+    parent = DriveApp.getFolderById(CARPETA_TECNICOS_ID);
+  } catch (e) {
+    parent = asegurarCarpetaPorNombre_(CARPETA_TECNICOS, null);
+  }
   return asegurarCarpetaPorNombre_(CARPETA_ACTAS, parent.getId());
 }
 
 function asegurarCarpetaPorNombre_(nombre, parentId) {
-  var q =
-    "name='" +
-    nombre.replace(/'/g, "\\'") +
-    "' and mimeType='application/vnd.google-apps.folder' and trashed=false";
+  // No usar DriveApp.searchFolders con mimeType/trashed: lanza
+  // "Exception: Argumento no válido: q". getFoldersByName es el API correcto.
+  var found;
   if (parentId) {
-    q += " and '" + parentId + "' in parents";
+    found = DriveApp.getFolderById(parentId).getFoldersByName(nombre);
+  } else {
+    found = DriveApp.getFoldersByName(nombre);
   }
-  var found = DriveApp.searchFolders(q);
   if (found.hasNext()) {
     return found.next();
   }
