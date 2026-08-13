@@ -314,14 +314,17 @@
         </div>
         <div class="row">
           <div>
-            <label for="email_cliente">Correo del cliente *</label>
-            <input id="email_cliente" type="email" required placeholder="cliente@empresa.cl" />
+            <label for="email_cliente">Correo encargado general (cliente) *</label>
+            <input id="email_cliente" type="email" required placeholder="encargado.cliente@… se autocompleta si ya está registrado" />
           </div>
           <div>
-            <label for="email_cc">CC (opcional)</label>
-            <input id="email_cc" placeholder="anibal.aoperaciones@wes.cl" />
+            <label for="email_cc">CC encargado del punto (colegio / sitio)</label>
+            <input id="email_cc" placeholder="inspector / director del punto — se guarda para la próxima" />
           </div>
         </div>
+        <p class="note" id="contactosHint" style="margin-top:4px">
+          Si ya hay registro, se rellenan solos al elegir cliente y máquina. Lo que escriban Mauricio/Aníbal queda guardado para no tipearlo de nuevo.
+        </p>
         <label>Firma en pantalla *</label>
         <div class="pad-wrap">
           <div class="hint" id="hint">Firmá aquí</div>
@@ -345,11 +348,74 @@
 
     <script>
     const CATALOGOS = <?!= CATALOGOS_JSON ?>;
-    const state = { catalogos: null, dirty: false };
+    const state = { catalogos: null, dirty: false, contactos: {} };
 
     async function loadCatalogos() {
       // Catálogos embebidos por Apps Script (link permanente)
       state.catalogos = CATALOGOS;
+      state.contactos = (CATALOGOS && CATALOGOS.contactos) || {};
+    }
+
+    function aplicarContactosGuardados() {
+      const cli = document.getElementById("cliente").value.trim();
+      const maq = document.getElementById("maquina").value.trim();
+      const emailCli = document.getElementById("email_cliente");
+      const emailCc = document.getElementById("email_cc");
+      const hint = document.getElementById("contactosHint");
+      if (!cli) {
+        if (hint) hint.textContent = "Elegí cliente (y luego el punto) para autocompletar correos guardados.";
+        return;
+      }
+      // Prioridad: Sheet vivo vía Apps Script; fallback catálogo embebido
+      const applyLocal = () => {
+        const base = (state.contactos && state.contactos[cli]) || {};
+        const punto = (base.puntos && base.puntos[maq]) || {};
+        if (base.email_general) emailCli.value = base.email_general;
+        if (maq && punto.email_cc) emailCc.value = punto.email_cc;
+        else if (!maq) emailCc.value = "";
+        if (hint) {
+          const parts = [];
+          if (base.email_general) parts.push("general OK");
+          if (maq && punto.email_cc) parts.push("punto OK");
+          else if (maq) parts.push("punto sin registro aún (completar CC y se guarda)");
+          hint.textContent = parts.length
+            ? "Contactos: " + parts.join(" · ")
+            : "Sin correos guardados aún para este cliente. Completá To/CC y se registran al enviar.";
+        }
+      };
+      if (typeof google !== "undefined" && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler((c) => {
+            if (!c) return applyLocal();
+            if (c.email_general) emailCli.value = c.email_general;
+            if (c.email_cc) emailCc.value = c.email_cc;
+            else if (maq) {
+              /* keep typed CC if user already wrote; only clear if empty machine switch handled above */
+            }
+            // refrescar cache local
+            if (!state.contactos[cli]) state.contactos[cli] = { puntos: {} };
+            if (c.email_general) state.contactos[cli].email_general = c.email_general;
+            if (maq && c.email_cc) {
+              state.contactos[cli].puntos = state.contactos[cli].puntos || {};
+              state.contactos[cli].puntos[maq] = {
+                email_cc: c.email_cc,
+                nombre: c.nombre_punto || "",
+                cargo: c.cargo_punto || "",
+              };
+            }
+            if (hint) {
+              const parts = [];
+              if (c.email_general) parts.push("general: " + c.email_general);
+              if (c.email_cc) parts.push("CC punto: " + c.email_cc);
+              else if (maq) parts.push("punto sin registro (completar CC)");
+              hint.textContent = parts.length ? "Contactos guardados → " + parts.join(" · ") : hint.textContent;
+            }
+          })
+          .withFailureHandler(applyLocal)
+          .getContactosPara(cli, maq);
+      } else {
+        applyLocal();
+      }
     }
 
     function fillSelect(sel, items, blank = "— seleccionar —") {
@@ -537,11 +603,26 @@
       document.getElementById("cliente").onchange = () => {
         const cli = document.getElementById("cliente").value;
         fillSelect(document.getElementById("maquina"), c.clientes_maquinas[cli] || []);
+        document.getElementById("email_cc").value = "";
+        aplicarContactosGuardados();
+      };
+      document.getElementById("maquina").onchange = () => {
+        document.getElementById("email_cc").value = "";
+        aplicarContactosGuardados();
       };
       document.getElementById("tipo_falla").onchange = () => {
         const t = document.getElementById("tipo_falla").value;
         fillSelect(document.getElementById("falla_especifica"), c.tipos_falla[t] || [], "— seleccionar —");
       };
+
+      // Cargar contactos vivos desde Sheet (sin redeploy)
+      if (typeof google !== "undefined" && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler((dict) => {
+            if (dict && typeof dict === "object") state.contactos = dict;
+          })
+          .getContactos();
+      }
     }
 
     document.getElementById("form").onsubmit = async (ev) => {

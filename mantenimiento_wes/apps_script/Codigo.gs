@@ -91,6 +91,11 @@ function procesarVisita(data) {
   var firmaBlob = firmaBlobDesdeDataUrl_(data.firma_png);
   var pdfFile = generarYGuardarPdf_(carpeta, stem, data, firmaBlob);
   var row = appendSheet_(data, pdfFile.getUrl());
+  try {
+    guardarContactosDesdeVisita_(data);
+  } catch (eContact) {
+    // No bloquea el envío si falla el registro de contactos
+  }
   var emailInfo = enviarCorreo_(data, pdfFile);
 
   return {
@@ -577,8 +582,9 @@ function enviarCorreo_(data, pdfFile) {
     return { ok: false, skip: 'Falta email_cliente', to: [] };
   }
   var cc = splitEmails_(data.email_cc);
-  if (!cc.length) {
-    cc = [CC_DEFAULT];
+  // Siempre incluir a Aníbal/WES en CC para seguimiento interno
+  if (cc.indexOf(CC_DEFAULT) < 0) {
+    cc.push(CC_DEFAULT);
   }
   var subject =
     'WES · Acta folio ' +
@@ -654,6 +660,138 @@ function splitEmails_(raw) {
     .filter(function (s) {
       return s.indexOf('@') > 0;
     });
+}
+
+/**
+ * API para el formulario: contactos guardados (encargado general + por punto).
+ * Fuente viva: hoja "Contactos" del Sheet de registro (se actualiza en cada envío).
+ */
+function getContactos() {
+  return leerContactosDict_();
+}
+
+function getContactosPara(cliente, maquina) {
+  var all = leerContactosDict_();
+  var cli = String(cliente || '').trim();
+  var maq = String(maquina || '').trim();
+  var base = all[cli] || {};
+  var punto = (base.puntos && base.puntos[maq]) || {};
+  return {
+    cliente: cli,
+    maquina: maq,
+    email_general: base.email_general || '',
+    nombre_general: base.nombre_general || '',
+    cargo_general: base.cargo_general || '',
+    email_cc: punto.email_cc || '',
+    nombre_punto: punto.nombre || '',
+    cargo_punto: punto.cargo || '',
+  };
+}
+
+function guardarContactosDesdeVisita_(data) {
+  var cli = String(data.cliente || '').trim();
+  if (!cli) return;
+  var maq = String(data.maquina || '').trim();
+  var stamp = Utilities.formatDate(new Date(), 'America/Santiago', 'yyyy-MM-dd HH:mm');
+  var emailsGen = splitEmails_(data.email_cliente);
+  var emailsCc = splitEmails_(data.email_cc).filter(function (e) {
+    return e.toLowerCase() !== CC_DEFAULT.toLowerCase();
+  });
+
+  if (emailsGen.length) {
+    upsertContactoFila_({
+      cliente: cli,
+      maquina: '',
+      rol: 'general',
+      nombre: '',
+      cargo: '',
+      email: emailsGen.join(', '),
+      actualizado: stamp,
+    });
+  }
+  if (maq && emailsCc.length) {
+    upsertContactoFila_({
+      cliente: cli,
+      maquina: maq,
+      rol: 'punto',
+      nombre: String(data.recibido_por || '').trim(),
+      cargo: String(data.cargo || '').trim(),
+      email: emailsCc.join(', '),
+      actualizado: stamp,
+    });
+  }
+}
+
+function asegurarHojaContactos_() {
+  var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
+  var sh = ss.getSheetByName('Contactos');
+  if (!sh) {
+    sh = ss.insertSheet('Contactos');
+  }
+  var headers = ['Cliente', 'Máquina', 'Rol', 'Nombre', 'Cargo', 'Email', 'Actualizado'];
+  var row1 = sh.getRange(1, 1, 1, headers.length).getValues()[0];
+  var empty = !row1[0];
+  if (empty) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  }
+  return sh;
+}
+
+function upsertContactoFila_(row) {
+  var sh = asegurarHojaContactos_();
+  var last = sh.getLastRow();
+  var cli = String(row.cliente || '').trim();
+  var maq = String(row.maquina || '').trim();
+  var rol = String(row.rol || '').trim();
+  if (last >= 2) {
+    var vals = sh.getRange(2, 1, last, 7).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      var rCli = String(vals[i][0] || '').trim();
+      var rMaq = String(vals[i][1] || '').trim();
+      var rRol = String(vals[i][2] || '').trim();
+      if (rCli === cli && rMaq === maq && rRol === rol) {
+        sh.getRange(i + 2, 1, 1, 7).setValues([
+          [cli, maq, rol, row.nombre || '', row.cargo || '', row.email || '', row.actualizado || ''],
+        ]);
+        return;
+      }
+    }
+  }
+  sh.appendRow([cli, maq, rol, row.nombre || '', row.cargo || '', row.email || '', row.actualizado || '']);
+}
+
+function leerContactosDict_() {
+  var out = {};
+  try {
+    var sh = asegurarHojaContactos_();
+    var last = sh.getLastRow();
+    if (last < 2) return out;
+    var vals = sh.getRange(2, 1, last, 7).getValues();
+    for (var i = 0; i < vals.length; i++) {
+      var cli = String(vals[i][0] || '').trim();
+      if (!cli) continue;
+      var maq = String(vals[i][1] || '').trim();
+      var rol = String(vals[i][2] || '').trim().toLowerCase();
+      var nombre = String(vals[i][3] || '').trim();
+      var cargo = String(vals[i][4] || '').trim();
+      var email = String(vals[i][5] || '').trim();
+      if (!out[cli]) out[cli] = { email_general: '', nombre_general: '', cargo_general: '', puntos: {} };
+      if (rol === 'general' || (!maq && email)) {
+        out[cli].email_general = email;
+        if (nombre) out[cli].nombre_general = nombre;
+        if (cargo) out[cli].cargo_general = cargo;
+      } else if (maq) {
+        out[cli].puntos[maq] = {
+          email_cc: email,
+          nombre: nombre,
+          cargo: cargo,
+        };
+      }
+    }
+  } catch (e) {}
+  return out;
 }
 
 function escapeHtml_(s) {

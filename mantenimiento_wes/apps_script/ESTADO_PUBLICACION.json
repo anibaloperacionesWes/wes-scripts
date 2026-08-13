@@ -25,8 +25,8 @@
   "catalogos_maquinas": 166,
   "pdf_acta_version": "hermoseado_v1",
   "pdf_logo_id": "1t4XYXYibZu_dwLftjjMw7hCX9CcSc4tY",
-  "deployment_version": 10,
-  "updated_at": "2026-08-13T18:16:20",
+  "deployment_version": 11,
+  "updated_at": "2026-08-13T18:37:11",
   "mantenimiento_wes_folder_id": "150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX",
   "mantenimiento_wes_folder_link": "https://drive.google.com/drive/folders/150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX",
   "folder_parent": "mantenimiento wes (no reports)",
@@ -34,5 +34,6 @@
   "actas_historicas_id": "1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ",
   "actas_historicas_nota": "Actas PDF por Cliente/Año/mes. Firma solo dentro del PDF.",
   "actas_historicas_link": "https://drive.google.com/drive/folders/1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ",
-  "firma_png_en_drive": false
+  "firma_png_en_drive": false,
+  "contactos": "Hoja Contactos en Sheet registro + autocompletar To/CC"
 }

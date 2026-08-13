@@ -1,0 +1,38 @@
+CONTACTOS DE ENVÍO DE ACTAS (To / CC)
+====================================
+
+Cómo funciona
+-------------
+1) Correo encargado general (cliente) → va en "Para" (To).
+   Ejemplo: encargado de toda CORMUP / Peñalolén.
+
+2) CC encargado del punto → colegio, inspector, director, etc.
+   Ejemplo: encargado de TOBALABA.
+
+3) Al enviar una visita, esos correos se guardan en la hoja
+   "Contactos" del Excel/Sheet de registro de fallas.
+
+4) La próxima vez que Mauricio elija el mismo cliente/punto,
+   el formulario autocompleta To y CC.
+
+5) Aníbal (anibal.aoperaciones@wes.cl) siempre queda en CC
+   además del encargado del punto.
+
+Dónde se ve el registro
+-----------------------
+Sheet registro de fallas → pestaña "Contactos"
+https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
+
+Columnas: Cliente | Máquina | Rol (general/punto) | Nombre | Cargo | Email | Actualizado
+- Rol "general" → Máquina vacía
+- Rol "punto" → Máquina = colegio/sitio
+
+Uso en terreno
+--------------
+- Primera visita a un cliente: tipear el correo general en To.
+- En el punto: pedir correo del encargado del colegio y ponerlo en CC.
+- De ahí en adelante se rellena solo.
+
+Si Aníbal ya conoce el correo general de CORMUP (u otro),
+puede pedirle al agente que lo cargue una vez, o escribirlo
+en la primera visita / en la hoja Contactos.
