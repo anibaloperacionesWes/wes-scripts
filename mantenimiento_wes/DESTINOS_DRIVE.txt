@@ -1,26 +1,29 @@
 DESTINOS GOOGLE DRIVE — mantenimiento WES
 ==========================================
 
-Raíz obligatoria (no usar Mi unidad suelta ni reports/ para estos archivos):
-
+1) Código / formulario / auxiliares
+-----------------------------------
   G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes
   https://drive.google.com/drive/folders/150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX
 
-Formulario / técnicos / PDF digitales del web:
+  Incluye Tecnicos_WES_Formulario (link del web, instrucciones, logo).
 
-  ...\mantenimiento wes\Tecnicos_WES_Formulario
-  https://drive.google.com/drive/folders/1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC
+2) Actas PDF (destino oficial de terreno)
+-----------------------------------------
+  G:\Mi unidad\Actas de Mantencion
+  https://drive.google.com/drive/folders/1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ
 
-Actas generadas por el formulario (mientras no exista carpeta histórica):
+  Estructura:
+    Actas de Mantencion\{Cliente}\{Año}\{mes}\
+    Ejemplo: Actas de Mantencion\CDUC\2026\agosto\
 
-  ...\Tecnicos_WES_Formulario\Actas_visita_PDF\{CLIENTE}\
-  Ejemplo: ...\Actas_visita_PDF\CDUC\
+  Meses en español: enero, febrero, marzo, ...
 
-Pendiente (lo define Aníbal):
-  Carpeta donde antes se subían las actas escaneadas (una carpeta por cliente).
-  Cuando pase el link/ID, se configura CARPETA_ACTAS_HISTORICAS_ID en Apps Script
-  y las actas nuevas se ordenan ahí automáticamente por cliente.
+3) Firma
+--------
+  La firma va SOLO dentro del PDF del acta.
+  No se guarda un PNG de firma suelto en Drive.
 
-Notas:
-  - Reportes de consumo/API siguen en Agente WES\wes-scripts\reports (otra carpeta).
-  - Scripts Python: usar subir_a_mantenimiento_wes() o folder_id de mantenimiento wes.
+4) Reportes de consumo/API
+--------------------------
+  Siguen en Agente WES\wes-scripts\reports (otra carpeta).

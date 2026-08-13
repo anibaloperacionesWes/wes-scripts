@@ -89,13 +89,13 @@ def main() -> int:
 
     # subir a Drive si hay credenciales
     try:
-        from wes_google_drive import credenciales_configuradas, subir_a_mantenimiento_wes
+        from wes_google_drive import credenciales_configuradas, subir_acta_mantencion
 
         if credenciales_configuradas():
-            cli = str(data.get("cliente") or "SIN_CLIENTE").strip() or "SIN_CLIENTE"
-            info = subir_a_mantenimiento_wes(
+            info = subir_acta_mantencion(
                 dest,
-                subcarpeta=f"Tecnicos_WES_Formulario/Actas_visita_PDF/{cli}",
+                cliente=str(data.get("cliente") or "SIN_CLIENTE"),
+                fecha=str(data.get("fecha") or ""),
             )
             print(f"  Drive: {info.get('web_view_link')}")
             (reports / "ULTIMO_LINK_DRIVE.txt").write_text(

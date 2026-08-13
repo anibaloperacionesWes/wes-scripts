@@ -7,21 +7,19 @@
 
 var SHEET_REGISTRO_ID = '1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM';
 var SHEET_DATOS = 'Datos';
-var CARPETA_ACTAS = 'Actas_visita_PDF';
 var CARPETA_TECNICOS = 'Tecnicos_WES_Formulario';
 /**
  * G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes
- * Todo lo del formulario / actas digitales vive bajo esta carpeta (no en la raíz de Mi unidad).
+ * (código / formulario / auxiliares — no las actas PDF del terreno)
  */
 var CARPETA_MANTENIMIENTO_WES_ID = '150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX';
 /** Tecnicos_WES_Formulario (dentro de mantenimiento wes). */
 var CARPETA_TECNICOS_ID = '1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC';
 /**
- * Carpeta histórica de actas escaneadas (carpetas por cliente).
- * Vacío hasta que Aníbal pase el link/ID; mientras tanto se ordena por cliente
- * bajo Tecnicos_WES_Formulario/Actas_visita_PDF/{CLIENTE}/.
+ * G:\Mi unidad\Actas de Mantencion
+ * Actas PDF: {Cliente}/{Año}/{mes}/
  */
-var CARPETA_ACTAS_HISTORICAS_ID = '';
+var CARPETA_ACTAS_HISTORICAS_ID = '1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ';
 /** Logo WES en Drive (Tecnicos_WES_Formulario). */
 var LOGO_WES_ID = '1t4XYXYibZu_dwLftjjMw7hCX9CcSc4tY';
 var CC_DEFAULT = 'anibal.aoperaciones@wes.cl';
@@ -88,9 +86,10 @@ function procesarVisita(data) {
     'folio_' + folio + '_' + (data.fecha || '') + '_' + data.cliente + '_' + data.maquina + '_' + stamp
   );
 
-  var carpeta = asegurarCarpetaActas_(data.cliente);
-  var firmaFile = guardarFirma_(carpeta, stem, data.firma_png);
-  var pdfFile = generarYGuardarPdf_(carpeta, stem, data, firmaFile);
+  var carpeta = asegurarCarpetaActas_(data.cliente, data.fecha);
+  // Firma solo en memoria → va dentro del PDF; no se guarda PNG suelto en Drive.
+  var firmaBlob = firmaBlobDesdeDataUrl_(data.firma_png);
+  var pdfFile = generarYGuardarPdf_(carpeta, stem, data, firmaBlob);
   var row = appendSheet_(data, pdfFile.getUrl());
   var emailInfo = enviarCorreo_(data, pdfFile);
 
@@ -100,7 +99,6 @@ function procesarVisita(data) {
     excel_row: row,
     pdf_url: pdfFile.getUrl(),
     drive_link: pdfFile.getUrl(),
-    firma_url: firmaFile.getUrl(),
     email_ok: emailInfo.ok,
     email_to: emailInfo.to,
     email_skip: emailInfo.skip || '',
@@ -161,41 +159,75 @@ function sanitizar_(name) {
     .substring(0, 120);
 }
 
-function asegurarCarpetaActas_(cliente) {
-  // Siempre bajo: mantenimiento wes / Tecnicos_WES_Formulario / Actas_visita_PDF / {CLIENTE}
-  // Si más adelante hay CARPETA_ACTAS_HISTORICAS_ID, se usa esa raíz (carpetas por cliente).
+function asegurarCarpetaActas_(cliente, fecha) {
+  // G:\Mi unidad\Actas de Mantencion\{Cliente}\{Año}\{mes}\
   var rootActas;
-  if (CARPETA_ACTAS_HISTORICAS_ID) {
-    try {
-      rootActas = DriveApp.getFolderById(CARPETA_ACTAS_HISTORICAS_ID);
-    } catch (e) {
-      rootActas = null;
+  try {
+    rootActas = DriveApp.getFolderById(CARPETA_ACTAS_HISTORICAS_ID);
+  } catch (e) {
+    throw new Error('No se pudo abrir la carpeta Actas de Mantencion');
+  }
+  var cli = mapNombreCarpetaCliente_(cliente);
+  var parts = anioMesDesdeFecha_(fecha);
+  var fCli = asegurarCarpetaPorNombre_(cli, rootActas.getId());
+  var fAnio = asegurarCarpetaPorNombre_(parts.anio, fCli.getId());
+  return asegurarCarpetaPorNombre_(parts.mes, fAnio.getId());
+}
+
+/** Alinea nombres del formulario con carpetas históricas cuando difieren. */
+function mapNombreCarpetaCliente_(cliente) {
+  var c = String(cliente || 'SIN_CLIENTE').trim() || 'SIN_CLIENTE';
+  var map = {
+    'COR. PUENTE': 'CORP PUENTE ALTO',
+    'GENCHI': 'GENDARMERIA',
+    'LA FLORIDA': 'CORP LA FLORIDA',
+    'LA REINA': 'CORP LA REINA',
+    'PROVIDENCIA': 'CORP PROVIDENCIA',
+    'LAS CONDES': 'COLEGIO LAS CONDES',
+    'NIDO': 'NIDO DE AGUILAS',
+    'BUPA ANTOFGASTA': 'BUPA',
+    'HEGC': 'HOSPITAL EXEQUIEL GONZALEZ CORTES',
+    'MADECCO': 'MADECO',
+    'MAE': 'MADECO',
+    'PAE': 'PARQUE ARAUCO',
+    'PAK': 'PARQUE ARAUCO',
+  };
+  return map[c] || c;
+}
+
+function anioMesDesdeFecha_(fecha) {
+  var meses = [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ];
+  var d = null;
+  if (fecha) {
+    // yyyy-MM-dd o similar
+    var m = String(fecha).match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) {
+      d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    } else {
+      d = new Date(fecha);
     }
   }
-  if (!rootActas) {
-    var mant;
-    try {
-      mant = DriveApp.getFolderById(CARPETA_MANTENIMIENTO_WES_ID);
-    } catch (e2) {
-      mant = null;
-    }
-    var tecnicos;
-    try {
-      tecnicos = DriveApp.getFolderById(CARPETA_TECNICOS_ID);
-    } catch (e3) {
-      tecnicos = null;
-    }
-    if (!tecnicos) {
-      if (mant) {
-        tecnicos = asegurarCarpetaPorNombre_(CARPETA_TECNICOS, mant.getId());
-      } else {
-        tecnicos = asegurarCarpetaPorNombre_(CARPETA_TECNICOS, null);
-      }
-    }
-    rootActas = asegurarCarpetaPorNombre_(CARPETA_ACTAS, tecnicos.getId());
+  if (!d || isNaN(d.getTime())) {
+    d = new Date();
   }
-  var cli = String(cliente || 'SIN_CLIENTE').trim() || 'SIN_CLIENTE';
-  return asegurarCarpetaPorNombre_(cli, rootActas.getId());
+  var tz = 'America/Santiago';
+  var anio = Utilities.formatDate(d, tz, 'yyyy');
+  var mesIdx = Number(Utilities.formatDate(d, tz, 'M')) - 1;
+  var mes = meses[mesIdx] || meses[new Date().getMonth()];
+  return { anio: anio, mes: mes };
 }
 
 function asegurarCarpetaPorNombre_(nombre, parentId) {
@@ -216,17 +248,17 @@ function asegurarCarpetaPorNombre_(nombre, parentId) {
   return DriveApp.createFolder(nombre);
 }
 
-function guardarFirma_(carpeta, stem, dataUrl) {
+/** Blob de firma en memoria (no se crea archivo en Drive). */
+function firmaBlobDesdeDataUrl_(dataUrl) {
   var parts = String(dataUrl).split(',');
   if (parts.length < 2) {
     throw new Error('Firma inválida');
   }
   var bytes = Utilities.base64Decode(parts[1]);
-  var blob = Utilities.newBlob(bytes, 'image/png', stem + '_firma.png');
-  return carpeta.createFile(blob);
+  return Utilities.newBlob(bytes, 'image/png', 'firma.png');
 }
 
-function generarYGuardarPdf_(carpeta, stem, data, firmaFile) {
+function generarYGuardarPdf_(carpeta, stem, data, firmaBlob) {
   var doc = DocumentApp.create('Acta_' + stem);
   var body = doc.getBody();
   body.clear();
@@ -258,7 +290,7 @@ function generarYGuardarPdf_(carpeta, stem, data, firmaFile) {
       'con la frase «Acuso recibo» o firmando digitalmente abajo. ' +
       'La constancia queda registrada en el sistema de análisis WES.'
   );
-  appendPdfFirmaBlock_(body, data, firmaFile);
+  appendPdfFirmaBlock_(body, data, firmaBlob);
   appendPdfFooter_(body);
 
   doc.saveAndClose();
@@ -418,7 +450,7 @@ function appendChecklistTable_(body, items) {
   } catch (e) {}
 }
 
-function appendPdfFirmaBlock_(body, data, firmaFile) {
+function appendPdfFirmaBlock_(body, data, firmaBlob) {
   var table = body.appendTable([
     [
       'Recibido por: ' + (data.recibido_por || '—'),
@@ -450,7 +482,7 @@ function appendPdfFirmaBlock_(body, data, firmaFile) {
   var lab = cFirma.appendParagraph('Firma del receptor');
   lab.setFontSize(8).setForegroundColor(PDF_MUTED).setSpacingBefore(0).setSpacingAfter(2);
   try {
-    var img = cFirma.appendImage(firmaFile.getBlob());
+    var img = cFirma.appendImage(firmaBlob);
     img.setWidth(220);
     img.setHeight(70);
   } catch (e) {

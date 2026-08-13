@@ -85,17 +85,13 @@ def _save_firma_png(data_url: str, stem: str) -> Path:
     return path
 
 
-def _maybe_upload_drive(pdf_path: Path, cliente: str = "") -> Dict[str, Any]:
+def _maybe_upload_drive(pdf_path: Path, cliente: str = "", fecha: str = "") -> Dict[str, Any]:
     try:
-        from wes_google_drive import credenciales_configuradas, subir_a_mantenimiento_wes
+        from wes_google_drive import credenciales_configuradas, subir_acta_mantencion
 
         if not credenciales_configuradas():
             return {}
-        cli = (cliente or "SIN_CLIENTE").strip() or "SIN_CLIENTE"
-        info = subir_a_mantenimiento_wes(
-            pdf_path,
-            subcarpeta=f"Tecnicos_WES_Formulario/Actas_visita_PDF/{cli}",
-        )
+        info = subir_acta_mantencion(pdf_path, cliente=cliente or "SIN_CLIENTE", fecha=fecha or None)
         return {"drive_link": info.get("web_view_link"), "drive_id": info.get("id")}
     except Exception as exc:  # noqa: BLE001
         return {"drive_error": str(exc)}
@@ -135,7 +131,11 @@ def procesar_visita(data: Dict[str, Any]) -> Dict[str, Any]:
     report_pdf.write_bytes(pdf_path.read_bytes())
 
     email_info = enviar_acta_pdf_cliente(pdf_path, data)
-    drive_info = _maybe_upload_drive(report_pdf, str(data.get("cliente") or ""))
+    drive_info = _maybe_upload_drive(
+        report_pdf,
+        str(data.get("cliente") or ""),
+        str(data.get("fecha") or ""),
+    )
 
     # Actualiza link PDF en la fila digital si hay Drive
     pdf_link = drive_info.get("drive_link") or ""
