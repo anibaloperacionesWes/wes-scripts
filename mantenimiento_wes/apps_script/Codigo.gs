@@ -15,7 +15,14 @@ var FOLIO_INICIAL = 2250;
 function doGet() {
   var tpl = HtmlService.createTemplateFromFile('Formulario');
   tpl.CATALOGOS_JSON = HtmlService.createHtmlOutputFromFile('catalogos').getContent();
-  tpl.PROXIMO_FOLIO = String(peekProximoFolio_());
+  // No tocar SpreadsheetApp acá: si falla el permiso, la página queda en blanco tras el login.
+  var folioShow = FOLIO_INICIAL;
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var n = Number(props.getProperty('NEXT_FOLIO') || FOLIO_INICIAL);
+    if (!isNaN(n) && n >= FOLIO_INICIAL) folioShow = n;
+  } catch (e) {}
+  tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
     .setTitle('Acta de visita WES')

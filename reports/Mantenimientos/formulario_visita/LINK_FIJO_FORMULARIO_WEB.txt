@@ -1,19 +1,12 @@
 LINK FIJO FORMULARIO WEB — TÉCNICOS WES
 =======================================
 
-Mandales ESTE link (formulario con firma, no la planilla):
+https://script.google.com/macros/s/AKfycbzr5Md52h7yHk4T_UhS1H5RsdIKox49EHB5IkFKPsAU2RA-aLTBIG1NWc50vxbTM601/exec
 
-https://script.google.com/a/macros/wes.cl/s/AKfycbzr5Md52h7yHk4T_UhS1H5RsdIKox49EHB5IkFKPsAU2RA-aLTBIG1NWc50vxbTM601/exec
+Entrar con correo @wes.cl (ej. mauricioorellana@wes.cl).
+Debe aparecer "Acta de visita WES".
 
-Cómo entrar
-- Abrirlo en el celular
-- Si Google pide cuenta: elegir el correo @wes.cl del técnico
-- Completar acta + firma + Enviar
-
-Notas
-- Es FIJO: no se cae cuando se apaga el agente de Cursor
-- Solo cuentas @wes.cl (política de Google Workspace WES)
-- La primera vez que Anibal lo use, Google puede pedir "Permitir" permisos (Drive/Gmail/Sheet): aceptar una vez
-
-Editor del proyecto (solo operaciones):
-https://script.google.com/d/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
+Si después del login no carga:
+1) Anibal abre el mismo link una vez en el PC
+2) Si Google pide Permitir / Revisar permisos → Aceptar
+3) Recargar y reenviar a Mauricio
