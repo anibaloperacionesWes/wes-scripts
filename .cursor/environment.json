@@ -1,0 +1,11 @@
+{
+  "name": "WES Scripts",
+  "user": "ubuntu",
+  "install": "python3 -m pip install --user -r requirements.txt",
+  "terminals": [
+    {
+      "name": "formulario-visita",
+      "command": "cd mantenimiento_wes && WES_FORM_PORT=8787 python3 servir_formulario_visita.py"
+    }
+  ]
+}
