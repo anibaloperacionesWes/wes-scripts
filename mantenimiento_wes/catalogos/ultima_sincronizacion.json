@@ -1,13 +1,14 @@
 {
   "fuente": "/workspace/mantenimiento_wes/maestro/analisis_falla_google.xlsx",
-  "clientes": 28,
-  "pares_maquina": 159,
+  "clientes": 29,
+  "pares_maquina": 165,
   "tipos_falla": 9,
   "fallas_especificas": 62,
   "clientes_lista": [
     "AEB",
     "AGUNSA",
     "BOM",
+    "BUPA ANTOFGASTA",
     "CDUC",
     "COPEC",
     "COR. PUENTE",
@@ -34,5 +35,5 @@
     "RENCA",
     "UDD"
   ],
-  "sync_at": "2026-08-12T19:45:24"
+  "sync_at": "2026-08-13T16:16:06"
 }

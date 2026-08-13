@@ -8,6 +8,7 @@ Registra una visita en:
 
 from __future__ import annotations
 
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -33,6 +34,7 @@ THIN = Border(
 
 # Columnas hoja Datos del formulario digital (B=2 ...)
 HEADERS_DIGITAL = [
+    "Folio",
     "Cliente",
     "Maquina",
     "Tecnico",
@@ -54,6 +56,28 @@ HEADERS_DIGITAL = [
     "Año",
     "Mes",
 ]
+
+
+FOLIO_INICIAL = 2250
+_FOLIO_STATE = ROOT / "catalogos" / "proximo_folio.json"
+
+
+def _siguiente_folio() -> int:
+    """Folio correlativo desde 2250 (persistido localmente)."""
+    actual = FOLIO_INICIAL
+    if _FOLIO_STATE.is_file():
+        try:
+            actual = int(json.loads(_FOLIO_STATE.read_text(encoding="utf-8")).get("next", FOLIO_INICIAL))
+        except Exception:
+            actual = FOLIO_INICIAL
+    if actual < FOLIO_INICIAL:
+        actual = FOLIO_INICIAL
+    _FOLIO_STATE.parent.mkdir(parents=True, exist_ok=True)
+    _FOLIO_STATE.write_text(
+        json.dumps({"next": actual + 1, "updated_at": datetime.now().isoformat()}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return actual
 
 
 def _parse_fecha(value: Any):
@@ -79,7 +103,12 @@ def _row_values(data: Dict[str, Any], *, pdf_link: str = "") -> Dict[str, Any]:
         if data.get("firma_png") or data.get("recibido_por")
         else "No - solo digital"
     )
+    folio = data.get("folio")
+    if folio in (None, ""):
+        folio = _siguiente_folio()
+        data["folio"] = folio
     return {
+        "Folio": folio,
         "Cliente": data.get("cliente"),
         "Maquina": data.get("maquina"),
         "Tecnico": data.get("tecnico"),
@@ -144,11 +173,14 @@ def _write_digital(
         ing["C26"] = valores["Estado visita"]
 
     datos = wb["Datos"]
-    for i, h in enumerate(HEADERS_DIGITAL, start=2):
+    # Folio en col A; resto desde B
+    if datos.cell(1, 1).value not in ("Folio",):
+        datos.cell(1, 1, "Folio")
+    for i, h in enumerate(HEADERS_DIGITAL, start=1):
         if datos.cell(1, i).value != h:
             datos.cell(1, i, h)
     row = _next_empty_row(datos, 2)
-    for i, h in enumerate(HEADERS_DIGITAL, start=2):
+    for i, h in enumerate(HEADERS_DIGITAL, start=1):
         cell = datos.cell(row, i, valores.get(h))
         cell.fill = FILL_INPUT
         cell.border = THIN
@@ -218,7 +250,13 @@ def _append_google_sheet(data: Dict[str, Any]) -> Dict[str, Any]:
         sheets = build("sheets", "v4", credentials=creds, cache_discovery=False)
         fecha = _parse_fecha(data.get("fecha"))
         fecha_str = fecha.strftime("%Y-%m-%d") if hasattr(fecha, "strftime") else str(fecha)
+        folio = data.get("folio")
+        if folio in (None, ""):
+            folio = _siguiente_folio()
+            data["folio"] = folio
+        # A = Folio; B-J = campos históricos
         values = [[
+            folio,
             data.get("cliente") or "",
             data.get("maquina") or "",
             data.get("tecnico") or "",
@@ -229,12 +267,22 @@ def _append_google_sheet(data: Dict[str, Any]) -> Dict[str, Any]:
             data.get("solucion") or "",
             data.get("observaciones") or "",
         ]]
+        # asegurar encabezado Folio
+        try:
+            sheets.spreadsheets().values().update(
+                spreadsheetId=SHEET_REGISTRO_ID,
+                range="Datos!A1",
+                valueInputOption="USER_ENTERED",
+                body={"values": [["Folio"]]},
+            ).execute()
+        except Exception:
+            pass
         result = (
             sheets.spreadsheets()
             .values()
             .append(
                 spreadsheetId=SHEET_REGISTRO_ID,
-                range="Datos!B:J",
+                range="Datos!A:J",
                 valueInputOption="USER_ENTERED",
                 insertDataOption="INSERT_ROWS",
                 body={"values": values},

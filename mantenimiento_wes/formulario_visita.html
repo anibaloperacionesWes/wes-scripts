@@ -212,6 +212,17 @@
         <h2>Datos de la instalación</h2>
         <div class="row">
           <div>
+            <label for="folio">N° Folio</label>
+            <input id="folio" value="2250+" readonly />
+            <div class="note">Se asigna automáticamente desde 2250 al enviar.</div>
+          </div>
+          <div>
+            <label for="ot">N° OT / formulario</label>
+            <input id="ot" placeholder="OT-2026-...." />
+          </div>
+        </div>
+        <div class="row">
+          <div>
             <label for="cliente">Cliente *</label>
             <select id="cliente" required></select>
           </div>
@@ -239,10 +250,7 @@
             <label for="tecnico">Técnico WES *</label>
             <select id="tecnico" required></select>
           </div>
-          <div>
-            <label for="ot">N° OT / formulario</label>
-            <input id="ot" placeholder="OT-2026-...." />
-          </div>
+          <div></div>
         </div>
         <label>Motivo de visita</label>
         <div class="chips" id="motivos"></div>

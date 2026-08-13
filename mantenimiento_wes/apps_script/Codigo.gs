@@ -10,10 +10,12 @@ var SHEET_DATOS = 'Datos';
 var CARPETA_ACTAS = 'Actas_visita_PDF';
 var CARPETA_TECNICOS = 'Tecnicos_WES_Formulario';
 var CC_DEFAULT = 'anibal.aoperaciones@wes.cl';
+var FOLIO_INICIAL = 2250;
 
 function doGet() {
   var tpl = HtmlService.createTemplateFromFile('Formulario');
   tpl.CATALOGOS_JSON = HtmlService.createHtmlOutputFromFile('catalogos').getContent();
+  tpl.PROXIMO_FOLIO = String(peekProximoFolio_());
   return tpl
     .evaluate()
     .setTitle('Acta de visita WES')
@@ -23,6 +25,10 @@ function doGet() {
 
 function getCatalogos() {
   return JSON.parse(HtmlService.createHtmlOutputFromFile('catalogos').getContent());
+}
+
+function getProximoFolio() {
+  return peekProximoFolio_();
 }
 
 /**
@@ -42,9 +48,12 @@ function procesarVisita(data) {
     throw new Error('Firma obligatoria');
   }
 
+  var folio = asignarFolio_();
+  data = Object.assign({}, data, { folio: folio });
+
   var stamp = Utilities.formatDate(new Date(), 'America/Santiago', 'yyyyMMdd_HHmmss');
   var stem = sanitizar_(
-    'visita_' + (data.fecha || '') + '_' + data.cliente + '_' + data.maquina + '_' + stamp
+    'folio_' + folio + '_' + (data.fecha || '') + '_' + data.cliente + '_' + data.maquina + '_' + stamp
   );
 
   var carpeta = asegurarCarpetaActas_();
@@ -55,6 +64,7 @@ function procesarVisita(data) {
 
   return {
     ok: true,
+    folio: folio,
     excel_row: row,
     pdf_url: pdfFile.getUrl(),
     drive_link: pdfFile.getUrl(),
@@ -63,9 +73,54 @@ function procesarVisita(data) {
     email_to: emailInfo.to,
     email_skip: emailInfo.skip || '',
     message: emailInfo.ok
-      ? 'PDF generado y correo enviado a ' + emailInfo.to.join(', ')
-      : 'PDF generado. Correo: ' + (emailInfo.skip || 'pendiente'),
+      ? 'Folio ' + folio + ' · PDF generado y correo enviado a ' + emailInfo.to.join(', ')
+      : 'Folio ' + folio + ' · PDF generado. Correo: ' + (emailInfo.skip || 'pendiente'),
   };
+}
+
+/** Mira el próximo folio sin consumirlo (para mostrar en pantalla). */
+function peekProximoFolio_() {
+  asegurarHeaderFolio_();
+  var maxSheet = maxFolioEnSheet_();
+  var props = PropertiesService.getScriptProperties();
+  var nextProp = Number(props.getProperty('NEXT_FOLIO') || FOLIO_INICIAL);
+  if (isNaN(nextProp) || nextProp < FOLIO_INICIAL) nextProp = FOLIO_INICIAL;
+  return Math.max(FOLIO_INICIAL, maxSheet + 1, nextProp);
+}
+
+/** Asigna y reserva el próximo folio (thread-safe). */
+function asignarFolio_() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var folio = peekProximoFolio_();
+    PropertiesService.getScriptProperties().setProperty('NEXT_FOLIO', String(folio + 1));
+    return folio;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function maxFolioEnSheet_() {
+  var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
+  var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
+  var last = sh.getLastRow();
+  if (last < 2) return FOLIO_INICIAL - 1;
+  var vals = sh.getRange(2, 1, last, 1).getValues();
+  var max = FOLIO_INICIAL - 1;
+  for (var i = 0; i < vals.length; i++) {
+    var n = Number(vals[i][0]);
+    if (!isNaN(n) && n > max) max = n;
+  }
+  return max;
+}
+
+function asegurarHeaderFolio_() {
+  var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
+  var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
+  if (String(sh.getRange(1, 1).getValue() || '').trim() === '') {
+    sh.getRange(1, 1).setValue('Folio');
+  }
 }
 
 function sanitizar_(name) {
@@ -112,6 +167,7 @@ function generarYGuardarPdf_(carpeta, stem, data, firmaFile) {
   var body = doc.getBody();
   body.clear();
   body.appendParagraph('WES · Acta de visita técnica').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  body.appendParagraph('Folio: ' + (data.folio || '—'));
   body.appendParagraph('Cliente: ' + (data.cliente || ''));
   body.appendParagraph('Máquina / sitio: ' + (data.maquina || ''));
   body.appendParagraph('Comuna: ' + (data.comuna || ''));
@@ -170,6 +226,7 @@ function appendChecklist_(body, titulo, items) {
 }
 
 function appendSheet_(data, pdfLink) {
+  asegurarHeaderFolio_();
   var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
   var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
   var fecha = data.fecha || Utilities.formatDate(new Date(), 'America/Santiago', 'yyyy-MM-dd');
@@ -183,7 +240,9 @@ function appendSheet_(data, pdfLink) {
     }
   } catch (e) {}
 
+  // Col A = Folio; B.. = mismo orden histórico del Sheet
   var row = [
+    data.folio || '',
     data.cliente || '',
     data.maquina || '',
     data.tecnico || '',
@@ -219,7 +278,9 @@ function enviarCorreo_(data, pdfFile) {
     cc = [CC_DEFAULT];
   }
   var subject =
-    'WES · Acta de visita técnica — ' +
+    'WES · Acta folio ' +
+    (data.folio || '') +
+    ' — ' +
     (data.cliente || 'Cliente') +
     ' / ' +
     (data.maquina || 'sitio') +
@@ -229,7 +290,9 @@ function enviarCorreo_(data, pdfFile) {
     '<p>Estimados/as <b>' +
     escapeHtml_(data.cliente || '') +
     '</b>,</p>' +
-    '<p>Adjuntamos el <b>acta en PDF</b> de la visita técnica realizada por WES en <b>' +
+    '<p>Adjuntamos el <b>acta en PDF</b> (folio <b>' +
+    escapeHtml_(data.folio || '') +
+    '</b>) de la visita técnica realizada por WES en <b>' +
     escapeHtml_(data.maquina || '') +
     '</b> (fecha ' +
     escapeHtml_(data.fecha || '') +

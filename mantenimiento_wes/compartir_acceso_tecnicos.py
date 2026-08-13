@@ -40,6 +40,7 @@ TECNICOS_EMAILS = [
 ]
 
 HEADERS = [
+    "Folio",
     "Fecha",
     "Hora",
     "Tecnico",
@@ -154,6 +155,7 @@ def armar_xlsx() -> Path:
 
     # Fila ejemplo
     ejemplo = [
+        2250,
         date.today().isoformat(),
         "09:00",
         tecnicos[0],
@@ -190,16 +192,16 @@ def armar_xlsx() -> Path:
         ws.add_data_validation(v)
         v.add(f"{letter}2:{letter}200")
 
-    dv(f"LISTAS!$B$2:$B${n_tec}", 3)  # Tecnico
-    dv(f"LISTAS!$A$2:$A${n_cli}", 4)  # Cliente
-    dv(f"LISTAS!$I$2:$I${n_maq}", 5)  # Maquina (todas; el técnico elige)
-    dv(f"LISTAS!$E$2:$E${n_mot}", 8)
-    dv(f"LISTAS!$F$2:$F${n_tecno}", 9)
-    dv(f"LISTAS!$C$2:$C${n_mtto}", 10)
-    dv(f"LISTAS!$D$2:$D${n_tf}", 11)
-    dv(f"LISTAS!$J$2:$J${n_fe}", 12)
-    dv(f"LISTAS!$G$2:$G${n_est}", 15)
-    dv(f"LISTAS!$H$2:$H${n_firma}", 20)
+    dv(f"LISTAS!$B$2:$B${n_tec}", 4)  # Tecnico
+    dv(f"LISTAS!$A$2:$A${n_cli}", 5)  # Cliente
+    dv(f"LISTAS!$I$2:$I${n_maq}", 6)  # Maquina
+    dv(f"LISTAS!$E$2:$E${n_mot}", 9)
+    dv(f"LISTAS!$F$2:$F${n_tecno}", 10)
+    dv(f"LISTAS!$C$2:$C${n_mtto}", 11)
+    dv(f"LISTAS!$D$2:$D${n_tf}", 12)
+    dv(f"LISTAS!$J$2:$J${n_fe}", 13)
+    dv(f"LISTAS!$G$2:$G${n_est}", 16)
+    dv(f"LISTAS!$H$2:$H${n_firma}", 21)
 
     note = wb.create_sheet("CATALOGO_CLIENTE_MAQUINA")
     note["A1"] = "Cliente"

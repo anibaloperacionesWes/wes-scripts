@@ -212,6 +212,17 @@
         <h2>Datos de la instalación</h2>
         <div class="row">
           <div>
+            <label for="folio">N° Folio</label>
+            <input id="folio" value="<?!= PROXIMO_FOLIO ?>" readonly />
+            <div class="note">Se asigna automáticamente desde 2250. Al enviar se confirma el número.</div>
+          </div>
+          <div>
+            <label for="ot">N° OT / formulario</label>
+            <input id="ot" placeholder="OT-2026-...." />
+          </div>
+        </div>
+        <div class="row">
+          <div>
             <label for="cliente">Cliente *</label>
             <select id="cliente" required></select>
           </div>
@@ -239,10 +250,7 @@
             <label for="tecnico">Técnico WES *</label>
             <select id="tecnico" required></select>
           </div>
-          <div>
-            <label for="ot">N° OT / formulario</label>
-            <input id="ot" placeholder="OT-2026-...." />
-          </div>
+          <div></div>
         </div>
         <label>Motivo de visita</label>
         <div class="chips" id="motivos"></div>
@@ -596,15 +604,19 @@
         if (!info || !info.ok) throw new Error((info && info.error) || "Error al procesar");
 
         const mailOk = !!info.email_ok;
+        const folioTxt = info.folio ? `Folio <b>${info.folio}</b> · ` : '';
         okTitle.textContent = mailOk
           ? "✓ Listo: PDF generado y correo enviado"
           : "✓ PDF generado (correo pendiente)";
         okBody.innerHTML =
-          `<div>Cliente: <b>${payload.cliente}</b> · Sitio: <b>${payload.maquina}</b></div>` +
+          `<div>${folioTxt}Cliente: <b>${payload.cliente}</b> · Sitio: <b>${payload.maquina}</b></div>` +
           `<div>Excel: fila <b>${info.excel_row}</b></div>` +
           (mailOk
             ? `<div class="muted">Revisá la bandeja de <b>${payload.email_cliente}</b> (y spam). Asunto: Acta de visita · Acusar recibo.</div>`
             : `<div class="muted">Correo no enviado: ${info.email_skip || "sin SMTP"}. El PDF igual quedó guardado.</div>`);
+        if (info.folio) {
+          document.getElementById("folio").value = String(info.folio);
+        }
         okLinks.innerHTML = "";
         if (info.pdf_url) {
           const a = document.createElement("a");
