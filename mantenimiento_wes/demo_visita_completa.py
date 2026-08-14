@@ -56,7 +56,7 @@ def main() -> int:
         "recibido_por": "Juan Pérez",
         "cargo": "Encargado mantención",
         "email_cliente": "demo.cliente@wes.cl",
-        "email_cc": "anibal.aoperaciones@wes.cl",
+        "email_cc": "",
         "firma_png": _firma_demo_png(),
         "checklist_cir": [
             {"elemento": "Conectividad App", "estado": "OK", "obs": "Online"},
