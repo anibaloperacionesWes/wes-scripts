@@ -25,7 +25,6 @@ var CARPETA_TECNICOS_ID = '1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC';
 var CARPETA_ACTAS_HISTORICAS_ID = '1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ';
 /** Logo WES en Drive (Tecnicos_WES_Formulario). */
 var LOGO_WES_ID = '1t4XYXYibZu_dwLftjjMw7hCX9CcSc4tY';
-var CC_DEFAULT = 'anibal.aoperaciones@wes.cl';
 var FOLIO_INICIAL = 2250;
 
 // Paleta acta PDF (alineada al formulario / reportes WES)
@@ -585,10 +584,6 @@ function enviarCorreo_(data, pdfFile) {
     return { ok: false, skip: 'Falta email_cliente', to: [] };
   }
   var cc = splitEmails_(data.email_cc);
-  // Siempre incluir a Aníbal/WES en CC para seguimiento interno
-  if (cc.indexOf(CC_DEFAULT) < 0) {
-    cc.push(CC_DEFAULT);
-  }
   var subject =
     'WES · Acta folio ' +
     (data.folio || '') +
@@ -639,13 +634,16 @@ function enviarCorreo_(data, pdfFile) {
     '</td></tr>' +
     '</table></td></tr></table></div>';
 
+  var mailOpts = {
+    htmlBody: html,
+    attachments: [pdfFile.getAs(MimeType.PDF)],
+    name: 'Agente IA WES',
+  };
+  if (cc.length) {
+    mailOpts.cc = cc.join(',');
+  }
   try {
-    GmailApp.sendEmail(to.join(','), subject, 'Adjuntamos acta de visita WES. Acusar recibo.', {
-      htmlBody: html,
-      cc: cc.join(','),
-      attachments: [pdfFile.getAs(MimeType.PDF)],
-      name: 'Agente IA WES',
-    });
+    GmailApp.sendEmail(to.join(','), subject, 'Adjuntamos acta de visita WES. Acusar recibo.', mailOpts);
     return { ok: true, to: to, cc: cc };
   } catch (e) {
     return { ok: false, skip: String(e), to: to, cc: cc };
@@ -697,9 +695,7 @@ function guardarContactosDesdeVisita_(data) {
   var maq = String(data.maquina || '').trim();
   var stamp = Utilities.formatDate(new Date(), 'America/Santiago', 'yyyy-MM-dd HH:mm');
   var emailsGen = splitEmails_(data.email_cliente);
-  var emailsCc = splitEmails_(data.email_cc).filter(function (e) {
-    return e.toLowerCase() !== CC_DEFAULT.toLowerCase();
-  });
+  var emailsCc = splitEmails_(data.email_cc);
 
   if (emailsGen.length) {
     upsertContactoFila_({

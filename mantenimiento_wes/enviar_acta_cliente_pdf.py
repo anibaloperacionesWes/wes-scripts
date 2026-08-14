@@ -88,9 +88,7 @@ def enviar_acta_pdf_cliente(
         return {"ok": False, "skip": "Falta email_cliente"}
 
     cc_list = _split_emails(str(data.get("email_cc") or ""))
-    # CC interno por defecto si no viene
-    if not cc_list:
-        cc_list = ["anibal.aoperaciones@wes.cl"]
+    # Solo CC si el formulario lo indicó (sin forzar correo interno)
 
     pw = _smtp_password()
     if dry_run:
