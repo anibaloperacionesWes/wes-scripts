@@ -60,18 +60,23 @@ if sys.platform == "win32":
         pass
 
 PPT = Path(__file__).parent / "reports" / "_tmp_pa_7malls_charts" / (
-    "Informe WES __ Parque Arauco 7 Malls (07.07.2026).pptx"
+    "Informe WES __ Parque Arauco 7 Malls (16.08.2026).pptx"
 )
 CHARTS = PPT.parent
 
-DESDE = "01/05/2026"
-HASTA = "07/07/2026"
+DESDE = "01/06/2026"
+HASTA = "16/08/2026"
+PERIODO_CAP = "1/6/2026 a 16/8/2026"
+FECHA_PORTADA = "16 Agosto 2026"
+PCT_TRIM_LABEL = "junio y agosto"
+RANK_CAP = "Grafico: Ranking consumo Ene–Mar y Abr–Ago 2026"
+RANK_Q2_LABEL = "Abr–Ago 2026"
 
 # MAE — Estación
 MAE_NODES = ["000025-01", "000025-04", "000025-07", "000025-19"]
 
-# MAM — Maipú (sin Falabella en ranking; nota OC en su lugar)
-MAM_NODES = ["000025-08", "000025-10", "000025-32", "000025-33"]
+# MAM — Maipú (Falabella activa desde 11/08/2026)
+MAM_NODES = ["000025-08", "000025-09", "000025-10", "000025-32", "000025-33"]
 FALABELLA_NODE = "000025-09"
 
 # MAQ — Quilicura
@@ -115,9 +120,9 @@ L04_PICS: List[Tuple[str, str, float, float, float, float]] = [
 ]
 L04_TEXTO_BOX = LAYOUT_ANALISIS
 L04_RANK_ENE_MAR = ("01/01/2026", "31/03/2026")
-L04_RANK_ABR_JUN = ("01/04/2026", "30/06/2026")
-L04_PCT_MAY_JUN = ("01/05/2026", "30/06/2026")
-L04_PCT_ANUAL = ("01/01/2026", "31/12/2026")
+L04_RANK_ABR_JUN = ("01/04/2026", "16/08/2026")
+L04_PCT_MAY_JUN = ("01/06/2026", "16/08/2026")
+L04_PCT_ANUAL = ("01/01/2026", "16/08/2026")
 # Períodos compartidos ranking / panel % (estándar L04)
 RANK_ENE_MAR = L04_RANK_ENE_MAR
 RANK_ABR_JUN = L04_RANK_ABR_JUN
@@ -143,7 +148,7 @@ L07_PICS: List[Tuple[str, str, float, float, float, float]] = [
     ("total", "ALL", *LAYOUT_RANKING),
     ("diario", "000025-10", *L07_RIPLEY_SLOT),
     ("diario", "000025-08", *L07_PLACA_SLOT),
-    ("nota", FALABELLA_NODE, *L07_FALABELLA_SLOT),
+    ("diario", FALABELLA_NODE, *L07_FALABELLA_SLOT),
 ]
 
 # L08 — MAM análisis consumos (mismo estándar L04: ranking dual + % trimestre + anual)
@@ -175,7 +180,7 @@ L14_BOM_PICS: List[Tuple[str, str, float, float, float, float]] = [
 ]
 L14_BOM_TEXTO_BOX = LAYOUT_ANALISIS
 L14_BOM_CHART_DESDE, L14_BOM_CHART_HASTA = L04_PCT_MAY_JUN
-L14_BOM_PERIODO_CAP = "1/5/2026 a 30/6/2026"
+L14_BOM_PERIODO_CAP = PERIODO_CAP
 
 # L13 legacy (obsoleto; usar --lamina 14)
 L13_PICS: List[Tuple[str, str, float, float, float, float]] = [
@@ -207,9 +212,9 @@ L09_TEXTO_BOX = (7.174, 0.152, 6.160, 3.063)
 # L10 — MAQ análisis consumos (mismo encabezado que L04/L07: ranking + % + 2 diarios)
 # L12 — MAQ perfiles horarios (Matriz + Baños)
 L11_MATRIZ_REF = datetime(2026, 5, 4)        # lunes 4/5 — vs techo ref. 1,6 m³/h
-L11_MATRIZ_JUN = datetime(2026, 6, 8)        # lunes 8/6 — consumo nocturno sostenido
+L11_MATRIZ_JUN = datetime(2026, 8, 10)       # lun 10/8 — consumo nocturno actual (sin control)
 L11_BANOS_REF = datetime(2026, 5, 4)         # lunes 4/5 — mayor concentración 8-17h
-L11_BANOS_REF2 = datetime(2026, 6, 8)        # lunes 8/6 — actividad baja / inhábil
+L11_BANOS_REF2 = datetime(2026, 8, 10)       # lun 10/8 — actividad baja / inhábil
 L11_NIGHT_HOURS_END = 8  # franja nocturna 0–8 h (inclusive)
 L11_REF_INFORME_ANTERIOR = 1.6  # m³/h promedio nocturno informe anterior MAQ
 L11_TECHO_NOCTURNO = L11_REF_INFORME_ANTERIOR
@@ -282,7 +287,7 @@ L16_NIGHT_END = 6  # horas 0–6 inclusive (00:00–06:00)
 L16_ENE_MAR = L04_RANK_ENE_MAR
 L16_ABR_JUN = L04_RANK_ABR_JUN
 L16_RANK_DESDE = "01/01/2026"
-L16_RANK_HASTA = "30/06/2026"
+L16_RANK_HASTA = "16/08/2026"
 L16_RANK_S500_SLOT = (0.272, 1.130, 6.026, 4.150)
 L16_CAP_RANK_S500 = (0.272, 5.330, 6.026, 0.280)
 L16_S300_SLOTS: List[Tuple[str, str, str, float, float, float, float]] = [
@@ -305,9 +310,9 @@ L17_AEB_TEXTO_BOX = LAYOUT_ANALISIS
 
 # L18 — AEB comparativo nocturno (layout horarios L12: Matriz izq., Anillo der.)
 L18_MATRIZ_REF = datetime(2026, 6, 8)       # lun 8/6 — consumo base nocturno
-L18_MATRIZ_PEAK = datetime(2026, 6, 27)     # sáb 27/6 — pico nocturno
+L18_MATRIZ_PEAK = datetime(2026, 8, 10)     # lun 10/8 — noche actual (sin control)
 L18_ANILLO_REF = datetime(2026, 6, 8)
-L18_ANILLO_PEAK = datetime(2026, 6, 27)
+L18_ANILLO_PEAK = datetime(2026, 8, 10)
 L18_AEB_SLOTS: List[Tuple[str, datetime, float, float, float, float]] = [
     (AEB_NODE_MATRIZ, L18_MATRIZ_REF, 0.272, 1.130, 6.026, 2.064),
     (AEB_NODE_MATRIZ, L18_MATRIZ_PEAK, 0.312, 4.080, 5.946, 2.032),
@@ -329,9 +334,9 @@ CUR_LABELS = {
     "000025-37": "Anillo Sur",
     "000025-38": "Anillo Norte",
 }
-L20_CUR_DESDE = "18/05/2026"
-L20_CUR_HASTA = "16/06/2026"
-L20_CUR_PERIODO_CAP = "18/5/2026 a 16/6/2026"
+L20_CUR_DESDE = "01/06/2026"
+L20_CUR_HASTA = "16/08/2026"
+L20_CUR_PERIODO_CAP = "1/6/2026 a 16/8/2026"
 L20_CUR_BOLETA_ESVAL = "2368516"  # Boleta CUR Curauma — lecturas 18/5–16/6/2026
 L20_CUR_FACTURA_M3 = 621.0  # m³ boleta Esval (periodo lecturas 18/5–16/6)
 L20_CUR_LECTURA_INICIO_HORA = 12  # h — lectura física inicial ~12:00 el 18/5
@@ -391,7 +396,7 @@ DIAS_CAP = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domi
 
 # L05 — perfiles horarios MAE (solo Estanque Norte y Sur)
 L05_MON_REF = datetime(2026, 5, 4)           # lunes 4/5 — sin control
-L05_CTRL_DIA = datetime(2026, 6, 18)         # 18/6 — controles habilitados
+L05_CTRL_DIA = datetime(2026, 8, 10)         # 10/8 — controles verificados (Norte 05/08, Sur corte mantención)
 L05_EVENTO_SUR = date(2026, 6, 10)           # reparación tuberías lado sur
 L05_JUN_INI = date(2026, 6, 1)
 L05_JUN_FIN = date(2026, 6, 30)
@@ -552,7 +557,7 @@ def chart_ranking_dual(
     desde_q2: str = RANK_ABR_JUN[0],
     hasta_q2: str = RANK_ABR_JUN[1],
     label_q1: str = "Ene–Mar 2026",
-    label_q2: str = "Abr–Jun 2026",
+    label_q2: str = RANK_Q2_LABEL,
 ) -> Path:
     """Ranking dual: dos barras por punto (Ene–Mar celeste, segundo trimestre azul)."""
     d1 = _datos_rango(nodes, desde_q1, hasta_q1)
@@ -639,7 +644,7 @@ def chart_total_ranking_bom_dual(
     *,
     desde_q2: str = RANK_ABR_JUN[0],
     hasta_q2: str = RANK_ABR_JUN[1],
-    label_q2: str = "Abr–Jun 2026",
+    label_q2: str = RANK_Q2_LABEL,
 ) -> Path:
     """Ranking BOM L14 — comparativo Ene–Mar vs segundo período (estándar L04)."""
     d2 = _datos_rango(BOM_NODES, desde_q2, hasta_q2)
@@ -2424,7 +2429,7 @@ def _actualizar_textos_l13(slide) -> None:
 
     _remover_captions_viejos(slide)
     names = _nombres_bom()
-    periodo = "1/5/2026 a 7/7/2026"
+    periodo = PERIODO_CAP
     caps = [
         (f"Grafico: Consumo total periodo {periodo}", LAYOUT_CAP_TOTAL),
         (
@@ -2446,7 +2451,7 @@ def _texto_analisis_l04() -> str:
     p_mj = _pct_mae_may_jun()
     p_an = _pct_mae_anual()
     order = sorted(MAE_NODES, key=lambda n: -p_mj.get(n, 0.0))
-    lines = ["Respecto al total monitoreable entre mayo y junio"]
+    lines = [f"Respecto al total monitoreable entre {PCT_TRIM_LABEL}"]
     for nid in order:
         lines.append(f"{L04_MAE_LABELS[nid]} = {fn(p_mj[nid], 1)}%")
     lines.append("")
@@ -2456,9 +2461,11 @@ def _texto_analisis_l04() -> str:
         lines.append(f"{L04_MAE_LABELS[nid]} = {fn(p_an[nid], 1)}%")
     lines.extend([
         "",
-        "En Estanque Sur y Estanque Norte está habilitado el sistema on/off, "
-        "gestionado por el servicio de cámaras del mall.",
-        "En Pizza Hut el control automático se mantiene de 00:00 a 06:00 hrs.",
+        "Noche con control: no se lee como fuga.",
+        "Estanque Sur: corte on/off a cargo de mantención nocturna (no automático).",
+        "Pizza Hut: control 00:00–06:00 desde el 01/07/2026.",
+        "Estanque Norte: control on/off desde el 05/08/2026; el alza de agosto es diurna.",
+        "Baños Públicos: control instalado sin uso; noches ya ~0.",
     ])
     return "\n".join(lines)
 
@@ -2513,15 +2520,18 @@ def _texto_analisis_l07() -> str:
         lines.append(f"> {nm} = {format_number_chilean(p[nid], 1)}%\x0b")
 
     lines.append(
-        "\nRespecto a la imputación Falabella:\n"
-        "Impulsión Falabella: a la espera de la OC para el cambio de equipo "
-        "(medición excluida del total por falla de equipo)."
+        "\nRespecto a Impulsión Falabella:\n"
+        "Activa desde el 11/08/2026 (OC / cambio de equipo). "
+        "Junio–julio = 0 m³. No comparar con la serie previa. "
+        "Sin control nocturno; baseline 2–3 semanas."
     )
     lines.append(
         "\nRespecto a la auditoría (Placa Bancaria):\n"
-        f"Desde el 18/6/2026 el consumo diario promedio aumentó "
+        f"El 18/6/2026 el consumo diario promedio cambió "
         f"{format_number_chilean(pct_inc, 1)}% "
-        f"(de {format_number_chilean(avg_pre, 1)} a {format_number_chilean(avg_post, 1)} m³/día)"
+        f"(de {format_number_chilean(avg_pre, 1)} a {format_number_chilean(avg_post, 1)} m³/día). "
+        "En agosto el volumen vuelve cerca del nivel pre-auditoría. "
+        "La noche de Placa no se lee como fuga."
     )
     return "".join(lines)
 
@@ -2533,7 +2543,7 @@ def _texto_analisis_l08() -> str:
     names = _nombres_mam()
     avg_pre, avg_post, pct_inc = _placa_promedios_jun18()
     order = sorted(MAM_NODES, key=lambda n: -p_mj.get(n, 0.0))
-    lines = ["Respecto al total monitoreable entre mayo y junio"]
+    lines = [f"Respecto al total monitoreable entre {PCT_TRIM_LABEL}"]
     for nid in order:
         lines.append(f"{names.get(nid, nid)} = {fn(p_mj[nid], 1)}%")
     lines.append("")
@@ -2543,13 +2553,14 @@ def _texto_analisis_l08() -> str:
         lines.append(f"{names.get(nid, nid)} = {fn(p_an[nid], 1)}%")
     lines.extend([
         "",
-        "Respecto a la imputación Falabella:",
-        "Impulsión Falabella: a la espera de la OC para el cambio de equipo "
-        "(medición excluida del total por falla de equipo).",
+        "Respecto a Impulsión Falabella:",
+        "Activa desde el 11/08/2026. Junio–julio = 0 m³ (equipo fuera). "
+        "Sin control nocturno; seguir 2–3 semanas para fijar baseline.",
         "",
         "Respecto a la auditoría (Placa Bancaria):",
-        f"Desde el 18/6/2026 el consumo diario promedio aumentó {fn(pct_inc, 1)}% "
-        f"(de {fn(avg_pre, 1)} a {fn(avg_post, 1)} m³/día).",
+        f"Desde el 18/6/2026 el promedio diario cambió {fn(pct_inc, 1)}% "
+        f"(de {fn(avg_pre, 1)} a {fn(avg_post, 1)} m³/día). "
+        "Agosto revierte cerca del nivel pre-auditoría. Noche no se lee como fuga.",
     ])
     return "\n".join(lines)
 
@@ -2582,12 +2593,12 @@ def _actualizar_textos_l08(slide) -> None:
 
     _remover_notas_falabella(slide)
     _remover_captions_viejos(slide)
-    periodo = "1/5/2026 a 7/7/2026"
+    periodo = PERIODO_CAP
     caps = [
-        ("Grafico: Ranking consumo Ene–Mar y Abr–Jun 2026", LAYOUT_CAP_TOTAL),
+        (RANK_CAP, LAYOUT_CAP_TOTAL),
         (f"Grafico: Consumo diario Ripley periodo {periodo}", L07_CAP_RIPLEY),
         (f"Grafico: Consumo diario Placa Bancaria periodo {periodo}", L07_CAP_PLACA),
-        ("Grafico: Impulsión Falabella — a la espera OC (cambio equipo)", L07_CAP_FALABELLA),
+        (f"Grafico: Consumo diario Impulsión Falabella periodo {periodo} (activa 11/08)", L07_CAP_FALABELLA),
     ]
     for txt, pos in caps:
         _agregar_caption_fijo(slide, txt, pos)
@@ -2600,7 +2611,7 @@ def _texto_analisis_l11_maq() -> str:
     p_an = _pct_maq_anual()
     names = _nombres_maq()
     order = sorted(MAQ_NODES, key=lambda n: -p_mj.get(n, 0.0))
-    lines = ["Respecto al total monitoreable entre mayo y junio"]
+    lines = [f"Respecto al total monitoreable entre {PCT_TRIM_LABEL}"]
     for nid in order:
         lines.append(f"{names.get(nid, nid)} = {fn(p_mj[nid], 1)}%")
     lines.append("")
@@ -2608,10 +2619,12 @@ def _texto_analisis_l11_maq() -> str:
     order_an = sorted(MAQ_NODES, key=lambda n: -p_an.get(n, 0.0))
     for nid in order_an:
         lines.append(f"{names.get(nid, nid)} = {fn(p_an[nid], 1)}%")
+    lines.extend([
+        "",
+        "No hay control nocturno en Matriz Principal: la madrugada SÍ entra al análisis.",
+        "Pedido: on/off 00:00–08:00 (mismo criterio estanques MAE). ~24 m³/noche el 10/08.",
+    ])
     return "\n".join(lines)
-
-
-def _buscar_o_crear_caja_analisis_l11_maq(slide, texto: str) -> None:
     l, t, w, h = L11_MAQ_TEXTO_BOX
     target = None
     for sh in slide.shapes:
@@ -2639,9 +2652,9 @@ def _actualizar_textos_l11_maq(slide) -> None:
 
     _remover_captions_viejos(slide)
     names = _nombres_maq()
-    periodo = "1/5/2026 a 7/7/2026"
+    periodo = PERIODO_CAP
     caps = [
-        ("Grafico: Ranking consumo Ene–Mar y Abr–Jun 2026", LAYOUT_CAP_TOTAL),
+        (RANK_CAP, LAYOUT_CAP_TOTAL),
         (
             f"Grafico: Consumo diario {names.get('000025-13', 'Matriz Principal')} periodo {periodo}",
             LAYOUT_CAP_LEFT_MID,
@@ -2662,7 +2675,7 @@ def _texto_analisis_l14_bom() -> str:
     p_an = _pct_bom_anual()
     names = _nombres_bom()
     order = sorted(BOM_NODES, key=lambda n: -p_mj.get(n, 0.0))
-    lines = ["Respecto al total monitoreable entre mayo y junio"]
+    lines = [f"Respecto al total monitoreable entre {PCT_TRIM_LABEL}"]
     for nid in order:
         lines.append(f"{names.get(nid, nid)} = {fn(p_mj[nid], 1)}%")
     lines.append("")
@@ -2670,10 +2683,12 @@ def _texto_analisis_l14_bom() -> str:
     order_an = sorted(BOM_NODES, key=lambda n: -p_an.get(n, 0.0))
     for nid in order_an:
         lines.append(f"{names.get(nid, nid)} = {fn(p_an[nid], 1)}%")
+    lines.extend([
+        "",
+        "San Ignacio 500: control nocturno desde el 16/07 FUNCIONA (noche ~42 → ~2 m³). Esa madrugada no se lee como fuga.",
+        "Queda alza diurna desde el 26/06. San Ignacio 300: sin control; la noche SÍ entra al análisis (~51% el 10/08).",
+    ])
     return "\n".join(lines)
-
-
-def _buscar_o_crear_caja_analisis_l14_bom(slide, texto: str) -> None:
     l, t, w, h = L14_BOM_TEXTO_BOX
     target = None
     for sh in slide.shapes:
@@ -2703,7 +2718,7 @@ def _actualizar_textos_l14_bom(slide) -> None:
     names = _nombres_bom()
     periodo = L14_BOM_PERIODO_CAP
     caps = [
-        ("Grafico: Ranking consumo Ene–Mar y May–Jun 2026", LAYOUT_CAP_TOTAL),
+        (RANK_CAP, LAYOUT_CAP_TOTAL),
         (
             f"Grafico: Consumo diario {names.get(BOM_NODE_300, 'San Ignacio 300')} periodo {periodo}",
             LAYOUT_CAP_LEFT_MID,
@@ -2724,7 +2739,7 @@ def _texto_analisis_l17_aeb() -> str:
     p_an = _pct_aeb_anual()
     names = _nombres_aeb()
     order = sorted(AEB_NODES, key=lambda n: -p_mj.get(n, 0.0))
-    lines = ["Respecto al total monitoreable entre mayo y junio"]
+    lines = [f"Respecto al total monitoreable entre {PCT_TRIM_LABEL}"]
     for nid in order:
         lines.append(f"{names.get(nid, nid)} = {fn(p_mj[nid], 1)}%")
     lines.append("")
@@ -2732,10 +2747,12 @@ def _texto_analisis_l17_aeb() -> str:
     order_an = sorted(AEB_NODES, key=lambda n: -p_an.get(n, 0.0))
     for nid in order_an:
         lines.append(f"{names.get(nid, nid)} = {fn(p_an[nid], 1)}%")
+    lines.extend([
+        "",
+        "Puntos activos: Matriz 1° piso (000025-11) y Anillo Plaza (000025-12). Matriz A.A. = 0 m³.",
+        "No hay control nocturno: la madrugada SÍ entra al análisis. Pedir on/off 00:00–08:00 en Matriz.",
+    ])
     return "\n".join(lines)
-
-
-def _buscar_o_crear_caja_analisis_l17_aeb(slide, texto: str) -> None:
     l, t, w, h = L17_AEB_TEXTO_BOX
     target = None
     for sh in slide.shapes:
@@ -2766,9 +2783,9 @@ def _actualizar_textos_l17_aeb(slide) -> None:
 
     _remover_captions_viejos(slide)
     names = _nombres_aeb()
-    periodo = "1/5/2026 a 7/7/2026"
+    periodo = PERIODO_CAP
     caps = [
-        ("Grafico: Ranking consumo Ene–Mar y Abr–Jun 2026", LAYOUT_CAP_TOTAL),
+        (RANK_CAP, LAYOUT_CAP_TOTAL),
         (
             f"Grafico: Consumo diario {names.get(AEB_NODE_MATRIZ, 'Matriz Principal')} periodo {periodo}",
             LAYOUT_CAP_LEFT_MID,
@@ -2950,43 +2967,16 @@ def _texto_analisis_l20_cur(*, factura_m3: float | None = None) -> str:
         lines.append(f"{names.get(nid, nid)} = {fn(p[nid], 1)}%")
     lines.append("")
     lines.append(f"Consumo WES agregado: {fn(total_wes, 1)} m³")
-    factura = (
-        factura_m3
-        if factura_m3 is not None and factura_m3 > 0
-        else L20_CUR_FACTURA_M3
+    lines.append("")
+    lines.append(
+        f"Cuadre histórico vs boleta Esval N° {L20_CUR_BOLETA_ESVAL} "
+        f"(lecturas 18/5–16/6, {fn(L20_CUR_FACTURA_M3, 0)} m³): la diferencia se explicó "
+        "por desfase de lecturas (WES 24 h vs corte físico ~12:00), no por pérdida."
     )
-    if factura > 0:
-        diff = total_wes - factura
-        pct = (diff / factura * 100.0) if factura else 0.0
-        lines.append(
-            f"Cuenta de agua (boleta Esval N° {L20_CUR_BOLETA_ESVAL}): {fn(factura, 1)} m³"
-        )
-        lines.append(f"Diferencia (WES - cuenta): {fn(diff, 1)} m³")
-        lines.append(f"Variación: {fn(pct, 1)}%")
-        lines.append("")
-        lines.append("Interpretación de la diferencia")
-        lines.append(
-            "La boleta consolida el consumo de la red (Anillo Norte + Anillo Sur), "
-            "equivalente a la suma de ambos puntos WES."
-        )
-        lines.append(
-            "La cuenta se calcula entre lecturas físicas en medidor (fecha y hora de corte); "
-            f"WES registra las 24 h de cada día."
-        )
-        lines.append(
-            f"El 18/5 la lectura inicial fue alrededor de las {L20_CUR_LECTURA_INICIO_HORA}:00 h: "
-            "WES ya había medido desde las 00:00 h de ese día, consumo no incluido en la boleta."
-        )
-        lines.append(
-            "En el día de cierre de lectura el medidor tampoco cubre las 24 h completas."
-        )
-        lines.append(
-            f"La variación de {fn(pct, 1)}% es coherente con ese desfase horario "
-            "(WES con más horas que el intervalo entre lecturas), no con pérdida no detectada."
-        )
-    else:
-        lines.append("Cuenta de agua: pendiente de recepción")
-        lines.append("Diferencia (m³) y variación (%): a completar al recibir la cuenta")
+    lines.append(
+        "Pedir la(s) boleta(s) Esval de junio–agosto para repetir el cuadre WES vs cuenta "
+        "en este período."
+    )
     return "\n".join(lines)
 
 
@@ -3080,7 +3070,7 @@ def _actualizar_textos_l23_pak(slide) -> None:
     _remover_captions_viejos(slide)
     _agregar_caption_fijo(
         slide,
-        "Grafico: Ranking consumo Ene–Mar y Abr–Jun 2026",
+        RANK_CAP,
         (0.272, 6.280, 12.500, 0.280),
     )
     print("[OK] L23 PAK — ranking dual + resumen período")
@@ -3125,7 +3115,7 @@ def _texto_analisis_l24_pak() -> str:
         f"Consumo interno DL: {fn(diff_int, 1)} m³.",
         f"• Suma fuentes 22+28 vs DL: excedente {fn(diff_fuentes, 1)} m³.",
         "",
-        "Distribución % mayo–jun (top 5):",
+        f"Distribución % {PCT_TRIM_LABEL} (top 5):",
     ]
     for nid in sorted(PAK_NODES, key=lambda n: -p_mj.get(n, 0.0))[:5]:
         lines.append(f"• {names.get(nid, nid)} = {fn(p_mj[nid], 1)}%")
@@ -3175,7 +3165,7 @@ def _actualizar_textos_l24_pak(slide) -> None:
     print("[OK] Texto L24 PAK — cadena abastecimiento DL")
 
     _remover_captions_viejos(slide)
-    periodo = "1/5/2026 a 7/7/2026"
+    periodo = PERIODO_CAP
     caps = [
         (f"Grafico: Totales cadena abastecimiento período {periodo}", LAYOUT_CAP_TOTAL),
         (
@@ -3279,7 +3269,7 @@ def _actualizar_textos_l27_pak(slide, peak_day: date) -> None:
 
     _remover_captions_viejos(slide)
     names = _nombres_pak()
-    periodo = "1/5/2026 a 7/7/2026"
+    periodo = PERIODO_CAP
     caps = [
         (
             f"Grafico: Ranking consumo nocturno 0–{PAK_NIGHT_END} h — cadena DL — {periodo}",
@@ -3351,7 +3341,7 @@ def _buscar_o_crear_caja_analisis_maq(slide, texto: str, box=L10_TEXTO_BOX) -> N
 
 def _actualizar_textos_l10(slide) -> None:
     """Conserva panel de análisis; negrita solo en %; viñetas estándar."""
-    periodo = "1/5/2026 a 7/7/2026"
+    periodo = PERIODO_CAP
     _conservar_caja_analisis(slide, L10_TEXTO_BOX, "Respecto del total monitoreado")
     print("[OK] Panel análisis L10 conservado (negrita en % estandarizada)")
 
@@ -3568,9 +3558,9 @@ def _actualizar_textos_l04(slide) -> None:
     print("[OK] Texto L04 — % mayo–jun y % anual")
 
     _remover_captions_viejos(slide)
-    periodo = "1/5/2026 a 7/7/2026"
+    periodo = PERIODO_CAP
     caps = [
-        ("Grafico: Ranking consumo Ene–Mar y Abr–Jun 2026", LAYOUT_CAP_TOTAL),
+        (RANK_CAP, LAYOUT_CAP_TOTAL),
         (f"Grafico: Consumo diario Estanque Sur periodo {periodo}", LAYOUT_CAP_LEFT_MID),
         (f"Grafico: Consumo diario Baños Públicos periodo {periodo}", LAYOUT_CAP_RIGHT_MID),
         (f"Grafico: Consumo diario Estanque Norte Locales Mall periodo {periodo}", LAYOUT_CAP_LEFT_BOT),
@@ -3595,10 +3585,10 @@ def _remover_notas_falabella(slide) -> None:
 
 
 def _actualizar_textos_l07(slide) -> None:
-    """Solo viñetas y nota Falabella; panel con negrita en % estandarizada."""
-    periodo = "1/5/2026 a 7/7/2026"
-    _conservar_caja_analisis(slide, L07_TEXTO_BOX, "Respecto del total monitoreado")
-    print("[OK] Panel análisis L07 conservado (negrita en % estandarizada)")
+    """Panel % período + Falabella activa + auditoría Placa."""
+    periodo = PERIODO_CAP
+    _buscar_o_crear_caja_analisis_l08(slide, _texto_analisis_l07())
+    print("[OK] Panel análisis L07 — % período, Falabella activa, Placa")
 
     _remover_notas_falabella(slide)
     _remover_captions_viejos(slide)
@@ -3606,11 +3596,11 @@ def _actualizar_textos_l07(slide) -> None:
         (f"Grafico: Consumo total periodo {periodo}", LAYOUT_CAP_TOTAL),
         (f"Grafico: Consumo diario Ripley periodo {periodo}", L07_CAP_RIPLEY),
         (f"Grafico: Consumo diario Placa Bancaria periodo {periodo}", L07_CAP_PLACA),
-        ("Grafico: Impulsión Falabella — a la espera OC (cambio equipo)", L07_CAP_FALABELLA),
+        (f"Grafico: Consumo diario Impulsión Falabella periodo {periodo} (activa 11/08)", L07_CAP_FALABELLA),
     ]
     for txt, pos in caps:
         _agregar_caption_fijo(slide, txt, pos)
-    print("[OK] L07 — layout fijado manualmente + texto auditoría / Falabella / aumento 18-jun")
+    print("[OK] L07 — layout + Falabella activa 11/08")
 
 
 def _ajustar_eje_y(ax, values: List[float]) -> None:
@@ -4129,12 +4119,14 @@ def _texto_analisis_l05() -> str:
         "Comportamiento proporcional: el Sur es abastecido por la salida del Norte; "
         "al corregirse la red lado sur, baja el llenado y el consumo en ambos puntos.",
         "",
-        "Comparación nocturna — lun 4/5 (sin control) vs 18/06 (control on/off)",
+        "Comparación nocturna — lun 4/5 (sin control) vs 10/08 (noche con control)",
         f"Estanque Sur 0–8 h: {fn(s_sur_ref.get('night_sum', 0), 1)} m³ → "
-        f"{fn(s_sur_ctrl.get('night_sum', 0), 1)} m³ ({fn(pct_sur_noc, 0)}%).",
+        f"{fn(s_sur_ctrl.get('night_sum', 0), 1)} m³ ({fn(pct_sur_noc, 0)}%). "
+        "Corte on/off de mantención nocturna: esa madrugada no se lee como fuga.",
         f"Estanque Norte 0–8 h: {fn(s_norte_ref.get('night_sum', 0), 1)} m³ → "
-        f"{fn(s_norte_ctrl.get('night_sum', 0), 1)} m³ ({fn(pct_norte_noc, 0)}%).",
-        "Oportunidad de ahorro al replicar el control en horario inhábil.",
+        f"{fn(s_norte_ctrl.get('night_sum', 0), 1)} m³ ({fn(pct_norte_noc, 0)}%). "
+        "Control desde el 05/08/2026: esa madrugada no se lee como fuga "
+        "(el alza de agosto es diurna).",
     ])
 
 
@@ -4145,17 +4137,17 @@ def _texto_analisis_l06() -> str:
     s_banos_ref = _stats_horario_dia(L06_NODE_BANOS, L05_MON_REF) or {}
     s_pizza_ref = _stats_horario_dia(L06_NODE_PIZZA, L05_MON_REF) or {}
     return "\n".join([
-        "Baños Públicos — 18/06/2026",
+        "Baños Públicos — 10/08/2026",
         "Sistema validado: consumo concentrado en horario hábil.",
         f"Nocturno 0–8 h = {fn(s_banos.get('night_sum', 0), 1)} m³ "
         f"(lun 4/5: {fn(s_banos_ref.get('night_sum', 0), 1)} m³).",
-        "Referencia de red con bajo consumo fuera de apertura del mall.",
+        "Control instalado sin uso; noches ya ~0. No se interpreta como fuga.",
         "",
-        "Pizza Hut — 18/06/2026 (control activo)",
-        f"Control on/off habilitado; nocturno 0–8 h = {fn(s_pizza.get('night_sum', 0), 1)} m³ "
+        "Pizza Hut — 10/08/2026 (control activo desde 01/07)",
+        f"Control on/off 00:00–06:00; nocturno 0–8 h = {fn(s_pizza.get('night_sum', 0), 1)} m³ "
         f"(lun 4/5 sin control: {fn(s_pizza_ref.get('night_sum', 0), 1)} m³).",
         f"Pico nocturno 0–8 h: {fn(s_pizza.get('night_max', 0), 2)} m³/h.",
-        "Oportunidad de ahorro replicable en locales con consumo fuera de horario.",
+        "Esa noche no se lee como fuga. El alza de julio fue diurna; agosto baja.",
     ])
 
 
@@ -4868,13 +4860,14 @@ def _texto_s500_l16_ranking() -> str:
     tarifa = L16_TARIFA_CLP_M3
     return "\n".join([
         f"{nm} — consumo nocturno (0–6 h)",
-        "Control WES instalado en el punto; actualmente sin funcionamiento.",
-        f"Ranking ene–jun 2026: {fn(total, 0)} m³ acumulados en horario 0–6 h.",
+        "Control WES activo desde el 16/07/2026: la noche bajó de ~42 m³ a ~2 m³. "
+        "Esa madrugada no se lee como fuga. Queda alza operacional de día.",
+        f"Ranking ene–ago 2026: {fn(total, 0)} m³ acumulados en horario 0–6 h.",
         f"Valor consumo nocturno (tarifa ${fn(tarifa, 0)}/m³): {_clp_desde_m3(total)}.",
         f"Mes de mayor consumo nocturno: {mes_lab} {peak_m[0]} "
         f"({fn(peak_v, 0)} m³ = {_clp_desde_m3(peak_v)}).",
-        f"Ahorro estimado al activar control on/off: {fn(total, 0)} m³ = {_clp_desde_m3(total)} (ene–jun).",
-        f"Referencia mensual recuperable: ≈ {fn(prom_mes, 0)} m³/mes = {_clp_desde_m3(prom_mes)}/mes.",
+        "El ahorro nocturno del 500 ya está capturado; el volumen diurno no volvió a la base de junio.",
+        f"Referencia mensual: ≈ {fn(prom_mes, 0)} m³/mes = {_clp_desde_m3(prom_mes)}/mes.",
         f"Promedio nocturno Ene–Mar: {fn(s1['sum_prom'], 2)} m³/noche; "
         f"Abr–Jun: {fn(s2['sum_prom'], 2)} m³/noche.",
     ])
@@ -4918,7 +4911,7 @@ def _actualizar_textos_l16_bom(slide, *, solo_panel: bool = False) -> None:
     nm500 = names.get(BOM_NODE_500, "San Ignacio 500")
     caps = [
         (
-            f"Grafico: Ranking consumo nocturno 0–6 h {nm500} por mes (ene–jun 2026)",
+            f"Grafico: Ranking consumo nocturno 0–6 h {nm500} por mes (ene–ago 2026)",
             L16_CAP_RANK_S500,
         ),
     ]
@@ -5212,8 +5205,8 @@ def editar_lamina_10() -> None:
 
 
 def editar_lamina_11() -> None:
-    """MAQ análisis consumos — FIJO (no regenerar salvo petición explícita)."""
-    print("[OK] L11 — MAQ análisis conservado (usar --lamina 12 para perfiles horarios)")
+    """MAQ análisis consumos — ranking dual + diarios del período."""
+    _editar_lamina_11_generar()
 
 
 def _editar_lamina_11_generar() -> None:
@@ -5293,9 +5286,9 @@ def editar_lamina_14() -> None:
                 png, w, h,
                 desde_q2=L14_BOM_CHART_DESDE,
                 hasta_q2=L14_BOM_CHART_HASTA,
-                label_q2="May–Jun 2026",
+                label_q2=RANK_Q2_LABEL,
             )
-            label = "TOTAL ranking BOM dual (may–jun)"
+            label = "TOTAL ranking BOM dual (abr–ago)"
         else:
             png = CHARTS / f"l14_bom_{node_id}_diario_linea.png"
             chart_diario_linea(
@@ -5676,9 +5669,120 @@ def editar_lamina_27() -> None:
     print(f"\n[OK] Guardado in-place: {PPT}")
 
 
+def editar_lamina_1() -> None:
+    """Portada y cierre: fecha de emisión."""
+    if not PPT.is_file():
+        raise FileNotFoundError(PPT)
+    prs = Presentation(str(PPT))
+    for idx in (0, len(prs.slides) - 1):
+        slide = prs.slides[idx]
+        for sh in slide.shapes:
+            if not sh.has_text_frame:
+                continue
+            raw = (sh.text_frame.text or "").strip()
+            if "2026" not in raw or len(raw) > 40:
+                continue
+            low = raw.lower()
+            if not any(m in low for m in ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto")):
+                continue
+            for p in sh.text_frame.paragraphs:
+                for r in p.runs:
+                    if "2026" in (r.text or ""):
+                        r.text = FECHA_PORTADA
+            print(f"[OK] Fecha slide {idx + 1} → {FECHA_PORTADA}")
+    prs.save(str(PPT))
+    print(f"\n[OK] Guardado in-place: {PPT}")
+
+
+def editar_lamina_3() -> None:
+    """MAE divisoria: estado de controles actualizado."""
+    if not PPT.is_file():
+        raise FileNotFoundError(PPT)
+    prs = Presentation(str(PPT))
+    slide = prs.slides[2]
+    reemplazos = [
+        (
+            "Estanque Norte Locales Mall Control Activo via On/Off",
+            "Estanque Norte: control on/off desde 05/08/2026 (noche no se lee como fuga)",
+        ),
+        (
+            "Baños Públicos Cotro, instalado sin funcionamiento",
+            "Baños Públicos: control instalado sin uso; noches ~0",
+        ),
+        (
+            "Pizza Hut Control Activo 00:00 a 06:00",
+            "Pizza Hut: control 00:00–06:00 desde 01/07/2026 (noche no se lee como fuga)",
+        ),
+        (
+            "Sala de Bomba Estanque Sur Control Activo via On/Off",
+            "Estanque Sur: corte on/off de mantención nocturna (noche no se lee como fuga)",
+        ),
+    ]
+    n = 0
+    for sh in slide.shapes:
+        if not sh.has_text_frame:
+            continue
+        for p in sh.text_frame.paragraphs:
+            for r in p.runs:
+                t = r.text or ""
+                nt = t
+                for a, b in reemplazos:
+                    if a in nt:
+                        nt = nt.replace(a, b)
+                if nt != t:
+                    r.text = nt
+                    n += 1
+    print(f"[OK] L3 MAE — {n} reemplazo(s) de control")
+    prs.save(str(PPT))
+    print(f"\n[OK] Guardado in-place: {PPT}")
+
+
+def _editar_todas(*, factura_m3: float | None = None) -> int:
+    orden = [1, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 20, 23, 24, 25, 26, 27]
+    dispatch = {
+        1: editar_lamina_1,
+        3: editar_lamina_3,
+        4: editar_lamina_4,
+        5: editar_lamina_5,
+        6: editar_lamina_6,
+        7: editar_lamina_7,
+        8: editar_lamina_8,
+        9: editar_lamina_9,
+        11: editar_lamina_11,
+        12: editar_lamina_12,
+        14: editar_lamina_14,
+        15: editar_lamina_15,
+        16: lambda: editar_lamina_16(solo_texto=False),
+        17: editar_lamina_17,
+        18: editar_lamina_18,
+        19: editar_lamina_19,
+        20: lambda: editar_lamina_20(factura_m3=factura_m3, solo_texto=False),
+        23: editar_lamina_23,
+        24: editar_lamina_24,
+        25: editar_lamina_25,
+        26: editar_lamina_26,
+        27: editar_lamina_27,
+    }
+    errores = 0
+    for n in orden:
+        print(f"\n===== LÁMINA {n} =====", flush=True)
+        try:
+            dispatch[n]()
+        except Exception as exc:
+            errores += 1
+            print(f"[ERROR] Lámina {n}: {exc}", flush=True)
+    print(f"\n[OK] Regeneración completa. Errores: {errores}", flush=True)
+    return 1 if errores else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--lamina", type=int, required=True)
+    ap.add_argument("--lamina", type=int, default=None)
+    ap.add_argument(
+        "--todas",
+        action="store_true",
+        help="Regenera portada y láminas de análisis del informe 7 Malls",
+    )
     ap.add_argument(
         "--solo-texto",
         action="store_true",
@@ -5691,6 +5795,16 @@ def main() -> int:
         help="Consumo m³ de la cuenta de agua (CUR L20) para calcular diferencia y variación",
     )
     args = ap.parse_args()
+    if args.todas:
+        return _editar_todas(factura_m3=args.factura_m3)
+    if args.lamina is None:
+        ap.error("indique --lamina N o --todas")
+    if args.lamina == 1:
+        editar_lamina_1()
+        return 0
+    if args.lamina == 3:
+        editar_lamina_3()
+        return 0
     if args.lamina == 4:
         editar_lamina_4()
         return 0
