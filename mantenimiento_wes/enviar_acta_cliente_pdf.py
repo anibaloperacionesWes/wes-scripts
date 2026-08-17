@@ -27,15 +27,28 @@ def _smtp_password() -> str:
     )
 
 
-def _split_emails(raw: str) -> List[str]:
-    if not raw:
+def _split_emails(raw) -> List[str]:
+    if raw is None or raw == "":
         return []
-    parts = []
-    for chunk in str(raw).replace(";", ",").split(","):
-        e = chunk.strip()
-        if e and "@" in e:
-            parts.append(e)
-    return parts
+    if isinstance(raw, (list, tuple)):
+        parts: List[str] = []
+        for item in raw:
+            parts.extend(_split_emails(item))
+    else:
+        parts = []
+        for chunk in str(raw).replace(";", ",").split(","):
+            e = chunk.strip()
+            if e and "@" in e:
+                parts.append(e)
+    seen = set()
+    out: List[str] = []
+    for e in parts:
+        k = e.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(e)
+    return out
 
 
 def construir_cuerpo(data: Dict[str, Any]) -> Tuple[str, str, str]:
@@ -83,14 +96,22 @@ def enviar_acta_pdf_cliente(
     *,
     dry_run: bool = False,
 ) -> Dict[str, Any]:
-    to_list = _split_emails(str(data.get("email_cliente") or ""))
+    to_list = _split_emails(data.get("email_cliente") or "")
+    for c in data.get("contactos_seleccionados") or []:
+        if c.get("firmante") or c.get("enviar_to"):
+            to_list.extend(_split_emails(c.get("email") or ""))
+    to_list = _split_emails(to_list)
     if not to_list:
         return {"ok": False, "skip": "Falta email_cliente"}
 
-    cc_list = _split_emails(str(data.get("email_cc") or ""))
-    # CC interno por defecto si no viene
-    if not cc_list:
-        cc_list = ["anibal.aoperaciones@wes.cl"]
+    cc_list = _split_emails(data.get("email_cc") or "")
+    for c in data.get("contactos_seleccionados") or []:
+        cc_list.extend(_split_emails(c.get("email") or ""))
+    cc_list = _split_emails(cc_list)
+    to_set = {e.lower() for e in to_list}
+    cc_list = [e for e in cc_list if e.lower() not in to_set]
+    if "anibal.aoperaciones@wes.cl" not in {e.lower() for e in to_list + cc_list}:
+        cc_list.append("anibal.aoperaciones@wes.cl")
 
     pw = _smtp_password()
     if dry_run:

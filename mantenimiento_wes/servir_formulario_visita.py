@@ -59,10 +59,15 @@ def _lan_ip() -> str:
 
 
 def _load_catalogos() -> Dict[str, Any]:
+    contactos = []
+    contactos_path = CAT / "contactos_cliente.json"
+    if contactos_path.is_file():
+        contactos = json.loads(contactos_path.read_text(encoding="utf-8"))
     return {
         "clientes_maquinas": json.loads((CAT / "clientes_maquinas.json").read_text(encoding="utf-8")),
         "tipos_falla": json.loads((CAT / "tipos_falla.json").read_text(encoding="utf-8")),
         "opciones": json.loads((CAT / "opciones.json").read_text(encoding="utf-8")),
+        "contactos": contactos,
     }
 
 

@@ -93,7 +93,14 @@ def _row_values(data: Dict[str, Any], *, pdf_link: str = "") -> Dict[str, Any]:
         "N OT": data.get("ot"),
         "Estado visita": data.get("estado_visita") or "cerrada",
         "Origen": f"Formulario web {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-        "Email cliente": data.get("email_cliente"),
+        "Email cliente": (
+            str(data.get("email_cliente") or "")
+            + (
+                f" | CC: {data.get('email_cc')}"
+                if data.get("email_cc")
+                else ""
+            )
+        ),
         "Recibido por": data.get("recibido_por"),
         "Cargo": data.get("cargo"),
         "Comuna": data.get("comuna"),

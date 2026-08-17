@@ -36,5 +36,14 @@ y deja compatible la hoja `Datos` con el Sheet.
 Sheet vivo (catálogo oficial):
 https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
 
-## Correo
-Secret: `WES_SMTP_PASSWORD` (app password de `agente.ia@wes.cl`).
+## Contactos multi-CC (MAE, malls PA, etc.)
+Hoja **Contactos** del Excel digital:
+
+| Cliente | Sitio | Rol | Nombre | Email | Firmante | TO | CC |
+|---|---|---|---|---|---|---|---|
+| MAE | (vacío=todo) | Jefe de operaciones | ... | mail | No | No | Sí |
+| MAE | | Líder de medio ambiente | ... | mail | No | No | Sí |
+| MAE | | Mantención Linkes | ... | mail | Sí | Sí | Sí |
+
+Completá **Nombre + Email**. El formulario marca esos CC al elegir el cliente.
+Si el mantenedor Linkes es firmante, se propone en TO y en «quien recibe».

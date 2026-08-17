@@ -311,16 +311,20 @@
             <input id="cargo" placeholder="Encargado mantención / JO" />
           </div>
         </div>
+        <label>Destinatarios del PDF (TO / varios CC)</label>
+        <div id="contactosBox" class="note">Elegí cliente para cargar contactos (JO, medio ambiente, mantención…).</div>
         <div class="row">
           <div>
-            <label for="email_cliente">Correo del cliente *</label>
-            <input id="email_cliente" type="email" required placeholder="cliente@empresa.cl" />
+            <label for="email_cliente">TO principal *</label>
+            <input id="email_cliente" type="email" required placeholder="quien recibe / firma" />
           </div>
           <div>
-            <label for="email_cc">CC (opcional)</label>
-            <input id="email_cc" placeholder="anibal.aoperaciones@wes.cl" />
+            <label for="email_cc_extra">CC extra (opcional)</label>
+            <input id="email_cc_extra" placeholder="otros@correo.cl, mas@correo.cl" />
           </div>
         </div>
+        <input type="hidden" id="email_cc" value="" />
+        <p class="note">En MAE tipicamente: JO + Medio ambiente en CC, y Mantención Linkes firma/TO. Podés marcar varios.</p>
         <label>Firma en pantalla *</label>
         <div class="pad-wrap">
           <div class="hint" id="hint">Firmá aquí</div>
@@ -343,12 +347,134 @@
   </div>
 
   <script>
-    const state = { catalogos: null, dirty: false };
+    const state = { catalogos: null, dirty: false, contactosSel: [] };
 
     async function loadCatalogos() {
       const res = await fetch("/api/catalogos");
       if (!res.ok) throw new Error("No se pudieron cargar catálogos");
       state.catalogos = await res.json();
+    }
+
+    function contactosDe(cliente, sitio) {
+      const all = (state.catalogos && state.catalogos.contactos) || [];
+      const cli = (cliente || "").toUpperCase();
+      const sit = (sitio || "").toUpperCase();
+      return all.filter((c) => {
+        if ((c.cliente || "").toUpperCase() !== cli) return false;
+        const cs = (c.sitio || "").toUpperCase();
+        if (cs && sit && cs !== sit) return false;
+        if (cs && !sit) return false;
+        return c.activo !== false;
+      });
+    }
+
+    function renderContactos() {
+      const box = document.getElementById("contactosBox");
+      const cliente = document.getElementById("cliente").value;
+      const sitio = document.getElementById("maquina").value;
+      const list = contactosDe(cliente, sitio);
+      if (!cliente) {
+        box.className = "note";
+        box.textContent = "Elegí cliente para cargar contactos (JO, medio ambiente, mantención…).";
+        return;
+      }
+      if (!list.length) {
+        box.className = "note";
+        box.innerHTML = `Sin contactos cargados para <b>${cliente}</b>. Completalos en la hoja <b>Contactos</b> del Excel.`;
+        return;
+      }
+      box.className = "";
+      box.style.margin = "8px 0 10px";
+      box.innerHTML = "";
+      list.forEach((c, idx) => {
+        const id = `cto_${idx}`;
+        const row = document.createElement("label");
+        row.className = "chip";
+        row.style.display = "flex";
+        row.style.width = "100%";
+        row.style.marginBottom = "6px";
+        row.style.alignItems = "flex-start";
+        row.style.gap = "8px";
+        const inp = document.createElement("input");
+        inp.type = "checkbox";
+        inp.id = id;
+        inp.dataset.email = c.email || "";
+        inp.dataset.rol = c.rol || "";
+        inp.dataset.nombre = c.nombre || "";
+        inp.dataset.firmante = c.firmante ? "1" : "0";
+        inp.dataset.to = c.enviar_to ? "1" : "0";
+        inp.dataset.cc = c.enviar_cc ? "1" : "0";
+        const checked = !!(c.enviar_cc || c.enviar_to || c.firmante);
+        inp.checked = checked && !!c.email_ok;
+        if (inp.checked) row.classList.add("on");
+        inp.addEventListener("change", () => {
+          row.classList.toggle("on", inp.checked);
+          applyContactosToFields();
+        });
+        const text = document.createElement("div");
+        const mail = c.email_ok ? c.email : "(falta email en planilla)";
+        text.innerHTML = `<b>${c.rol || "Contacto"}</b> — ${c.nombre || "sin nombre"}<br/><span style="font-size:0.85rem;opacity:.85">${mail}${c.firmante ? " · firmante" : ""}${c.enviar_to ? " · TO" : ""}${c.enviar_cc ? " · CC" : ""}</span>`;
+        row.appendChild(inp);
+        row.appendChild(text);
+        box.appendChild(row);
+      });
+      applyContactosToFields();
+    }
+
+    function applyContactosToFields() {
+      const checks = [...document.querySelectorAll("#contactosBox input[type=checkbox]")];
+      const to = [];
+      const cc = [];
+      let firmante = null;
+      checks.forEach((inp) => {
+        if (!inp.checked) return;
+        const em = (inp.dataset.email || "").trim();
+        if (!em || !em.includes("@")) return;
+        if (inp.dataset.to === "1") to.push(em);
+        if (inp.dataset.cc === "1" || inp.dataset.to !== "1") cc.push(em);
+        if (inp.dataset.firmante === "1" && !firmante) {
+          firmante = { email: em, nombre: inp.dataset.nombre || "", rol: inp.dataset.rol || "" };
+        }
+      });
+      const extra = document.getElementById("email_cc_extra").value.trim();
+      const allCc = [...cc];
+      if (extra) {
+        extra.split(/[;,]+/).map((x) => x.trim()).filter(Boolean).forEach((e) => allCc.push(e));
+      }
+      // unique
+      const uniq = (arr) => {
+        const s = new Set();
+        const out = [];
+        arr.forEach((e) => {
+          const k = e.toLowerCase();
+          if (s.has(k)) return;
+          s.add(k);
+          out.push(e);
+        });
+        return out;
+      };
+      const toU = uniq(to);
+      const ccU = uniq(allCc).filter((e) => !toU.map((x) => x.toLowerCase()).includes(e.toLowerCase()));
+      const toField = document.getElementById("email_cliente");
+      if (toU.length) toField.value = toU[0];
+      else if (firmante) toField.value = firmante.email;
+      // remaining TO go to CC too so nobody is lost
+      const restTo = toU.slice(1);
+      document.getElementById("email_cc").value = uniq([...restTo, ...ccU]).join(", ");
+      if (firmante) {
+        if (!document.getElementById("recibido_por").value && firmante.nombre) {
+          document.getElementById("recibido_por").value = firmante.nombre;
+        }
+        if (!document.getElementById("cargo").value && firmante.rol) {
+          document.getElementById("cargo").value = firmante.rol;
+        }
+      }
+      state.contactosSel = checks.filter((c) => c.checked).map((inp) => ({
+        email: inp.dataset.email,
+        rol: inp.dataset.rol,
+        nombre: inp.dataset.nombre,
+        firmante: inp.dataset.firmante === "1",
+      }));
     }
 
     function fillSelect(sel, items, blank = "— seleccionar —") {
@@ -536,11 +662,15 @@
       document.getElementById("cliente").onchange = () => {
         const cli = document.getElementById("cliente").value;
         fillSelect(document.getElementById("maquina"), c.clientes_maquinas[cli] || []);
+        renderContactos();
       };
+      document.getElementById("maquina").onchange = () => renderContactos();
+      document.getElementById("email_cc_extra").addEventListener("input", applyContactosToFields);
       document.getElementById("tipo_falla").onchange = () => {
         const t = document.getElementById("tipo_falla").value;
         fillSelect(document.getElementById("falla_especifica"), c.tipos_falla[t] || [], "— seleccionar —");
       };
+      renderContactos();
     }
 
     document.getElementById("form").onsubmit = async (ev) => {
@@ -574,7 +704,11 @@
         recibido_por: document.getElementById("recibido_por").value.trim(),
         cargo: document.getElementById("cargo").value.trim(),
         email_cliente: document.getElementById("email_cliente").value.trim(),
-        email_cc: document.getElementById("email_cc").value.trim(),
+        email_cc: [
+          document.getElementById("email_cc").value.trim(),
+          document.getElementById("email_cc_extra").value.trim(),
+        ].filter(Boolean).join(", "),
+        contactos_seleccionados: state.contactosSel || [],
         firma_png: canvas.toDataURL("image/png"),
         checklist_cir: collectChecklist("cir"),
         checklist_cpa: collectChecklist("cpa"),
