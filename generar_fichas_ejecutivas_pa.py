@@ -4,11 +4,11 @@ Fichas ejecutivas Parque Arauco — una por recinto (mall), 5 variables:
 
   1) Equipos instalados (puntos activos WES)
   2) Consumo mensualizado (junio / julio / agosto a la fecha + proyección)
-  3) Hallazgos / conclusiones  (controles nocturnos DESCARTADOS como fuga)
+  3) Hallazgos / conclusiones  (noche con control: no se lee como fuga)
   4) Solicitudes / mensajes al recinto
-  5) Controles nocturnos — estado (fuera del análisis de fugas)
+  5) Noche con control — estado (fuera del análisis de fugas)
 
-Período: 01/06/2026 – 14/08/2026.
+Período: 01/06/2026 – 16/08/2026.
 Fuente de datos: API WES. Narrativa alineada al PPT 7 Malls
 (reports/.../entrega_diego_anibal) y a la gestión operativa de controles.
 
@@ -47,15 +47,50 @@ ROOT = Path(__file__).resolve().parent
 OUT_DIR = ROOT / "reports" / "Parque_Arauco" / "TMP_7MALLS" / "entrega_diego_anibal"
 CHARTS = OUT_DIR / "charts_fichas"
 JSON_DATOS = OUT_DIR / "datos_fichas_jun_ago.json"
+JSON_NOCHES = OUT_DIR / "cortes_control_fichas.json"
 LOGO = ROOT / "logo wes.bmp"
 FONDO = ROOT / "Parque arauco fondo.jpg"
 
+NODOS_FICHAS = [
+    "000025-01", "000025-02", "000025-04", "000025-07", "000025-08",
+    "000025-09", "000025-10", "000025-11", "000025-12", "000025-13",
+    "000025-17", "000025-18", "000025-19", "000025-20", "000025-21",
+    "000025-22", "000025-23", "000025-24", "000025-27", "000025-28",
+    "000025-29", "000025-32", "000025-33", "000025-34", "000025-35",
+    "000025-36", "000025-37", "000025-38",
+]
+NOCHES_CLAVE = [
+    ("000025-18", "2026-07-15", "SI500 víspera control"),
+    ("000025-18", "2026-07-20", "SI500 post control"),
+    ("000025-18", "2026-08-10", "SI500 agosto"),
+    ("000025-18", "2026-08-16", "SI500 16/08"),
+    ("000025-07", "2026-08-10", "Pizza ago"),
+    ("000025-07", "2026-08-16", "Pizza 16/08"),
+    ("000025-19", "2026-08-10", "Sur ago corte"),
+    ("000025-01", "2026-08-04", "Norte pre 5/8"),
+    ("000025-01", "2026-08-08", "Norte post 5/8"),
+    ("000025-01", "2026-08-16", "Norte 16/08"),
+    ("000025-08", "2026-08-10", "Placa"),
+    ("000025-09", "2026-08-12", "Falabella 12/08"),
+    ("000025-09", "2026-08-13", "Falabella 13/08"),
+    ("000025-09", "2026-08-15", "Falabella 15/08"),
+    ("000025-09", "2026-08-16", "Falabella 16/08"),
+    ("000025-13", "2026-08-10", "MAQ matriz"),
+    ("000025-13", "2026-08-16", "MAQ matriz 16/08"),
+    ("000025-17", "2026-08-10", "SI300"),
+    ("000025-11", "2026-08-10", "AEB matriz"),
+    ("000025-12", "2026-08-10", "AEB anillo"),
+    ("000025-27", "2026-08-10", "PAK DL"),
+    ("000025-04", "2026-08-10", "Baños MAE"),
+]
+
 DESDE = date(2026, 6, 1)
-HASTA = date(2026, 8, 14)
-AGO_DIAS = 14
+HASTA = date(2026, 8, 16)
+AGO_DIAS = 16
 AGO_MES = 31
-PERIODO = "01/06/2026 – 14/08/2026"
-FECHA_EMISION = "14 agosto 2026"
+PERIODO = "01/06/2026 – 16/08/2026"
+FECHA_EMISION = "17 agosto 2026"
+AGO_ETQ = f"1–{AGO_DIAS}"
 
 NAVY = (13, 59, 102)
 GOLD = (201, 162, 39)
@@ -203,6 +238,65 @@ def fn(v: float, dec: int = 1) -> str:
     return format_number_chilean(float(v), dec)
 
 
+def _avg(daily: Dict[str, float], d0: str, d1: str) -> float:
+    vals = [float(v) for d, v in daily.items() if d0 <= d <= d1]
+    return (sum(vals) / len(vals)) if vals else 0.0
+
+
+def _n06(hourly: Dict[str, Any], nid: str, dia: str) -> float:
+    rec = hourly.get(f"{nid}_{dia}") or {}
+    return float(rec.get("n06") or 0.0)
+
+
+def _dia(daily: Dict[str, float], dia: str) -> float:
+    return float(daily.get(dia) or 0.0)
+
+
+def refrescar_datos() -> None:
+    from generar_reportes_y_ppt_mall_maipu import guardar_datos_json, obtener_datos_agregados
+
+    print(f"[INFO] Descargando medidas WES {PERIODO}…", flush=True)
+    datos = obtener_datos_agregados(
+        NODOS_FICHAS,
+        DESDE.strftime("%d/%m/%Y"),
+        HASTA.strftime("%d/%m/%Y"),
+    )
+    datos["all_measures"] = []
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    guardar_datos_json(datos, JSON_DATOS)
+
+
+def refrescar_noches() -> Dict[str, Any]:
+    from generar_reporte_word import get_hourly_measures_for_day
+
+    hourly: Dict[str, Any] = {}
+    if JSON_NOCHES.is_file():
+        try:
+            hourly = json.loads(JSON_NOCHES.read_text(encoding="utf-8")).get("hourly") or {}
+        except Exception:
+            hourly = {}
+    for nid, dia, label in NOCHES_CLAVE:
+        key = f"{nid}_{dia}"
+        print(f"[INFO] Noche 0–6 h {nid} {dia}…", flush=True)
+        try:
+            serie = get_hourly_measures_for_day(nid, datetime.fromisoformat(dia)) or []
+        except Exception as exc:
+            print(f"[AVISO] {key}: {exc}", flush=True)
+            continue
+        by_h = {str(int(h)): float(v) for h, v in serie}
+        n06 = sum(float(v) for h, v in serie if int(h) < 6)
+        rest = sum(float(v) for h, v in serie if int(h) >= 6)
+        hourly[key] = {
+            "label": label,
+            "n06": round(n06, 2),
+            "rest": round(rest, 2),
+            "by_h": by_h,
+        }
+    payload = {"hourly": hourly}
+    JSON_NOCHES.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return hourly
+
+
 def cargar_datos() -> Tuple[Dict[str, str], Dict[str, Dict[str, float]]]:
     raw = json.loads(JSON_DATOS.read_text(encoding="utf-8"))
     names: Dict[str, str] = {}
@@ -210,12 +304,20 @@ def cargar_datos() -> Tuple[Dict[str, str], Dict[str, Dict[str, float]]]:
     for ns in raw["nodes_summary"]:
         nid = ns["node_id"]
         names[nid] = ns["node_name"]
-        row = {"jun": 0.0, "jul": 0.0, "ago": 0.0, "total": 0.0, "dias": 0.0}
+        row: Dict[str, Any] = {
+            "jun": 0.0,
+            "jul": 0.0,
+            "ago": 0.0,
+            "total": 0.0,
+            "dias": 0.0,
+            "daily": {},
+        }
         days = set()
         for m in ns["measures"]:
             d = m["date"][:10]
             month = d[5:7]
             v = float(m["total_m3"])
+            row["daily"][d] = row["daily"].get(d, 0.0) + v
             if month == "06":
                 row["jun"] += v
             elif month == "07":
@@ -226,8 +328,13 @@ def cargar_datos() -> Tuple[Dict[str, str], Dict[str, Dict[str, float]]]:
             days.add(d)
         row["dias"] = float(len(days))
         by[nid] = row
-        names[nid] = ns["node_name"]
     return names, by
+
+
+def cargar_noches() -> Dict[str, Any]:
+    if not JSON_NOCHES.is_file():
+        return {}
+    return json.loads(JSON_NOCHES.read_text(encoding="utf-8")).get("hourly") or {}
 
 
 def sum_mes(by: Dict[str, Dict[str, float]], nids: List[str]) -> Dict[str, float]:
@@ -245,7 +352,7 @@ def sum_mes(by: Dict[str, Dict[str, float]], nids: List[str]) -> Dict[str, float
 
 def chart_mensual(path: Path, jun: float, jul: float, ago: float, proy: float) -> None:
     fig, ax = plt.subplots(figsize=(5.4, 2.15), dpi=140)
-    labels = ["Junio", "Julio", "Agosto\n(1–14)", "Ago. proy.\n(31 d)"]
+    labels = ["Junio", "Julio", f"Agosto\n({AGO_ETQ})", "Ago. proy.\n(31 d)"]
     vals = [jun, jul, ago, proy]
     colors = ["#1F77B4", "#0D3B66", "#C9A227", "#8FA4B8"]
     bars = ax.bar(labels, vals, color=colors, width=0.62, zorder=3)
@@ -301,7 +408,7 @@ def _consumo_lineas(mall: Dict[str, Any], tot: Dict[str, float], by: Dict[str, D
     lines = [
         f"Junio: {fn(tot['jun'])} m³  ({fn(tot['jun_d'])} m³/día)",
         f"Julio: {fn(tot['jul'])} m³  ({fn(tot['jul_d'])} m³/día)",
-        f"Agosto 1–14: {fn(tot['ago'])} m³  ({fn(tot['ago_d'])} m³/día)",
+        f"Agosto {AGO_ETQ}: {fn(tot['ago'])} m³  ({fn(tot['ago_d'])} m³/día)",
         f"Proyección agosto: {fn(tot['ago_proy'])} m³",
     ]
     ranked = sorted(mall["nodes"], key=lambda n: -float((by.get(n) or {}).get("total") or 0))
@@ -328,8 +435,14 @@ def _consumo_lineas(mall: Dict[str, Any], tot: Dict[str, float], by: Dict[str, D
     return lines
 
 
-def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[Dict[str, Any]]:
-    """Arma las 5 variables por mall con cifras reales y controles descartados."""
+def contenidos(
+    names: Dict[str, str],
+    by: Dict[str, Dict[str, float]],
+    hourly: Dict[str, Any] | None = None,
+) -> List[Dict[str, Any]]:
+    """Arma las 5 variables por mall con cifras reales. Noche con control ≠ fuga."""
+    hourly = hourly or {}
+    ago_hasta = HASTA.isoformat()
     out: List[Dict[str, Any]] = []
     for mall in MALLS:
         nids_consumo = mall.get("cabecera") or mall["nodes"]
@@ -338,13 +451,27 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
         equipos = _equipos_lineas(mall, names, by)
         consumo = _consumo_lineas(mall, tot, by, names)
         if mall["code"] == "MAE":
+            d_sur = by["000025-19"]["daily"]
+            d_nor = by["000025-01"]["daily"]
+            sur_pre = _avg(d_sur, "2026-06-01", "2026-06-09")
+            sur_post = _avg(d_sur, "2026-06-11", "2026-06-30")
+            sur_jul = float(by["000025-19"]["jul"]) / 31.0
+            sur_ago = float(by["000025-19"]["ago"]) / AGO_DIAS
+            piz_jun = float(by["000025-07"]["jun"]) / 30.0
+            piz_jul = float(by["000025-07"]["jul"]) / 31.0
+            piz_ago = float(by["000025-07"]["ago"]) / AGO_DIAS
+            piz_n10 = _n06(hourly, "000025-07", "2026-08-10")
+            nor_pre = _avg(d_nor, "2026-08-01", "2026-08-04")
+            nor_post = _avg(d_nor, "2026-08-05", ago_hasta)
+            ban_jun = float(by["000025-04"]["jun"]) / 30.0
+            ban_jul = float(by["000025-04"]["jul"]) / 31.0
+            ban_ago = float(by["000025-04"]["ago"]) / AGO_DIAS
             hallazgos = [
-                "Reparación 10/06 en red Sur (validada con mantención): Estanque Sur pasó de 83,1 a 29,4 m³/día y se mantiene (~27–29 m³/día jul–ago). No es fuga residual.",
-                "Pizza Hut: control nocturno desde 01/07 funciona (noche ~0 m³ el 10/08). El alza de julio (23,8 → 37,7 m³/día) es diurna; agosto baja a 14,1 m³/día. Esa noche no se lee como fuga.",
-                "Estanque Norte: control desde 05/08. La noche no explica el alza (ago 1–4: 41 m³/día; 5–14: 50 m³/día). Revisar locales mall en horario hábil.",
-                "Baños Públicos: 16,3 → 7,0 → 3,5 m³/día. Noches ya ~0. Control instalado sin funcionamiento: no es prioridad.",
+                f"Reparación 10/06 en red Sur (validada con mantención): Estanque Sur pasó de {fn(sur_pre)} a {fn(sur_post)} m³/día y se mantiene ({fn(sur_jul)} jul / {fn(sur_ago)} ago m³/día). No es fuga residual.",
+                f"Pizza Hut: control nocturno desde 01/07 funciona (noche {fn(piz_n10, 1)} m³ el 10/08). El alza de julio ({fn(piz_jun)} → {fn(piz_jul)} m³/día) es diurna; agosto baja a {fn(piz_ago)} m³/día. Esa noche no se lee como fuga.",
+                f"Estanque Norte: control desde 05/08. La noche no explica el alza (ago 1–4: {fn(nor_pre)} m³/día; 5–{HASTA.day:02d}: {fn(nor_post)} m³/día). Revisar locales mall en horario hábil.",
+                f"Baños Públicos: {fn(ban_jun)} → {fn(ban_jul)} → {fn(ban_ago)} m³/día. Noches ya ~0. Control instalado sin funcionamiento: no es prioridad.",
             ]
-            # 000025-02 queda en equipos; no saturar hallazgos.
             solicitudes = [
                 "Confirmar que el corte on/off de Estanque Sur queda a cargo permanente de mantención nocturna.",
                 "No abrir orden de fuga por noches de Norte / Pizza Hut / Sur: controles activos o corte operativo.",
@@ -352,21 +479,42 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
                 "Incorporar Abastecimiento Sur Terminal (000025-02) al tablero del recinto si corresponde a la cuenta del mall.",
             ]
             controles = [
-                "Estanque Sur (000025-19): corte on/off de mantención nocturna. La madrugada NO se lee como fuga.",
-                "Pizza Hut (000025-07): control 00:00–06:00 desde 01/07. Noche OK (10/08: 0 m³). No se lee como fuga.",
+                f"Estanque Sur (000025-19): corte on/off de mantención nocturna. 10/08 noche {fn(_n06(hourly,'000025-19','2026-08-10'), 2)} m³. La madrugada NO se lee como fuga.",
+                f"Pizza Hut (000025-07): control 00:00–06:00 desde 01/07. Noche OK (10/08: {fn(piz_n10, 1)} m³). No se lee como fuga.",
                 "Estanque Norte (000025-01): control desde 05/08. La madrugada NO se lee como fuga (el alza de agosto es diurna).",
                 "Baños Públicos: control instalado sin uso; noches ya ~0. Tampoco se interpreta como fuga.",
             ]
         elif mall["code"] == "MAM":
+            d_pla = by["000025-08"]["daily"]
+            placa_ago_d = float(by["000025-08"]["ago"]) / AGO_DIAS if AGO_DIAS else 0.0
+            placa_17 = _dia(d_pla, "2026-06-17")
+            placa_18 = _dia(d_pla, "2026-06-18")
+            placa_jul_d = float(by["000025-08"]["jul"]) / 31.0
+            placa_n10 = _n06(hourly, "000025-08", "2026-08-10")
+            rip_jul = float(by["000025-10"]["jul"])
+            rip_ago_d = float(by["000025-10"]["ago"]) / AGO_DIAS
+            pas_tot = float(by["000025-32"]["total"])
+            arr_tot = float(by["000025-33"]["total"])
+            daily_f = by["000025-09"].get("daily") or {}
+            dias_f = sorted((d, v) for d, v in daily_f.items() if d >= "2026-08-11")
+            if dias_f:
+                d0 = f"{dias_f[0][0][8:10]}/{dias_f[0][0][5:7]}"
+                d1 = f"{dias_f[-1][0][8:10]}/{dias_f[-1][0][5:7]}"
+                serie_f = f"{d0}–{d1}: " + " / ".join(fn(v) for _, v in dias_f) + " m³"
+            else:
+                serie_f = "sin serie aún"
+            tot_f = sum(v for _, v in dias_f)
+            n12 = _n06(hourly, "000025-09", "2026-08-12")
+            n13 = _n06(hourly, "000025-09", "2026-08-13")
             hallazgos = [
                 f"Placa Bancaria concentra ~{fn(by['000025-08']['total']/tot['total']*100,0)}% del volumen monitoreado (jun–ago).",
-                "Auditoría 18/06: Placa subió de 160,5 a 347,2 m³/día. Julio 228,5 m³/día. Agosto 1–14 vuelve a 137,0 m³/día (bajo el nivel pre-auditoría). Noche 10/08 = 0 m³.",
-                "Ripley: noches tendiendo a cero (lámina 9 del deck); volumen jul 3.245 m³, estable en agosto (~97 m³/día).",
-                "Pasillo Técnico Boulevard y salida ARROW: consumo residual (69,8 y 1,1 m³ en el período).",
+                f"Auditoría 18/06: Placa subió de {fn(placa_17)} a {fn(placa_18)} m³/día. Julio {fn(placa_jul_d)} m³/día. Agosto {AGO_ETQ} vuelve a {fn(placa_ago_d)} m³/día (bajo el nivel pre-auditoría). Noche 10/08 = {fn(placa_n10, 1)} m³.",
+                f"Ripley: noches tendiendo a cero (lámina 9 del deck); volumen jul {fn(rip_jul, 0)} m³, estable en agosto (~{fn(rip_ago_d)} m³/día).",
+                f"Pasillo Técnico Boulevard y salida ARROW: consumo residual ({fn(pas_tot)} y {fn(arr_tot)} m³ en el período).",
                 "Impulsión Falabella (000025-09) ACTIVA desde el 11/08/2026. "
-                "Jun–jul = 0 (equipo fuera). 11/08 puesta en marcha 24,6 m³ (día parcial). "
-                "12–14/08: 55,3 / 66,1 / 24,1 m³. 15–16/08: 120,5 y 112,1 m³/día. "
-                "Noche 12/08 7,9 m³ y 13/08 13,1 m³ (0–6 h). Sin control; baseline 2–3 semanas.",
+                f"Jun–jul = 0 m³ (equipo fuera). Serie {serie_f} "
+                f"(acum. {fn(tot_f)} m³). Noche 12/08 {fn(n12, 1)} m³ y 13/08 {fn(n13, 1)} m³ (0–6 h). "
+                "Sin control nocturno; baseline 2–3 semanas.",
             ]
             solicitudes = [
                 "Incorporar Impulsión Falabella al tablero diario: ya no está en espera de OC; activo desde el 11/08.",
@@ -376,32 +524,55 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
             ]
             controles = [
                 "Sin control nocturno WES declarado en este recinto.",
-                "Ripley y Placa: patrón nocturno del deck ya era ~0; se descarta fuga de madrugada.",
-                "Falabella: las noches desde el 12/08 (8–13 m³ en 0–6 h) NO se descartan; el punto recién entra en medición.",
+                "Ripley y Placa: patrón nocturno del deck ya era ~0; esa madrugada no se lee como fuga.",
+                f"Falabella: las noches desde el 12/08 ({fn(n12, 0)}–{fn(n13, 0)} m³ en 0–6 h) SÍ entran al análisis; el punto recién entra en medición.",
             ]
         elif mall["code"] == "MAQ":
+            mat = by["000025-13"]
+            ban = by["000025-34"]
+            mat_jun_d = float(mat["jun"]) / 30.0
+            mat_jul_d = float(mat["jul"]) / 31.0
+            mat_ago_d = float(mat["ago"]) / AGO_DIAS
+            n10 = _n06(hourly, "000025-13", "2026-08-10")
+            dia_10 = _dia(mat["daily"], "2026-08-10")
             hallazgos = [
-                f"Matriz Principal = {fn(by['000025-13']['total']/tot['total']*100,1)}% del recinto. Baños = {fn(by['000025-34']['total']/tot['total']*100,1)}%.",
-                "Alza clara: 131 m³/día en junio → 193 m³/día en julio y 195 m³/día en agosto (1–14).",
-                "10/08 Matriz: 23,7 m³ en 0–6 h (de 198 m³ del día). Sigue el patrón del deck (21,7 m³/noche; sin noches en cero).",
-                "Alimentación Baños: bajo y estable (jun 103 / jul 62 / ago 44 m³); uso hábil.",
+                f"Matriz Principal = {fn(mat['total']/tot['total']*100,1)}% del recinto. Baños = {fn(ban['total']/tot['total']*100,1)}%.",
+                f"Alza clara: {fn(mat_jun_d, 0)} m³/día en junio → {fn(mat_jul_d, 0)} m³/día en julio y {fn(mat_ago_d)} m³/día en agosto ({AGO_ETQ}).",
+                f"10/08 Matriz: {fn(n10, 1)} m³ en 0–6 h (de {fn(dia_10, 0)} m³ del día). Sigue el patrón del deck (sin noches en cero).",
+                f"Alimentación Baños: bajo y estable (jun {fn(ban['jun'], 0)} / jul {fn(ban['jul'], 0)} / ago {fn(ban['ago'], 0)} m³); uso hábil.",
                 "Red de Incendio (000025-14) relocalizada: 0 m³. No forma parte del activo.",
             ]
             solicitudes = [
                 "Implementar control on/off 00:00–08:00 en Matriz Principal (igual que estanques MAE).",
-                "Oportunidad de orden de magnitud: ~24 m³/noche × 30 ≈ 720 m³/mes si se corta el caudal inhábil.",
-                "No hay control nocturno que descartar: este es el hallazgo principal del recinto.",
+                f"Oportunidad de orden de magnitud: ~{fn(n10, 0)} m³/noche × 30 ≈ {fn(n10 * 30, 0)} m³/mes si se corta el caudal inhábil.",
+                "No hay control nocturno activo: este es el hallazgo principal del recinto.",
             ]
             controles = [
                 "No hay control nocturno activo en Quilicura.",
-                "El consumo de madrugada de Matriz Principal NO se descarta: es la variable a gestionar.",
+                "El consumo de madrugada de Matriz Principal SÍ entra al análisis: es la variable a gestionar.",
             ]
         elif mall["code"] == "BOM":
+            d500 = by["000025-18"]["daily"]
+            d300 = by["000025-17"]["daily"]
+            s500_pre = _avg(d500, "2026-06-01", "2026-06-25")
+            s500_26 = _avg(d500, "2026-06-26", "2026-06-30")
+            s500_1_15 = _avg(d500, "2026-07-01", "2026-07-15")
+            s500_16_31 = _avg(d500, "2026-07-16", "2026-07-31")
+            s500_ago = float(by["000025-18"]["ago"]) / AGO_DIAS
+            n15 = _n06(hourly, "000025-18", "2026-07-15")
+            n20 = _n06(hourly, "000025-18", "2026-07-20")
+            n10s = _n06(hourly, "000025-18", "2026-08-10")
+            s300_jun = float(by["000025-17"]["jun"]) / 30.0
+            s300_jul = float(by["000025-17"]["jul"]) / 31.0
+            s300_ago = float(by["000025-17"]["ago"]) / AGO_DIAS
+            n300 = _n06(hourly, "000025-17", "2026-08-10")
+            d300_10 = _dia(d300, "2026-08-10")
+            pct300 = (n300 / d300_10 * 100) if d300_10 else 0.0
             hallazgos = [
-                "San Ignacio 500 = ~80% del recinto. Alza desde el 26/06 (36,7 → 99,6 m³/día) y 1–15/07 en 148,7 m³/día.",
-                "Control nocturno 500 desde 16/07 FUNCIONA: 15/07 noche 42,4 m³ → 20/07 3,3 m³ → 10/08 2,3 m³. Noche DESCARTADA como fuga.",
-                "El volumen diurno no volvió a la base de junio: 16–31/07 114,8 m³/día y 1–14/08 111,2 m³/día vs 36,7 m³/día (1–25/06). Queda alza operacional de día.",
-                "San Ignacio 300 (solo monitoreo): 11,5 → 33,8 → 38,8 m³/día. El 10/08, 11,6 m³ de 22,6 m³ fueron en 0–6 h (~51% nocturno). Sin control.",
+                f"San Ignacio 500 = ~{fn(by['000025-18']['total']/tot['total']*100,0)}% del recinto. Alza desde el 26/06 ({fn(s500_pre)} → {fn(s500_26)} m³/día) y 1–15/07 en {fn(s500_1_15)} m³/día.",
+                f"Control nocturno 500 desde 16/07 FUNCIONA: 15/07 noche {fn(n15, 1)} m³ → 20/07 {fn(n20, 1)} m³ → 10/08 {fn(n10s, 1)} m³. Esa noche no se lee como fuga.",
+                f"El volumen diurno no volvió a la base de junio: 16–31/07 {fn(s500_16_31)} m³/día y {AGO_ETQ}/08 {fn(s500_ago)} m³/día vs {fn(s500_pre)} m³/día (1–25/06). Queda alza operacional de día.",
+                f"San Ignacio 300 (solo monitoreo): {fn(s300_jun)} → {fn(s300_jul)} → {fn(s300_ago)} m³/día. El 10/08, {fn(n300, 1)} m³ de {fn(d300_10, 1)} m³ fueron en 0–6 h (~{fn(pct300, 0)}% nocturno). Sin control.",
             ]
             solicitudes = [
                 "500: no reabrir fuga nocturna. Pedir a operaciones la causa del caudal diurno/vespertino que quedó alto desde el 26/06.",
@@ -413,21 +584,26 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
                 "San Ignacio 300: sin control. La noche SÍ entra al análisis (el 10/08 fue ~51% nocturna).",
             ]
         elif mall["code"] == "AEB":
+            n11 = _n06(hourly, "000025-11", "2026-08-10")
+            n12a = _n06(hourly, "000025-12", "2026-08-10")
+            d11_10 = _dia(by["000025-11"]["daily"], "2026-08-10")
+            d12_10 = _dia(by["000025-12"]["daily"], "2026-08-10")
+            mat_d = float(by["000025-11"]["total"]) / max(float(by["000025-11"]["dias"]) or 1.0, 1.0)
             hallazgos = [
                 "Puntos activos: Matriz principal 1° piso (000025-11) y Anillo Plaza (000025-12). Matriz A.A. (000025-30) = 0 m³ en el período (no operativo).",
-                f"Matriz 11: jun {fn(by['000025-11']['jun'])} / jul {fn(by['000025-11']['jul'])} / ago {fn(by['000025-11']['ago'])} m³ (~55 m³/día, estable).",
-                "10/08 Matriz: 7,6 m³ en 0–6 h (base inhábil del deck: 7,9 m³/noche). Sin control.",
-                f"Anillo Plaza: jul {fn(by['000025-12']['jul'])} m³ (alza vs jun {fn(by['000025-12']['jun'])}); 10/08 noche 2,7 de 12,2 m³.",
+                f"Matriz 11: jun {fn(by['000025-11']['jun'])} / jul {fn(by['000025-11']['jul'])} / ago {fn(by['000025-11']['ago'])} m³ (~{fn(mat_d)} m³/día, estable).",
+                f"10/08 Matriz: {fn(n11, 1)} m³ en 0–6 h (día {fn(d11_10, 1)} m³). Sin control.",
+                f"Anillo Plaza: jul {fn(by['000025-12']['jul'])} m³ (alza vs jun {fn(by['000025-12']['jun'])}); 10/08 noche {fn(n12a, 1)} de {fn(d12_10, 1)} m³.",
                 "La portada del deck 7 Malls aún nombra Matriz A.A.; el dato activo es 000025-11.",
             ]
             solicitudes = [
-                "Replicar control on/off 00:00–08:00 en Matriz (como estanques MAE). Oportunidad ~8 m³/noche.",
+                f"Replicar control on/off 00:00–08:00 en Matriz (como estanques MAE). Oportunidad ~{fn(n11, 0)} m³/noche.",
                 "Revisar llaves / equipos del Anillo Plaza para bajar la base nocturna.",
                 "Actualizar el listado del recinto: activo 11+12; 30 en cero.",
             ]
             controles = [
                 "No hay control nocturno activo en El Bosque.",
-                "La noche de Matriz y Anillo NO se descarta: es la oportunidad de ahorro del recinto.",
+                "La noche de Matriz y Anillo SÍ entra al análisis: es la oportunidad de ahorro del recinto.",
             ]
         elif mall["code"] == "CUR":
             hallazgos = [
@@ -446,11 +622,13 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
                 "No se declara fuga nocturna en este recinto para el período.",
             ]
         else:  # PAK
+            n_dl = _n06(hourly, "000025-27", "2026-08-10")
+            d_dl = _dia(by["000025-27"]["daily"], "2026-08-10")
             hallazgos = [
                 "10 puntos activos. Baños 5/6 (25–26) relocalizados a Bazar Gourmet (35) y DL Kennedy (36).",
-                f"Cadena: Sandía Antigua (22) y Sandía Nueva (28) alimentan DL (27), que se reparte en Bazar (35) y DL Kennedy (36). No sumar la cadena para facturar.",
+                "Cadena: Sandía Antigua (22) y Sandía Nueva (28) alimentan DL (27), que se reparte en Bazar (35) y DL Kennedy (36). No sumar la cadena para facturar.",
                 f"Consumo de cabecera (sin doble conteo): jun {fn(tot['jun'])} / jul {fn(tot['jul'])} / ago {fn(tot['ago'])} m³.",
-                "10/08 DL: 47,5 m³ en 0–6 h (de 221 m³ del día). El deck ya marcaba al DL como el mayor nocturno de la cadena.",
+                f"10/08 DL: {fn(n_dl, 1)} m³ en 0–6 h (de {fn(d_dl, 0)} m³ del día). El deck ya marcaba al DL como el mayor nocturno de la cadena.",
                 f"Andén Locales Gastronómicos (21) sube: jun {fn(by['000025-21']['jun'])} → jul {fn(by['000025-21']['jul'])} m³. Piletas: volumen menor.",
             ]
             solicitudes = [
@@ -460,7 +638,7 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
             ]
             controles = [
                 "Sin control nocturno WES activo en Kennedy.",
-                "El patrón 0–8 h del DL NO se descarta: es el hallazgo a gestionar.",
+                "El patrón 0–8 h del DL SÍ entra al análisis: es el hallazgo a gestionar.",
             ]
 
         out.append(
@@ -602,7 +780,7 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
         ),
         (
             "2. Consumo mensualizado",
-            "Suma de puntos WES del recinto: junio, julio y agosto 1–14, más proyección lineal a 31 días. En Kennedy no se suma la cadena DL (doble conteo).",
+            f"Suma de puntos WES del recinto: junio, julio y agosto {AGO_ETQ}, más proyección lineal a 31 días. En Kennedy no se suma la cadena DL (doble conteo).",
         ),
         (
             "3. Hallazgos",
@@ -676,7 +854,7 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
     # Consolidado
     sl = prs.slides.add_slide(prs.slide_layouts[6])
     _header_bar(sl, prs, "Consolidado  ·  mensaje por recinto", f"Puntos WES  |  {PERIODO}")
-    rows = [["Mall", "Puntos", "Junio m³", "Julio m³", "Ago 1–14 m³", "m³/día ago", "Mensaje"]]
+    rows = [["Mall", "Puntos", "Junio m³", "Julio m³", f"Ago {AGO_ETQ} m³", "m³/día ago", "Mensaje"]]
     mensajes_corto = {
         "MAE": "Norte/Pizza/Sur: noche con control, no es fuga. Norte: alza diurna ago.",
         "MAM": "Placa se revirtió en ago. Falabella activa desde 11/08.",
@@ -850,7 +1028,7 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
         table = doc.add_table(rows=2, cols=5)
         table.style = "Table Grid"
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
-        hdr = ["Junio", "Julio", "Agosto 1–14", "m³/día ago", "Proyección agosto"]
+        hdr = ["Junio", "Julio", f"Agosto {AGO_ETQ}", "m³/día ago", "Proyección agosto"]
         vals = [
             f"{fn(tot['jun'])} m³",
             f"{fn(tot['jul'])} m³",
@@ -888,7 +1066,7 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
     r.font.color.rgb = RGBColor(*NAVY)
     table = doc.add_table(rows=1 + len(fichas), cols=6)
     table.style = "Table Grid"
-    for i, x in enumerate(["Mall", "Junio m³", "Julio m³", "Ago 1–14 m³", "m³/día ago", "Mensaje clave"]):
+    for i, x in enumerate(["Mall", "Junio m³", "Julio m³", f"Ago {AGO_ETQ} m³", "m³/día ago", "Mensaje clave"]):
         _set_cell(table.rows[0].cells[i], x, bold=True, color=WHITE, fill="0D3B66", center=True, size=9)
     msgs = {
         "MAE": "Norte/Pizza/Sur: noche con control, no es fuga. Norte: alza diurna agosto.",
@@ -916,9 +1094,9 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
 
     p = doc.add_paragraph()
     r = p.add_run(
-        "Fuente: API de medidas WES, 01/06/2026–14/08/2026. "
-        "La proyección de agosto es lineal (14 días → 31). "
-        "Los controles nocturnos se verificaron con perfil horario 0–6 h en fechas de corte."
+        f"Fuente: API de medidas WES, {PERIODO}. "
+        f"La proyección de agosto es lineal ({AGO_DIAS} días → 31). "
+        "Si el punto tiene control nocturno, esa madrugada no se interpreta como fuga."
     )
     r.font.size = Pt(9)
     r.italic = True
@@ -958,13 +1136,16 @@ def convertir_pdf(docx_path: Path) -> Path | None:
 
 
 def main() -> int:
-    if not JSON_DATOS.is_file():
-        print(f"[ERROR] Falta {JSON_DATOS}. Ejecutar primero la descarga de medidas.")
-        return 1
+    skip = "--skip-refresh" in sys.argv
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     CHARTS.mkdir(parents=True, exist_ok=True)
+    if not skip or not JSON_DATOS.is_file():
+        refrescar_datos()
+    if not skip or not JSON_NOCHES.is_file():
+        refrescar_noches()
     names, by = cargar_datos()
-    fichas = contenidos(names, by)
+    hourly = cargar_noches()
+    fichas = contenidos(names, by, hourly)
     ppt = build_ppt(fichas, names, by)
     docx = build_word(fichas)
     pdf = convertir_pdf(docx)
