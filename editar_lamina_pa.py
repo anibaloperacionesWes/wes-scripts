@@ -2625,6 +2625,9 @@ def _texto_analisis_l11_maq() -> str:
         "Pedido: on/off 00:00–08:00 (mismo criterio estanques MAE). ~24 m³/noche el 10/08.",
     ])
     return "\n".join(lines)
+
+
+def _buscar_o_crear_caja_analisis_l11_maq(slide, texto: str) -> None:
     l, t, w, h = L11_MAQ_TEXTO_BOX
     target = None
     for sh in slide.shapes:
@@ -2689,6 +2692,9 @@ def _texto_analisis_l14_bom() -> str:
         "Queda alza diurna desde el 26/06. San Ignacio 300: sin control; la noche SÍ entra al análisis (~51% el 10/08).",
     ])
     return "\n".join(lines)
+
+
+def _buscar_o_crear_caja_analisis_l14_bom(slide, texto: str) -> None:
     l, t, w, h = L14_BOM_TEXTO_BOX
     target = None
     for sh in slide.shapes:
@@ -2753,6 +2759,9 @@ def _texto_analisis_l17_aeb() -> str:
         "No hay control nocturno: la madrugada SÍ entra al análisis. Pedir on/off 00:00–08:00 en Matriz.",
     ])
     return "\n".join(lines)
+
+
+def _buscar_o_crear_caja_analisis_l17_aeb(slide, texto: str) -> None:
     l, t, w, h = L17_AEB_TEXTO_BOX
     target = None
     for sh in slide.shapes:
