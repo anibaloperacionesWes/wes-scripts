@@ -1,0 +1,29 @@
+ACTUALIZAR EL FORMULARIO WEB (/exec) — 3 minutos
+================================================
+
+El link https://script.google.com/macros/s/AKfycbzr5Md52h7yHk4T_UhS1H5RsdIKox49EHB5IkFKPsAU2RA-aLTBIG1NWc50vxbTM601/exec
+usa un Apps Script con catálogo EMBEBIDO. Por eso no veías RENCA actualizado
+aunque CONTACTOS_ENVIOS_ACTAS ya estaba bien.
+
+1) Abrí el proyecto:
+   https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
+
+2) Archivo "catalogos":
+   - Borrá TODO
+   - Pegá el contenido de catalogos.html (en esta misma carpeta Drive / repo)
+   - Guardá (Ctrl+S)
+
+3) (Recomendado) Archivo "Codigo":
+   - Reemplazá todo con Codigo.gs actualizado (lee Clientes_catalogo en vivo)
+   - Guardá
+
+4) Archivo "Formulario":
+   - Reemplazá con Formulario.html actualizado
+   - Guardá
+
+5) Deploy → Administrar implementaciones → lápiz → Versión: Nueva versión → Implementar
+
+6) Recargá el /exec y probá RENCA:
+   ICCO · ICCP · ESCUELA LO VELEZQUEZ · GIMNASIO MUNICIPAL · PISCINA MUNICIPAL
+
+Atajo: en CONTACTOS_ENVIOS_ACTAS hay hoja APPS_SCRIPT_CATALOGOS con el JSON listo para pegar en "catalogos".
