@@ -9,17 +9,21 @@ Celular (misma WiFi): `http://IP-DEL-PC:8787`
 
 Al completar: PDF → correo al cliente (acusar recibo) → fila en Excel `Datos`.
 
-## Clientes / máquinas que faltan
-1. Agregá los clientes/máquinas en el Sheet **Registro de fallas WES** (hoja `Base1`)
-   o en tu `analisis de falla.xlsx`.
-2. Refrescá catálogos del formulario:
+## Clientes / máquinas (puntos) — dónde editarlos
+Fuente oficial del desplegable del formulario:
+
+**`CONTACTOS_ENVIOS_ACTAS` → hoja `Clientes_catalogo`**
+(no Base1 del Registro de fallas: ahí quedan nombres viejos, ej. RENCA).
+
 ```bash
 python sincronizar_catalogos_desde_maestro.py --desde-drive
 ```
-3. Reiniciá `servir_formulario_visita.py`.
 
-El sync también **completa solo** pares que ya existen en el historial `Datos`
-pero faltaban en `Base1` (ej. MOLYMET, PAE).
+Reiniciá `servir_formulario_visita.py` después del sync.
+
+- Puntos: `Clientes_catalogo`
+- Emails: hoja `Contactos` del mismo Excel
+- Fallas: Registro de fallas · `Base3`
 
 ## Mejorar el Excel digital
 ```bash

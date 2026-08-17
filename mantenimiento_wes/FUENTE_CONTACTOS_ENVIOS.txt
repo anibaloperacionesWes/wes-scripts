@@ -13,4 +13,4 @@ Reglas:
   Rol=CC/punto → CC del punto (Máquina) o del cliente si Máquina vacía
   Aníbal queda siempre en CC adicional desde el formulario.
 
-Sync: 2026-08-17 19:27
+Sync: 2026-08-17 20:17

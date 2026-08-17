@@ -1,15 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-Sincroniza catálogos Cliente/Máquina y Tipo falla desde el maestro
-(Registro de fallas WES / analisis de falla) hacia:
-  - mantenimiento_wes/catalogos/*.json  (formulario web)
-  - FORMULARIO_MANTENCION_WES_DIGITAL.xlsx (hojas Base*)
+Sincroniza catálogos del formulario web y del Excel digital.
 
-También completa Base1 con pares Cliente+Máquina que existan en Datos
-pero falten en el catálogo (ej. MOLYMET, PAE).
+FUENTES (evitar mezclar):
+  1) Cliente + Máquina (puntos del formulario)
+     → CONTACTOS_ENVIOS_ACTAS · hoja Clientes_catalogo
+       Sheet: 1Tpjm1eXRXKuKvxachtbYVr9503wICJdsYDTjkbm__o8
+       Path:  G:\\Mi unidad\\Agente WES\\wes-scripts\\mantenimiento wes\\CONTACTOS_ENVIOS_ACTAS
+     Si un cliente NO está en ese catálogo, se completa solo con Base1/Datos
+     del Registro de fallas (clientes nuevos del historial).
+
+  2) Tipo de falla / falla específica
+     → Registro de fallas WES · hoja Base3
+       Sheet: 1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM
+
+NO usar Base1 del Registro como lista “oficial” de puntos cuando el cliente
+ya figura en Clientes_catalogo (ej. RENCA: ICCO/ICCP vs nombres viejos).
 
 Uso:
-  python sincronizar_catalogos_desde_maestro.py
   python sincronizar_catalogos_desde_maestro.py --desde-drive
 """
 
@@ -23,17 +31,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill
 
 ROOT = Path(__file__).resolve().parent
 MAESTRO_DIR = ROOT / "maestro"
 CAT_DIR = ROOT / "catalogos"
 XLSX_FORM = ROOT / "FORMULARIO_MANTENCION_WES_DIGITAL.xlsx"
 
-# IDs Drive
 SHEET_REGISTRO_ID = "1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM"
+SHEET_CONTACTOS_ID = "1Tpjm1eXRXKuKvxachtbYVr9503wICJdsYDTjkbm__o8"
 FILE_ANALISIS_ID = "1mzIsNG9Kr8PLZkUz_JDDklJu5uv1HJgC"
+
+URL_CONTACTOS = f"https://docs.google.com/spreadsheets/d/{SHEET_CONTACTOS_ID}/edit"
+URL_REGISTRO = f"https://docs.google.com/spreadsheets/d/{SHEET_REGISTRO_ID}/edit"
 
 FILL_HEADER = PatternFill("solid", fgColor="1F4E79")
 FONT_WHITE = Font(name="Calibri", bold=True, color="FFFFFF", size=11)
@@ -81,6 +92,27 @@ def _pairs_from_sheet(ws, cli_col: int, maq_col: int, start_row: int = 2) -> Set
     return out
 
 
+def _pairs_from_contactos_catalogo(path: Path) -> Tuple[Set[Pair], Set[str]]:
+    """Lee Clientes_catalogo (fuente oficial de puntos del formulario)."""
+    wb = load_workbook(path, data_only=True)
+    if "Clientes_catalogo" not in wb.sheetnames:
+        raise RuntimeError(f"Falta hoja Clientes_catalogo en {path}")
+    ws = wb["Clientes_catalogo"]
+    headers = [_norm(ws.cell(1, c).value).lower() for c in range(1, 6)]
+
+    def idx(*names: str) -> int:
+        for n in names:
+            if n in headers:
+                return headers.index(n) + 1
+        return 0
+
+    c_cli = idx("cliente") or 1
+    c_maq = idx("máquina / sitio", "maquina / sitio", "máquina", "maquina", "sitio") or 2
+    pairs = _pairs_from_sheet(ws, c_cli, c_maq, start_row=2)
+    clients = {c for c, _ in pairs}
+    return pairs, clients
+
+
 def _fallas_from_sheet(ws, tipo_col: int = 2, esp_col: int = 3) -> Dict[str, List[str]]:
     d: Dict[str, List[str]] = defaultdict(list)
     for r in range(2, (ws.max_row or 1) + 1):
@@ -92,7 +124,6 @@ def _fallas_from_sheet(ws, tipo_col: int = 2, esp_col: int = 3) -> Dict[str, Lis
 
 
 def _write_base1(ws, pairs: Iterable[Pair]) -> int:
-    # clear old
     if ws.max_row and ws.max_row > 1:
         ws.delete_rows(2, ws.max_row - 1)
     ws["B1"] = "CLIENTE"
@@ -154,46 +185,66 @@ def sincronizar(
     *,
     desde_drive: bool = False,
     fuente: Optional[Path] = None,
+    fuente_contactos: Optional[Path] = None,
 ) -> dict:
     MAESTRO_DIR.mkdir(parents=True, exist_ok=True)
     CAT_DIR.mkdir(parents=True, exist_ok=True)
 
+    path_contactos = fuente_contactos or (MAESTRO_DIR / "CONTACTOS_ENVIOS_ACTAS.xlsx")
+    path_registro = fuente or (MAESTRO_DIR / "analisis_falla_google.xlsx")
+
     if desde_drive:
-        fuente = _download_drive(
+        path_contactos = _download_drive(
+            SHEET_CONTACTOS_ID,
+            MAESTRO_DIR / "CONTACTOS_ENVIOS_ACTAS.xlsx",
+            export_xlsx=True,
+        )
+        path_registro = _download_drive(
             SHEET_REGISTRO_ID,
             MAESTRO_DIR / "analisis_falla_google.xlsx",
             export_xlsx=True,
         )
         _download_drive(FILE_ANALISIS_ID, MAESTRO_DIR / "analisis_de_falla.xlsx")
-    elif fuente is None:
-        cand = [
-            MAESTRO_DIR / "analisis_falla_google.xlsx",
-            MAESTRO_DIR / "analisis_de_falla.xlsx",
-            XLSX_FORM,
-        ]
-        fuente = next((p for p in cand if p.is_file()), None)
-        if fuente is None:
-            raise FileNotFoundError("No hay maestro local. Usá --desde-drive")
+    else:
+        if not path_contactos.is_file():
+            path_contactos = _download_drive(
+                SHEET_CONTACTOS_ID,
+                MAESTRO_DIR / "CONTACTOS_ENVIOS_ACTAS.xlsx",
+                export_xlsx=True,
+            )
+        if not path_registro.is_file():
+            path_registro = _download_drive(
+                SHEET_REGISTRO_ID,
+                MAESTRO_DIR / "analisis_falla_google.xlsx",
+                export_xlsx=True,
+            )
 
-    wb_src = load_workbook(fuente, data_only=True)
+    # 1) Puntos oficiales desde CONTACTOS_ENVIOS_ACTAS
+    pairs_cat, clients_cat = _pairs_from_contactos_catalogo(path_contactos)
+    pairs: Set[Pair] = set(pairs_cat)
 
-    # Pares Base1
-    pairs: Set[Pair] = set()
+    # 2) Completar solo clientes AUSENTES del catálogo (historial/Base1)
+    wb_src = load_workbook(path_registro, data_only=True)
+    pairs_hist: Set[Pair] = set()
     if "Base1" in wb_src.sheetnames:
-        pairs |= _pairs_from_sheet(wb_src["Base1"], 2, 3)
-    # Enriquecer desde historial Datos / Data
+        pairs_hist |= _pairs_from_sheet(wb_src["Base1"], 2, 3)
     for sh_name, ccol, mcol in (("Datos", 2, 3), ("Data", 2, 3)):
         if sh_name in wb_src.sheetnames:
-            extra = _pairs_from_sheet(wb_src[sh_name], ccol, mcol)
-            pairs |= extra
+            pairs_hist |= _pairs_from_sheet(wb_src[sh_name], ccol, mcol)
 
-    # Fallas
+    extra_from_hist = 0
+    for cli, maq in pairs_hist:
+        if cli in clients_cat:
+            continue  # no pisar nombres oficiales (ej. RENCA)
+        pairs.add((cli, maq))
+        extra_from_hist += 1
+
+    # 3) Fallas desde Registro Base3
     if "Base3" in wb_src.sheetnames:
         fallas = _fallas_from_sheet(wb_src["Base3"])
     else:
         fallas = {}
 
-    # JSON catálogos para el formulario web
     clientes = _clientes_dict(pairs)
     (CAT_DIR / "clientes_maquinas.json").write_text(
         json.dumps(clientes, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -202,7 +253,27 @@ def sincronizar(
         json.dumps(fallas, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # Actualizar Excel digital si existe
+    fuente_txt = ROOT / "FUENTE_PUNTOS_FORMULARIO.txt"
+    fuente_txt.write_text(
+        f"""Puntos (Cliente + Máquina) del formulario — fuente ÚNICA
+========================================================
+Archivo: CONTACTOS_ENVIOS_ACTAS
+Hoja:    Clientes_catalogo
+Windows: G:\\Mi unidad\\Agente WES\\wes-scripts\\mantenimiento wes\\CONTACTOS_ENVIOS_ACTAS
+Drive:   {URL_CONTACTOS}
+
+NO uses Base1 del Registro de fallas para editar puntos de clientes que
+ya están en Clientes_catalogo (ahí quedan nombres viejos, ej. RENCA).
+
+Fallas (tipo / específica): Registro de fallas · Base3
+  {URL_REGISTRO}
+
+Sync: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+Pares catálogo: {len(pairs_cat)} · extras historial (clientes nuevos): {extra_from_hist}
+""",
+        encoding="utf-8",
+    )
+
     if XLSX_FORM.is_file():
         wb = load_workbook(XLSX_FORM)
         if "Base1" not in wb.sheetnames:
@@ -212,11 +283,11 @@ def sincronizar(
         n1 = _write_base1(wb["Base1"], pairs)
         n3 = _write_base3(wb["Base3"], fallas)
         _update_filter_helpers(wb, n1, n3)
-        # stamp en Instrucciones
         if "Instrucciones" in wb.sheetnames:
             wb["Instrucciones"]["A22"] = (
-                f"Catálogos sincronizados: {datetime.now().strftime('%Y-%m-%d %H:%M')} "
-                f"desde {fuente.name} · {len(clientes)} clientes · {n1} máquinas · {n3} fallas"
+                f"Catálogos sync {datetime.now().strftime('%Y-%m-%d %H:%M')}: "
+                f"puntos desde CONTACTOS_ENVIOS_ACTAS!Clientes_catalogo · "
+                f"{len(clientes)} clientes · {n1} máquinas · fallas desde Registro Base3 ({n3})"
             )
         wb.save(XLSX_FORM)
     else:
@@ -224,12 +295,19 @@ def sincronizar(
         n3 = sum(len(v) for v in fallas.values())
 
     resumen = {
-        "fuente": str(fuente),
+        "fuente_puntos": str(path_contactos),
+        "fuente_puntos_hoja": "Clientes_catalogo",
+        "fuente_puntos_url": URL_CONTACTOS,
+        "fuente_fallas": str(path_registro),
+        "fuente_fallas_url": URL_REGISTRO,
+        "pares_catalogo": len(pairs_cat),
+        "pares_extra_historial": extra_from_hist,
         "clientes": len(clientes),
         "pares_maquina": n1,
         "tipos_falla": len(fallas),
         "fallas_especificas": n3,
         "clientes_lista": sorted(clientes.keys()),
+        "ejemplo_renca": clientes.get("RENCA", []),
         "sync_at": datetime.now().isoformat(timespec="seconds"),
     }
     (CAT_DIR / "ultima_sincronizacion.json").write_text(
@@ -239,16 +317,32 @@ def sincronizar(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sincroniza catálogos desde maestro de fallas")
-    parser.add_argument("--desde-drive", action="store_true", help="Descarga Sheet/Excel desde Drive")
-    parser.add_argument("--fuente", type=Path, default=None, help="Ruta local a xlsx maestro")
+    parser = argparse.ArgumentParser(
+        description="Sincroniza catálogos: puntos desde CONTACTOS_ENVIOS_ACTAS, fallas desde Registro"
+    )
+    parser.add_argument("--desde-drive", action="store_true")
+    parser.add_argument("--fuente", type=Path, default=None, help="xlsx Registro (fallas)")
+    parser.add_argument(
+        "--fuente-contactos",
+        type=Path,
+        default=None,
+        help="xlsx CONTACTOS_ENVIOS_ACTAS (puntos)",
+    )
     args = parser.parse_args()
-    info = sincronizar(desde_drive=args.desde_drive, fuente=args.fuente)
+    info = sincronizar(
+        desde_drive=args.desde_drive,
+        fuente=args.fuente,
+        fuente_contactos=args.fuente_contactos,
+    )
     print("OK sync catálogos")
-    print(f"  fuente: {info['fuente']}")
-    print(f"  clientes: {info['clientes']}")
-    print(f"  máquinas: {info['pares_maquina']}")
+    print(f"  puntos: {info['fuente_puntos_url']} · hoja {info['fuente_puntos_hoja']}")
+    print(f"  fallas: {info['fuente_fallas_url']} · Base3")
+    print(
+        f"  clientes: {info['clientes']} · máquinas: {info['pares_maquina']} "
+        f"(catálogo {info['pares_catalogo']} + extras {info['pares_extra_historial']})"
+    )
     print(f"  fallas: {info['fallas_especificas']} en {info['tipos_falla']} tipos")
+    print("  RENCA:", ", ".join(info.get("ejemplo_renca") or []))
     print("  clientes:", ", ".join(info["clientes_lista"]))
     return 0
 
