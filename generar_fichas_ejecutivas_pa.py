@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Fichas ejecutivas Parque Arauco — una por recinto (mall), 5 variables:
+Fichas ejecutivas Parque Arauco — una por recinto (mall), 6 variables:
 
   1) Equipos instalados (puntos activos WES)
   2) Consumo mensualizado (junio / julio / agosto a la fecha + proyección)
   3) Hallazgos / conclusiones  (noche con control: no se lee como fuga)
   4) Solicitudes / mensajes al recinto
   5) Noche con control — estado (fuera del análisis de fugas)
+  6) Alertas de umbral a proponer en la reunión (1–2 por mall)
 
 Período: 01/06/2026 – 16/08/2026.
 Fuente de datos: API WES. Narrativa alineada al PPT 7 Malls
@@ -435,12 +436,88 @@ def _consumo_lineas(mall: Dict[str, Any], tot: Dict[str, float], by: Dict[str, D
     return lines
 
 
+def _propuesta_umbrales(mall: Dict[str, Any]) -> List[str]:
+    """1–2 alertas de umbral por mall para la reunión (no spamear noche con control)."""
+    code = mall["code"]
+    if code == "MAE":
+        return [
+            "Estanque Norte (000025-01): umbral diario 40 m³/día. Base jun–jul ~25; agosto ~52 y el 16/08 = 93. Marca el alza diurna de locales (la noche ya tiene control).",
+            "Pizza Hut (000025-07): umbral diario 25 m³/día. Agosto ~14 m³/día; julio se disparó (hasta 195). Avisa si vuelve el alza diurna. Sin umbral de madrugada: control 00:00–06:00 activo.",
+        ]
+    if code == "MAM":
+        return [
+            "Placa Bancaria (000025-08): umbral diario 155 m³/día (agosto ~123 × 1,25). El 18/06 llegó a ~410; WES avisa si se repite el salto, sin usar la media inflada de junio.",
+            "Ripley (000025-10): umbral diario 125 m³/día (promedio ~99 × 1,25). Segundo volumen del recinto; noches ya ~0. Falabella: aún sin umbral fijo (2–3 semanas de baseline).",
+        ]
+    if code == "MAQ":
+        return [
+            "Matriz Principal (000025-13) — nocturno: alerta si 00:00–06:00 > 8 m³ (hoy 21–26 m³). Es lo que hay que ver en sala hasta que exista on/off.",
+            "Matriz Principal — diario: umbral 230 m³/día (mediana ~187 × 1,25). Agosto ~202; avisa si el alza jun→ago sigue. Baños: no priorizar.",
+        ]
+    if code == "BOM":
+        return [
+            "San Ignacio 500 (000025-18) — diario: umbral 145 m³/día (agosto ~116 × 1,25). La noche ya está controlada; el umbral vigila el caudal diurno que no volvió a junio.",
+            "San Ignacio 300 (000025-17) — nocturno: alerta si 00:00–06:00 > 4 m³ (el 10/08 fueron ~10 m³, ~51% del día). Sin control: esta es la alerta de madrugada del recinto.",
+        ]
+    if code == "AEB":
+        return [
+            "Matriz 1° piso (000025-11) — nocturno: alerta si 00:00–06:00 > 3 m³ (el 10/08 = 6,5 m³). De día está estable (~56 m³); la madrugada es lo que hay que gestionar.",
+            "Anillo Plaza (000025-12): umbral diario 22 m³/día (promedio ~17 × 1,25). Julio tuvo un pico de 58; agosto bajó a ~13. Avisa si se reabre esa alza.",
+        ]
+    if code == "CUR":
+        return [
+            "Anillo Sur (000025-37): umbral diario 14 m³/día (promedio ~11 × 1,25). Recinto estable; es el anillo de mayor volumen.",
+            "Anillo Norte (000025-38): umbral diario 13 m³/día (promedio ~10 × 1,25). Los dos anillos cubren el mall; no hay un tercer punto que priorizar.",
+        ]
+    return [
+        "Distrito de Lujo (000025-27) — nocturno: alerta si 00:00–06:00 > 15 m³ (el 10/08 = 41 m³). Es el mayor impacto de madrugada de Kennedy.",
+        "Andén Locales Gastronómicos (000025-21): umbral diario 180 m³/día (promedio ~144 × 1,25). Agosto ~219: confirma el alza. No umbral en Sandía: es bomba de la cadena DL.",
+    ]
+
+
+# 1–2 umbrales por mall, versión corta para la lámina / tabla de reunión.
+UMBRALES_REUNION: Dict[str, List[Dict[str, str]]] = {
+    "MAE": [
+        {"tipo": "Diario", "punto": "Estanque Norte (01)", "valor": "40 m³/día", "nota": "Alza diurna ago; noche ya controlada"},
+        {"tipo": "Diario", "punto": "Pizza Hut (07)", "valor": "25 m³/día", "nota": "Avisa si vuelve el alza de julio"},
+    ],
+    "MAM": [
+        {"tipo": "Diario", "punto": "Placa Bancaria (08)", "valor": "155 m³/día", "nota": "Atrapa otro 18/06 (~410) sin media inflada"},
+        {"tipo": "Diario", "punto": "Ripley (10)", "valor": "125 m³/día", "nota": "2° volumen; Falabella aún sin baseline"},
+    ],
+    "MAQ": [
+        {"tipo": "Nocturno", "punto": "Matriz Principal (13)", "valor": "> 8 m³ 00–06 h", "nota": "Hoy 21–26 m³; sin on/off"},
+        {"tipo": "Diario", "punto": "Matriz Principal (13)", "valor": "230 m³/día", "nota": "Mediana ~187 × 1,25; Baños no"},
+    ],
+    "BOM": [
+        {"tipo": "Diario", "punto": "San Ignacio 500 (18)", "valor": "145 m³/día", "nota": "Noche ya controlada; vigila el día"},
+        {"tipo": "Nocturno", "punto": "San Ignacio 300 (17)", "valor": "> 4 m³ 00–06 h", "nota": "10/08 ~10 m³ (~51% del día)"},
+    ],
+    "AEB": [
+        {"tipo": "Nocturno", "punto": "Matriz 1° piso (11)", "valor": "> 3 m³ 00–06 h", "nota": "10/08 = 6,5 m³; día estable"},
+        {"tipo": "Diario", "punto": "Anillo Plaza (12)", "valor": "22 m³/día", "nota": "Pico jul 58; ago ~13"},
+    ],
+    "CUR": [
+        {"tipo": "Diario", "punto": "Anillo Sur (37)", "valor": "14 m³/día", "nota": "Recinto estable; mayor volumen"},
+        {"tipo": "Diario", "punto": "Anillo Norte (38)", "valor": "13 m³/día", "nota": "Los dos anillos cubren el mall"},
+    ],
+    "PAK": [
+        {"tipo": "Nocturno", "punto": "Distrito de Lujo (27)", "valor": "> 15 m³ 00–06 h", "nota": "10/08 = 41 m³; mayor impacto"},
+        {"tipo": "Diario", "punto": "Andén Locales Gastro (21)", "valor": "180 m³/día", "nota": "Ago ~219; no umbral en Sandía"},
+    ],
+}
+
+
+def _linea_umbral_corto(u: Dict[str, str]) -> str:
+    return f"{u['tipo']} · {u['punto']}: {u['valor']}"
+
+
 def contenidos(
     names: Dict[str, str],
     by: Dict[str, Dict[str, float]],
     hourly: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
-    """Arma las 5 variables por mall con cifras reales. Noche con control ≠ fuga."""
+    """Arma las 6 variables por mall con cifras reales. Noche con control ≠ fuga."""
     hourly = hourly or {}
     ago_hasta = HASTA.isoformat()
     out: List[Dict[str, Any]] = []
@@ -651,6 +728,8 @@ def contenidos(
                 "hallazgos": hallazgos,
                 "solicitudes": solicitudes,
                 "controles": controles,
+                "umbrales": _propuesta_umbrales(mall),
+                "umbrales_corto": UMBRALES_REUNION[mall["code"]],
             }
         )
     return out
@@ -761,7 +840,7 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
         1.2,
         [
             (f"Período {PERIODO}   |   Emisión {FECHA_EMISION}", 16, False, WHITE),
-            ("5 variables por mall  ·  si hay control nocturno, esa madrugada no se lee como fuga", 14, False, (220, 230, 240)),
+            ("6 variables por mall  ·  umbrales a proponer en reunión  ·  noche con control ≠ fuga", 14, False, (220, 230, 240)),
             ("MAE · MAM · MAQ · BOM · AEB · CUR · PAK   |   Puntos activos WES", 14, False, GOLD),
         ],
     )
@@ -794,13 +873,17 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
             "5. Noche con control: no se lee como fuga",
             "Si el punto tiene control on/off (o corte de mantención), el caudal de madrugada no se interpreta como fuga. San Ignacio 500 desde 16/07 · Pizza Hut desde 01/07 · Estanque Norte desde 05/08 · Estanque Sur: corte de mantención nocturna.",
         ),
+        (
+            "6. Alertas de umbral (reunión)",
+            "1 o 2 cortes por mall para cargar en WES. Diario = promedio operativo × 1,25. Nocturno = m³ en 00:00–06:00. No se propone umbral de madrugada en puntos que ya tienen control (esa noche no se lee como fuga).",
+        ),
     ]
-    y = 1.15
+    y = 1.08
     for tit, txt in bloques:
-        _caja(sl, 0.35, y, 12.6, 1.05)
-        _tb(sl, 0.5, y + 0.08, 12.3, 0.28, [(tit, 13, True, NAVY)])
-        _tb(sl, 0.5, y + 0.38, 12.3, 0.58, [(txt, 12, False, GRAY)])
-        y += 1.12
+        _caja(sl, 0.35, y, 12.6, 0.92)
+        _tb(sl, 0.5, y + 0.06, 12.3, 0.24, [(tit, 12, True, NAVY)])
+        _tb(sl, 0.5, y + 0.32, 12.3, 0.54, [(txt, 11, False, GRAY)])
+        y += 0.98
 
     # Una ficha por mall
     for item in fichas:
@@ -824,32 +907,37 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
         chart_path = CHARTS / f"mensual_{mall['code']}.png"
         chart_mensual(chart_path, tot["jun"], tot["jul"], tot["ago"], tot["ago_proy"])
 
-        # 5 cards
-        _caja(sl, 0.25, 1.12, 4.35, 2.55)
-        _card_title(sl, 0.38, 1.18, 4.1, "1. Equipos instalados")
+        # 6 cards
+        _caja(sl, 0.25, 1.12, 4.35, 2.42)
+        _card_title(sl, 0.38, 1.16, 4.1, "1. Equipos instalados")
         eq_lines = [(ln, 10 if len(item["equipos"]) > 8 else 11, False, NAVY) for ln in item["equipos"]]
-        _tb(sl, 0.38, 1.48, 4.1, 2.1, eq_lines)
+        _tb(sl, 0.38, 1.44, 4.1, 2.02, eq_lines)
 
-        _caja(sl, 4.70, 1.12, 8.35, 2.55)
-        _card_title(sl, 4.85, 1.18, 4.0, "2. Consumo mensualizado (puntos WES)")
+        _caja(sl, 4.70, 1.12, 8.35, 2.42)
+        _card_title(sl, 4.85, 1.16, 4.0, "2. Consumo mensualizado (puntos WES)")
         cons_lines = [(ln, 11, False, NAVY) for ln in item["consumo"]]
-        _tb(sl, 4.85, 1.48, 3.95, 2.1, cons_lines)
-        sl.shapes.add_picture(str(chart_path), PptInches(8.90), PptInches(1.45), width=PptInches(3.95))
+        _tb(sl, 4.85, 1.44, 3.95, 2.02, cons_lines)
+        sl.shapes.add_picture(str(chart_path), PptInches(8.90), PptInches(1.40), width=PptInches(3.95))
 
-        _caja(sl, 0.25, 3.78, 6.40, 2.05)
-        _card_title(sl, 0.38, 3.84, 6.1, "3. Hallazgos / conclusiones", RED)
-        hall = [(f"• {h}" if not h.startswith("•") else h, 10, False, NAVY) for h in item["hallazgos"][:5]]
-        _tb(sl, 0.38, 4.14, 6.12, 1.62, hall)
+        _caja(sl, 0.25, 3.62, 6.40, 1.58)
+        _card_title(sl, 0.38, 3.66, 6.1, "3. Hallazgos / conclusiones", RED)
+        hall = [(f"• {h}" if not h.startswith("•") else h, 9, False, NAVY) for h in item["hallazgos"][:4]]
+        _tb(sl, 0.38, 3.94, 6.12, 1.20, hall)
 
-        _caja(sl, 6.80, 3.78, 6.25, 2.05)
-        _card_title(sl, 6.93, 3.84, 6.0, "4. Solicitudes / mensajes", GREEN)
-        sol = [(f"• {h}", 10, False, NAVY) for h in item["solicitudes"][:4]]
-        _tb(sl, 6.93, 4.14, 5.98, 1.62, sol)
+        _caja(sl, 6.80, 3.62, 6.25, 1.58)
+        _card_title(sl, 6.93, 3.66, 6.0, "4. Solicitudes / mensajes", GREEN)
+        sol = [(f"• {h}", 9, False, NAVY) for h in item["solicitudes"][:3]]
+        _tb(sl, 6.93, 3.94, 5.98, 1.20, sol)
 
-        _caja(sl, 0.25, 5.95, 12.80, 1.38, fill=(255, 249, 235), line=GOLD)
-        _card_title(sl, 0.38, 6.00, 12.5, "5. Noche con control: no se lee como fuga", GOLD)
-        ctrl = [(f"• {h}", 11, False, NAVY) for h in item["controles"]]
-        _tb(sl, 0.38, 6.28, 12.5, 0.98, ctrl)
+        _caja(sl, 0.25, 5.28, 12.80, 1.22, fill=(232, 244, 248), line=TEAL)
+        _card_title(sl, 0.38, 5.32, 12.5, "6. Alertas de umbral — proponer en la reunión", TEAL)
+        umb = [(f"• {h}", 10, False, NAVY) for h in item["umbrales"][:2]]
+        _tb(sl, 0.38, 5.60, 12.5, 0.84, umb)
+
+        _caja(sl, 0.25, 6.58, 12.80, 0.80, fill=(255, 249, 235), line=GOLD)
+        _card_title(sl, 0.38, 6.60, 12.5, "5. Noche con control: no se lee como fuga", GOLD)
+        ctrl = [(f"• {h}", 10, False, NAVY) for h in item["controles"][:3]]
+        _tb(sl, 0.38, 6.86, 12.5, 0.48, ctrl)
 
     # Consolidado
     sl = prs.slides.add_slide(prs.slide_layouts[6])
@@ -905,6 +993,61 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
         12.7,
         0.4,
         [("Fuente: API WES. Controles informados por operación (16/07 SI500, 01/07 Pizza Hut, 05/08 Estanque Norte, corte Sur por mantención nocturna).", 10, False, GRAY)],
+    )
+
+    # Lámina de reunión: 1–2 umbrales por mall a cargar en WES
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl, prs,
+        "Para la reunión  ·  umbrales a cargar en WES",
+        "1 o 2 por mall. Diario = promedio operativo × 1,25. Nocturno = m³ 00:00–06:00. Sin umbral de madrugada si ya hay control.",
+    )
+    urows = [["Mall", "Umbral 1 (prioridad)", "Umbral 2", "Por qué este corte"]]
+    for item in fichas:
+        m = item["mall"]
+        us = item["umbrales_corto"]
+        u1 = us[0]
+        u2 = us[1] if len(us) > 1 else {"tipo": "—", "punto": "—", "valor": "—", "nota": "—"}
+        urows.append(
+            [
+                f"{m['code']} {m['nombre']}",
+                f"{_linea_umbral_corto(u1)}",
+                f"{_linea_umbral_corto(u2)}",
+                u1["nota"],
+            ]
+        )
+    table_shape = sl.shapes.add_table(len(urows), 4, PptInches(0.28), PptInches(1.18), PptInches(12.75), PptInches(5.55))
+    table = table_shape.table
+    uwidths = [1.85, 4.15, 4.15, 2.60]
+    for i, w in enumerate(uwidths):
+        table.columns[i].width = PptInches(w)
+    for r, row in enumerate(urows):
+        for c, val in enumerate(row):
+            cell = table.cell(r, c)
+            cell.text = val
+            for p in cell.text_frame.paragraphs:
+                p.font.size = PptPt(10 if r else 11)
+                p.font.bold = r == 0 or c == 0
+                p.font.name = "Calibri"
+                p.font.color.rgb = _rgb(WHITE if r == 0 else NAVY)
+            fill = cell.fill
+            fill.solid()
+            fill.fore_color.rgb = _rgb(NAVY if r == 0 else (LIGHT if r % 2 else WHITE))
+    _tb(
+        sl,
+        0.28,
+        6.88,
+        12.7,
+        0.48,
+        [
+            (
+                "No se propone umbral nocturno en SI500, Pizza Hut, Estanque Norte ni Estanque Sur: esa madrugada no se lee como fuga. "
+                "Falabella (MAM) y Sandía (PAK): sin umbral fijo aún.",
+                11,
+                False,
+                GRAY,
+            )
+        ],
     )
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -975,8 +1118,9 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
     p = doc.add_paragraph()
     r = p.add_run(
         f"Período {PERIODO}. Emisión {FECHA_EMISION}. "
-        "Cinco variables por mall: equipos instalados, consumo mensualizado de los puntos WES, "
-        "hallazgos, solicitudes, y noche con control (no se lee como fuga). "
+        "Seis variables por mall: equipos instalados, consumo mensualizado de los puntos WES, "
+        "hallazgos, solicitudes, noche con control (no se lee como fuga) y alertas de umbral "
+        "a proponer en la reunión (1 o 2 por mall). "
         "Alineado al PPT 7 Malls de la carpeta entrega_diego_anibal, con datos junio–agosto."
     )
     r.font.size = Pt(11)
@@ -1049,6 +1193,7 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
             ("3. Hallazgos / conclusiones", item["hallazgos"], TEAL),
             ("4. Solicitudes / mensajes a pasar", item["solicitudes"], GREEN),
             ("5. Noche con control: no se lee como fuga", item["controles"], GOLD),
+            ("6. Alertas de umbral — proponer en la reunión", item["umbrales"], TEAL),
         ):
             hh = doc.add_paragraph()
             rr = hh.add_run(titulo)
@@ -1101,6 +1246,38 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
     r.font.size = Pt(9)
     r.italic = True
     r.font.color.rgb = RGBColor(*GRAY)
+
+    hh = doc.add_paragraph()
+    rr = hh.add_run("Umbrales a cargar en WES — para la reunión")
+    rr.bold = True
+    rr.font.size = Pt(16)
+    rr.font.color.rgb = RGBColor(*NAVY)
+    p = doc.add_paragraph()
+    r = p.add_run(
+        "1 o 2 cortes por mall. Diario = promedio operativo × 1,25. "
+        "Nocturno = m³ en 00:00–06:00. No se propone umbral de madrugada en puntos "
+        "que ya tienen control (SI500, Pizza Hut, Estanque Norte, Estanque Sur)."
+    )
+    r.font.size = Pt(11)
+
+    utable = doc.add_table(rows=1 + len(fichas), cols=4)
+    utable.style = "Table Grid"
+    for i, x in enumerate(["Mall", "Umbral 1 (prioridad)", "Umbral 2", "Por qué"]):
+        _set_cell(utable.rows[0].cells[i], x, bold=True, color=WHITE, fill="0D3B66", center=True, size=9)
+    for r_i, item in enumerate(fichas, 1):
+        m = item["mall"]
+        us = item["umbrales_corto"]
+        u1 = us[0]
+        u2 = us[1] if len(us) > 1 else {"tipo": "—", "punto": "—", "valor": "—", "nota": "—"}
+        vals = [
+            f"{m['code']} {m['nombre']}",
+            _linea_umbral_corto(u1),
+            _linea_umbral_corto(u2),
+            u1["nota"],
+        ]
+        fill = "F5F7FA" if r_i % 2 else "FFFFFF"
+        for c, x in enumerate(vals):
+            _set_cell(utable.rows[r_i].cells[c], x, fill=fill, size=9, bold=c == 0)
 
     path = OUT_DIR / f"Fichas_ejecutivas_Parque_Arauco_{HASTA.strftime('%Y%m%d')}.docx"
     doc.save(str(path))
