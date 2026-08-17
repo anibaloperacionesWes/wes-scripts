@@ -312,7 +312,7 @@
           </div>
         </div>
         <label>Destinatarios del PDF (TO / varios CC)</label>
-        <div id="contactosBox" class="note">Elegí cliente para cargar contactos (JO, medio ambiente, mantención…).</div>
+        <div id="contactosBox" class="note">Elegí cliente para cargar contactos desde CONTACTOS_ENVIOS_ACTAS.</div>
         <div class="row">
           <div>
             <label for="email_cliente">TO principal *</label>
@@ -324,7 +324,7 @@
           </div>
         </div>
         <input type="hidden" id="email_cc" value="" />
-        <p class="note">En MAE tipicamente: JO + Medio ambiente en CC, y Mantención Linkes firma/TO. Podés marcar varios.</p>
+        <p class="note">Fuente única: planilla <b>CONTACTOS_ENVIOS_ACTAS</b> (Rol general=TO, CC/punto=CC). Aníbal siempre va en CC.</p>
         <label>Firma en pantalla *</label>
         <div class="pad-wrap">
           <div class="hint" id="hint">Firmá aquí</div>
@@ -360,8 +360,9 @@
       const cli = (cliente || "").toUpperCase();
       const sit = (sitio || "").toUpperCase();
       return all.filter((c) => {
+        if (!(c.cliente || "").trim()) return false;
         if ((c.cliente || "").toUpperCase() !== cli) return false;
-        const cs = (c.sitio || "").toUpperCase();
+        const cs = (c.sitio || c.maquina || "").toUpperCase();
         if (cs && sit && cs !== sit) return false;
         if (cs && !sit) return false;
         return c.activo !== false;
@@ -375,12 +376,12 @@
       const list = contactosDe(cliente, sitio);
       if (!cliente) {
         box.className = "note";
-        box.textContent = "Elegí cliente para cargar contactos (JO, medio ambiente, mantención…).";
+        box.textContent = "Elegí cliente para cargar contactos desde CONTACTOS_ENVIOS_ACTAS.";
         return;
       }
       if (!list.length) {
         box.className = "note";
-        box.innerHTML = `Sin contactos cargados para <b>${cliente}</b>. Completalos en la hoja <b>Contactos</b> del Excel.`;
+        box.innerHTML = `Sin contactos para <b>${cliente}</b>. Completalos en <b>CONTACTOS_ENVIOS_ACTAS</b> (mantenimiento wes) y sincronizá con <code>python contactos_cliente.py --desde-drive</code>.`;
         return;
       }
       box.className = "";

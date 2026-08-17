@@ -36,14 +36,24 @@ y deja compatible la hoja `Datos` con el Sheet.
 Sheet vivo (catálogo oficial):
 https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
 
-## Contactos multi-CC (MAE, malls PA, etc.)
-Hoja **Contactos** del Excel digital:
+## Contactos / emails (fuente ÚNICA)
 
-| Cliente | Sitio | Rol | Nombre | Email | Firmante | TO | CC |
-|---|---|---|---|---|---|---|---|
-| MAE | (vacío=todo) | Jefe de operaciones | ... | mail | No | No | Sí |
-| MAE | | Líder de medio ambiente | ... | mail | No | No | Sí |
-| MAE | | Mantención Linkes | ... | mail | Sí | Sí | Sí |
+Archivo oficial: **`CONTACTOS_ENVIOS_ACTAS`**
 
-Completá **Nombre + Email**. El formulario marca esos CC al elegir el cliente.
-Si el mantenedor Linkes es firmante, se propone en TO y en «quien recibe».
+- Windows: `G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes\CONTACTOS_ENVIOS_ACTAS`
+- Drive: https://docs.google.com/spreadsheets/d/1Tpjm1eXRXKuKvxachtbYVr9503wICJdsYDTjkbm__o8/edit
+
+Columnas: `Cliente | Máquina | Rol | Nombre | Cargo | Email | Actualizado`
+
+| Rol | Uso |
+|---|---|
+| `general` | TO (puede haber varios: JO, Linkes, etc.) |
+| `CC` / `punto` | CC automático (Máquina vacía = todo el cliente) |
+
+No edites correos en `FORMULARIO_MANTENCION_WES_DIGITAL` ni en otras planillas.
+
+```bash
+python contactos_cliente.py --desde-drive
+```
+
+Reiniciá el servidor del formulario después del sync. Aníbal queda siempre en CC adicional.

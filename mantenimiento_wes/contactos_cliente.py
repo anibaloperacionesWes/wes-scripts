@@ -1,235 +1,174 @@
 # -*- coding: utf-8 -*-
 """
-Contactos por cliente/sitio para actas WES (varios CC).
+Fuente ÚNICA de correos para actas:
+  Drive: CONTACTOS_ENVIOS_ACTAS
+  Path local Windows: G:\\Mi unidad\\Agente WES\\wes-scripts\\mantenimiento wes\\CONTACTOS_ENVIOS_ACTAS
+  Sheet ID: 1Tpjm1eXRXKuKvxachtbYVr9503wICJdsYDTjkbm__o8
 
-Hoja Excel «Contactos» + JSON catalogos/contactos_cliente.json
+Columnas (hoja Contactos):
+  Cliente | Máquina | Rol | Nombre | Cargo | Email | Actualizado
 
-Columnas:
-  Cliente | Sitio | Rol | Nombre | Email | Firmante habitual | Enviar TO | Enviar CC | Activo | Notas
+Roles:
+  general → TO (encargado general del cliente; puede haber varios)
+  CC / cc / punto → CC (del punto/máquina; Máquina vacía = CC a nivel cliente)
 
-Sitio vacío = aplica a todo el cliente.
+Uso:
+  python contactos_cliente.py --desde-drive
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
+import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from openpyxl import load_workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.worksheet.datavalidation import DataValidation
-
 ROOT = Path(__file__).resolve().parent
-XLSX = ROOT / "FORMULARIO_MANTENCION_WES_DIGITAL.xlsx"
+MAESTRO = ROOT / "maestro" / "CONTACTOS_ENVIOS_ACTAS.xlsx"
 JSON_OUT = ROOT / "catalogos" / "contactos_cliente.json"
+FUENTE_TXT = ROOT / "FUENTE_CONTACTOS_ENVIOS.txt"
 
-HEADERS = [
-    "Cliente",
-    "Sitio",
-    "Rol",
-    "Nombre",
-    "Email",
-    "Firmante habitual",
-    "Enviar TO",
-    "Enviar CC",
-    "Activo",
-    "Notas",
-]
-
-# Semilla inicial (MAE y malls PA). Completar emails reales en la planilla.
-_PA_MALLS = ("MAE", "PAK", "AEB", "BOM", "CUR", "MAM", "MAQ")
-_ROLES = (
-    ("Jefe de operaciones", False, False, True, "Reportar acta de visita"),
-    ("Líder de medio ambiente", False, False, True, "Copia ambiental"),
-    ("Mantención Linkes", True, True, True, "Apoya la visita; suele firmar"),
-)
-
-SEED: List[Dict[str, str]] = []
-for cli in _PA_MALLS:
-    for rol, firmante, to, cc, notas in _ROLES:
-        SEED.append({
-            "Cliente": cli,
-            "Sitio": "",
-            "Rol": rol,
-            "Nombre": "",
-            "Email": "",
-            "Firmante habitual": "Sí" if firmante else "No",
-            "Enviar TO": "Sí" if to else "No",
-            "Enviar CC": "Sí" if cc else "No",
-            "Activo": "Sí",
-            "Notas": notas,
-        })
-
-FILL_HEADER = PatternFill("solid", fgColor="1F4E79")
-FILL_INPUT = PatternFill("solid", fgColor="FFF2CC")
-FONT_WHITE = Font(name="Calibri", bold=True, color="FFFFFF", size=11)
-THIN = Border(
-    left=Side(style="thin", color="B0B0B0"),
-    right=Side(style="thin", color="B0B0B0"),
-    top=Side(style="thin", color="B0B0B0"),
-    bottom=Side(style="thin", color="B0B0B0"),
+SHEET_ID = "1Tpjm1eXRXKuKvxachtbYVr9503wICJdsYDTjkbm__o8"
+SHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    f"{SHEET_ID}/edit"
 )
 
 
-def _yes(v: Any) -> bool:
-    s = str(v or "").strip().lower()
-    return s in {"si", "sí", "yes", "y", "1", "true", "activo"}
+def _norm(v: Any) -> str:
+    return "" if v is None else str(v).strip()
 
 
 def _email_ok(v: Any) -> bool:
-    s = str(v or "").strip()
+    s = _norm(v)
     return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", s))
 
 
-def _read_existing(ws) -> List[Dict[str, str]]:
+def _rol_tipo(rol: str) -> str:
+    r = _norm(rol).lower()
+    if r in {"general", "to", "firmante"}:
+        return "general"
+    if r in {"cc", "punto", "copia"}:
+        return "cc"
+    # roles descriptivos → CC a nivel cliente si no dicen general
+    if r:
+        return "cc"
+    return ""
+
+
+def _download_drive(dest: Path = MAESTRO) -> Path:
+    sys.path.insert(0, str(ROOT.parent))
+    from wes_google_drive import obtener_servicio_drive
+    from googleapiclient.http import MediaIoBaseDownload
+    import io
+
+    svc = obtener_servicio_drive()
+    req = svc.files().export_media(
+        fileId=SHEET_ID,
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    fh = io.BytesIO()
+    dl = MediaIoBaseDownload(fh, req)
+    done = False
+    while not done:
+        _, done = dl.next_chunk()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(fh.getvalue())
+    return dest
+
+
+def _read_rows(path: Path) -> List[Dict[str, str]]:
+    from openpyxl import load_workbook
+
+    wb = load_workbook(path, data_only=True)
+    if "Contactos" not in wb.sheetnames:
+        raise RuntimeError(f"Falta hoja Contactos en {path}")
+    ws = wb["Contactos"]
+    # header flexible
+    headers = [_norm(ws.cell(1, c).value).lower() for c in range(1, 12)]
+    def idx(*names):
+        for n in names:
+            if n in headers:
+                return headers.index(n) + 1
+        return None
+
+    c_cli = idx("cliente") or 1
+    c_maq = idx("máquina", "maquina", "sitio") or 2
+    c_rol = idx("rol") or 3
+    c_nom = idx("nombre") or 4
+    c_car = idx("cargo") or 5
+    c_em = idx("email", "correo") or 6
+    c_act = idx("actualizado") or 7
+
     rows = []
-    headers = [ws.cell(1, c).value for c in range(1, len(HEADERS) + 1)]
-    if not headers or headers[0] != "Cliente":
-        return rows
     for r in range(2, (ws.max_row or 1) + 1):
-        if not ws.cell(r, 1).value and not ws.cell(r, 5).value:
+        cli = _norm(ws.cell(r, c_cli).value)
+        email = _norm(ws.cell(r, c_em).value)
+        if not cli and not email:
             continue
-        item = {}
-        for i, h in enumerate(HEADERS, start=1):
-            val = ws.cell(r, i).value
-            item[h] = "" if val is None else str(val).strip()
-        rows.append(item)
+        rows.append({
+            "cliente": cli,
+            "maquina": _norm(ws.cell(r, c_maq).value),
+            "rol": _norm(ws.cell(r, c_rol).value),
+            "nombre": _norm(ws.cell(r, c_nom).value),
+            "cargo": _norm(ws.cell(r, c_car).value),
+            "email": email,
+            "actualizado": _norm(ws.cell(r, c_act).value),
+        })
     return rows
 
 
-def _merge_seed(existing: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    out = list(existing)
-    for s in SEED:
-        soft = (s["Cliente"].upper(), s["Sitio"].upper(), s["Rol"].upper())
-        already = any(
-            (
-                e.get("Cliente", "").upper(),
-                e.get("Sitio", "").upper(),
-                e.get("Rol", "").upper(),
-            )
-            == soft
-            for e in existing
-        )
-        if already:
-            continue
-        out.append(dict(s))
-    out.sort(
-        key=lambda d: (
-            d.get("Cliente", ""),
-            d.get("Sitio", ""),
-            d.get("Rol", ""),
-            d.get("Nombre", ""),
-        )
-    )
-    return out
-
-
-def asegurar_hoja_contactos(xlsx: Path = XLSX) -> Path:
-    wb = load_workbook(xlsx)
-    if "Contactos" in wb.sheetnames:
-        ws = wb["Contactos"]
-        existing = _read_existing(ws)
-    else:
-        ws = wb.create_sheet("Contactos")
-        existing = []
-
-    rows = _merge_seed(existing)
-
-    if ws.max_row and ws.max_row > 0:
-        ws.delete_rows(1, ws.max_row)
-
-    for i, h in enumerate(HEADERS, start=1):
-        cell = ws.cell(1, i, h)
-        cell.fill = FILL_HEADER
-        cell.font = FONT_WHITE
-        cell.alignment = Alignment(horizontal="center", wrap_text=True)
-        cell.border = THIN
-        ws.column_dimensions[cell.column_letter].width = 22 if h != "Notas" else 36
-
-    for r, item in enumerate(rows, start=2):
-        for c, h in enumerate(HEADERS, start=1):
-            cell = ws.cell(r, c, item.get(h, ""))
-            cell.fill = FILL_INPUT
-            cell.border = THIN
-
-    ws.data_validations.dataValidation = []
-    for col, opts in (
-        ("F", '"Sí,No"'),
-        ("G", '"Sí,No"'),
-        ("H", '"Sí,No"'),
-        ("I", '"Sí,No"'),
-    ):
-        dv = DataValidation(type="list", formula1=opts, allow_blank=True)
-        ws.add_data_validation(dv)
-        dv.add(f"{col}2:{col}2000")
-
-    ws.freeze_panes = "A2"
-    ws.auto_filter.ref = f"A1:J{max(2, len(rows) + 1)}"
-
-    if "Instrucciones" in wb.sheetnames:
-        inst = wb["Instrucciones"]
-        note = (
-            "Contactos multi-CC: hoja Contactos. "
-            "Completá Email / Rol (JO, Medio ambiente, Mantención Linkes). "
-            "Firmante habitual = quien suele firmar. Enviar TO/CC = destino del PDF."
-        )
-        found = False
-        for r in range(1, min(50, (inst.max_row or 1) + 1)):
-            val = inst.cell(r, 1).value
-            if val and "Contactos multi-CC" in str(val):
-                inst.cell(r, 1, note)
-                found = True
-                break
-        if not found:
-            inst.cell((inst.max_row or 1) + 2, 1, note)
-
-    order = [
-        "Instrucciones",
-        "Ingreso",
-        "Datos",
-        "Contactos",
-        "Resumen",
-        "Formulario Visita",
-        "Base1",
-        "Base2",
-        "Base3",
-        "Base 4",
-    ]
-    for idx, name in enumerate(order):
-        if name in wb.sheetnames:
-            wb.move_sheet(name, offset=idx - wb.sheetnames.index(name))
-
-    wb.save(xlsx)
-    export_json(rows)
-    return xlsx
-
-
-def export_json(rows: Optional[List[Dict[str, str]]] = None) -> Path:
-    if rows is None:
-        wb = load_workbook(XLSX, data_only=True)
-        rows = _read_existing(wb["Contactos"]) if "Contactos" in wb.sheetnames else []
-
+def export_json(rows: List[Dict[str, str]]) -> Path:
     payload = []
     for r in rows:
-        if r.get("Activo") and not _yes(r.get("Activo")):
+        if not _norm(r.get("cliente")):
             continue
+        rol_t = _rol_tipo(r.get("rol", ""))
+        cargo = r.get("cargo", "")
+        nombre = r.get("nombre", "")
+        # heurística firmante: linkes / mantencion / supervisión mtto
+        blob = f"{cargo} {nombre} {r.get('rol','')}".lower()
+        firmante = any(
+            k in blob
+            for k in ("linkes", "mantencion", "mantención", "mtto", "firmante", "supervis")
+        )
+        # múltiples general: todos van a TO list (formulario reparte)
         payload.append({
-            "cliente": r.get("Cliente", ""),
-            "sitio": r.get("Sitio", ""),
-            "rol": r.get("Rol", ""),
-            "nombre": r.get("Nombre", ""),
-            "email": r.get("Email", ""),
-            "firmante": _yes(r.get("Firmante habitual")),
-            "enviar_to": _yes(r.get("Enviar TO")),
-            "enviar_cc": _yes(r.get("Enviar CC")),
-            "activo": True if r.get("Activo") in ("", None) else _yes(r.get("Activo")),
-            "notas": r.get("Notas", ""),
-            "email_ok": _email_ok(r.get("Email")),
+            "cliente": r.get("cliente", ""),
+            "sitio": r.get("maquina", ""),  # alias para el form
+            "maquina": r.get("maquina", ""),
+            "rol": r.get("rol", "") or ("general" if rol_t == "general" else "CC"),
+            "rol_tipo": rol_t or "cc",
+            "nombre": nombre,
+            "cargo": cargo,
+            "email": r.get("email", ""),
+            "firmante": firmante,
+            "enviar_to": rol_t == "general",
+            "enviar_cc": rol_t == "cc",
+            "activo": True,
+            "email_ok": _email_ok(r.get("email")),
+            "notas": "",
+            "fuente": "CONTACTOS_ENVIOS_ACTAS",
         })
+    meta = {
+        "_meta": {
+            "fuente": "CONTACTOS_ENVIOS_ACTAS",
+            "sheet_id": SHEET_ID,
+            "web_link": SHEET_URL,
+            "actualizado": datetime.now().isoformat(timespec="seconds"),
+            "total": len(payload),
+        }
+    }
+    # El form espera un array; guardamos meta en archivo hermano y array limpio.
     JSON_OUT.parent.mkdir(parents=True, exist_ok=True)
     JSON_OUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    (JSON_OUT.parent / "contactos_cliente_meta.json").write_text(
+        json.dumps(meta["_meta"], ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     return JSON_OUT
 
 
@@ -241,42 +180,47 @@ def contactos_para(cliente: str, sitio: str = "") -> List[Dict[str, Any]]:
     sit = (sitio or "").strip().upper()
     out = []
     for c in data:
-        if not c.get("activo", True):
-            continue
         if (c.get("cliente") or "").upper() != cli:
             continue
-        c_sit = (c.get("sitio") or "").upper()
-        if c_sit and sit and c_sit != sit:
+        c_sit = (c.get("sitio") or c.get("maquina") or "").upper()
+        rol_t = c.get("rol_tipo") or _rol_tipo(c.get("rol", ""))
+        if rol_t == "general":
+            # generales del cliente (máquina vacía) o del mismo sitio
+            if c_sit and sit and c_sit != sit:
+                continue
+            if c_sit and not sit:
+                # general ligado a una máquina: solo si se eligió esa
+                continue
+            out.append(c)
             continue
-        if c_sit and not sit:
+        # CC / punto
+        if c_sit and sit:
+            if c_sit == sit:
+                out.append(c)
             continue
-        out.append(c)
+        if not c_sit:
+            # CC a nivel cliente (JO, medio ambiente, etc.)
+            out.append(c)
     return out
 
 
-def emails_to_cc(cliente: str, sitio: str = "") -> Dict[str, Any]:
+def emails_destino(cliente: str, sitio: str = "") -> Dict[str, Any]:
     contacts = contactos_para(cliente, sitio)
-    to_list: List[str] = []
-    cc_list: List[str] = []
+    to_list, cc_list = [], []
     firmantes = []
     for c in contacts:
         em = (c.get("email") or "").strip()
         if not _email_ok(em):
             continue
-        if c.get("enviar_to"):
+        if c.get("enviar_to") or c.get("rol_tipo") == "general":
             to_list.append(em)
-        if c.get("enviar_cc"):
+        if c.get("enviar_cc") or c.get("rol_tipo") == "cc":
             cc_list.append(em)
         if c.get("firmante"):
-            firmantes.append({
-                "nombre": c.get("nombre") or "",
-                "email": em,
-                "rol": c.get("rol") or "",
-            })
+            firmantes.append(c)
 
     def uniq(xs: List[str]) -> List[str]:
-        seen = set()
-        out = []
+        seen, out = set(), []
         for x in xs:
             k = x.lower()
             if k in seen:
@@ -285,15 +229,74 @@ def emails_to_cc(cliente: str, sitio: str = "") -> Dict[str, Any]:
             out.append(x)
         return out
 
+    to_u = uniq(to_list)
+    cc_u = [e for e in uniq(cc_list) if e.lower() not in {t.lower() for t in to_u}]
+    return {"to": to_u, "cc": cc_u, "firmantes": firmantes, "contactos": contacts}
+
+
+def escribir_fuente_txt() -> None:
+    FUENTE_TXT.write_text(
+        f"""Fuente ÚNICA de correos para envío de actas
+===========================================
+Archivo: CONTACTOS_ENVIOS_ACTAS
+Windows: G:\\Mi unidad\\Agente WES\\wes-scripts\\mantenimiento wes\\CONTACTOS_ENVIOS_ACTAS
+Drive:   {SHEET_URL}
+
+NO editar correos en FORMULARIO_MANTENCION_WES_DIGITAL ni en otras planillas.
+Editá solo CONTACTOS_ENVIOS_ACTAS y pedí sincronizar:
+  python contactos_cliente.py --desde-drive
+
+Reglas:
+  Rol=general → TO (puede haber varios: JO, Linkes, etc.)
+  Rol=CC/punto → CC del punto (Máquina) o del cliente si Máquina vacía
+  Aníbal queda siempre en CC adicional desde el formulario.
+
+Sync: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+""",
+        encoding="utf-8",
+    )
+
+
+def sincronizar(*, desde_drive: bool = False, fuente: Optional[Path] = None) -> dict:
+    path = fuente
+    if desde_drive:
+        path = _download_drive(MAESTRO)
+    elif path is None:
+        path = MAESTRO if MAESTRO.is_file() else None
+        if path is None:
+            path = _download_drive(MAESTRO)
+
+    rows = _read_rows(path)
+    export_json(rows)
+    escribir_fuente_txt()
+
+    con_email = sum(1 for r in rows if _email_ok(r.get("email")))
+    clientes = sorted({r["cliente"] for r in rows if r.get("cliente")})
     return {
-        "to": uniq(to_list),
-        "cc": uniq(cc_list),
-        "firmantes": firmantes,
-        "contactos": contacts,
+        "fuente": str(path),
+        "sheet_url": SHEET_URL,
+        "filas": len(rows),
+        "con_email": con_email,
+        "clientes": len(clientes),
+        "clientes_lista": clientes,
+        "json": str(JSON_OUT),
+        "sync_at": datetime.now().isoformat(timespec="seconds"),
     }
 
 
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--desde-drive", action="store_true")
+    ap.add_argument("--fuente", type=Path, default=None)
+    args = ap.parse_args()
+    info = sincronizar(desde_drive=args.desde_drive, fuente=args.fuente)
+    print("OK sync CONTACTOS_ENVIOS_ACTAS")
+    print(f"  sheet: {info['sheet_url']}")
+    print(f"  filas: {info['filas']} (con email: {info['con_email']})")
+    print(f"  clientes: {info['clientes']}")
+    print(f"  json: {info['json']}")
+    return 0
+
+
 if __name__ == "__main__":
-    path = asegurar_hoja_contactos()
-    print(f"OK Contactos en {path}")
-    print(f"JSON {JSON_OUT} ({JSON_OUT.stat().st_size} bytes)")
+    raise SystemExit(main())
