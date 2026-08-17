@@ -92,13 +92,31 @@ def _pairs_from_sheet(ws, cli_col: int, maq_col: int, start_row: int = 2) -> Set
     return out
 
 
-def _pairs_from_contactos_catalogo(path: Path) -> Tuple[Set[Pair], Set[str]]:
-    """Lee Clientes_catalogo (fuente oficial de puntos del formulario)."""
+def _find_catalogo_sheet(wb) -> str:
+    """Prioriza Clientes_catalogo; si la borran, usa 1ª hoja con Cliente+Máquina."""
+    names = list(wb.sheetnames)
+    for preferred in ("Clientes_catalogo", "Catalogo", "Puntos", "Base1"):
+        if preferred in names:
+            return preferred
+    for sn in names:
+        if sn.lower() in {"instrucciones", "contactos", "readme"}:
+            continue
+        ws = wb[sn]
+        headers = [_norm(ws.cell(1, c).value).lower() for c in range(1, 6)]
+        if any(h.startswith("cliente") for h in headers) and any(
+            "mquina" in h.replace("á", "a") or "sitio" in h for h in headers
+        ):
+            return sn
+    # última opción: primera hoja del libro
+    return names[0]
+
+
+def _pairs_from_contactos_catalogo(path: Path) -> Tuple[Set[Pair], Set[str], str]:
+    """Lee catálogo de puntos desde CONTACTOS_ENVIOS_ACTAS. Devuelve (pares, clientes, hoja)."""
     wb = load_workbook(path, data_only=True)
-    if "Clientes_catalogo" not in wb.sheetnames:
-        raise RuntimeError(f"Falta hoja Clientes_catalogo en {path}")
-    ws = wb["Clientes_catalogo"]
-    headers = [_norm(ws.cell(1, c).value).lower() for c in range(1, 6)]
+    sn = _find_catalogo_sheet(wb)
+    ws = wb[sn]
+    headers = [_norm(ws.cell(1, c).value).lower() for c in range(1, 8)]
 
     def idx(*names: str) -> int:
         for n in names:
@@ -110,7 +128,7 @@ def _pairs_from_contactos_catalogo(path: Path) -> Tuple[Set[Pair], Set[str]]:
     c_maq = idx("máquina / sitio", "maquina / sitio", "máquina", "maquina", "sitio") or 2
     pairs = _pairs_from_sheet(ws, c_cli, c_maq, start_row=2)
     clients = {c for c, _ in pairs}
-    return pairs, clients
+    return pairs, clients, sn
 
 
 def _fallas_from_sheet(ws, tipo_col: int = 2, esp_col: int = 3) -> Dict[str, List[str]]:
@@ -220,7 +238,7 @@ def sincronizar(
             )
 
     # 1) Puntos oficiales desde CONTACTOS_ENVIOS_ACTAS
-    pairs_cat, clients_cat = _pairs_from_contactos_catalogo(path_contactos)
+    pairs_cat, clients_cat, hoja_cat = _pairs_from_contactos_catalogo(path_contactos)
     pairs: Set[Pair] = set(pairs_cat)
 
     # 2) Completar solo clientes AUSENTES del catálogo (historial/Base1)
@@ -258,12 +276,17 @@ def sincronizar(
         f"""Puntos (Cliente + Máquina) del formulario — fuente ÚNICA
 ========================================================
 Archivo: CONTACTOS_ENVIOS_ACTAS
-Hoja:    Clientes_catalogo
+Hoja:    {hoja_cat}
 Windows: G:\\Mi unidad\\Agente WES\\wes-scripts\\mantenimiento wes\\CONTACTOS_ENVIOS_ACTAS
 Drive:   {URL_CONTACTOS}
 
+Hojas útiles en ese Excel (el resto se puede borrar):
+  • Clientes_catalogo = puntos del formulario
+  • Contactos = emails TO/CC
+No hace falta copiar esto al FORMULARIO_MANTENCION ni al Registro.
+
 NO uses Base1 del Registro de fallas para editar puntos de clientes que
-ya están en Clientes_catalogo (ahí quedan nombres viejos, ej. RENCA).
+ya están en este catálogo (ahí quedan nombres viejos, ej. RENCA).
 
 Fallas (tipo / específica): Registro de fallas · Base3
   {URL_REGISTRO}
@@ -286,7 +309,7 @@ Pares catálogo: {len(pairs_cat)} · extras historial (clientes nuevos): {extra_
         if "Instrucciones" in wb.sheetnames:
             wb["Instrucciones"]["A22"] = (
                 f"Catálogos sync {datetime.now().strftime('%Y-%m-%d %H:%M')}: "
-                f"puntos desde CONTACTOS_ENVIOS_ACTAS!Clientes_catalogo · "
+                f"puntos desde CONTACTOS_ENVIOS_ACTAS!{hoja_cat} · "
                 f"{len(clientes)} clientes · {n1} máquinas · fallas desde Registro Base3 ({n3})"
             )
         wb.save(XLSX_FORM)
@@ -296,7 +319,7 @@ Pares catálogo: {len(pairs_cat)} · extras historial (clientes nuevos): {extra_
 
     resumen = {
         "fuente_puntos": str(path_contactos),
-        "fuente_puntos_hoja": "Clientes_catalogo",
+        "fuente_puntos_hoja": hoja_cat,
         "fuente_puntos_url": URL_CONTACTOS,
         "fuente_fallas": str(path_registro),
         "fuente_fallas_url": URL_REGISTRO,
