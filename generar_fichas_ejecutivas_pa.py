@@ -340,7 +340,7 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
         if mall["code"] == "MAE":
             hallazgos = [
                 "Reparación 10/06 en red Sur (validada con mantención): Estanque Sur pasó de 83,1 a 29,4 m³/día y se mantiene (~27–29 m³/día jul–ago). No es fuga residual.",
-                "Pizza Hut: control nocturno desde 01/07 funciona (noche ~0 m³ el 10/08). El alza de julio (23,8 → 37,7 m³/día) es diurna; agosto baja a 14,1 m³/día. Noche descartada.",
+                "Pizza Hut: control nocturno desde 01/07 funciona (noche ~0 m³ el 10/08). El alza de julio (23,8 → 37,7 m³/día) es diurna; agosto baja a 14,1 m³/día. Esa noche no se lee como fuga.",
                 "Estanque Norte: control desde 05/08. La noche no explica el alza (ago 1–4: 41 m³/día; 5–14: 50 m³/día). Revisar locales mall en horario hábil.",
                 "Baños Públicos: 16,3 → 7,0 → 3,5 m³/día. Noches ya ~0. Control instalado sin funcionamiento: no es prioridad.",
             ]
@@ -352,10 +352,10 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
                 "Incorporar Abastecimiento Sur Terminal (000025-02) al tablero del recinto si corresponde a la cuenta del mall.",
             ]
             controles = [
-                "Estanque Sur (000025-19): corte on/off a cargo de personal de mantención nocturno — DESCARTADO.",
-                "Pizza Hut (000025-07): control nocturno desde 01/07/2026 (00:00–06:00) — DESCARTADO. Verificado 10/08: 0 m³ en 0–6 h.",
-                "Estanque Norte (000025-01): control nocturno desde 05/08/2026 — DESCARTADO.",
-                "Baños Públicos: control instalado sin funcionamiento; noches ya ~0 — no se interpreta como fuga.",
+                "Estanque Sur (000025-19): corte on/off de mantención nocturna. La madrugada NO se lee como fuga.",
+                "Pizza Hut (000025-07): control 00:00–06:00 desde 01/07. Noche OK (10/08: 0 m³). No se lee como fuga.",
+                "Estanque Norte (000025-01): control desde 05/08. La madrugada NO se lee como fuga (el alza de agosto es diurna).",
+                "Baños Públicos: control instalado sin uso; noches ya ~0. Tampoco se interpreta como fuga.",
             ]
         elif mall["code"] == "MAM":
             hallazgos = [
@@ -409,8 +409,8 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
                 "Mensaje al JO (Aliro Cortés): el control de 500 ya aporta; el ahorro grande ahora está en el día y en el 300.",
             ]
             controles = [
-                "San Ignacio 500 (000025-18): control nocturno desde 16/07/2026 — DESCARTADO (verificado: noche 42 → 2 m³).",
-                "San Ignacio 300: sin control. No se descarta.",
+                "San Ignacio 500 (000025-18): control desde 16/07. Noche 42 → 2 m³. Esa madrugada NO se lee como fuga.",
+                "San Ignacio 300: sin control. La noche SÍ entra al análisis (el 10/08 fue ~51% nocturna).",
             ]
         elif mall["code"] == "AEB":
             hallazgos = [
@@ -583,7 +583,7 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
         1.2,
         [
             (f"Período {PERIODO}   |   Emisión {FECHA_EMISION}", 16, False, WHITE),
-            ("5 variables por mall  ·  controles nocturnos descartados del análisis de fugas", 14, False, (220, 230, 240)),
+            ("5 variables por mall  ·  si hay control nocturno, esa madrugada no se lee como fuga", 14, False, (220, 230, 240)),
             ("MAE · MAM · MAQ · BOM · AEB · CUR · PAK   |   Puntos activos WES", 14, False, GOLD),
         ],
     )
@@ -613,8 +613,8 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
             "Lo que queremos pasar al JO / mantención / medioambiente del mall.",
         ),
         (
-            "5. Controles nocturnos (descartados)",
-            "San Ignacio 500 desde 16/07 · Pizza Hut desde 01/07 · Estanque Norte desde 05/08 · Estanque Sur: corte on/off de mantención nocturna. Verificados con perfil 0–6 h.",
+            "5. Noche con control: no se lee como fuga",
+            "Si el punto tiene control on/off (o corte de mantención), el caudal de madrugada no se interpreta como fuga. San Ignacio 500 desde 16/07 · Pizza Hut desde 01/07 · Estanque Norte desde 05/08 · Estanque Sur: corte de mantención nocturna.",
         ),
     ]
     y = 1.15
@@ -669,7 +669,7 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
         _tb(sl, 6.93, 4.14, 5.98, 1.62, sol)
 
         _caja(sl, 0.25, 5.95, 12.80, 1.38, fill=(255, 249, 235), line=GOLD)
-        _card_title(sl, 0.38, 6.00, 12.5, "5. Controles nocturnos — descartados del análisis de fugas", GOLD)
+        _card_title(sl, 0.38, 6.00, 12.5, "5. Noche con control: no se lee como fuga", GOLD)
         ctrl = [(f"• {h}", 11, False, NAVY) for h in item["controles"]]
         _tb(sl, 0.38, 6.28, 12.5, 0.98, ctrl)
 
@@ -678,7 +678,7 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
     _header_bar(sl, prs, "Consolidado  ·  mensaje por recinto", f"Puntos WES  |  {PERIODO}")
     rows = [["Mall", "Puntos", "Junio m³", "Julio m³", "Ago 1–14 m³", "m³/día ago", "Mensaje"]]
     mensajes_corto = {
-        "MAE": "Noches Norte/Pizza/Sur descartadas. Norte: alza diurna ago.",
+        "MAE": "Norte/Pizza/Sur: noche con control, no es fuga. Norte: alza diurna ago.",
         "MAM": "Placa se revirtió en ago. Falabella activa desde 11/08.",
         "MAQ": "Matriz ~24 m³/noche — pedir control on/off.",
         "BOM": "500 noche OK desde 16/07; queda alza diurna + noche del 300.",
@@ -798,14 +798,14 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
     r = p.add_run(
         f"Período {PERIODO}. Emisión {FECHA_EMISION}. "
         "Cinco variables por mall: equipos instalados, consumo mensualizado de los puntos WES, "
-        "hallazgos, solicitudes, y controles nocturnos (descartados como fuga). "
+        "hallazgos, solicitudes, y noche con control (no se lee como fuga). "
         "Alineado al PPT 7 Malls de la carpeta entrega_diego_anibal, con datos junio–agosto."
     )
     r.font.size = Pt(11)
     r.font.name = "Calibri"
 
     p = doc.add_paragraph()
-    r = p.add_run("Controles nocturnos descartados en todo el informe: ")
+    r = p.add_run("Noche con control: no se lee como fuga. ")
     r.bold = True
     r.font.size = Pt(11)
     r.font.color.rgb = RGBColor(*NAVY)
@@ -870,7 +870,7 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
         for titulo, lineas, col in (
             ("3. Hallazgos / conclusiones", item["hallazgos"], TEAL),
             ("4. Solicitudes / mensajes a pasar", item["solicitudes"], GREEN),
-            ("5. Controles nocturnos (descartados del análisis de fugas)", item["controles"], GOLD),
+            ("5. Noche con control: no se lee como fuga", item["controles"], GOLD),
         ):
             hh = doc.add_paragraph()
             rr = hh.add_run(titulo)
@@ -891,7 +891,7 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
     for i, x in enumerate(["Mall", "Junio m³", "Julio m³", "Ago 1–14 m³", "m³/día ago", "Mensaje clave"]):
         _set_cell(table.rows[0].cells[i], x, bold=True, color=WHITE, fill="0D3B66", center=True, size=9)
     msgs = {
-        "MAE": "Descartar noches Norte/Pizza/Sur. Norte: alza diurna agosto.",
+        "MAE": "Norte/Pizza/Sur: noche con control, no es fuga. Norte: alza diurna agosto.",
         "MAM": "Placa se revirtió. Falabella activa desde el 11/08.",
         "MAQ": "Pedir control nocturno en Matriz (~24 m³/noche).",
         "BOM": "500 noche OK; queda alza diurna y noche del 300.",
