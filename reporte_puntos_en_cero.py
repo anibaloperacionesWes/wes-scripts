@@ -5,6 +5,7 @@ Conecta con todos los puntos del sistema y genera un reporte Word con los que es
 
 import os
 import sys
+import time
 import requests
 from concurrent.futures import ThreadPoolExecutor
 from exclusiones_reportes import (
@@ -73,6 +74,72 @@ FECHA_REFERENCIA_UTC: Optional[datetime] = None
 
 # Concurrencia HTTP (reporte diario: muchos nodos × varias llamadas; antes todo secuencial).
 MAX_WORKERS_CERO = max(4, int(os.environ.get("WES_REPORTE_CERO_WORKERS", "20")))
+
+# La Automation de Cursor dispara ~07:00 Chile (11:00 UTC). El reporte diario
+# (--dias 1) espera hasta esta hora Chile antes de generar.
+HORA_DIARIA_CHILE = os.environ.get("WES_CERO_HORA_CHILE", "08:30").strip() or "08:30"
+
+
+def _parse_hora_hhmm(valor: str) -> Tuple[int, int]:
+    partes = valor.strip().split(":")
+    if len(partes) != 2:
+        raise ValueError(f"Hora inválida {valor!r}; use HH:MM")
+    hora, minuto = int(partes[0]), int(partes[1])
+    if not (0 <= hora <= 23 and 0 <= minuto <= 59):
+        raise ValueError(f"Hora fuera de rango: {valor!r}")
+    return hora, minuto
+
+
+def esperar_horario_diario_chile(*, forzar_ahora: bool = False) -> None:
+    """Espera hasta WES_CERO_HORA_CHILE (default 08:30 America/Santiago).
+
+    Solo aplica a la corrida diaria de Cloud Agent. Si ya pasó la hora, no espera.
+    No espera de madrugada (antes de las 05:00) para no bloquear corridas a destiempo.
+    """
+    if forzar_ahora:
+        print("[INFO] --ahora: no se espera el horario 08:30 Chile.")
+        return
+    flag = os.environ.get("WES_CERO_NO_ESPERAR", "").strip().lower()
+    if flag in {"1", "true", "yes", "si", "sí"}:
+        print("[INFO] WES_CERO_NO_ESPERAR: no se espera el horario diario.")
+        return
+
+    hora, minuto = _parse_hora_hhmm(HORA_DIARIA_CHILE)
+    ahora = datetime.now(_CHILE_TZ)
+    destino = ahora.replace(hour=hora, minute=minuto, second=0, microsecond=0)
+    if ahora >= destino:
+        print(
+            f"[INFO] Hora Chile {ahora:%H:%M} ≥ {hora:02d}:{minuto:02d}; "
+            "se genera de inmediato."
+        )
+        return
+    if ahora.hour < 5:
+        print(
+            f"[INFO] Hora Chile {ahora:%H:%M} (antes de 05:00); "
+            "no se espera al horario diario."
+        )
+        return
+
+    espera_s = (destino - ahora).total_seconds()
+    print(
+        f"[INFO] Reporte diario: Cursor arranca ~07:00. Esperando hasta "
+        f"{destino:%H:%M} hora Chile ({espera_s / 60:.0f} min)..."
+    )
+    deadline = time.monotonic() + espera_s
+    while True:
+        restante = deadline - time.monotonic()
+        if restante <= 0:
+            break
+        print(
+            f"[INFO] Faltan {restante / 60:.1f} min para las "
+            f"{hora:02d}:{minuto:02d} Chile...",
+            flush=True,
+        )
+        time.sleep(min(60.0, restante))
+    print(
+        f"[INFO] Horario {hora:02d}:{minuto:02d} Chile alcanzado. Generando reporte...",
+        flush=True,
+    )
 
 
 def _obtener_empresas_config() -> List[Dict[str, str]]:
@@ -1591,11 +1658,18 @@ if __name__ == "__main__":
         metavar="N",
         help="Días a revisar hacia atrás desde la fecha de referencia (default: 3). Use 1 para solo hoy.",
     )
+    parser.add_argument(
+        "--ahora",
+        action="store_true",
+        help="No esperar a las 08:30 Chile (útil para una corrida manual inmediata).",
+    )
     args = parser.parse_args()
     out = args.output_dir.resolve() if args.output_dir else None
     if args.regenerar:
         regenerar_reporte_sin_api(out)
     else:
+        if int(args.dias) <= 1:
+            esperar_horario_diario_chile(forzar_ahora=args.ahora)
         forced_gen_utc: Optional[datetime] = None
         if args.fecha_generacion:
             forced_gen_utc = datetime.strptime(args.fecha_generacion.strip(), "%d/%m/%Y %H:%M").replace(
