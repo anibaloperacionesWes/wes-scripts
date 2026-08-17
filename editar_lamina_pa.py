@@ -39,6 +39,8 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter, MultipleLocator
 
 from pptx import Presentation
+from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.oxml.xmlchemy import OxmlElement
@@ -96,19 +98,19 @@ AEB_LABELS = {
     "000025-12": "Anillo (Primer Piso)",
 }
 
-# Layout compartido L04/L07 (posiciones ajustadas manualmente en lámina 4)
-LAYOUT_RANKING = (0.350, 1.010, 6.000, 2.580)
-LAYOUT_CAP_TOTAL = (0.272, 3.698, 6.000, 0.280)
-LAYOUT_LEFT_MID = (1.340, 3.970, 4.560, 1.520)
-LAYOUT_CAP_LEFT_MID = (1.340, 5.540, 4.560, 0.280)
-LAYOUT_RIGHT_MID = (7.832, 3.215, 4.600, 1.510)
-LAYOUT_CAP_RIGHT_MID = (7.832, 4.790, 4.600, 0.280)
-LAYOUT_LEFT_BOT = (1.436, 5.790, 4.600, 1.400)
-LAYOUT_CAP_LEFT_BOT = (1.440, 7.000, 4.600, 0.280)
-LAYOUT_RIGHT_BOT = (7.882, 5.134, 4.550, 1.521)
-LAYOUT_CAP_RIGHT_BOT = (7.882, 6.805, 4.550, 0.280)
-LAYOUT_ANALISIS = (7.170, 0.000, 6.160, 7.500)
-CAPTION_H = 0.280
+# Layout compartido L04/L07 (caption siempre debajo del gráfico; panel no tapa charts)
+LAYOUT_RANKING = (0.350, 1.010, 6.000, 2.480)
+LAYOUT_CAP_TOTAL = (0.272, 3.510, 6.000, 0.240)
+LAYOUT_LEFT_MID = (1.340, 3.780, 4.560, 1.360)
+LAYOUT_CAP_LEFT_MID = (1.340, 5.160, 4.560, 0.240)
+LAYOUT_RIGHT_MID = (7.832, 3.280, 4.600, 1.320)
+LAYOUT_CAP_RIGHT_MID = (7.832, 4.620, 4.600, 0.240)
+LAYOUT_LEFT_BOT = (1.436, 5.430, 4.600, 1.280)
+LAYOUT_CAP_LEFT_BOT = (1.440, 6.730, 4.600, 0.240)
+LAYOUT_RIGHT_BOT = (7.882, 4.900, 4.550, 1.320)
+LAYOUT_CAP_RIGHT_BOT = (7.882, 6.240, 4.550, 0.240)
+LAYOUT_ANALISIS = (7.170, 0.152, 6.160, 3.050)
+CAPTION_H = 0.240
 
 # L04 — gráficos (mismas posiciones que el deck editado)
 L04_PICS: List[Tuple[str, str, float, float, float, float]] = [
@@ -222,16 +224,16 @@ L11_TECHO_NOCTURNO = L11_REF_INFORME_ANTERIOR
 L11_SLOTS: List[Tuple[str, datetime, float, float, float, float]] = [
     ("000025-13", L11_MATRIZ_REF, 0.272, 1.130, 6.026, 2.064),
     ("000025-13", L11_MATRIZ_JUN, 0.312, 4.080, 5.946, 2.032),
-    # Baños columna der. bajo panel de texto (sin tapar narrativa)
-    ("000025-34", L11_BANOS_REF, 7.658, 3.475, 4.600, 1.950),
-    ("000025-34", L11_BANOS_REF2, 7.658, 5.550, 4.600, 1.750),
+    # Baños columna der. bajo panel de texto (caption entre los dos gráficos)
+    ("000025-34", L11_BANOS_REF, 7.658, 3.400, 4.600, 1.620),
+    ("000025-34", L11_BANOS_REF2, 7.658, 5.360, 4.600, 1.620),
 ]
 
-L11_CAP_MATRIZ_TOP = (1.298, 3.361, 3.902, 0.266)
-L11_CAP_MATRIZ_BOT = (1.574, 6.230, 3.902, 0.266)
-L11_CAP_BANOS_TOP = (7.658, 5.520, 4.600, 0.266)
-L11_CAP_BANOS_BOT = (7.658, 7.380, 4.600, 0.266)
-L11_TEXTO_BOX = (7.174, 0.152, 6.160, 3.203)  # panel superior der. (como L07)
+L11_CAP_MATRIZ_TOP = (1.298, 3.210, 3.902, 0.240)
+L11_CAP_MATRIZ_BOT = (1.574, 6.130, 3.902, 0.240)
+L11_CAP_BANOS_TOP = (7.658, 5.040, 4.600, 0.240)
+L11_CAP_BANOS_BOT = (7.658, 7.000, 4.600, 0.240)
+L11_TEXTO_BOX = (7.174, 0.152, 6.160, 3.100)  # panel superior der. (como L07)
 
 # L12 — MAQ perfiles horarios (Matriz + Baños; estándar L09/L11 layout)
 L12_MAQ_SLOTS = L11_SLOTS
@@ -251,8 +253,8 @@ L14_REF_INFORME_500 = 7.0                      # m³/h informe anterior San Igna
 L14_SLOTS: List[Tuple[str, datetime, float, float, float, float]] = [
     (BOM_NODE_500, L14_S500_REF, 0.272, 1.130, 6.026, 2.064),
     (BOM_NODE_500, L14_S500_JUN, 0.312, 4.080, 5.946, 2.032),
-    (BOM_NODE_300, L14_S300_REF, 7.658, 3.475, 4.600, 1.950),
-    (BOM_NODE_300, L14_S300_REF2, 7.658, 5.550, 4.600, 1.750),
+    (BOM_NODE_300, L14_S300_REF, 7.658, 3.400, 4.600, 1.620),
+    (BOM_NODE_300, L14_S300_REF2, 7.658, 5.360, 4.600, 1.620),
 ]
 L14_CAP_500_TOP = L11_CAP_MATRIZ_TOP
 L14_CAP_500_BOT = L11_CAP_MATRIZ_BOT
@@ -273,8 +275,8 @@ L15_S500_SPIKE_START = datetime(2026, 6, 26)
 L15_SLOTS: List[Tuple[str, datetime, float, float, float, float]] = [
     (BOM_NODE_500, L15_S500_NORMAL, 0.272, 1.130, 6.026, 2.064),
     (BOM_NODE_500, L15_S500_PICO, 0.312, 4.080, 5.946, 2.032),
-    (BOM_NODE_300, L15_S300_INICIO, 7.658, 3.475, 4.600, 1.950),
-    (BOM_NODE_300, L15_S300_MAX, 7.658, 5.550, 4.600, 1.750),
+    (BOM_NODE_300, L15_S300_INICIO, 7.658, 3.400, 4.600, 1.620),
+    (BOM_NODE_300, L15_S300_MAX, 7.658, 5.360, 4.600, 1.620),
 ]
 L15_CAP_500_TOP = L11_CAP_MATRIZ_TOP
 L15_CAP_500_BOT = L11_CAP_MATRIZ_BOT
@@ -288,17 +290,28 @@ L16_ENE_MAR = L04_RANK_ENE_MAR
 L16_ABR_JUN = L04_RANK_ABR_JUN
 L16_RANK_DESDE = "01/01/2026"
 L16_RANK_HASTA = "16/08/2026"
-L16_RANK_S500_SLOT = (0.272, 1.130, 6.026, 4.150)
-L16_CAP_RANK_S500 = (0.272, 5.330, 6.026, 0.280)
+L16_RANK_S500_SLOT = (0.272, 1.050, 6.026, 4.100)
+L16_CAP_RANK_S500 = (0.272, 5.180, 6.026, 0.260)
 L16_S300_SLOTS: List[Tuple[str, str, str, float, float, float, float]] = [
-    (BOM_NODE_300, *L16_ENE_MAR, 7.658, 3.475, 4.600, 1.950),
-    (BOM_NODE_300, *L16_ABR_JUN, 7.658, 5.550, 4.600, 1.750),
+    (BOM_NODE_300, *L16_ENE_MAR, 7.658, 3.400, 4.600, 1.620),
+    (BOM_NODE_300, *L16_ABR_JUN, 7.658, 5.360, 4.600, 1.620),
 ]
 L16_CAP_300_TOP = L11_CAP_BANOS_TOP
 L16_CAP_300_BOT = L11_CAP_BANOS_BOT
 L16_TEXTO_BOX = L11_TEXTO_BOX
 L16_MESES_CORTO = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 L16_TARIFA_CLP_M3 = 1400.0
+
+# Controles nocturnos activos: el ranking NO trata el volumen de noche como ahorro potencial.
+# Ahorro = (promedio 0–Nh pre-control − promedio post) × noches con control.
+CTRL_SI500_DESDE = date(2026, 7, 16)
+CTRL_NORTE_DESDE = date(2026, 8, 5)
+CTRL_PIZZA_DESDE = date(2026, 7, 1)
+NODOS_CONTROL_NOCTURNO: List[Tuple[str, str, date, int]] = [
+    ("000025-18", "San Ignacio 500", CTRL_SI500_DESDE, 6),
+    ("000025-01", "Estanque Norte (Locales)", CTRL_NORTE_DESDE, 8),
+    ("000025-07", "Pizza Hut", CTRL_PIZZA_DESDE, 6),
+]
 
 # L17 — AEB análisis consumos (estándar L04: ranking dual + % + 2 diarios)
 L17_AEB_PICS: List[Tuple[str, str, float, float, float, float]] = [
@@ -316,8 +329,8 @@ L18_ANILLO_PEAK = datetime(2026, 8, 10)
 L18_AEB_SLOTS: List[Tuple[str, datetime, float, float, float, float]] = [
     (AEB_NODE_MATRIZ, L18_MATRIZ_REF, 0.272, 1.130, 6.026, 2.064),
     (AEB_NODE_MATRIZ, L18_MATRIZ_PEAK, 0.312, 4.080, 5.946, 2.032),
-    (AEB_NODE_ANILLO, L18_ANILLO_REF, 7.658, 3.475, 4.600, 1.950),
-    (AEB_NODE_ANILLO, L18_ANILLO_PEAK, 7.658, 5.550, 4.600, 1.750),
+    (AEB_NODE_ANILLO, L18_ANILLO_REF, 7.658, 3.400, 4.600, 1.620),
+    (AEB_NODE_ANILLO, L18_ANILLO_PEAK, 7.658, 5.360, 4.600, 1.620),
 ]
 L18_CAP_MATRIZ_TOP = L11_CAP_MATRIZ_TOP
 L18_CAP_MATRIZ_BOT = L11_CAP_MATRIZ_BOT
@@ -378,17 +391,22 @@ PAK_CHAIN_NODES = [
     PAK_CHAIN_BAZAR,
     PAK_CHAIN_KENNEDY,
 ]
-LAYOUT_PAK_CADENA_BARRAS = (0.350, 1.050, 6.400, 2.750)
-LAYOUT_PAK_CADENA_DIARIO = (0.350, 4.050, 6.400, 2.850)
+LAYOUT_PAK_CADENA_BARRAS = (0.350, 1.050, 6.400, 2.450)
+LAYOUT_PAK_CADENA_DIARIO = (0.350, 3.900, 6.400, 2.400)
 L24_PAK_TEXTO_BOX = LAYOUT_ANALISIS
-LAYOUT_RANKING_FULL_PAK_INFO = (0.350, 1.050, 12.500, 5.350)
-L23_PAK_INFO_BOX = (0.350, 6.500, 12.500, 0.720)
+L24_CAP_BARRAS = (0.350, 3.520, 6.400, 0.240)
+L24_CAP_CORR = (0.350, 6.320, 6.400, 0.240)
+LAYOUT_RANKING_FULL_PAK_INFO = (0.350, 1.050, 12.500, 5.050)
+L23_PAK_INFO_BOX = (0.350, 6.450, 12.500, 0.720)
 PAK_NIGHT_END = 8
 L27_PAK_REF = datetime(2026, 6, 8)
-LAYOUT_PAK_RANK_NOCT = (0.350, 1.050, 6.400, 2.850)
-L27_PAK_HOR_LEFT = (0.350, 4.050, 3.100, 2.900)
-L27_PAK_HOR_RIGHT = (3.600, 4.050, 3.100, 2.900)
-L27_PAK_TEXTO_BOX = LAYOUT_ANALISIS
+LAYOUT_PAK_RANK_NOCT = (0.350, 1.050, 6.400, 2.450)
+L27_PAK_HOR_LEFT = (0.350, 3.900, 3.100, 2.300)
+L27_PAK_HOR_RIGHT = (3.600, 3.900, 3.100, 2.300)
+L27_PAK_TEXTO_BOX = (7.170, 0.152, 6.160, 7.200)
+L27_CAP_RANK = (0.350, 3.520, 6.400, 0.240)
+L27_CAP_HOR_LEFT = (0.350, 6.230, 3.100, 0.240)
+L27_CAP_HOR_RIGHT = (3.600, 6.230, 3.100, 0.240)
 
 # L05 — perfiles horarios MAE (posiciones del layout original)
 DIAS_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
@@ -402,22 +420,22 @@ L05_JUN_INI = date(2026, 6, 1)
 L05_JUN_FIN = date(2026, 6, 30)
 L05_TEXTO_BOX = (7.174, 0.152, 6.160, 4.050)
 
-# Horarios 2×2: Norte | Sur (lun 4/5 arriba, 18/6 abajo)
+# Horarios 2×2: Norte | Sur (lun 4/5 arriba, 10/8 abajo)
 L05_HOR_SLOTS: List[Tuple[str, datetime, float, float, float, float]] = [
-    ("000025-01", L05_MON_REF, 0.272, 1.050, 3.250, 1.420),
-    ("000025-19", L05_MON_REF, 3.650, 1.050, 3.250, 1.420),
-    ("000025-01", L05_CTRL_DIA, 0.272, 2.600, 3.250, 1.420),
-    ("000025-19", L05_CTRL_DIA, 3.650, 2.600, 3.250, 1.420),
+    ("000025-01", L05_MON_REF, 0.272, 1.050, 3.250, 1.300),
+    ("000025-19", L05_MON_REF, 3.650, 1.050, 3.250, 1.300),
+    ("000025-01", L05_CTRL_DIA, 0.272, 2.720, 3.250, 1.300),
+    ("000025-19", L05_CTRL_DIA, 3.650, 2.720, 3.250, 1.300),
 ]
 L05_DIARIO_SLOTS: List[Tuple[str, float, float, float, float]] = [
-    ("000025-01", 0.272, 4.200, 3.250, 2.450),
-    ("000025-19", 3.650, 4.200, 3.250, 2.450),
+    ("000025-01", 0.272, 4.200, 3.250, 2.350),
+    ("000025-19", 3.650, 4.200, 3.250, 2.350),
 ]
 
-L05_CAP_NORTE_HOR = (0.272, 2.520, 3.250, 0.266)
-L05_CAP_SUR_HOR = (3.650, 2.520, 3.250, 0.266)
-L05_CAP_NORTE_JUN = (0.272, 6.700, 3.250, 0.266)
-L05_CAP_SUR_JUN = (3.650, 6.700, 3.250, 0.266)
+L05_CAP_NORTE_HOR = (0.272, 2.370, 3.250, 0.240)
+L05_CAP_SUR_HOR = (3.650, 2.370, 3.250, 0.240)
+L05_CAP_NORTE_JUN = (0.272, 6.580, 3.250, 0.240)
+L05_CAP_SUR_JUN = (3.650, 6.580, 3.250, 0.240)
 
 # L06 — Baños y Pizza Hut (más espacio; insertar como lámina 6)
 L06_CTRL_DIA = L05_CTRL_DIA
@@ -1224,6 +1242,129 @@ def _poner_grafico_fresco(slide, png: Path, left: float, top: float, w: float, h
     return slide.shapes.add_picture(str(png), Inches(left), Inches(top), width=Inches(w), height=Inches(h))
 
 
+def _shape_box_in(sh) -> Tuple[float, float, float, float]:
+    l = Emu(sh.left).inches
+    t = Emu(sh.top).inches
+    w = Emu(sh.width).inches
+    h = Emu(sh.height).inches
+    return l, t, w, h
+
+
+def _enviar_al_fondo(shape) -> None:
+    sp = shape._element
+    parent = sp.getparent()
+    parent.remove(sp)
+    parent.insert(2, sp)
+
+
+def _fondo_blanco_slide(slide, *, left_in: float = 0.0, width_in: float = 7.17) -> None:
+    """Fondo blanco en el área de gráficos (el panel navy derecho se conserva)."""
+    try:
+        fill = slide.background.fill
+        fill.solid()
+        fill.fore_color.rgb = RGBColor(255, 255, 255)
+    except Exception:
+        pass
+    for sh in list(slide.shapes):
+        if getattr(sh, "name", "") == "WES_BG_WHITE":
+            sh._element.getparent().remove(sh._element)
+    rect = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Inches(left_in), Inches(0),
+        Inches(width_in), Inches(7.5),
+    )
+    rect.name = "WES_BG_WHITE"
+    try:
+        rect.line.fill.background()
+    except Exception:
+        pass
+    rect.fill.solid()
+    rect.fill.fore_color.rgb = RGBColor(255, 255, 255)
+    _enviar_al_fondo(rect)
+
+
+def _quitar_cajas_total_periodo(slide) -> None:
+    """Quita el resumen PAK heredado de L23 que se superpone a gráficos."""
+    eliminar = []
+    for sh in slide.shapes:
+        if not sh.has_text_frame:
+            continue
+        tx = sh.text_frame.text.strip().lower()
+        if tx.startswith("total período") or tx.startswith("total periodo"):
+            l, t, w, h = _shape_box_in(sh)
+            if l < 7.0 and t > 5.5:
+                eliminar.append(sh._element)
+    for el in eliminar:
+        el.getparent().remove(el)
+
+
+def _corregir_solapes_slide(slide) -> None:
+    """Deja captions debajo de su gráfico y acorta el panel de análisis si tapa charts."""
+    pics = []
+    caps = []
+    paneles = []
+    for sh in slide.shapes:
+        if sh.shape_type == 13 and Emu(sh.width).inches > 0.6:
+            pics.append(sh)
+            continue
+        if not sh.has_text_frame:
+            continue
+        tx = sh.text_frame.text.strip()
+        low = tx.lower()
+        if low.startswith("grafico:"):
+            caps.append(sh)
+        elif Emu(sh.left).inches > 6.4 and Emu(sh.height).inches > 5.2:
+            if any(k in low for k in ("respecto", "patrón nocturno", "patron nocturno", "monitore")):
+                paneles.append(sh)
+
+    pics_right = [p for p in pics if Emu(p.left).inches > 7.0]
+    for panel in paneles:
+        if not pics_right:
+            continue
+        min_top = min(Emu(p.top).inches for p in pics_right)
+        new_h = min_top - Emu(panel.top).inches - 0.10
+        if 1.4 < new_h < Emu(panel.height).inches:
+            panel.height = Inches(new_h)
+
+    slide_bottom = 7.42
+    for cap in caps:
+        cl, ct, cw, ch = _shape_box_in(cap)
+        cr, cb = cl + cw, ct + ch
+        overlapping = []
+        for pic in pics:
+            pl, pt, pw, ph = _shape_box_in(pic)
+            pr, pb = pl + pw, pt + ph
+            ix = min(cr, pr) - max(cl, pl)
+            iy = min(cb, pb) - max(ct, pt)
+            if ix > 0.08 and iy > 0.06:
+                overlapping.append((iy * ix, pic, pl, pt, pw, ph, pb))
+        if not overlapping:
+            continue
+        overlapping.sort(key=lambda x: -x[0])
+        _area, pic, pl, pt, pw, ph, pb = overlapping[0]
+        new_top = pb + 0.04
+        if new_top + ch > slide_bottom:
+            overflow = new_top + ch - slide_bottom
+            new_ph = max(1.05, ph - overflow - 0.04)
+            pic.height = Inches(new_ph)
+            new_top = Emu(pic.top).inches + new_ph + 0.04
+        cap.left = Inches(pl)
+        cap.top = Inches(min(new_top, slide_bottom - ch))
+        cap.width = Inches(pw)
+
+
+def _corregir_solapes_informe(prs) -> None:
+    skip_titles = ("selección de puntos", "mae", "mam", "maq", "bom", "aeb", "cur", "pak")
+    for i, slide in enumerate(prs.slides):
+        if i in (0, len(prs.slides) - 1):
+            continue
+        t = _titulo_slide(slide).strip().lower()
+        if t in skip_titles and len(t) <= 4:
+            continue
+        _corregir_solapes_slide(slide)
+    print("[OK] Superposiciones texto/gráfico revisadas")
+
+
 def _set_titulo_izq(slide, texto: str) -> None:
     for sh in slide.shapes:
         if sh.has_text_frame and sh.top < Inches(0.5) and Emu(sh.left).inches < 2.0:
@@ -1919,6 +2060,9 @@ def _limpiar_clon_pak_analisis(slide) -> None:
             or "anillo" in tx
             or "estanque" in tx
             or "cuenta de agua" in tx
+            or tx.startswith("total período")
+            or tx.startswith("total periodo")
+            or tx.startswith("mayores consumos")
         ):
             sh._element.getparent().remove(sh._element)
 
@@ -2461,10 +2605,18 @@ def _texto_analisis_l04() -> str:
         lines.append(f"{L04_MAE_LABELS[nid]} = {fn(p_an[nid], 1)}%")
     lines.extend([
         "",
-        "Noche con control: no se lee como fuga.",
+        "Noche con control: no se lee como fuga. El ahorro es la baja vs la noche previa al control.",
+        _linea_ahorro_control(
+            "000025-07", "Pizza Hut", CTRL_PIZZA_DESDE, _stats_ahorro_control(
+                "000025-07", CTRL_PIZZA_DESDE, night_end=6,
+            ),
+        ),
+        _linea_ahorro_control(
+            "000025-01", "Estanque Norte (Locales)", CTRL_NORTE_DESDE, _stats_ahorro_control(
+                "000025-01", CTRL_NORTE_DESDE, night_end=8,
+            ),
+        ),
         "Estanque Sur: corte on/off a cargo de mantención nocturna (no automático).",
-        "Pizza Hut: control 00:00–06:00 desde el 01/07/2026.",
-        "Estanque Norte: control on/off desde el 05/08/2026; el alza de agosto es diurna.",
         "Baños Públicos: control instalado sin uso; noches ya ~0.",
     ])
     return "\n".join(lines)
@@ -2688,7 +2840,11 @@ def _texto_analisis_l14_bom() -> str:
         lines.append(f"{names.get(nid, nid)} = {fn(p_an[nid], 1)}%")
     lines.extend([
         "",
-        "San Ignacio 500: control nocturno desde el 16/07 FUNCIONA (noche ~42 → ~2 m³). Esa madrugada no se lee como fuga.",
+        _linea_ahorro_control(
+            BOM_NODE_500, names.get(BOM_NODE_500, "San Ignacio 500"),
+            CTRL_SI500_DESDE,
+            _stats_ahorro_control(BOM_NODE_500, CTRL_SI500_DESDE, night_end=6),
+        ) + " Esa madrugada no se lee como fuga.",
         "Queda alza diurna desde el 26/06. San Ignacio 300: sin control; la noche SÍ entra al análisis (~51% el 10/08).",
     ])
     return "\n".join(lines)
@@ -3080,7 +3236,7 @@ def _actualizar_textos_l23_pak(slide) -> None:
     _agregar_caption_fijo(
         slide,
         RANK_CAP,
-        (0.272, 6.280, 12.500, 0.280),
+        (0.350, 6.120, 12.500, 0.240),
     )
     print("[OK] L23 PAK — ranking dual + resumen período")
 
@@ -3176,10 +3332,10 @@ def _actualizar_textos_l24_pak(slide) -> None:
     _remover_captions_viejos(slide)
     periodo = PERIODO_CAP
     caps = [
-        (f"Grafico: Totales cadena abastecimiento período {periodo}", LAYOUT_CAP_TOTAL),
+        (f"Grafico: Totales cadena abastecimiento período {periodo}", L24_CAP_BARRAS),
         (
             f"Grafico: Dispersión consumo diario vs DL — correlación {periodo}",
-            (0.350, 3.750, 6.400, 0.280),
+            L24_CAP_CORR,
         ),
     ]
     for txt, pos in caps:
@@ -3282,17 +3438,17 @@ def _actualizar_textos_l27_pak(slide, peak_day: date) -> None:
     caps = [
         (
             f"Grafico: Ranking consumo nocturno 0–{PAK_NIGHT_END} h — cadena DL — {periodo}",
-            LAYOUT_CAP_TOTAL,
+            L27_CAP_RANK,
         ),
         (
             f"Grafico: Perfil horario {names.get(PAK_CHAIN_DISTRITO, 'DL')} "
             f"lun {L27_PAK_REF.strftime('%d/%m/%Y')}",
-            (0.350, 3.850, 3.100, 0.280),
+            L27_CAP_HOR_LEFT,
         ),
         (
             f"Grafico: Perfil horario {names.get(PAK_CHAIN_DISTRITO, 'DL')} "
             f"día pico nocturno {peak_day.strftime('%d/%m/%Y')}",
-            (3.600, 3.850, 3.100, 0.280),
+            L27_CAP_HOR_RIGHT,
         ),
     ]
     for txt, pos in caps:
@@ -3786,6 +3942,79 @@ def _promedio_horario_rango(node_id: str, desde: str, hasta: str) -> Tuple[List[
     return avgs, dias
 
 
+def _nights_in_range(
+    node_id: str,
+    d0: date,
+    d1: date,
+    *,
+    night_end: int,
+) -> List[Tuple[date, float]]:
+    """Lista (día, m³ nocturnos) con datos horarios en [d0, d1]."""
+    cache = _cargar_horario_cache(
+        node_id,
+        d0.strftime("%d/%m/%Y"),
+        d1.strftime("%d/%m/%Y"),
+        night_end=night_end,
+    )
+    out: List[Tuple[date, float]] = []
+    for d, hmap in sorted(cache.items()):
+        if d0 <= d <= d1:
+            out.append((d, _suma_nocturna_dia(hmap, night_end)))
+    return out
+
+
+def _stats_ahorro_control(
+    node_id: str,
+    ctrl: date,
+    *,
+    night_end: int,
+    pre_days: int = 21,
+    hasta: str = HASTA,
+) -> Dict[str, float]:
+    """Ahorro nocturno REAL: baseline pre-control vs noches con control activo.
+
+    No trata el volumen nocturno histórico como ahorro potencial.
+    """
+    post1 = parse_date(hasta, end_of_day=True).date()
+    pre1 = ctrl - timedelta(days=1)
+    pre0 = ctrl - timedelta(days=pre_days)
+    nights_pre = _nights_in_range(node_id, pre0, pre1, night_end=night_end)
+    nights_post = _nights_in_range(node_id, ctrl, post1, night_end=night_end)
+    n_pre = len(nights_pre)
+    n_post = len(nights_post)
+    prom_pre = (sum(v for _, v in nights_pre) / n_pre) if n_pre else 0.0
+    prom_post = (sum(v for _, v in nights_post) / n_post) if n_post else 0.0
+    ahorro_noche = max(0.0, prom_pre - prom_post)
+    ahorro_acum = sum(max(0.0, prom_pre - v) for _, v in nights_post)
+    return {
+        "n_pre": float(n_pre),
+        "n_post": float(n_post),
+        "prom_pre": prom_pre,
+        "prom_post": prom_post,
+        "ahorro_noche": ahorro_noche,
+        "ahorro_acum": ahorro_acum,
+        "suma_post": sum(v for _, v in nights_post),
+    }
+
+
+def _stats_ahorro_todos() -> Dict[str, Dict[str, float]]:
+    out: Dict[str, Dict[str, float]] = {}
+    for nid, _nm, ctrl, night_end in NODOS_CONTROL_NOCTURNO:
+        out[nid] = _stats_ahorro_control(nid, ctrl, night_end=night_end)
+    return out
+
+
+def _linea_ahorro_control(nid: str, nombre: str, ctrl: date, st: Dict[str, float]) -> str:
+    fn = format_number_chilean
+    return (
+        f"{nombre}: control desde {ctrl.strftime('%d/%m/%Y')}. "
+        f"Noche {fn(st['prom_pre'], 1)} → {fn(st['prom_post'], 1)} m³/noche "
+        f"(ahorro {fn(st['ahorro_noche'], 1)} m³/noche; "
+        f"{fn(st['ahorro_acum'], 0)} m³ en {int(st['n_post'])} noches = "
+        f"{_clp_desde_m3(st['ahorro_acum'])})."
+    )
+
+
 def chart_ranking_nocturno_mensual_s500(
     out: Path,
     w_in: float,
@@ -3795,67 +4024,110 @@ def chart_ranking_nocturno_mensual_s500(
     hasta: str = L16_RANK_HASTA,
     night_end: int = L16_NIGHT_END,
 ) -> Path:
-    """Ranking mensual consumo nocturno 0–6 h — San Ignacio 500 (barras amarillas + ahorro control)."""
-    names = _nombres_bom()
-    nm = names.get(BOM_NODE_500, "San Ignacio 500")
+    """Ranking de ahorro REAL del control nocturno (SI500 / Norte / Pizza Hut)
+    + consumo nocturno mensual SI500 (sin etiquetar el volumen como ahorro).
+    """
+    fn = format_number_chilean
+    ahorros = _stats_ahorro_todos()
+    names = {nid: nm for nid, nm, _c, _n in NODOS_CONTROL_NOCTURNO}
+    order = sorted(NODOS_CONTROL_NOCTURNO, key=lambda x: -ahorros[x[0]]["ahorro_acum"])
+
     monthly = _suma_nocturna_por_mes(BOM_NODE_500, desde, hasta, night_end=night_end)
     d0 = parse_date(desde)
     d1 = parse_date(hasta, end_of_day=True)
-    order: List[Tuple[int, int]] = []
+    meses: List[Tuple[int, int]] = []
     y, m = d0.year, d0.month
     while (y, m) <= (d1.year, d1.month):
-        order.append((y, m))
+        meses.append((y, m))
         m += 1
         if m > 12:
             m = 1
             y += 1
-    vals = [monthly.get(k, 0.0) for k in order]
-    ahorros = vals  # control WES → consumo nocturno ~0 (100% recuperable)
-    total_noc = sum(vals)
-    total_ahorro = sum(ahorros)
-    rank_order = sorted(range(len(order)), key=lambda i: -vals[i])
-    labels = [f"{L16_MESES_CORTO[order[i][1] - 1]} {order[i][0]}" for i in rank_order]
-    v_rank = [vals[i] for i in rank_order]
-    a_rank = [ahorros[i] for i in rank_order]
-
-    fig, ax = plt.subplots(figsize=(max(4.5, w_in * 1.08), max(2.4, h_in * 1.08)))
-    y_pos = list(range(len(rank_order)))
-    bars = ax.barh(
-        y_pos, v_rank, height=0.52,
-        color="#FFD700", edgecolor="#FFA500", linewidth=0.8,
-        hatch="///", label="Consumo nocturno 0–6 h",
-    )
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(labels, fontsize=7)
-    ax.invert_yaxis()
-    ax.set_xlabel("m³ (suma mensual 0–6 h)", fontsize=7)
-    ax.tick_params(axis="x", labelsize=6)
-    ax.grid(True, alpha=0.3, axis="x")
-    mx = max(v_rank) if v_rank else 1.0
-    ax.set_xlim(0, mx * 1.55)
-    fn = format_number_chilean
-    for bar, v, a in zip(bars, v_rank, a_rank):
-        if v <= 0:
+    labs_mes = [f"{L16_MESES_CORTO[mm - 1]} {yy}" for yy, mm in meses]
+    vals_mes = [monthly.get(k, 0.0) for k in meses]
+    st500 = ahorros[BOM_NODE_500]
+    baseline = st500["prom_pre"]
+    ahorro_mes: List[float] = []
+    for (yy, mm), _v in zip(meses, vals_mes):
+        if date(yy, mm, 1) < date(CTRL_SI500_DESDE.year, CTRL_SI500_DESDE.month, 1):
+            ahorro_mes.append(0.0)
             continue
-        ax.text(
-            bar.get_width() + mx * 0.02,
-            bar.get_y() + bar.get_height() / 2,
-            f"{fn(v, 0)} m³  |  Ahorro: {fn(a, 0)} m³",
-            va="center", ha="left", fontsize=6, color="#333333",
+        m0 = date(yy, mm, 1)
+        if mm == 12:
+            m1 = date(yy + 1, 1, 1) - timedelta(days=1)
+        else:
+            m1 = date(yy, mm + 1, 1) - timedelta(days=1)
+        d_ini = max(m0, CTRL_SI500_DESDE)
+        d_fin = min(m1, d1.date())
+        nights = _nights_in_range(BOM_NODE_500, d_ini, d_fin, night_end=night_end)
+        ahorro_mes.append(sum(max(0.0, baseline - nv) for _, nv in nights))
+
+    fig, (ax1, ax2) = plt.subplots(
+        2, 1,
+        figsize=(max(4.6, w_in * 1.08), max(3.6, h_in * 1.08)),
+        gridspec_kw={"height_ratios": [1.15, 1.0], "hspace": 0.42},
+    )
+
+    y_pos = list(range(len(order)))
+    pre_vals = [ahorros[nid]["prom_pre"] for nid, *_ in order]
+    post_vals = [ahorros[nid]["prom_post"] for nid, *_ in order]
+    hbar = 0.35
+    ax1.barh(
+        [y + hbar / 2 for y in y_pos], pre_vals, height=hbar,
+        color="#C0C0C0", edgecolor="#666666", label="Antes del control (m³/noche)",
+    )
+    ax1.barh(
+        [y - hbar / 2 for y in y_pos], post_vals, height=hbar,
+        color="#2E8B57", edgecolor="#1B5E3B", label="Con control activo (m³/noche)",
+    )
+    ax1.set_yticks(y_pos)
+    ax1.set_yticklabels([names[nid] for nid, *_rest in order], fontsize=7)
+    ax1.invert_yaxis()
+    ax1.set_xlabel("m³ / noche (0–6/8 h)", fontsize=7)
+    ax1.tick_params(axis="x", labelsize=6)
+    ax1.grid(True, alpha=0.3, axis="x")
+    mx1 = max(pre_vals + post_vals) if (pre_vals or post_vals) else 1.0
+    ax1.set_xlim(0, mx1 * 1.72)
+    ax1.legend(loc="lower right", fontsize=6, framealpha=0.95)
+    for i, (nid, _nm, ctrl, _ne) in enumerate(order):
+        st = ahorros[nid]
+        ax1.text(
+            mx1 * 1.02, i,
+            f"Ahorro capturado: {fn(st['ahorro_acum'], 0)} m³  "
+            f"({fn(st['ahorro_noche'], 1)} m³/noche × {int(st['n_post'])} noches)\n"
+            f"desde {ctrl.strftime('%d/%m/%Y')}",
+            va="center", ha="left", fontsize=5.5, color="#1B5E3B",
         )
-    ax.set_title(
-        f"{nm} — ranking nocturno por mes (0–{night_end} h)",
+    ax1.set_title(
+        "Ahorro real del control nocturno (no es volumen de noche “por si se activa”)",
         fontsize=8, fontweight="bold", pad=3,
     )
-    ax.text(
-        0.98, 0.02,
-        f"Total Ene–Jun: {fn(total_noc, 0)} m³  |  Ahorro si activa control WES: {fn(total_ahorro, 0)} m³",
-        transform=ax.transAxes, ha="right", va="bottom", fontsize=6,
-        bbox=dict(boxstyle="round,pad=0.3", facecolor="#FFF8DC", alpha=0.95, edgecolor="#FFA500"),
+
+    x = list(range(len(meses)))
+    ax2.bar(
+        [i - 0.18 for i in x], vals_mes, width=0.36,
+        color="#FFD700", edgecolor="#DAA520", label="Consumo nocturno SI500 (m³/mes)",
     )
-    fig.subplots_adjust(left=0.22, right=0.97, top=0.90, bottom=0.14)
+    ax2.bar(
+        [i + 0.18 for i in x], ahorro_mes, width=0.36,
+        color="#2E8B57", edgecolor="#1B5E3B", label="Ahorro capturado SI500 (m³/mes)",
+    )
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(labs_mes, fontsize=6, rotation=0)
+    ax2.set_ylabel("m³", fontsize=7)
+    ax2.tick_params(axis="y", labelsize=6)
+    ax2.grid(True, alpha=0.3, axis="y")
+    ax2.legend(loc="upper right", fontsize=6, framealpha=0.95)
+    ax2.set_title(
+        "San Ignacio 500 — consumo nocturno mensual vs ahorro desde el 16/07/2026",
+        fontsize=8, fontweight="bold", pad=3,
+    )
+    ax2.axvline(x=meses.index((2026, 7)) if (2026, 7) in meses else -1,
+                color="#1B5E3B", linestyle="--", linewidth=0.8, alpha=0.7)
+
+    fig.subplots_adjust(left=0.22, right=0.78, top=0.93, bottom=0.08)
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out, dpi=200, facecolor="white", pad_inches=0.03)
+    fig.savefig(out, dpi=200, facecolor="white", pad_inches=0.04)
     plt.close(fig)
     return out
 
@@ -4136,6 +4408,10 @@ def _texto_analisis_l05() -> str:
         f"{fn(s_norte_ctrl.get('night_sum', 0), 1)} m³ ({fn(pct_norte_noc, 0)}%). "
         "Control desde el 05/08/2026: esa madrugada no se lee como fuga "
         "(el alza de agosto es diurna).",
+        _linea_ahorro_control(
+            "000025-01", "Estanque Norte (Locales)", CTRL_NORTE_DESDE,
+            _stats_ahorro_control("000025-01", CTRL_NORTE_DESDE, night_end=8),
+        ),
     ])
 
 
@@ -4157,6 +4433,10 @@ def _texto_analisis_l06() -> str:
         f"(lun 4/5 sin control: {fn(s_pizza_ref.get('night_sum', 0), 1)} m³).",
         f"Pico nocturno 0–8 h: {fn(s_pizza.get('night_max', 0), 2)} m³/h.",
         "Esa noche no se lee como fuga. El alza de julio fue diurna; agosto baja.",
+        _linea_ahorro_control(
+            "000025-07", "Pizza Hut", CTRL_PIZZA_DESDE,
+            _stats_ahorro_control("000025-07", CTRL_PIZZA_DESDE, night_end=6),
+        ),
     ])
 
 
@@ -4857,28 +5137,29 @@ def _texto_s500_l16_ranking() -> str:
     fn = format_number_chilean
     names = _nombres_bom()
     nm = names.get(BOM_NODE_500, "San Ignacio 500")
+    ahorros = _stats_ahorro_todos()
+    st500 = ahorros[BOM_NODE_500]
+    st_n = ahorros["000025-01"]
+    st_p = ahorros["000025-07"]
     monthly = _suma_nocturna_por_mes(BOM_NODE_500, L16_RANK_DESDE, L16_RANK_HASTA)
-    total = sum(monthly.values())
-    n_meses = max(len(monthly), 1)
-    prom_mes = total / n_meses
+    total_noc = sum(monthly.values())
     peak_m = max(monthly, key=monthly.get) if monthly else (2026, 1)
     peak_v = monthly.get(peak_m, 0.0)
     mes_lab = L16_MESES_CORTO[peak_m[1] - 1]
-    s1 = _stats_nocturno_periodo(BOM_NODE_500, *L16_ENE_MAR)
-    s2 = _stats_nocturno_periodo(BOM_NODE_500, *L16_ABR_JUN)
-    tarifa = L16_TARIFA_CLP_M3
     return "\n".join([
         f"{nm} — consumo nocturno (0–6 h)",
-        "Control WES activo desde el 16/07/2026: la noche bajó de ~42 m³ a ~2 m³. "
-        "Esa madrugada no se lee como fuga. Queda alza operacional de día.",
-        f"Ranking ene–ago 2026: {fn(total, 0)} m³ acumulados en horario 0–6 h.",
-        f"Valor consumo nocturno (tarifa ${fn(tarifa, 0)}/m³): {_clp_desde_m3(total)}.",
-        f"Mes de mayor consumo nocturno: {mes_lab} {peak_m[0]} "
-        f"({fn(peak_v, 0)} m³ = {_clp_desde_m3(peak_v)}).",
-        "El ahorro nocturno del 500 ya está capturado; el volumen diurno no volvió a la base de junio.",
-        f"Referencia mensual: ≈ {fn(prom_mes, 0)} m³/mes = {_clp_desde_m3(prom_mes)}/mes.",
-        f"Promedio nocturno Ene–Mar: {fn(s1['sum_prom'], 2)} m³/noche; "
-        f"Abr–Jun: {fn(s2['sum_prom'], 2)} m³/noche.",
+        "El ranking de noche NO es ahorro potencial: el control ya está activo. "
+        "Ahorro = noche promedio antes del control − noche con control.",
+        _linea_ahorro_control(BOM_NODE_500, nm, CTRL_SI500_DESDE, st500),
+        _linea_ahorro_control(
+            "000025-01", "Estanque Norte (Locales)", CTRL_NORTE_DESDE, st_n,
+        ),
+        _linea_ahorro_control("000025-07", "Pizza Hut", CTRL_PIZZA_DESDE, st_p),
+        f"Consumo nocturno SI500 ene–ago (referencia, no ahorro): {fn(total_noc, 0)} m³. "
+        f"Mes pico: {mes_lab} {peak_m[0]} ({fn(peak_v, 0)} m³).",
+        "La madrugada con control no se lee como fuga. Queda alza operacional de día en el 500.",
+        "Estanque Norte: si el ahorro nocturno es ~0, el control no recorta noche "
+        "(el alza de agosto es diurna).",
     ])
 
 
@@ -4920,7 +5201,8 @@ def _actualizar_textos_l16_bom(slide, *, solo_panel: bool = False) -> None:
     nm500 = names.get(BOM_NODE_500, "San Ignacio 500")
     caps = [
         (
-            f"Grafico: Ranking consumo nocturno 0–6 h {nm500} por mes (ene–ago 2026)",
+            f"Grafico: Ahorro real del control nocturno (SI500 / Norte / Pizza Hut) "
+            f"y consumo mensual SI500",
             L16_CAP_RANK_S500,
         ),
     ]
@@ -5381,6 +5663,7 @@ def editar_lamina_16(*, solo_texto: bool = False) -> None:
 
     _actualizar_textos_l16_bom(slide)
     _eliminar_duplicado_tras_bom_nocturno(prs, idx)
+    _corregir_solapes_slide(slide)
     prs.save(str(PPT))
     print(f"\n[OK] Guardado in-place: {PPT}")
 
@@ -5674,6 +5957,9 @@ def editar_lamina_27() -> None:
     print(f"[OK] Horario DL pico nocturno {peak_d.strftime('%d/%m/%Y')}")
 
     _actualizar_textos_l27_pak(slide, peak_d)
+    _quitar_cajas_total_periodo(slide)
+    _fondo_blanco_slide(slide, left_in=0.0, width_in=7.17)
+    _corregir_solapes_slide(slide)
     prs.save(str(PPT))
     print(f"\n[OK] Guardado in-place: {PPT}")
 
@@ -5784,6 +6070,58 @@ def _editar_todas(*, factura_m3: float | None = None) -> int:
     return 1 if errores else 0
 
 
+def editar_ajustes_visuales() -> None:
+    """Fondo blanco diapo PAK nocturno + captions fuera de los gráficos."""
+    if not PPT.is_file():
+        raise FileNotFoundError(PPT)
+    prs = Presentation(str(PPT))
+    idx = _indice_pak_nocturno(prs)
+    if idx is None:
+        for i, slide in enumerate(prs.slides):
+            tx = " ".join(
+                sh.text_frame.text for sh in slide.shapes if sh.has_text_frame
+            ).lower()
+            if "pak kennedy" in tx and "nocturn" in tx:
+                idx = i
+                break
+    if idx is not None:
+        _quitar_cajas_total_periodo(prs.slides[idx])
+        _fondo_blanco_slide(prs.slides[idx], left_in=0.0, width_in=7.17)
+        print(f"[OK] Fondo blanco área gráficos — diapo {idx + 1}")
+    _corregir_solapes_informe(prs)
+    prs.save(str(PPT))
+    print(f"\n[OK] Guardado in-place (ajustes visuales): {PPT}")
+
+
+def editar_revision_controles() -> None:
+    """Ranking de ahorro real + diapo 29 blanca + textos de control + solapes."""
+    editar_lamina_16()
+    prs = Presentation(str(PPT))
+    for slide in prs.slides:
+        t = _titulo_slide(slide).lower()
+        if t.startswith("mae - análisis") or t.startswith("mae - analisis"):
+            _actualizar_textos_l04(slide)
+            _corregir_solapes_slide(slide)
+            print("[OK] Textos L04 — ahorro real Norte / Pizza Hut")
+        elif "reparación tuberías" in t or "reparacion tuberias" in t:
+            _buscar_o_crear_narrativa_l05(slide, _texto_analisis_l05())
+            _actualizar_captions_l05(slide)
+            _corregir_solapes_slide(slide)
+            print("[OK] Textos L05 — ahorro Norte")
+        elif t.startswith("baños públicos") or t.startswith("banos publicos"):
+            _buscar_o_crear_narrativa_l06(slide, _texto_analisis_l06())
+            _actualizar_captions_l06(slide)
+            _corregir_solapes_slide(slide)
+            print("[OK] Textos L06 — ahorro Pizza Hut")
+        elif t.startswith("bom - análisis") or t.startswith("bom - analisis"):
+            _actualizar_textos_l14_bom(slide)
+            _corregir_solapes_slide(slide)
+            print("[OK] Textos L14 — ahorro SI500")
+    prs.save(str(PPT))
+    editar_lamina_27()
+    editar_ajustes_visuales()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--lamina", type=int, default=None)
@@ -5791,6 +6129,16 @@ def main() -> int:
         "--todas",
         action="store_true",
         help="Regenera portada y láminas de análisis del informe 7 Malls",
+    )
+    ap.add_argument(
+        "--revision",
+        action="store_true",
+        help="Ahorro real de controles, fondo blanco diapo PAK nocturno y solapes",
+    )
+    ap.add_argument(
+        "--ajustes",
+        action="store_true",
+        help="Solo fondo blanco + captions fuera de gráficos (sin API)",
     )
     ap.add_argument(
         "--solo-texto",
@@ -5806,8 +6154,14 @@ def main() -> int:
     args = ap.parse_args()
     if args.todas:
         return _editar_todas(factura_m3=args.factura_m3)
+    if args.revision:
+        editar_revision_controles()
+        return 0
+    if args.ajustes:
+        editar_ajustes_visuales()
+        return 0
     if args.lamina is None:
-        ap.error("indique --lamina N o --todas")
+        ap.error("indique --lamina N, --todas, --revision o --ajustes")
     if args.lamina == 1:
         editar_lamina_1()
         return 0
