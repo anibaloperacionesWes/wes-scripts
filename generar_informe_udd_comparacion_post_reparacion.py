@@ -402,6 +402,34 @@ def _plot_tres_ventanas(tot_sin: float, tot_prev: float, tot_post: float, out: P
     plt.close(fig)
 
 
+def _plot_tres_nocturno(noct_sin: float, noct_prev: float, noct_post: float, out: Path) -> None:
+    fig, ax = plt.subplots(figsize=(8.2, 4.8))
+    labels = [
+        f"Referencia\n{SIN_INI:%d/%m}–{SIN_FIN:%d/%m}",
+        f"Checkpoint ago\n{POST_PREV_INI:%d/%m}–{POST_PREV_FIN:%d/%m}",
+        f"Últimos 7 días\n{POST_INI:%d/%m}–{POST_FIN:%d/%m}",
+    ]
+    vals = [noct_sin, noct_prev, noct_post]
+    bars = ax.bar(labels, vals, color=[COLOR_SIN, COLOR_PREV, COLOR_NOCT], width=0.55, edgecolor="#DAA520")
+    for bar, v in zip(bars, vals):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            f"{format_number_chilean(v, 1)} m³",
+            ha="center",
+            va="bottom",
+            fontweight="bold",
+            fontsize=9,
+        )
+    ax.set_title("Indicador de fugas — nocturno 00:00–06:59 (7 días)", fontweight="bold")
+    ax.set_ylabel("m³ nocturnos acumulados")
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    ax.set_ylim(bottom=0)
+    fig.tight_layout()
+    fig.savefig(out, dpi=160, bbox_inches="tight")
+    plt.close(fig)
+
+
 def _add_table(doc: Document, headers: List[str], rows: List[List[str]], *, total=False) -> None:
     table = doc.add_table(rows=1 + len(rows), cols=len(headers))
     table.style = "Table Grid"
@@ -538,42 +566,57 @@ def aplicar_margenes_informe(doc: Document) -> None:
 def _veredicto(
     pct_total: float,
     pct_noct: float,
-    pct_vs_prev: float,
+    pct_vs_prev_noct: float,
 ) -> Tuple[str, str]:
-    """Título corto + párrafo. pct positivos = baja respecto de la referencia / checkpoint."""
-    if pct_total >= 20 and pct_noct >= 30:
-        if pct_vs_prev >= -12:
-            titulo = "Las reparaciones continúan sosteniendo el ahorro"
+    """Título + párrafo. El nocturno manda: es el indicador de fugas, no el total diurno."""
+    if pct_noct >= 50:
+        if pct_vs_prev_noct >= -50:
             extra = (
-                "La última semana se mantiene en el mismo orden de magnitud que el "
-                "checkpoint de fines de julio / inicios de agosto: no hay señal de "
-                "rebote de fugas."
+                "El caudal 00:00–06:59 sigue muy por debajo de la referencia previa "
+                "y en el mismo orden de magnitud que el checkpoint de 27/07–02/08. "
+                "Eso indica que las fugas de matriz no reaparecieron."
             )
-        else:
-            titulo = "El ahorro se mantiene, con alza reciente de uso"
-            extra = (
-                "Sigue claramente bajo la referencia previa a la reparación, pero la "
-                "última semana supera el checkpoint de 27/07–02/08. Conviene mirar el "
-                "nocturno: si este se mantiene bajo, el alza es de demanda y no de fugas."
+            if pct_vs_prev_noct < 0:
+                extra += (
+                    " Hay una alza menor del nocturno frente a inicios de agosto; "
+                    "no alcanza para hablar de recaída."
+                )
+            extra += (
+                " Un total diario más alto se interpreta como mayor demanda del campus "
+                "(ocupación, riego u otros usos diurnos), no como recaída de fugas."
             )
-        return titulo, extra
-    if pct_total >= 8 and pct_noct >= 15:
+            return (
+                "Las reparaciones continúan buenas: el nocturno se mantiene bajo",
+                extra,
+            )
         return (
-            "El ahorro se mantiene de forma moderada",
-            "Hay reducción frente a la referencia, aunque menor que en las primeras "
-            "semanas post-reparación. El caudal nocturno sigue siendo el indicador a vigilar.",
+            "El nocturno bajó fuerte vs la referencia, con alza frente al checkpoint",
+            "Sigue habiendo evidencia de reparación, pero el nocturno de la última "
+            "semana supera claramente el de 27/07–02/08. Conviene seguir la serie "
+            "00:00–06:59 las próximas noches.",
         )
-    if abs(pct_total) < 8:
+    if pct_noct >= 25:
         return (
-            "El consumo volvió cerca de la referencia",
-            "La última semana ya no muestra el recorte observado tras la reparación. "
-            "Revisar caudal mínimo nocturno y ocupación del campus antes de concluir "
-            "una recaída de fugas.",
+            "Las fugas siguen controladas de forma moderada",
+            "El nocturno continúa bajo la referencia, aunque el recorte es menor que "
+            "en las primeras semanas post-reparación.",
+        )
+    if pct_noct >= 8:
+        extra = ""
+        if pct_total < 0:
+            extra = (
+                " El total semanal está por encima de la referencia: separar demanda "
+                "diurna de caudal base nocturno antes de concluir una recaída."
+            )
+        return (
+            "Hay una baja nocturna leve; conviene seguir monitoreando",
+            "El indicador de fugas no volvió al nivel previo, pero el margen es "
+            "estrecho." + extra,
         )
     return (
-        "El consumo posterior supera la referencia",
-        "Esto no invalida por sí solo la reparación (puede ser mayor demanda). "
-        "El nocturno 00:00–06:59 es el indicador más estable de fugas residuales.",
+        "El nocturno ya no muestra el recorte de la reparación",
+        "Revisar caudal mínimo 00:00–06:59 y ocupación del campus. Un alza de total "
+        "diurno sola no prueba recaída de fugas; el nocturno sí es la señal a chequear.",
     )
 
 
@@ -656,7 +699,11 @@ def generar() -> Path:
     pct_noct = _pct(delta_noct, noct_sin)
     delta_vs_prev = tot_prev - tot_post
     pct_vs_prev = _pct(delta_vs_prev, tot_prev)
+    delta_vs_prev_noct = noct_prev - noct_post
+    pct_vs_prev_noct = _pct(delta_vs_prev_noct, noct_prev)
     prom_noct_sin = noct_sin / n_sin if n_sin else 0.0
+    prom_noct_prev = noct_prev / len(serie_prev) if serie_prev else 0.0
+    prom_noct_post = noct_post / n_post if n_post else 0.0
 
     semanas_plot: List[Tuple[str, float, float]] = [
         (f"Ref.\n{SIN_INI:%d/%m}–{SIN_FIN:%d/%m}", tot_sin, noct_sin)
@@ -678,6 +725,8 @@ def generar() -> Path:
     _plot_serie_diaria(serie_larga, prom_sin, prom_noct_sin, img_serie)
     _plot_semanas(semanas_plot, img_sem)
     _plot_tres_ventanas(tot_sin, tot_prev, tot_post, img_tres)
+    img_noct3 = GRAFICOS / "tres_ventanas_nocturno.png"
+    _plot_tres_nocturno(noct_sin, noct_prev, noct_post, img_noct3)
 
     dia_max = max(serie_post, key=lambda r: r[1])
     img_perfil = GRAFICOS / "perfil_dia_max_post.png"
@@ -691,7 +740,7 @@ def generar() -> Path:
     csv_path = OUT_DIR / "serie_diaria_honduras.csv"
     _export_csv(serie_larga, csv_path)
 
-    titulo_ver, extra_ver = _veredicto(pct, pct_noct, pct_vs_prev)
+    titulo_ver, extra_ver = _veredicto(pct, pct_noct, pct_vs_prev_noct)
 
     doc = Document()
     add_logo_to_header(doc)
@@ -789,46 +838,63 @@ def generar() -> Path:
     )
     doc.add_paragraph(var_txt).alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     doc.add_paragraph(noct_txt).alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    lec = doc.add_paragraph()
+    lec.add_run("Lectura: ").bold = True
+    lec.add_run(
+        "El nocturno (00:00–06:59) es el indicador de fugas. El total diario mezcla "
+        "ocupación del campus, riego y otros usos. Un total más alto con nocturno "
+        "aún bajo no significa que las reparaciones hayan fallado."
+    )
+    lec.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     doc.add_picture(str(img_tot), width=Inches(5.5))
     doc.add_picture(str(img_comp), width=Inches(6.2))
 
     doc.add_heading("2. Persistencia: ¿sigue igual de bien que a inicios de agosto?", level=1)
     p2 = doc.add_paragraph(
-        "El informe original de esta carpeta cerró el monitoreo en 27/07–02/08. "
-        "Aquí se contrasta esa semana (checkpoint) con los últimos 7 días, para ver "
-        "si el ahorro se sostiene o si hay rebote."
+        "El informe original de esta carpeta cerró el monitoreo en 27/07–02/08 "
+        f"(total {format_number_chilean(tot_prev, 1)} m³; nocturno "
+        f"{format_number_chilean(noct_prev, 1)} m³). Esa semana tuvo menos demanda "
+        "diurna que la actual. El contraste correcto para fugas es el nocturno, "
+        "no el total."
     )
     p2.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     _add_table(
         doc,
-        ["Ventana", "Total (m³)", "Prom. diario (m³)", "Nocturno (m³)"],
+        ["Ventana", "Total (m³)", "Prom. diario (m³)", "Nocturno (m³)", "Prom. noct. (m³/día)"],
         [
             [
                 f"Referencia ({SIN_INI:%d/%m}–{SIN_FIN:%d/%m})",
                 format_number_chilean(tot_sin, 1),
                 format_number_chilean(prom_sin, 1),
                 format_number_chilean(noct_sin, 1),
+                format_number_chilean(prom_noct_sin, 1),
             ],
             [
                 f"Checkpoint ({POST_PREV_INI:%d/%m}–{POST_PREV_FIN:%d/%m})",
                 format_number_chilean(tot_prev, 1),
                 format_number_chilean(prom_prev, 1),
                 format_number_chilean(noct_prev, 1),
+                format_number_chilean(prom_noct_prev, 1),
             ],
             [
                 f"Últimos 7 d ({POST_INI:%d/%m}–{POST_FIN:%d/%m})",
                 format_number_chilean(tot_post, 1),
                 format_number_chilean(prom_post, 1),
                 format_number_chilean(noct_post, 1),
+                format_number_chilean(prom_noct_post, 1),
             ],
         ],
     )
     vs_prev = (
-        f"Últimos 7 días vs checkpoint: {format_number_chilean(delta_vs_prev, 1)} m³ "
+        f"Total últimos 7 días vs checkpoint: {format_number_chilean(delta_vs_prev, 1)} m³ "
         f"({'más bajo' if delta_vs_prev >= 0 else 'más alto'} en "
-        f"{format_number_chilean(abs(pct_vs_prev), 1)} %)."
+        f"{format_number_chilean(abs(pct_vs_prev), 1)} %). "
+        f"Nocturno vs checkpoint: {format_number_chilean(delta_vs_prev_noct, 1)} m³ "
+        f"({'más bajo' if delta_vs_prev_noct >= 0 else 'más alto'} en "
+        f"{format_number_chilean(abs(pct_vs_prev_noct), 1)} %)."
     )
     doc.add_paragraph(vs_prev).alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    doc.add_picture(str(img_noct3), width=Inches(5.8))
     doc.add_picture(str(img_tres), width=Inches(5.8))
 
     doc.add_heading("3. Evolución semanal post-reparación", level=1)
@@ -931,8 +997,9 @@ def generar() -> Path:
     concl.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
 
     for t in [
-        "La comparación semanal puede verse afectada por ocupación del campus, riego u otras demandas.",
+        "La comparación de totales semanales se ve afectada por ocupación del campus, riego u otras demandas diurnas.",
         "El caudal entre 00:00 y 06:59 es el indicador más estable de fugas residuales.",
+        "Entre el 13/07 y el 23/07 hay varios días sin dato horario (post-corte); no se usan como evidencia de fugas.",
         "Valores alineados con Sala impulsión Honduras, nodo 000026-01.",
         f"Serie diaria exportada en {csv_path.name}.",
     ]:
@@ -958,8 +1025,8 @@ def generar() -> Path:
     print(f"SIN:  {tot_sin:.1f} m3 (noct {noct_sin:.1f})")
     print(f"PREV: {tot_prev:.1f} m3 (noct {noct_prev:.1f})")
     print(f"POST: {tot_post:.1f} m3 (noct {noct_post:.1f})")
-    print(f"Delta vs ref: {delta:.1f} m3 ({pct:.1f}%)")
-    print(f"Delta vs prev: {delta_vs_prev:.1f} m3 ({pct_vs_prev:.1f}%)")
+    print(f"Delta vs ref: {delta:.1f} m3 ({pct:.1f}%) | noct {delta_noct:.1f} m3 ({pct_noct:.1f}%)")
+    print(f"Delta vs prev: {delta_vs_prev:.1f} m3 ({pct_vs_prev:.1f}%) | noct {delta_vs_prev_noct:.1f} m3 ({pct_vs_prev_noct:.1f}%)")
     print(f"Veredicto: {titulo_ver}")
     return out
 
