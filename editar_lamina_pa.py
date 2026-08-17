@@ -309,8 +309,8 @@ CTRL_NORTE_DESDE = date(2026, 8, 5)
 CTRL_PIZZA_DESDE = date(2026, 7, 1)
 NODOS_CONTROL_NOCTURNO: List[Tuple[str, str, date, int]] = [
     ("000025-18", "San Ignacio 500", CTRL_SI500_DESDE, 6),
-    ("000025-01", "Estanque Norte (Locales)", CTRL_NORTE_DESDE, 8),
-    ("000025-07", "Pizza Hut", CTRL_PIZZA_DESDE, 6),
+    ("000025-01", "Estanque Norte (Locales)", CTRL_NORTE_DESDE, 6),
+    ("000025-07", "Pizza Hut", CTRL_PIZZA_DESDE, 5),
 ]
 
 # L17 — AEB análisis consumos (estándar L04: ranking dual + % + 2 diarios)
@@ -1343,13 +1343,28 @@ def _corregir_solapes_slide(slide) -> None:
         overlapping.sort(key=lambda x: -x[0])
         _area, pic, pl, pt, pw, ph, pb = overlapping[0]
         new_top = pb + 0.04
-        if new_top + ch > slide_bottom:
+        next_top = None
+        for p2 in pics:
+            if p2 is pic:
+                continue
+            l2, t2, w2, h2 = _shape_box_in(p2)
+            ix2 = min(pl + pw, l2 + w2) - max(pl, l2)
+            if ix2 > 0.25 and t2 > pt + 0.15:
+                next_top = t2 if next_top is None else min(next_top, t2)
+        if next_top is not None and new_top + ch > next_top - 0.02:
+            gap = ch + 0.08
+            new_ph = max(1.0, next_top - pt - gap)
+            pic.height = Inches(new_ph)
+            new_top = Emu(pic.top).inches + new_ph + 0.03
+            if new_top + ch > next_top:
+                new_top = max(pt + 0.8, next_top - ch - 0.03)
+        elif new_top + ch > slide_bottom:
             overflow = new_top + ch - slide_bottom
             new_ph = max(1.05, ph - overflow - 0.04)
             pic.height = Inches(new_ph)
             new_top = Emu(pic.top).inches + new_ph + 0.04
         cap.left = Inches(pl)
-        cap.top = Inches(min(new_top, slide_bottom - ch))
+        cap.top = Inches(min(max(0.9, new_top), slide_bottom - ch))
         cap.width = Inches(pw)
 
 
@@ -1367,20 +1382,27 @@ def _corregir_solapes_informe(prs) -> None:
 
 def _set_titulo_izq(slide, texto: str) -> None:
     for sh in slide.shapes:
-        if sh.has_text_frame and sh.top < Inches(0.5) and Emu(sh.left).inches < 2.0:
+        if getattr(sh, "name", "") == "WES_BG_WHITE":
+            continue
+        if not sh.has_text_frame:
+            continue
+        if sh.top < Inches(0.5) and 0.08 < Emu(sh.left).inches < 2.0 and Emu(sh.width).inches < 9.0:
             sh.text_frame.paragraphs[0].text = texto
             return
-    tb = slide.shapes.add_textbox(Inches(0.17), Inches(0.27), Inches(8.11), Inches(0.86))
+    tb = slide.shapes.add_textbox(Inches(0.17), Inches(0.27), Inches(8.11), Inches(0.50))
     tb.text_frame.paragraphs[0].text = texto
 
 
 def _titulo_slide(slide) -> str:
     candidatos: List[Tuple[float, str]] = []
     for sh in slide.shapes:
-        if sh.has_text_frame and sh.top < Inches(0.5):
-            t = sh.text_frame.text.strip()
-            if t and len(t) < 120:
-                candidatos.append((Emu(sh.left).inches, t))
+        if not sh.has_text_frame:
+            continue
+        if sh.top >= Inches(0.55) or Emu(sh.left).inches >= 3.5:
+            continue
+        t = sh.text_frame.text.strip().split("\n")[0].strip()
+        if t and len(t) < 120:
+            candidatos.append((Emu(sh.left).inches, t))
     if not candidatos:
         return ""
     candidatos.sort(key=lambda x: x[0])
@@ -1924,10 +1946,43 @@ def _indice_pak_diarios_b(prs) -> int | None:
 
 def _indice_pak_nocturno(prs) -> int | None:
     for i, slide in enumerate(prs.slides):
+        blob = " ".join(
+            (sh.text_frame.text or "")[:160].lower()
+            for sh in slide.shapes if sh.has_text_frame
+        )
         t = _titulo_slide(slide).lower()
-        if "pak" in t and "nocturn" in t:
+        if "nocturn" in blob and (
+            "pak kennedy" in blob
+            or t.startswith("pak")
+            or "pak - patrón nocturno" in t
+            or "pak - patron nocturno" in t
+        ):
             return i
     return None
+
+
+def _eliminar_duplicados_pak_nocturno(prs) -> None:
+    idxs: List[int] = []
+    for i, slide in enumerate(prs.slides):
+        blob = " ".join(
+            (sh.text_frame.text or "")[:160].lower()
+            for sh in slide.shapes if sh.has_text_frame
+        )
+        if "nocturn" in blob and ("pak kennedy" in blob or "patrón nocturno (0–8" in blob or "patron nocturno (0-8" in blob):
+            idxs.append(i)
+    if len(idxs) <= 1:
+        return
+    keep = None
+    for i in idxs:
+        if any(getattr(sh, "name", "") == "WES_BG_WHITE" for sh in prs.slides[i].shapes):
+            keep = i
+            break
+    if keep is None:
+        keep = idxs[-1]
+    for i in reversed(idxs):
+        if i != keep:
+            _eliminar_slide(prs, i)
+            print(f"[OK] Eliminada diapo PAK nocturno duplicada (era {i + 1})")
 
 
 def _ensure_lamina_pak_analisis(prs) -> int:
@@ -2608,12 +2663,12 @@ def _texto_analisis_l04() -> str:
         "Noche con control: no se lee como fuga. El ahorro es la baja vs la noche previa al control.",
         _linea_ahorro_control(
             "000025-07", "Pizza Hut", CTRL_PIZZA_DESDE, _stats_ahorro_control(
-                "000025-07", CTRL_PIZZA_DESDE, night_end=6,
+                "000025-07", CTRL_PIZZA_DESDE, night_end=5,
             ),
         ),
         _linea_ahorro_control(
             "000025-01", "Estanque Norte (Locales)", CTRL_NORTE_DESDE, _stats_ahorro_control(
-                "000025-01", CTRL_NORTE_DESDE, night_end=8,
+                "000025-01", CTRL_NORTE_DESDE, night_end=6,
             ),
         ),
         "Estanque Sur: corte on/off a cargo de mantención nocturna (no automático).",
@@ -3963,17 +4018,28 @@ def _nights_in_range(
     return out
 
 
+def _mediana(vals: List[float]) -> float:
+    if not vals:
+        return 0.0
+    s = sorted(vals)
+    n = len(s)
+    if n % 2:
+        return float(s[n // 2])
+    return 0.5 * (s[n // 2 - 1] + s[n // 2])
+
+
 def _stats_ahorro_control(
     node_id: str,
     ctrl: date,
     *,
     night_end: int,
-    pre_days: int = 21,
+    pre_days: int = 7,
     hasta: str = HASTA,
 ) -> Dict[str, float]:
-    """Ahorro nocturno REAL: baseline pre-control vs noches con control activo.
+    """Ahorro nocturno REAL (mediana): noche típica pre-control vs con control.
 
-    No trata el volumen nocturno histórico como ahorro potencial.
+    No usa el volumen nocturno histórico como ahorro potencial.
+    Mediana para que 2–3 noches atípicas no inventen ni borren el recorte.
     """
     post1 = parse_date(hasta, end_of_day=True).date()
     pre1 = ctrl - timedelta(days=1)
@@ -3982,10 +4048,10 @@ def _stats_ahorro_control(
     nights_post = _nights_in_range(node_id, ctrl, post1, night_end=night_end)
     n_pre = len(nights_pre)
     n_post = len(nights_post)
-    prom_pre = (sum(v for _, v in nights_pre) / n_pre) if n_pre else 0.0
-    prom_post = (sum(v for _, v in nights_post) / n_post) if n_post else 0.0
+    prom_pre = _mediana([v for _, v in nights_pre])
+    prom_post = _mediana([v for _, v in nights_post])
     ahorro_noche = max(0.0, prom_pre - prom_post)
-    ahorro_acum = sum(max(0.0, prom_pre - v) for _, v in nights_post)
+    ahorro_acum = ahorro_noche * float(n_post)
     return {
         "n_pre": float(n_pre),
         "n_post": float(n_post),
@@ -4006,9 +4072,15 @@ def _stats_ahorro_todos() -> Dict[str, Dict[str, float]]:
 
 def _linea_ahorro_control(nid: str, nombre: str, ctrl: date, st: Dict[str, float]) -> str:
     fn = format_number_chilean
+    if st["ahorro_noche"] < 0.2:
+        return (
+            f"{nombre}: control desde {ctrl.strftime('%d/%m/%Y')}. "
+            f"Noche típica {fn(st['prom_pre'], 1)} → {fn(st['prom_post'], 1)} m³/noche. "
+            f"No hay ahorro nocturno medible (la noche ya era baja)."
+        )
     return (
         f"{nombre}: control desde {ctrl.strftime('%d/%m/%Y')}. "
-        f"Noche {fn(st['prom_pre'], 1)} → {fn(st['prom_post'], 1)} m³/noche "
+        f"Noche típica {fn(st['prom_pre'], 1)} → {fn(st['prom_post'], 1)} m³/noche "
         f"(ahorro {fn(st['ahorro_noche'], 1)} m³/noche; "
         f"{fn(st['ahorro_acum'], 0)} m³ en {int(st['n_post'])} noches = "
         f"{_clp_desde_m3(st['ahorro_acum'])})."
@@ -4410,7 +4482,7 @@ def _texto_analisis_l05() -> str:
         "(el alza de agosto es diurna).",
         _linea_ahorro_control(
             "000025-01", "Estanque Norte (Locales)", CTRL_NORTE_DESDE,
-            _stats_ahorro_control("000025-01", CTRL_NORTE_DESDE, night_end=8),
+            _stats_ahorro_control("000025-01", CTRL_NORTE_DESDE, night_end=6),
         ),
     ])
 
@@ -5160,6 +5232,7 @@ def _texto_s500_l16_ranking() -> str:
         "La madrugada con control no se lee como fuga. Queda alza operacional de día en el 500.",
         "Estanque Norte: si el ahorro nocturno es ~0, el control no recorta noche "
         "(el alza de agosto es diurna).",
+        "Pizza Hut: 26–29/07 la noche reapareció (~40 m³); no entra al ahorro típico (mediana = 0).",
     ])
 
 
@@ -5662,6 +5735,7 @@ def editar_lamina_16(*, solo_texto: bool = False) -> None:
         print(f"[OK] {node_id} {desde}–{hasta} @ L={sl:.2f} T={st:.2f}")
 
     _actualizar_textos_l16_bom(slide)
+    _set_titulo_izq(slide, "BOM - PATRÓN NOCTURNO (0–6 H)")
     _eliminar_duplicado_tras_bom_nocturno(prs, idx)
     _corregir_solapes_slide(slide)
     prs.save(str(PPT))
@@ -5926,6 +6000,7 @@ def editar_lamina_27() -> None:
     if not PPT.is_file():
         raise FileNotFoundError(PPT)
     prs = Presentation(str(PPT))
+    _eliminar_duplicados_pak_nocturno(prs)
     idx = _ensure_lamina_pak_nocturno(prs)
     slide = prs.slides[idx]
 
@@ -6070,23 +6145,65 @@ def _editar_todas(*, factura_m3: float | None = None) -> int:
     return 1 if errores else 0
 
 
+def _slide_blob(slide) -> str:
+    return " ".join(
+        (sh.text_frame.text or "")[:200].lower()
+        for sh in slide.shapes if sh.has_text_frame
+    )
+
+
+def _borrar_cajas_si(slide, pred) -> int:
+    n = 0
+    for sh in list(slide.shapes):
+        if not sh.has_text_frame:
+            continue
+        if pred(sh.text_frame.text.lower()):
+            sh._element.getparent().remove(sh._element)
+            n += 1
+    return n
+
+
+def _reparar_diapos_contaminadas(prs) -> None:
+    """Quita paneles L04/L14 pegados por error en Presostato y BOM junio."""
+    for slide in prs.slides:
+        blob = _slide_blob(slide)
+        if "presostato" in blob:
+            n = _borrar_cajas_si(
+                slide,
+                lambda tx: (
+                    tx.startswith("respecto al total monitoreable")
+                    or tx.startswith("grafico: ranking")
+                    or tx.startswith("grafico: consumo diario")
+                ),
+            )
+            if n:
+                print(f"[OK] Reparada diapo Presostato ({n} cajas extra)")
+        if "alza consumo junio" in blob:
+            n = _borrar_cajas_si(
+                slide,
+                lambda tx: (
+                    tx.startswith("respecto al total monitoreable")
+                    or tx.startswith("grafico: ranking")
+                    or tx.startswith("grafico: consumo diario")
+                ),
+            )
+            if n:
+                _actualizar_textos_l15_bom(slide)
+                print(f"[OK] Reparada diapo BOM junio ({n} cajas extra + captions horarios)")
+
+
 def editar_ajustes_visuales() -> None:
     """Fondo blanco diapo PAK nocturno + captions fuera de los gráficos."""
     if not PPT.is_file():
         raise FileNotFoundError(PPT)
     prs = Presentation(str(PPT))
+    _reparar_diapos_contaminadas(prs)
+    _eliminar_duplicados_pak_nocturno(prs)
     idx = _indice_pak_nocturno(prs)
-    if idx is None:
-        for i, slide in enumerate(prs.slides):
-            tx = " ".join(
-                sh.text_frame.text for sh in slide.shapes if sh.has_text_frame
-            ).lower()
-            if "pak kennedy" in tx and "nocturn" in tx:
-                idx = i
-                break
     if idx is not None:
         _quitar_cajas_total_periodo(prs.slides[idx])
         _fondo_blanco_slide(prs.slides[idx], left_in=0.0, width_in=7.17)
+        _set_titulo_izq(prs.slides[idx], "PAK - PATRÓN NOCTURNO (0–8 H)")
         print(f"[OK] Fondo blanco área gráficos — diapo {idx + 1}")
     _corregir_solapes_informe(prs)
     prs.save(str(PPT))
@@ -6097,23 +6214,27 @@ def editar_revision_controles() -> None:
     """Ranking de ahorro real + diapo 29 blanca + textos de control + solapes."""
     editar_lamina_16()
     prs = Presentation(str(PPT))
+    _reparar_diapos_contaminadas(prs)
     for slide in prs.slides:
-        t = _titulo_slide(slide).lower()
-        if t.startswith("mae - análisis") or t.startswith("mae - analisis"):
+        t = _titulo_slide(slide).strip().lower()
+        blob = _slide_blob(slide)
+        if "presostato" in blob or "alza consumo junio" in blob:
+            continue
+        if t in ("mae - análisis consumos", "mae - analisis consumos"):
             _actualizar_textos_l04(slide)
             _corregir_solapes_slide(slide)
             print("[OK] Textos L04 — ahorro real Norte / Pizza Hut")
-        elif "reparación tuberías" in t or "reparacion tuberias" in t:
+        elif "perfiles horarios" in t and "estanque" in t:
             _buscar_o_crear_narrativa_l05(slide, _texto_analisis_l05())
             _actualizar_captions_l05(slide)
             _corregir_solapes_slide(slide)
             print("[OK] Textos L05 — ahorro Norte")
-        elif t.startswith("baños públicos") or t.startswith("banos publicos"):
+        elif "perfiles horarios" in t and ("pizza" in t or "baño" in t or "bano" in t):
             _buscar_o_crear_narrativa_l06(slide, _texto_analisis_l06())
             _actualizar_captions_l06(slide)
             _corregir_solapes_slide(slide)
             print("[OK] Textos L06 — ahorro Pizza Hut")
-        elif t.startswith("bom - análisis") or t.startswith("bom - analisis"):
+        elif t in ("bom - análisis consumos", "bom - analisis consumos"):
             _actualizar_textos_l14_bom(slide)
             _corregir_solapes_slide(slide)
             print("[OK] Textos L14 — ahorro SI500")
