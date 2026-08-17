@@ -4,7 +4,9 @@ Lee la hoja ``Consolidado`` del Excel generado con
 y produce PNG comparativos (promedio 24 h entre periodos, barras por total acumulado,
 y siete graficos ``area + lineas`` como el 03, uno por dia de la semana homologo).
 
-Convencion de periodos (14 columnas = 7+7): **23–29 mar = con WES**, **06–12 abr = sin WES**.
+Convencion de periodos: columnas en dos mitades iguales (7+7 o 4+4).
+**Primera mitad = Con WES**, **segunda mitad = Sin WES**. Las etiquetas de leyenda
+salen de las fechas de la fila 3 del Excel (no quedan fijas en marzo/abril).
 
 Por defecto elimina PNG previos en ``graficos_comparativos/`` y PNG sueltos en la carpeta
 de auditoria (no borra nada dentro de ``csv_descarga_api/``). Use ``--no-limpiar-png-raiz-auditoria``
@@ -39,9 +41,36 @@ AUDIT_DIR = (
 DEFAULT_XLSX = AUDIT_DIR / "consolidado_revision_todos_los_csv_descarga_api.xlsx"
 OUT_DIR = AUDIT_DIR / "graficos_comparativos"
 
-# Etiquetas por defecto (14 dias: 7 marzo con WES + 7 abril sin WES)
-LABEL_P1 = "Con WES 23–29 mar 2026"
-LABEL_P2 = "Sin WES 06–12 abr 2026"
+_MESES_ABREV_ES: Tuple[str, ...] = (
+    "ene",
+    "feb",
+    "mar",
+    "abr",
+    "may",
+    "jun",
+    "jul",
+    "ago",
+    "sep",
+    "oct",
+    "nov",
+    "dic",
+)
+
+
+def etiqueta_rango_wes(prefijo: str, d0: date, d1: date) -> str:
+    """Leyenda corta, p. ej. ``Con WES 13–19 abr 2026``."""
+    m = _MESES_ABREV_ES
+    if d0.year == d1.year and d0.month == d1.month:
+        return f"{prefijo} {d0.day:02d}–{d1.day:02d} {m[d0.month - 1]} {d0.year}"
+    if d0.year == d1.year:
+        return (
+            f"{prefijo} {d0.day:02d} {m[d0.month - 1]}–"
+            f"{d1.day:02d} {m[d1.month - 1]} {d0.year}"
+        )
+    return (
+        f"{prefijo} {d0.day:02d} {m[d0.month - 1]} {d0.year}–"
+        f"{d1.day:02d} {m[d1.month - 1]} {d1.year}"
+    )
 
 # Estética informe CIH / auditoría: Con WES = azul, Sin WES = rojo-marrón
 COLOR_CON_WES = "#2a6fad"
@@ -163,21 +192,17 @@ def leer_matriz_consolidado(path_xlsx: Path) -> Tuple[List[date], List[List[floa
 def _partir_dos_periodos(
     fechas: Sequence[date], mats: Sequence[Sequence[float]]
 ) -> Tuple[Tuple[str, List[List[float]]], Tuple[str, List[List[float]]]]:
-    """Si hay 14 columnas ordenadas: primeras 7 = con WES (mar), siguientes 7 = sin WES (abr)."""
+    """Primera mitad = Con WES; segunda mitad = Sin WES. Leyendas según fechas del Excel."""
     if len(fechas) != len(mats):
         raise ValueError("fechas y matrices no coinciden")
     n = len(fechas)
-    if n == 14:
-        mid = 7
-        return (
-            (LABEL_P1, list(mats[:mid])),
-            (LABEL_P2, list(mats[mid:])),
-        )
     if n % 2 == 0 and n >= 2:
         mid = n // 2
+        lab1 = etiqueta_rango_wes("Con WES", fechas[0], fechas[mid - 1])
+        lab2 = etiqueta_rango_wes("Sin WES", fechas[mid], fechas[-1])
         return (
-            (f"Periodo A ({fechas[0]} … {fechas[mid - 1]})", list(mats[:mid])),
-            (f"Periodo B ({fechas[mid]} … {fechas[-1]})", list(mats[mid:])),
+            (lab1, list(mats[:mid])),
+            (lab2, list(mats[mid:])),
         )
     raise ValueError(
         f"Se esperaban 14 columnas (7+7) o un numero par de dias; hay {n}."
