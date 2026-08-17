@@ -87,9 +87,12 @@ MALLS: List[Dict[str, Any]] = [
         "code": "MAM",
         "nombre": "Maipú",
         "titulo": "Mall Arauco Maipú",
-        "nodes": ["000025-08", "000025-10", "000025-32", "000025-33"],
+        "nodes": ["000025-08", "000025-09", "000025-10", "000025-32", "000025-33"],
         "extra_nodes": [],
-        "pendiente": ["000025-09"],
+        "pendiente": [],
+        "notas_nodo": {
+            "000025-09": "activo desde 11/08/2026 (OC / cambio de equipo)",
+        },
         "recepcion": "06/11/2025",
         "capacitacion": "14/11/2025",
         "usuarios": [
@@ -273,9 +276,14 @@ def chart_mensual(path: Path, jun: float, jul: float, ago: float, proy: float) -
 
 def _equipos_lineas(mall: Dict[str, Any], names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[str]:
     lines: List[str] = []
+    notas = mall.get("notas_nodo") or {}
     for nid in mall["nodes"]:
         nm = names.get(nid, nid)
-        lines.append(f"• {nm} ({nid})")
+        extra = notas.get(nid)
+        if extra:
+            lines.append(f"• {nm} ({nid}) — {extra}")
+        else:
+            lines.append(f"• {nm} ({nid})")
     for nid in mall.get("extra_nodes") or []:
         nm = names.get(nid, nid)
         lines.append(f"• {nm} ({nid}) — activo, fuera del deck 7 Malls")
@@ -351,20 +359,25 @@ def contenidos(names: Dict[str, str], by: Dict[str, Dict[str, float]]) -> List[D
             ]
         elif mall["code"] == "MAM":
             hallazgos = [
-                f"Placa Bancaria concentra ~{fn(by['000025-08']['total']/tot['total']*100,0)}% del volumen monitoreado.",
+                f"Placa Bancaria concentra ~{fn(by['000025-08']['total']/tot['total']*100,0)}% del volumen monitoreado (jun–ago).",
                 "Auditoría 18/06: Placa subió de 160,5 a 347,2 m³/día. Julio 228,5 m³/día. Agosto 1–14 vuelve a 137,0 m³/día (bajo el nivel pre-auditoría). Noche 10/08 = 0 m³.",
                 "Ripley: noches tendiendo a cero (lámina 9 del deck); volumen jul 3.245 m³, estable en agosto (~97 m³/día).",
                 "Pasillo Técnico Boulevard y salida ARROW: consumo residual (69,8 y 1,1 m³ en el período).",
-                "Impulsión Falabella: sin dato jun–jul (OC pendiente). Aparecen 4 días desde el 11/08 (24,6 / 55,3 / 66,1 / 12,0 m³) — posible rehabilitación, no consolidada.",
+                "Impulsión Falabella (000025-09) ACTIVA desde el 11/08/2026. "
+                "Jun–jul = 0 (equipo fuera). 11/08 puesta en marcha 24,6 m³ (día parcial). "
+                "12–14/08: 55,3 / 66,1 / 24,1 m³. 15–16/08: 120,5 y 112,1 m³/día. "
+                "Noche 12/08 7,9 m³ y 13/08 13,1 m³ (0–6 h). Sin control; baseline 2–3 semanas.",
             ]
             solicitudes = [
-                "Confirmar si la OC / cambio de equipo de Impulsión Falabella ya se ejecutó (hay registros desde el 11/08).",
+                "Incorporar Impulsión Falabella al tablero diario: ya no está en espera de OC; activo desde el 11/08.",
+                "No comparar Falabella con junio–julio (serie en cero). Seguir 2–3 semanas para fijar baseline diurno y nocturno.",
                 "Mantener seguimiento de Placa Bancaria: el alza del 18/06 se revirtió en agosto; no reabrir como fuga nocturna.",
                 "Pasillo y ARROW: dejar como referencia de red (no priorizar).",
             ]
             controles = [
                 "Sin control nocturno WES declarado en este recinto.",
                 "Ripley y Placa: patrón nocturno del deck ya era ~0; se descarta fuga de madrugada.",
+                "Falabella: las noches desde el 12/08 (8–13 m³ en 0–6 h) NO se descartan; el punto recién entra en medición.",
             ]
         elif mall["code"] == "MAQ":
             hallazgos = [
@@ -585,7 +598,7 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
     bloques = [
         (
             "1. Equipos instalados",
-            "Puntos WES activos del recinto. Se excluyen relocalizados en cero (Red de Incendio, Matriz/Baños CUR antiguos, Baños 5/6 PAK, KFC/Poniente 7/Locales comida). Falabella se declara pendiente de OC.",
+            "Puntos WES activos del recinto. Se excluyen relocalizados en cero (Red de Incendio, Matriz/Baños CUR antiguos, Baños 5/6 PAK, KFC/Poniente 7/Locales comida). Impulsión Falabella (MAM) quedó activa el 11/08/2026.",
         ),
         (
             "2. Consumo mensualizado",
@@ -666,7 +679,7 @@ def build_ppt(fichas: List[Dict[str, Any]], names: Dict[str, str], by: Dict[str,
     rows = [["Mall", "Puntos", "Junio m³", "Julio m³", "Ago 1–14 m³", "m³/día ago", "Mensaje"]]
     mensajes_corto = {
         "MAE": "Noches Norte/Pizza/Sur descartadas. Norte: alza diurna ago.",
-        "MAM": "Placa se revirtió en ago. Confirmar OC Falabella (dato 11/08).",
+        "MAM": "Placa se revirtió en ago. Falabella activa desde 11/08.",
         "MAQ": "Matriz ~24 m³/noche — pedir control on/off.",
         "BOM": "500 noche OK desde 16/07; queda alza diurna + noche del 300.",
         "AEB": "Activo 11+12. Pedir control inhábil en Matriz.",
@@ -879,7 +892,7 @@ def build_word(fichas: List[Dict[str, Any]]) -> Path:
         _set_cell(table.rows[0].cells[i], x, bold=True, color=WHITE, fill="0D3B66", center=True, size=9)
     msgs = {
         "MAE": "Descartar noches Norte/Pizza/Sur. Norte: alza diurna agosto.",
-        "MAM": "Placa se revirtió. Confirmar OC Falabella (dato desde 11/08).",
+        "MAM": "Placa se revirtió. Falabella activa desde el 11/08.",
         "MAQ": "Pedir control nocturno en Matriz (~24 m³/noche).",
         "BOM": "500 noche OK; queda alza diurna y noche del 300.",
         "AEB": "Activos 11 y 12. Pedir control inhábil en Matriz.",
