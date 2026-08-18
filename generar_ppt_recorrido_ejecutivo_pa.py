@@ -168,7 +168,7 @@ MALLS: List[Dict[str, Any]] = [
         "recepcion": "12/12/2025",
         "capacitacion": "17/12/2025",
         "usuarios": "Francisco Jeldres  ·  Paula Azolas  ·  Mantención: C. Naranjo, M. Jara, R. Moreno, R. Díaz, J. Gutiérrez, H. Fierro",
-        "caption": "Julio = cabecera (7 puntos). 27, 35 y 36 no se suman: cadena Sandía → DL (lámina 2).",
+        "caption": "Julio = cabecera (7 puntos). Distrito de Lujo, Bazar y DL Kennedy no se suman (lámina 2).",
     },
 ]
 
@@ -210,11 +210,11 @@ CHIP_NOTA = {
     "000025-34": "uso hábil",
     "000025-17": "monitoreo",
     "000025-11": "activo 15/05",
-    "000025-22": "alimenta 27",
-    "000025-28": "alimenta 27",
+    "000025-22": "alimenta DL",
+    "000025-28": "alimenta DL",
     "000025-27": "cadena · no suma",
-    "000025-35": "sale de 27",
-    "000025-36": "sale de 27",
+    "000025-35": "sale de DL",
+    "000025-36": "sale de DL",
 }
 PALETA = [
     (13, 59, 102),
@@ -1908,7 +1908,7 @@ def _slide_hallazgos(
     st_p = st_noc["000025-07"]
 
     _caja(sl, 0.22, 1.08, 12.88, 1.28, fill=(255, 249, 235), line=GOLD)
-    _tb(sl, 0.40, 1.14, 12.55, 0.26, [("ESTANQUE SUR  ·  PRESÓSTATOS", 11, True, GOLD)])
+    _tb(sl, 0.40, 1.14, 12.55, 0.26, [("ESTANQUE NORTE  ·  CONTROL 05/08", 11, True, GOLD)])
     _tb(
         sl,
         0.40,
@@ -1917,15 +1917,13 @@ def _slide_hallazgos(
         0.88,
         [
             (
-                f"El 10/06 se repararon los presostatos. El estanque venía en "
-                f"{fn(st_sur['pre'], 0)} m³/día (mayo–9/jun) y ese día ya marca "
-                f"{fn(st_sur['dia10'], 0)} m³. Desde el 11/06 se sostiene en "
-                f"{fn(st_sur['post'], 0)} m³/día (−{fn(baja, 0)} m³/día, {fn(pct, 0)}%). "
-                f"A ${fn(TARIFA_CLP_M3, 0)}/m³: {_clp(baja)}/día  ·  {_clp(baja * 30)}/mes  ·  "
-                f"acumulado 11/06–{HASTA.strftime('%d/%m')}: {_clp(st_sur['m3_acum'])} "
-                f"({fn(st_sur['m3_acum'], 0)} m³ en {int(st_sur['n_post'])} días).",
-                12,
-                False,
+                f"Estanque Norte (control 05/08, 00:00–05:00): noche típica "
+                f"{fn(st_n['pre'], 1)} → {fn(st_n['post'], 1)} m³, ahorro "
+                f"{fn(st_n['ahorro_noche'], 1)} m³. × {HORAS_CTRL_NORTE} h de control × 30 días = "
+                f"{fn(_ahorro_norte_mes(st_n), 0)} m³/mes = {_clp(_ahorro_norte_mes(st_n))}/mes "
+                f"(tarifa ${fn(TARIFA_CLP_M3, 0)}/m³). Es el que más ahorra de los controles MAE.",
+                13,
+                True,
                 NAVY,
             )
         ],
@@ -1951,18 +1949,9 @@ def _slide_hallazgos(
         1.12,
         [
             (
-                f"Estanque Norte (control 05/08, 00:00–05:00): noche típica "
-                f"{fn(st_n['pre'], 1)} → {fn(st_n['post'], 1)} m³, ahorro "
-                f"{fn(st_n['ahorro_noche'], 1)} m³. × {HORAS_CTRL_NORTE} h de control × 30 días = "
-                f"{fn(_ahorro_norte_mes(st_n), 0)} m³/mes = {_clp(_ahorro_norte_mes(st_n))}/mes "
-                f"(tarifa ${fn(TARIFA_CLP_M3, 0)}/m³). Es el que más ahorra de los controles MAE.",
-                12,
-                True,
-                NAVY,
-            ),
-            (
                 f"Pizza Hut (control 01/07): noche típica {fn(st_p['pre'], 1)} → "
-                f"{fn(st_p['post'], 1)} m³. Estanque Sur: corte on/off a cargo de mantención nocturna.",
+                f"{fn(st_p['post'], 1)} m³. Estanque Sur: presostatos 10/06 "
+                f"(−{fn(baja, 0)} m³/día, {_clp(baja * 30)}/mes) y corte on/off de mantención nocturna.",
                 12,
                 False,
                 NAVY,
@@ -2029,7 +2018,7 @@ def _slide_presentacion(
     n_pts = len(chips_ids)
     sub = f"{mall['titulo']}   |   {n_pts} puntos WES   |   {PERIODO}"
     if mall["code"] == "PAK":
-        sub = f"{mall['titulo']}   |   10 puntos WES   |   julio = cabecera (sin 27, 35 y 36)   |   {PERIODO}"
+        sub = f"{mall['titulo']}   |   10 puntos WES   |   julio = cabecera (sin cadena DL)   |   {PERIODO}"
     _header_bar(
         sl,
         prs,
@@ -2044,14 +2033,13 @@ def _slide_presentacion(
         borde = COLOR_NODO.get(nid, TEAL)
         fill = (255, 249, 235) if nid in PAK_CADENA else LIGHT
         _caja(sl, x, y, w, h, fill=fill, line=borde)
-        id_sz, name_sz_c, nota_sz = (9, 11, 8) if compact else (10, 12, 10)
-        _tb(sl, x + 0.08, y + 0.04, w - 0.14, 0.16, [(nid, id_sz, True, GOLD)])
+        name_sz_c, nota_sz = (12, 8) if compact else (13, 10)
         _tb(
             sl,
             x + 0.08,
-            y + (0.22 if compact else 0.24),
+            y + 0.10,
             w - 0.14,
-            0.22,
+            0.32,
             [(NOMBRE_CORTO.get(nid, nid), name_sz_c, True, NAVY)],
         )
         if nota:
