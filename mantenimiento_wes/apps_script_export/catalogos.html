@@ -215,14 +215,29 @@
     ]
   },
   "tipos_falla": {
-    "Eléctrica": [
-      "Cortocircuito",
-      "Empalme electrico",
-      "Fusible Cortado",
-      "Falla Fuente switching",
+    "Auditoría": [
+      "Toma de Lectura Inicial",
+      "Toma de Lectura Final",
+      "Validación Data"
+    ],
+    "Comunicación": [
+      "Max 232",
+      "Placa Conversor RS232 mala",
+      "Conector DB9",
+      "Router",
+      "Amplimax",
+      "Sim",
+      "Conector tx rx",
+      "ID Erróneo",
+      "Desconfiguracion",
       "Intervencion de terceros",
-      "Cargador Solar",
-      "Bateria Descargada"
+      "Revisión tecnica",
+      "Up grade",
+      "Cable de Red Dañado"
+    ],
+    "Construccion": [
+      "Reparación Camara",
+      "Canalización"
     ],
     "Electrónica": [
       "Componente dañado",
@@ -239,20 +254,14 @@
       "Sensor de movimiento",
       "Up grade"
     ],
-    "Comunicación": [
-      "Max 232",
-      "Placa Conversor RS232 mala",
-      "Conector DB9",
-      "Router",
-      "Amplimax",
-      "Sim",
-      "Conector tx rx",
-      "ID Erróneo",
-      "Desconfiguracion",
+    "Eléctrica": [
+      "Cortocircuito",
+      "Empalme electrico",
+      "Fusible Cortado",
+      "Falla Fuente switching",
       "Intervencion de terceros",
-      "Revisión tecnica",
-      "Up grade",
-      "Cable de Red Dañado"
+      "Cargador Solar",
+      "Bateria Descargada"
     ],
     "Hídrica": [
       "Sensor de Pulso",
@@ -275,11 +284,6 @@
       "Desprogramacion",
       "Descalibracion Peso Pulso"
     ],
-    "Auditoría": [
-      "Toma de Lectura Inicial",
-      "Toma de Lectura Final",
-      "Validación Data"
-    ],
     "Ultrasonido": [
       "Renovación Silicona",
       "Transductor Defectuoso",
@@ -290,10 +294,6 @@
     ],
     "Up grade": [
       "Instalación"
-    ],
-    "Construccion": [
-      "Reparación Camara",
-      "Canalización"
     ]
   },
   "opciones": {
@@ -387,6 +387,5 @@
     ]
   },
   "contactos": {},
-  "fuente_puntos": "CONTACTOS_ENVIOS_ACTAS!Clientes_catalogo",
-  "sync_note": "Embebido de respaldo; getCatalogos() lee el Sheet vivo"
+  "fuente_puntos": "MAESTRO_FORMULARIO_WES!Puntos"
 }

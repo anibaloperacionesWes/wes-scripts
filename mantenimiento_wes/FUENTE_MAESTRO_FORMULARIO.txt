@@ -1,0 +1,13 @@
+MAESTRO DEL FORMULARIO (configuración)
+======================================
+Archivo: MAESTRO_FORMULARIO_WES.xlsx
+Path:    G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes\MAESTRO_FORMULARIO_WES.xlsx
+Hojas:   Puntos | Contactos | Tecnicos | Fallas | Opciones
+
+HISTORIAL + EVALUACIONES (archivo separado)
+===========================================
+Registro de fallas WES → hoja Datos (+ resúmenes/pareto)
+https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
+
+Sync: 2026-08-18T03:16:25
+RENCA: ESCUELA LO VELEZQUEZ, GIMNASIO MUNICIPAL, ICCO, ICCP, PISCINA MUNICIPAL
