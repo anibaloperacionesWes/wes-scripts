@@ -110,7 +110,8 @@ MALLS: List[Dict[str, Any]] = [
         "recepcion": "29/04/2026 (Anillo Norte / Anillo Sur)",
         "capacitacion": "12/12/2025",
         "usuarios": "Joceline Lazo  ·  Constanza Vilches",
-        "caption": "Anillo Norte y Anillo Sur cubren el recinto.",
+        "sin_mayo": True,
+        "caption": "Cambio de monitoreo: se dejó Baños y Matriz Principal. Anillo Norte y Sur con lectura correcta desde el 19/05 (mayo no se grafica).",
     },
     {
         "code": "PAK",
@@ -130,7 +131,7 @@ MALLS: List[Dict[str, Any]] = [
         "recepcion": "12/12/2025",
         "capacitacion": "17/12/2025",
         "usuarios": "Francisco Jeldres  ·  Paula Azolas  ·  Mantención: C. Naranjo, M. Jara, R. Moreno, R. Díaz, J. Gutiérrez, H. Fierro",
-        "caption": "Totales de cabecera. DL, Bazar y Kennedy no se suman (doble conteo).",
+        "caption": "No se suman 000025-27 (Distrito de Lujo) ni 35 y 36 (subdivisión de Sandía Antigua).",
     },
 ]
 
@@ -728,25 +729,34 @@ def chart_horas_en_cero(
     return {"norte_horas_cero": horas_cero, "pizza_horas_cero": pizza_cero, "n_norte": len(dias)}
 
 
-def chart_mensual(path: Path, tot: Dict[str, float]) -> None:
-    """Mayo–julio cerrados; agosto apilado (a la fecha + proyección al 31)."""
-    fig, ax = plt.subplots(figsize=(9.4, 4.55), dpi=160)
-    x = np.arange(4)
-    w = 0.62
-    may, jun, jul = tot["may"], tot["jun"], tot["jul"]
-    ago, proy = tot["ago"], tot["ago_proy"]
+def chart_mensual(path: Path, tot: Dict[str, float], sin_mayo: bool = False) -> None:
+    """Meses cerrados + agosto apilado (a la fecha + proyección al 31)."""
+    cerrados: List[float] = []
+    labels: List[str] = []
+    if not sin_mayo:
+        cerrados.append(float(tot["may"]))
+        labels.append("Mayo")
+    cerrados.extend([float(tot["jun"]), float(tot["jul"])])
+    labels.extend(["Junio", "Julio"])
+    ago, proy = float(tot["ago"]), float(tot["ago_proy"])
     resto = max(proy - ago, 0.0)
+    labels.append(f"Agosto\n({AGO_ETQ} + proy.)")
+    n = len(cerrados) + 1
+    last = n - 1
+    x = np.arange(n)
+    w = 0.58
 
+    fig, ax = plt.subplots(figsize=(9.4, 4.75), dpi=160)
     ax.bar(
-        x[:3],
-        [may, jun, jul],
+        x[:last],
+        cerrados,
         width=w,
         color=_hex(NAVY),
         zorder=3,
         label="Mes cerrado",
     )
     ax.bar(
-        [3],
+        [last],
         [ago],
         width=w,
         color=_hex(GOLD),
@@ -754,7 +764,7 @@ def chart_mensual(path: Path, tot: Dict[str, float]) -> None:
         label=f"Agosto {AGO_ETQ} (a la fecha)",
     )
     ax.bar(
-        [3],
+        [last],
         [resto],
         width=w,
         bottom=[ago],
@@ -766,12 +776,7 @@ def chart_mensual(path: Path, tot: Dict[str, float]) -> None:
     )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(
-        ["Mayo", "Junio", "Julio", f"Agosto\n({AGO_ETQ} + proy.)"],
-        fontsize=11,
-        color=_hex(NAVY),
-        fontweight="bold",
-    )
+    ax.set_xticklabels(labels, fontsize=11, color=_hex(NAVY), fontweight="bold")
     ax.set_ylabel("m³", fontsize=11, color=_hex(NAVY))
     ax.tick_params(axis="y", labelsize=10, colors=_hex(NAVY))
     ax.spines["top"].set_visible(False)
@@ -781,10 +786,12 @@ def chart_mensual(path: Path, tot: Dict[str, float]) -> None:
     ax.yaxis.grid(True, linestyle=":", alpha=0.55, zorder=0)
     ax.set_axisbelow(True)
 
-    ymax = max(may, jun, jul, proy) * 1.18 if max(may, jun, jul, proy) > 0 else 1
+    pico = max(cerrados + [proy, ago, 1.0])
+    ymax = pico * 1.16
     ax.set_ylim(0, ymax)
+    ax.set_xlim(-0.62, last + 1.15)
 
-    for i, v in enumerate([may, jun, jul]):
+    for i, v in enumerate(cerrados):
         ax.text(
             i,
             v + ymax * 0.02,
@@ -795,38 +802,53 @@ def chart_mensual(path: Path, tot: Dict[str, float]) -> None:
             color=_hex(NAVY),
             fontweight="bold",
         )
-    # Etiqueta del tramo real de agosto (dentro de la barra dorada)
-    ax.text(
-        3,
-        ago * 0.50,
-        fn(ago, 0),
-        ha="center",
-        va="center",
-        fontsize=11,
-        color="white",
-        fontweight="bold",
-    )
-    ax.text(
-        3,
-        proy + ymax * 0.02,
+    if ago >= ymax * 0.14:
+        ax.text(
+            last,
+            ago * 0.50,
+            fn(ago, 0),
+            ha="center",
+            va="center",
+            fontsize=11,
+            color="white",
+            fontweight="bold",
+        )
+    else:
+        ax.text(
+            last - 0.38,
+            max(ago, ymax * 0.04),
+            fn(ago, 0),
+            ha="right",
+            va="center",
+            fontsize=10,
+            color=_hex(GOLD),
+            fontweight="bold",
+        )
+    ax.annotate(
         f"proy. {fn(proy, 0)}",
-        ha="center",
-        va="bottom",
+        xy=(last + w / 2, proy),
+        xytext=(last + 0.48, proy),
         fontsize=11,
         color=_hex(NAVY),
         fontweight="bold",
+        va="center",
+        ha="left",
+        arrowprops=dict(arrowstyle="-", color=_hex(GOLD), lw=0.8),
     )
 
     leg = ax.legend(
-        loc="upper right",
+        loc="upper center",
+        bbox_to_anchor=(0.48, -0.18),
+        ncol=3,
         frameon=False,
-        fontsize=9,
+        fontsize=8.5,
         labelcolor=_hex(NAVY),
     )
     for t in leg.get_texts():
         t.set_color(_hex(NAVY))
 
-    fig.tight_layout(pad=0.35)
+    fig.tight_layout(pad=0.30)
+    fig.subplots_adjust(bottom=0.22)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", facecolor="white")
     plt.close(fig)
@@ -1070,7 +1092,7 @@ def _slide_presentacion(
             _tb(sl, x + 0.10, y + 0.46, w - 0.18, 0.18, [(nota, 10, False, GRAY)])
 
     ch_mes = CHARTS / f"{mall['code'].lower()}_mensual_may_ago.png"
-    chart_mensual(ch_mes, tot)
+    chart_mensual(ch_mes, tot, sin_mayo=bool(mall.get("sin_mayo")))
     chart_h = 6.14 - chart_top
     _caja(sl, 0.22, chart_top, 8.72, chart_h)
     sl.shapes.add_picture(
@@ -1147,7 +1169,8 @@ def _slide_presentacion(
         0.62,
         [
             (
-                f"Mayo {fn(tot['may'], 0)}   ·   Junio {fn(tot['jun'], 0)}   ·   "
+                ("" if mall.get("sin_mayo") else f"Mayo {fn(tot['may'], 0)}   ·   ")
+                + f"Junio {fn(tot['jun'], 0)}   ·   "
                 f"Julio {fn(tot['jul'], 0)}   ·   Agosto {AGO_ETQ}: {fn(tot['ago'], 0)}   ·   "
                 f"proy. ago {fn(tot['ago_proy'], 0)} m³.",
                 12,
