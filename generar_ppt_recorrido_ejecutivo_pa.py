@@ -45,6 +45,7 @@ JSON_DATOS = OUT_DIR / "datos_mae_may_ago.json"
 JSON_MAM = OUT_DIR / "datos_mam_may_ago.json"
 JSON_NOCHES = OUT_DIR / "noches_control_mae.json"
 JSON_PAK_CADENA = OUT_DIR / "noches_cadena_pak.json"
+JSON_MAM_PLACA = OUT_DIR / "noches_mam_placa.json"
 JSON_PERFILES = OUT_DIR / "perfiles_horarios_control_mae.json"
 LOGO = ROOT / "logo wes.bmp"
 FONDO = ROOT / "Parque arauco fondo.jpg"
@@ -57,6 +58,12 @@ DIA_PAK_NOCHE = date(2026, 8, 10)
 JUL_NOCHE_D0 = date(2026, 7, 1)
 JUL_NOCHE_D1 = date(2026, 7, 31)
 FALABELLA = "000025-09"
+PLACA = "000025-08"
+FALABELLA_DESDE = date(2026, 8, 11)
+PASILLO = "000025-32"
+ARROW = "000025-33"
+UMBRAL_PLACA_DIA = 155.0
+UMBRAL_PLACA_NOCHE = 5.0
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -77,7 +84,7 @@ MALLS: List[Dict[str, Any]] = [
         "recepcion": "06/11/2025",
         "capacitacion": "14/11/2025",
         "usuarios": "Miguel Rupayan  ·  Constanza Vilches  ·  Mantención: C. Bustamante, O. Cuevas y Supervisor Eléctrico",
-        "caption": "Junio sube por Placa (18/06). Falabella no entra en julio: activo desde el 11/08.",
+        "caption": "Junio sube por Placa (18/06). Falabella activo 11/08. Lámina 2: noche, umbral y reubicación.",
     },
     {
         "code": "MAQ",
@@ -487,6 +494,66 @@ def refrescar_cadena_pak() -> Dict[str, Any]:
                     print(f"  {i}/{len(pendientes_n)} noches cadena PAK", flush=True)
     payload = {"perfil": perfil, "n06": n06}
     JSON_PAK_CADENA.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
+
+
+def cargar_mam_placa() -> Dict[str, Any]:
+    if not JSON_MAM_PLACA.is_file():
+        return {"perfil": {}, "n06": {}}
+    raw = json.loads(JSON_MAM_PLACA.read_text(encoding="utf-8"))
+    return {"perfil": raw.get("perfil") or {}, "n06": raw.get("n06") or {}}
+
+
+def refrescar_mam_placa() -> Dict[str, Any]:
+    """Perfil 10/08 de Placa y m³ 00:00–06:00 (julio + agosto a la fecha) de Placa y Falabella."""
+    from generar_reporte_word import get_hourly_measures_for_day
+
+    data = cargar_mam_placa()
+    perfil: Dict[str, Dict[str, Any]] = data.get("perfil") or {}
+    n06: Dict[str, Dict[str, float]] = data.get("n06") or {}
+    iso_perfil = date(2026, 8, 10).isoformat()
+    perfil.setdefault(PLACA, {})
+    pendientes_p: List[str] = []
+    if iso_perfil not in perfil[PLACA]:
+        pendientes_p.append(PLACA)
+    pendientes_n: List[Tuple[str, date]] = []
+    n06.setdefault(PLACA, {})
+    n06.setdefault(FALABELLA, {})
+    for d in _rango_dias(JUL_NOCHE_D0, HASTA):
+        if d.isoformat() not in n06[PLACA]:
+            pendientes_n.append((PLACA, d))
+    for d in _rango_dias(FALABELLA_DESDE, HASTA):
+        if d.isoformat() not in n06[FALABELLA]:
+            pendientes_n.append((FALABELLA, d))
+    print(
+        f"[INFO] MAM Placa: {len(pendientes_p)} perfiles + {len(pendientes_n)} noches",
+        flush=True,
+    )
+
+    def _perfil(nid: str) -> Tuple[str, Dict[str, float]]:
+        serie = get_hourly_measures_for_day(nid, datetime(2026, 8, 10)) or []
+        rec = {str(int(h)): round(float(v), 3) for h, v in serie}
+        return nid, rec
+
+    def _noche(nid: str, d: date) -> Tuple[str, str, float]:
+        serie = get_hourly_measures_for_day(nid, datetime(d.year, d.month, d.day)) or []
+        return nid, d.isoformat(), round(_n06_de_serie(serie), 2)
+
+    if pendientes_p:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            for fut in as_completed([pool.submit(_perfil, nid) for nid in pendientes_p]):
+                nid, rec = fut.result()
+                perfil[nid][iso_perfil] = rec
+    if pendientes_n:
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futs = [pool.submit(_noche, nid, d) for nid, d in pendientes_n]
+            for i, fut in enumerate(as_completed(futs), 1):
+                nid, iso, v = fut.result()
+                n06[nid][iso] = v
+                if i % 15 == 0 or i == len(pendientes_n):
+                    print(f"  {i}/{len(pendientes_n)} noches MAM Placa", flush=True)
+    payload = {"perfil": perfil, "n06": n06}
+    JSON_MAM_PLACA.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
 
 
@@ -1020,7 +1087,127 @@ def chart_pak_noches_julio(path: Path, n06: Dict[str, Dict[str, float]]) -> Dict
     return med
 
 
-def _set_run(run, text: str, size: int, bold: bool = False, color=NAVY) -> None:
+def chart_mam_placa_perfil(path: Path, rec: Dict[str, float]) -> float:
+    """Perfil 10/08 de Placa Bancaria; sombra 00:00–06:00."""
+    horas = list(range(24))
+    ys = [float(rec.get(str(h), rec.get(h, 0.0)) or 0.0) for h in horas]
+    n06 = sum(ys[h] for h in horas if h < 6)
+    fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
+    ax.plot(
+        horas,
+        ys,
+        color=_hex(COLOR_NODO[PLACA]),
+        linewidth=2.0,
+        marker="o",
+        markersize=3.5,
+        zorder=3,
+        label="Placa Bancaria",
+    )
+    ax.axvspan(-0.4, 5.5, color="#F4E6C8", alpha=0.55, zorder=0)
+    ax.set_xlim(-0.4, 23.4)
+    ax.set_xticks([0, 3, 6, 9, 12, 15, 18, 21, 23])
+    ax.set_xticklabels(
+        [f"{h:02d}" for h in (0, 3, 6, 9, 12, 15, 18, 21, 23)],
+        fontsize=8,
+        color=_hex(NAVY),
+    )
+    ax.set_ylabel("m³/h", fontsize=10, color=_hex(NAVY))
+    ax.set_xlabel("Hora del 10/08", fontsize=9, color=_hex(NAVY))
+    ax.tick_params(axis="y", labelsize=8, colors=_hex(NAVY))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5CDD6")
+    ax.spines["bottom"].set_color("#C5CDD6")
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=1)
+    ax.set_axisbelow(True)
+    ax.legend(frameon=False, fontsize=8, loc="upper left", labelcolor=_hex(NAVY))
+    ymax = ax.get_ylim()[1]
+    ax.text(
+        2.4,
+        ymax * 0.92 if ymax else 1,
+        f"madrugada 00–06: {fn(n06, 1)} m³",
+        fontsize=8,
+        color="#8A6A12",
+        fontweight="bold",
+        ha="center",
+    )
+    fig.tight_layout(pad=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return n06
+
+
+def chart_mam_placa_vs_falabella(
+    path: Path, daily_p: Dict[str, float], daily_f: Dict[str, float]
+) -> None:
+    """m³/día Placa vs Falabella desde el 11/08."""
+    dias = _rango_dias(FALABELLA_DESDE, HASTA)
+    x = np.arange(len(dias))
+    w = 0.36
+    yp = [float(daily_p.get(d.isoformat(), 0.0) or 0.0) for d in dias]
+    yf = [float(daily_f.get(d.isoformat(), 0.0) or 0.0) for d in dias]
+    fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
+    ax.bar(x - w / 2, yp, w, color=_hex(COLOR_NODO[PLACA]), zorder=3, label="Placa Bancaria")
+    ax.bar(x + w / 2, yf, w, color=_hex(COLOR_NODO[FALABELLA]), zorder=3, label="Falabella")
+    ax.set_xticks(x)
+    ax.set_xticklabels([d.strftime("%d/%m") for d in dias], fontsize=8, color=_hex(NAVY))
+    ax.set_ylabel("m³/día", fontsize=10, color=_hex(NAVY))
+    ax.tick_params(axis="y", labelsize=8, colors=_hex(NAVY))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5CDD6")
+    ax.spines["bottom"].set_color("#C5CDD6")
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=1)
+    ax.set_axisbelow(True)
+    ax.legend(frameon=False, fontsize=8, loc="upper left", labelcolor=_hex(NAVY))
+    fig.tight_layout(pad=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+def chart_mam_placa_noches(path: Path, n06: Dict[str, float]) -> float:
+    """m³ 00:00–06:00 de Placa Bancaria, julio–agosto a la fecha."""
+    dias = _rango_dias(JUL_NOCHE_D0, HASTA)
+    ys = [float(n06.get(d.isoformat(), 0.0) or 0.0) for d in dias]
+    med = _mediana(ys)
+    fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
+    ax.plot(
+        dias,
+        ys,
+        color=_hex(COLOR_NODO[PLACA]),
+        linewidth=1.7,
+        marker="o",
+        markersize=3.0,
+        zorder=3,
+        label="Placa Bancaria",
+    )
+    ax.axhline(
+        UMBRAL_PLACA_NOCHE,
+        color=_hex(GOLD),
+        linestyle=":",
+        linewidth=1.2,
+        zorder=4,
+        label=f"Umbral {fn(UMBRAL_PLACA_NOCHE, 0)} m³",
+    )
+    ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
+    ax.set_xlabel("Julio – agosto 2026", fontsize=9, color=_hex(NAVY))
+    ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
+    ax.tick_params(labelsize=8, colors=_hex(NAVY))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5CDD6")
+    ax.spines["bottom"].set_color("#C5CDD6")
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=1)
+    ax.set_axisbelow(True)
+    ax.legend(frameon=False, fontsize=8, loc="upper right", labelcolor=_hex(NAVY))
+    fig.tight_layout(pad=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return med
     run.text = text
     run.font.size = PptPt(size)
     run.font.bold = bold
@@ -1104,7 +1291,7 @@ def _portada(prs) -> None:
         [
             ("Una lámina de presentación por recinto", 16, False, WHITE),
             (f"Período {PERIODO}   |   Emisión {FECHA_EMISION}", 15, False, (220, 230, 240)),
-            ("Lámina 2: MAE hallazgos  ·  PAK cadena Sandía / Distrito de Lujo", 14, False, GOLD),
+            ("Lámina 2: MAE hallazgos  ·  MAM Placa Bancaria  ·  PAK cadena Sandía / DL", 14, False, GOLD),
         ],
     )
 
@@ -1479,10 +1666,107 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
     )
 
 
+def _slide_mam_placa(prs, by: Dict[str, Dict[str, Any]], mam: Dict[str, Any]) -> None:
+    """Placa Bancaria: noche, umbral, reubicación de residuales y cruce vs Falabella."""
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl,
+        prs,
+        "MAM  ·  2. Placa Bancaria",
+        "Mayor consumo del recinto  ·  noche  ·  umbral  ·  Placa vs Falabella desde el 11/08",
+    )
+    daily_p = (by.get(PLACA) or {}).get("daily") or {}
+    daily_f = (by.get(FALABELLA) or {}).get("daily") or {}
+    perfil = ((mam.get("perfil") or {}).get(PLACA) or {}).get("2026-08-10") or {}
+    n06_p = (mam.get("n06") or {}).get(PLACA) or {}
+    ch_n = CHARTS / "mam_placa_noches_jul_ago.png"
+    ch_f = CHARTS / "mam_placa_vs_falabella.png"
+    med_noche = chart_mam_placa_noches(ch_n, n06_p)
+    chart_mam_placa_vs_falabella(ch_f, daily_p, daily_f)
+    n10 = sum(float(perfil.get(str(h), perfil.get(h, 0.0)) or 0.0) for h in range(6))
+    if n10 <= 0:
+        n10 = float(n06_p.get("2026-08-10", 0.0) or 0.0)
+
+    jul_p = float((by.get(PLACA) or {}).get("jul") or 0)
+    jul_tot = sum(float((by.get(n) or {}).get("jul") or 0) for n in MAM_NODOS)
+    pct_jul = (jul_p / jul_tot * 100.0) if jul_tot else 0.0
+    jul_pas = float((by.get(PASILLO) or {}).get("jul") or 0)
+    jul_arr = float((by.get(ARROW) or {}).get("jul") or 0)
+
+    dias_cmp = _rango_dias(FALABELLA_DESDE, date(2026, 8, 14))
+    sp = sum(float(daily_p.get(d.isoformat(), 0.0) or 0.0) for d in dias_cmp)
+    sf = sum(float(daily_f.get(d.isoformat(), 0.0) or 0.0) for d in dias_cmp)
+    n_cmp = max(len(dias_cmp), 1)
+    mp, mf = sp / n_cmp, sf / n_cmp
+    dias_late = _rango_dias(date(2026, 8, 15), HASTA)
+    sp_l = sum(float(daily_p.get(d.isoformat(), 0.0) or 0.0) for d in dias_late)
+    sf_l = sum(float(daily_f.get(d.isoformat(), 0.0) or 0.0) for d in dias_late)
+
+    _caja(sl, 0.22, 1.08, 12.88, 0.78, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.40,
+        1.14,
+        12.55,
+        0.66,
+        [
+            (
+                f"Placa Bancaria se lleva {fn(pct_jul, 0)} % de julio ({fn(jul_p, 0)} m³). "
+                f"Pasillo Técnico ({fn(jul_pas, 0)} m³) y ARROW ({fn(jul_arr, 1)} m³) son residuales. "
+                "Propuesta: reubicar esos dos puntos para subdividir Placa y ver qué zona alimenta el volumen. "
+                "La madrugada de Placa ya está ~0: un control on/off ahorra poco de noche; el valor está en partir el caudal diurno.",
+                13,
+                False,
+                NAVY,
+            )
+        ],
+    )
+
+    _caja(sl, 0.22, 1.96, 6.38, 4.10)
+    _tb(sl, 0.36, 2.00, 6.10, 0.22, [("NOCHES DE PLACA — m³ 00:00–06:00 (jul–ago)", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 0.32, 2.24, 6.18, 3.72)
+
+    _caja(sl, 6.74, 1.96, 6.36, 4.10)
+    _tb(sl, 6.88, 2.00, 6.08, 0.22, [("PLACA vs FALABELLA — m³/día desde el 11/08", 11, True, TEAL)])
+    _fit_picture(sl, ch_f, 6.84, 2.24, 6.16, 3.72)
+
+    _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.40,
+        6.20,
+        12.55,
+        1.06,
+        [
+            (
+                f"Umbral a cargar: diario Placa {fn(UMBRAL_PLACA_DIA, 0)} m³/día "
+                f"(agosto operativo × 1,25; atrapa un salto tipo junio ~410). "
+                f"Nocturno {fn(UMBRAL_PLACA_NOCHE, 0)} m³ en 00–06 "
+                f"(julio–ago mediana {fn(med_noche, 1)} m³; el 10/08 = {fn(n10, 1)} m³). "
+                "Falabella aún sin umbral fijo (2–3 semanas de baseline).",
+                12,
+                False,
+                NAVY,
+            ),
+            (
+                f"11–14/08: Placa {fn(mp, 0)} m³/día vs Falabella {fn(mf, 0)} m³/día "
+                f"(Placa ~{fn(mp / mf, 1) if mf else 0} veces Falabella). "
+                f"15–17/08 Placa suma {fn(sp_l, 0)} m³ y Falabella {fn(sf_l, 0)} m³: "
+                "validar en terreno si Placa se cortó o dejó de medir. "
+                "Prioridad: reubicar Pasillo Técnico y ARROW para subdividir Placa.",
+                12,
+                True,
+                NAVY,
+            ),
+        ],
+    )
+
+
 def build_ppt(
     by: Dict[str, Dict[str, Any]],
     hourly: Dict[str, Dict[str, float]],
     cadena_pak: Dict[str, Any],
+    mam_placa: Dict[str, Any],
 ) -> Path:
     prs = Presentation()
     prs.slide_width = PptInches(13.333)
@@ -1494,6 +1778,8 @@ def build_ppt(
         _slide_presentacion(prs, mall, by, tot)
         if mall["code"] == "MAE":
             _slide_hallazgos(prs, by, hourly)
+        if mall["code"] == "MAM":
+            _slide_mam_placa(prs, by, mam_placa)
         if mall["code"] == "PAK":
             _slide_pak_cadena(prs, by, cadena_pak)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1514,6 +1800,8 @@ def main() -> int:
         refrescar_noches()
     if not skip or not JSON_PAK_CADENA.is_file():
         refrescar_cadena_pak()
+    if not skip or not JSON_MAM_PLACA.is_file():
+        refrescar_mam_placa()
     _names, by, _tot = cargar_mall(JSON_ALL, todos)
     hourly = cargar_noches()
     if not (hourly.get("000025-07") and hourly.get("000025-01")):
@@ -1526,7 +1814,11 @@ def main() -> int:
         or JUL_NOCHE_D1.isoformat() not in n06_27
     ):
         cadena_pak = refrescar_cadena_pak()
-    ppt = build_ppt(by, hourly, cadena_pak)
+    mam_placa = cargar_mam_placa()
+    n06_pl = ((mam_placa.get("n06") or {}).get(PLACA) or {})
+    if JUL_NOCHE_D0.isoformat() not in n06_pl or HASTA.isoformat() not in n06_pl:
+        mam_placa = refrescar_mam_placa()
+    ppt = build_ppt(by, hourly, cadena_pak, mam_placa)
     print("\n=== SALIDA ===")
     print(ppt)
     for mall in MALLS:
