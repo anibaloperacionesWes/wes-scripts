@@ -456,7 +456,6 @@ def refrescar_cadena_pak() -> Dict[str, Any]:
         for d in _rango_dias(JUL_NOCHE_D0, JUL_NOCHE_D1):
             if d.isoformat() not in n06[nid]:
                 pendientes_n.append((nid, d))
-        # 10/08 entra al perfil 24 h; no hace falta toda la serie de agosto.
     print(
         f"[INFO] Cadena PAK: {len(pendientes_p)} perfiles + {len(pendientes_n)} noches",
         flush=True,
