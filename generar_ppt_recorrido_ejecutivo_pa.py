@@ -7,7 +7,7 @@ Esta versión: MAE.
 
   1) Equipos instalados — 4 puntos del deck (sin 000025-02)
   2) Consumo mensualizado — gráfico mayo → fecha (agosto a la fecha vs proyección)
-  3) Hallazgos — Estanque Sur tras presostatos (diario) + controles nocturnos
+  3) Hallazgos — Estanque Sur (presostatos, diario) + horas en cero del control nocturno
 
 Uso:
   python3 generar_ppt_recorrido_ejecutivo_pa.py
@@ -29,6 +29,8 @@ matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Patch
 from pptx import Presentation
 from pptx.dml.color import RGBColor as PptRGB
 from pptx.enum.shapes import MSO_SHAPE
@@ -42,6 +44,7 @@ OUT_DIR = ROOT / "reports" / "Parque_Arauco" / "TMP_7MALLS" / "entrega_diego_ani
 CHARTS = OUT_DIR / "charts_recorrido_mae"
 JSON_DATOS = OUT_DIR / "datos_mae_may_ago.json"
 JSON_NOCHES = OUT_DIR / "noches_control_mae.json"
+JSON_PERFILES = OUT_DIR / "perfiles_horarios_control_mae.json"
 LOGO = ROOT / "logo wes.bmp"
 FONDO = ROOT / "Parque arauco fondo.jpg"
 
@@ -91,6 +94,13 @@ GOLD_SOFT = (232, 213, 163)
 
 def fn(v: float, dec: int = 1) -> str:
     return format_number_chilean(float(v), dec)
+
+
+def _rango_horas(horas: List[int]) -> str:
+    if not horas:
+        return "—"
+    h = sorted(horas)
+    return f"{h[0]:02d}:00–{h[-1]:02d}:00"
 
 
 def _rgb(t: Tuple[int, int, int]) -> PptRGB:
@@ -214,6 +224,52 @@ def cargar_noches() -> Dict[str, Dict[str, float]]:
     return json.loads(JSON_NOCHES.read_text(encoding="utf-8")).get("hourly") or {}
 
 
+def cargar_perfiles() -> Dict[str, Dict[str, Dict[str, float]]]:
+    if not JSON_PERFILES.is_file():
+        return {}
+    return json.loads(JSON_PERFILES.read_text(encoding="utf-8")).get("by_h") or {}
+
+
+def refrescar_perfiles() -> Dict[str, Dict[str, Dict[str, float]]]:
+    """Perfil horario 0–7 h en días con control (para marcar horas en cero)."""
+    from generar_reporte_word import get_hourly_measures_for_day
+
+    by_h: Dict[str, Dict[str, Dict[str, float]]] = cargar_perfiles() or {
+        "000025-01": {},
+        "000025-07": {},
+        "000025-19": {},
+    }
+    pendientes: List[Tuple[str, date]] = []
+    for nid, d0, d1 in (
+        ("000025-01", CTRL_NORTE, HASTA),
+        ("000025-07", CTRL_PIZZA, HASTA),
+    ):
+        by_h.setdefault(nid, {})
+        for d in _rango_dias(d0, d1):
+            if d.isoformat() not in by_h[nid]:
+                pendientes.append((nid, d))
+    print(f"[INFO] Perfiles horarios a descargar: {len(pendientes)}", flush=True)
+
+    def _uno(nid: str, d: date) -> Tuple[str, str, Dict[str, float]]:
+        serie = get_hourly_measures_for_day(nid, datetime(d.year, d.month, d.day)) or []
+        rec = {str(int(h)): round(float(v), 3) for h, v in serie}
+        return nid, d.isoformat(), rec
+
+    if pendientes:
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futs = [pool.submit(_uno, nid, d) for nid, d in pendientes]
+            for i, fut in enumerate(as_completed(futs), 1):
+                nid, iso, rec = fut.result()
+                by_h[nid][iso] = rec
+                if i % 20 == 0 or i == len(pendientes):
+                    print(f"  {i}/{len(pendientes)} perfiles", flush=True)
+    JSON_PERFILES.write_text(
+        json.dumps({"by_h": by_h}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return by_h
+
+
 def _mediana(vals: List[float]) -> float:
     if not vals:
         return 0.0
@@ -320,49 +376,82 @@ def chart_sur_diario(path: Path, daily: Dict[str, float]) -> Dict[str, float]:
     return {"pre": pre, "post": post, "dia10": dia10}
 
 
-def chart_controles_nocturnos(path: Path, hourly: Dict[str, Dict[str, float]]) -> Dict[str, Dict[str, float]]:
-    """Noche típica (00:00–06:00) antes vs con control. Pizza Hut y Estanque Norte."""
-    st_p = _stats_noche(hourly, "000025-07", CTRL_PIZZA)
-    st_n = _stats_noche(hourly, "000025-01", CTRL_NORTE)
-    labels = ["Pizza Hut\ncontrol 01/07", "Estanque Norte\ncontrol 05/08"]
-    pre = [st_p["pre"], st_n["pre"]]
-    post = [st_p["post"], st_n["post"]]
-    x = np.arange(len(labels))
-    w = 0.34
+def chart_horas_en_cero(
+    path: Path,
+    perfiles: Dict[str, Dict[str, Dict[str, float]]],
+) -> Dict[str, Any]:
+    """Mapa día × hora: dorado = en cero. Estanque Norte desde el 05/08."""
+    cero = 0.05
+    horas = list(range(7))  # 00–06
+    norte = perfiles.get("000025-01") or {}
+    dias = sorted(
+        date.fromisoformat(k) for k in norte if date.fromisoformat(k) >= CTRL_NORTE
+    )
+    if not dias:
+        dias = []
+    mat = np.zeros((len(dias), len(horas)))
+    for i, d in enumerate(dias):
+        rec = norte.get(d.isoformat()) or {}
+        for j, h in enumerate(horas):
+            v = float(rec.get(str(h), 0.0) or 0.0)
+            mat[i, j] = 1.0 if v < cero else 0.0  # 1 = en cero
+
     fig, ax = plt.subplots(figsize=(5.55, 3.55), dpi=160)
-    b1 = ax.bar(x - w / 2, pre, w, color="#8FA4B8", label="Noche típica antes", zorder=3)
-    b2 = ax.bar(x + w / 2, post, w, color=_hex(GOLD), label="Noche con control", zorder=3)
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels, fontsize=9, color=_hex(NAVY))
-    ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
-    ax.tick_params(axis="y", labelsize=8, colors=_hex(NAVY))
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color("#C5CDD6")
-    ax.spines["bottom"].set_color("#C5CDD6")
-    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
-    ax.set_axisbelow(True)
-    ymax = max(pre + post + [1.0]) * 1.35
-    ax.set_ylim(0, ymax)
-    for bars in (b1, b2):
-        for b in bars:
-            h = b.get_height()
-            ax.text(
-                b.get_x() + b.get_width() / 2,
-                h + ymax * 0.03,
-                fn(h, 1),
-                ha="center",
-                va="bottom",
-                fontsize=10,
-                color=_hex(NAVY),
-                fontweight="bold",
-            )
-    ax.legend(frameon=False, fontsize=8, loc="upper right", labelcolor=_hex(NAVY))
-    fig.tight_layout(pad=0.25)
+    cmap = ListedColormap(["#0D3B66", "#C9A227"])
+    ax.imshow(mat, aspect="auto", cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
+    ax.set_xticks(range(len(horas)))
+    ax.set_xticklabels([f"{h:02d}" for h in horas], fontsize=9, color=_hex(NAVY))
+    ax.set_yticks(range(len(dias)))
+    ax.set_yticklabels([d.strftime("%d/%m") for d in dias], fontsize=8, color=_hex(NAVY))
+    ax.set_xlabel("Hora", fontsize=9, color=_hex(NAVY))
+    ax.tick_params(colors=_hex(NAVY))
+    for spine in ax.spines.values():
+        spine.set_color("#C5CDD6")
+    ax.set_xticks(np.arange(-0.5, len(horas), 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, len(dias), 1), minor=True)
+    ax.grid(which="minor", color="white", linestyle="-", linewidth=1.1)
+    ax.tick_params(which="minor", bottom=False, left=False)
+    ax.legend(
+        handles=[
+            Patch(facecolor="#C9A227", edgecolor="none", label="En cero"),
+            Patch(facecolor="#0D3B66", edgecolor="none", label="Con caudal"),
+        ],
+        loc="lower right",
+        frameon=False,
+        fontsize=8,
+        bbox_to_anchor=(1.02, -0.22),
+        ncol=2,
+        labelcolor=_hex(NAVY),
+    )
+    fig.tight_layout(pad=0.35)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    return {"000025-07": st_p, "000025-01": st_n}
+
+    # Horas que quedan en cero casi todas las noches (≥ 80 %).
+    n = len(dias) or 1
+    horas_cero = []
+    for j, h in enumerate(horas):
+        pct = 100.0 * float(mat[:, j].sum()) / n
+        if pct >= 80:
+            horas_cero.append(h)
+    pizza = perfiles.get("000025-07") or {}
+    pizza_dias = [
+        date.fromisoformat(k)
+        for k in pizza
+        if date.fromisoformat(k) >= CTRL_PIZZA and date.fromisoformat(k) not in PIZZA_NOCHES_ATIPICAS
+    ]
+    pizza_cero = []
+    if pizza_dias:
+        for h in horas:
+            c = 0
+            for d in pizza_dias:
+                v = float((pizza.get(d.isoformat()) or {}).get(str(h), 0) or 0)
+                if v < cero:
+                    c += 1
+            if 100.0 * c / len(pizza_dias) >= 80:
+                pizza_cero.append(h)
+    return {"norte_horas_cero": horas_cero, "pizza_horas_cero": pizza_cero, "n_norte": len(dias)}
 
 
 def chart_mensual_mae(path: Path, tot: Dict[str, float]) -> None:
@@ -679,21 +768,21 @@ def _slide_consumo(prs, by: Dict[str, Dict[str, Any]], tot: Dict[str, float]) ->
 def _slide_hallazgos(
     prs,
     by: Dict[str, Dict[str, Any]],
-    hourly: Dict[str, Dict[str, float]],
+    perfiles: Dict[str, Dict[str, Dict[str, float]]],
 ) -> None:
     sl = prs.slides.add_slide(prs.slide_layouts[6])
     _header_bar(
         sl,
         prs,
         "MAE  ·  3. Hallazgos",
-        "Estanque Sur: reparación de presostatos (10/06)  ·  Controles nocturnos: noche con control ≠ fuga",
+        "Estanque Sur: reparación de presostatos (10/06)  ·  Control nocturno: horas en cero",
     )
 
     daily_sur = (by.get("000025-19") or {}).get("daily") or {}
     ch_sur = CHARTS / "mae_sur_diario_presostatos.png"
-    ch_noc = CHARTS / "mae_controles_nocturnos.png"
+    ch_noc = CHARTS / "mae_horas_en_cero.png"
     st_sur = chart_sur_diario(ch_sur, daily_sur)
-    st_noc = chart_controles_nocturnos(ch_noc, hourly)
+    st_h = chart_horas_en_cero(ch_noc, perfiles)
     baja = st_sur["pre"] - st_sur["post"]
     pct = (baja / st_sur["pre"] * 100) if st_sur["pre"] else 0.0
 
@@ -720,7 +809,7 @@ def _slide_hallazgos(
     )
 
     _caja(sl, 0.22, 2.32, 5.78, 3.92)
-    _tb(sl, 0.36, 2.38, 5.50, 0.28, [("CONTROLES NOCTURNOS — lo que se consiguió", 11, True, TEAL)])
+    _tb(sl, 0.36, 2.38, 5.50, 0.28, [("ESTANQUE NORTE — horas en cero (desde 05/08)", 11, True, TEAL)])
     sl.shapes.add_picture(
         str(ch_noc), PptInches(0.36), PptInches(2.68), width=PptInches(5.48), height=PptInches(3.32)
     )
@@ -731,24 +820,8 @@ def _slide_hallazgos(
         str(ch_sur), PptInches(6.28), PptInches(2.68), width=PptInches(6.68), height=PptInches(3.32)
     )
 
-    st_p = st_noc["000025-07"]
-    st_n = st_noc["000025-01"]
-    if st_p["ahorro_noche"] < 0.2:
-        pizza_txt = (
-            f"Pizza Hut (01/07): noche típica {fn(st_p['pre'], 1)} → {fn(st_p['post'], 1)} m³. "
-            "El control sostiene el cero. El 26–29/07 la noche volvió (~40 m³); no entra a la mediana."
-        )
-    else:
-        pizza_txt = (
-            f"Pizza Hut (01/07): {fn(st_p['pre'], 1)} → {fn(st_p['post'], 1)} m³/noche "
-            f"({fn(st_p['ahorro_acum'], 0)} m³ en {int(st_p['n_post'])} noches)."
-        )
-    norte_txt = (
-        f"Estanque Norte (05/08): {fn(st_n['pre'], 1)} → {fn(st_n['post'], 1)} m³/noche "
-        f"(ahorro {fn(st_n['ahorro_noche'], 1)} m³/noche; "
-        f"{fn(st_n['ahorro_acum'], 0)} m³ en {int(st_n['n_post'])} noches). "
-        "Esa madrugada no se lee como fuga."
-    )
+    norte_r = _rango_horas(st_h.get("norte_horas_cero") or [])
+    pizza_r = _rango_horas(st_h.get("pizza_horas_cero") or [])
     _tb(
         sl,
         0.28,
@@ -756,12 +829,18 @@ def _slide_hallazgos(
         12.8,
         1.02,
         [
-            (pizza_txt, 12, False, NAVY),
-            (norte_txt, 12, False, NAVY),
             (
-                "Estanque Sur: corte on/off a cargo de mantención nocturna (no automático). "
-                "Noche con control: no se lee como fuga.",
-                11,
+                f"Estanque Norte (control 05/08): en cero {norte_r} "
+                f"({int(st_h.get('n_norte') or 0)} noches). "
+                "Algunos días el cero parte desde las 00:00 (p. ej. 05/08).",
+                12,
+                False,
+                NAVY,
+            ),
+            (
+                f"Pizza Hut (control 01/07): en cero {pizza_r}. "
+                "Estanque Sur: corte on/off de mantención nocturna.",
+                12,
                 False,
                 GRAY,
             ),
@@ -772,7 +851,7 @@ def _slide_hallazgos(
 def build_ppt(
     by: Dict[str, Dict[str, Any]],
     tot: Dict[str, float],
-    hourly: Dict[str, Dict[str, float]],
+    perfiles: Dict[str, Dict[str, Dict[str, float]]],
 ) -> Path:
     prs = Presentation()
     prs.slide_width = PptInches(13.333)
@@ -780,7 +859,7 @@ def build_ppt(
     _portada(prs)
     _slide_equipos(prs)
     _slide_consumo(prs, by, tot)
-    _slide_hallazgos(prs, by, hourly)
+    _slide_hallazgos(prs, by, perfiles)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / f"Recorrido_ejecutivo_PA_MAE_{HASTA.strftime('%Y%m%d')}.pptx"
     prs.save(str(path))
@@ -796,11 +875,13 @@ def main() -> int:
         refrescar_datos()
     if not skip or not JSON_NOCHES.is_file():
         refrescar_noches()
+    if not skip or not JSON_PERFILES.is_file():
+        refrescar_perfiles()
     _names, by, tot = cargar_mae()
-    hourly = cargar_noches()
-    if not hourly or not (hourly.get("000025-07") and hourly.get("000025-01")):
-        hourly = refrescar_noches()
-    ppt = build_ppt(by, tot, hourly)
+    perfiles = cargar_perfiles()
+    if not (perfiles.get("000025-01") and perfiles.get("000025-07")):
+        perfiles = refrescar_perfiles()
+    ppt = build_ppt(by, tot, perfiles)
     print("\n=== SALIDA ===")
     print(ppt)
     return 0
