@@ -7,7 +7,7 @@ Esta versión: MAE.
 
   1) Equipos instalados — 4 puntos del deck (sin 000025-02)
   2) Consumo mensualizado — gráfico mayo → fecha (agosto a la fecha vs proyección)
-  3) Hallazgos — Estanque Sur (presostatos, diario) + horas en cero del control nocturno
+  3) Hallazgos — Estanque Sur (presostatos) + control nocturno Norte (ahorro)
 
 Uso:
   python3 generar_ppt_recorrido_ejecutivo_pa.py
@@ -406,6 +406,63 @@ def chart_sur_diario(path: Path, daily: Dict[str, float]) -> Dict[str, float]:
     }
 
 
+def chart_controles_nocturnos(path: Path, hourly: Dict[str, Dict[str, float]]) -> Dict[str, Dict[str, float]]:
+    """Noche típica (00:00–06:00) antes vs con control. Pizza Hut y Estanque Norte."""
+    st_p = _stats_noche(hourly, "000025-07", CTRL_PIZZA)
+    st_n = _stats_noche(hourly, "000025-01", CTRL_NORTE)
+    labels = ["Pizza Hut\ncontrol 01/07", "Estanque Norte\ncontrol 05/08"]
+    pre = [st_p["pre"], st_n["pre"]]
+    post = [st_p["post"], st_n["post"]]
+    x = np.arange(len(labels))
+    w = 0.34
+    fig, ax = plt.subplots(figsize=(5.55, 3.55), dpi=160)
+    b1 = ax.bar(x - w / 2, pre, w, color="#8FA4B8", label="Noche típica antes", zorder=3)
+    b2 = ax.bar(x + w / 2, post, w, color=_hex(GOLD), label="Noche con control", zorder=3)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9, color=_hex(NAVY))
+    ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
+    ax.tick_params(axis="y", labelsize=8, colors=_hex(NAVY))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5CDD6")
+    ax.spines["bottom"].set_color("#C5CDD6")
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
+    ax.set_axisbelow(True)
+    ymax = max(pre + post + [1.0]) * 1.45
+    ax.set_ylim(0, ymax)
+    for bars in (b1, b2):
+        for b in bars:
+            h = b.get_height()
+            ax.text(
+                b.get_x() + b.get_width() / 2,
+                h + ymax * 0.03,
+                fn(h, 1),
+                ha="center",
+                va="bottom",
+                fontsize=10,
+                color=_hex(NAVY),
+                fontweight="bold",
+            )
+    # Ahorro Norte, sobre las barras del punto
+    if st_n["ahorro_noche"] >= 0.2:
+        ax.annotate(
+            f"ahorro {fn(st_n['ahorro_noche'], 1)} m³/noche\n{_clp(st_n['ahorro_noche'])}/noche",
+            xy=(1 + w / 2, st_n["post"]),
+            xytext=(1.22, ymax * 0.72),
+            fontsize=8.5,
+            color=_hex(NAVY),
+            fontweight="bold",
+            ha="left",
+            arrowprops=dict(arrowstyle="->", color=_hex(GOLD), lw=0.9),
+        )
+    ax.legend(frameon=False, fontsize=8, loc="upper left", labelcolor=_hex(NAVY))
+    fig.tight_layout(pad=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return {"000025-07": st_p, "000025-01": st_n}
+
+
 def chart_horas_en_cero(
     path: Path,
     perfiles: Dict[str, Dict[str, Dict[str, float]]],
@@ -798,23 +855,24 @@ def _slide_consumo(prs, by: Dict[str, Dict[str, Any]], tot: Dict[str, float]) ->
 def _slide_hallazgos(
     prs,
     by: Dict[str, Dict[str, Any]],
-    perfiles: Dict[str, Dict[str, Dict[str, float]]],
+    hourly: Dict[str, Dict[str, float]],
 ) -> None:
     sl = prs.slides.add_slide(prs.slide_layouts[6])
     _header_bar(
         sl,
         prs,
         "MAE  ·  3. Hallazgos",
-        "Estanque Sur: reparación de presostatos (10/06)  ·  Control nocturno: horas en cero",
+        "Estanque Sur: reparación de presostatos (10/06)  ·  Estanque Norte: control nocturno",
     )
 
     daily_sur = (by.get("000025-19") or {}).get("daily") or {}
     ch_sur = CHARTS / "mae_sur_diario_presostatos.png"
-    ch_noc = CHARTS / "mae_horas_en_cero.png"
+    ch_noc = CHARTS / "mae_controles_nocturnos.png"
     st_sur = chart_sur_diario(ch_sur, daily_sur)
-    st_h = chart_horas_en_cero(ch_noc, perfiles)
+    st_noc = chart_controles_nocturnos(ch_noc, hourly)
     baja = st_sur["baja"]
     pct = (baja / st_sur["pre"] * 100) if st_sur["pre"] else 0.0
+    st_n = st_noc["000025-01"]
 
     _caja(sl, 0.22, 1.08, 12.88, 1.28, fill=(255, 249, 235), line=GOLD)
     _tb(sl, 0.40, 1.14, 12.55, 0.26, [("ESTANQUE SUR  ·  PRESÓSTATOS", 11, True, GOLD)])
@@ -841,7 +899,7 @@ def _slide_hallazgos(
     )
 
     _caja(sl, 0.22, 2.46, 5.78, 3.78)
-    _tb(sl, 0.36, 2.52, 5.50, 0.26, [("ESTANQUE NORTE — horas en cero (desde 05/08)", 11, True, TEAL)])
+    _tb(sl, 0.36, 2.52, 5.50, 0.26, [("CONTROLES NOCTURNOS — noche típica antes vs con control", 11, True, TEAL)])
     sl.shapes.add_picture(
         str(ch_noc), PptInches(0.36), PptInches(2.80), width=PptInches(5.48), height=PptInches(3.20)
     )
@@ -852,8 +910,6 @@ def _slide_hallazgos(
         str(ch_sur), PptInches(6.28), PptInches(2.80), width=PptInches(6.68), height=PptInches(3.20)
     )
 
-    norte_r = _rango_horas(st_h.get("norte_horas_cero") or [])
-    pizza_r = _rango_horas(st_h.get("pizza_horas_cero") or [])
     _tb(
         sl,
         0.28,
@@ -862,15 +918,17 @@ def _slide_hallazgos(
         1.02,
         [
             (
-                f"Estanque Norte (control 05/08): en cero {norte_r} "
-                f"({int(st_h.get('n_norte') or 0)} noches). "
-                "Algunos días el cero parte desde las 00:00 (p. ej. 05/08).",
+                f"Estanque Norte (control 05/08): noche típica {fn(st_n['pre'], 1)} → "
+                f"{fn(st_n['post'], 1)} m³. Ahorro {fn(st_n['ahorro_noche'], 1)} m³/noche "
+                f"({_clp(st_n['ahorro_noche'])}/noche · {_clp(st_n['ahorro_noche'] * 30)}/mes). "
+                f"En {int(st_n['n_post'])} noches: {fn(st_n['ahorro_acum'], 0)} m³ = "
+                f"{_clp(st_n['ahorro_acum'])} (tarifa ${fn(TARIFA_CLP_M3, 0)}/m³).",
                 12,
                 False,
                 NAVY,
             ),
             (
-                f"Pizza Hut (control 01/07): en cero {pizza_r}. "
+                "Pizza Hut: control desde el 01/07. "
                 "Estanque Sur: corte on/off de mantención nocturna.",
                 12,
                 False,
@@ -883,7 +941,7 @@ def _slide_hallazgos(
 def build_ppt(
     by: Dict[str, Dict[str, Any]],
     tot: Dict[str, float],
-    perfiles: Dict[str, Dict[str, Dict[str, float]]],
+    hourly: Dict[str, Dict[str, float]],
 ) -> Path:
     prs = Presentation()
     prs.slide_width = PptInches(13.333)
@@ -891,7 +949,7 @@ def build_ppt(
     _portada(prs)
     _slide_equipos(prs)
     _slide_consumo(prs, by, tot)
-    _slide_hallazgos(prs, by, perfiles)
+    _slide_hallazgos(prs, by, hourly)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / f"Recorrido_ejecutivo_PA_MAE_{HASTA.strftime('%Y%m%d')}.pptx"
     prs.save(str(path))
@@ -907,13 +965,11 @@ def main() -> int:
         refrescar_datos()
     if not skip or not JSON_NOCHES.is_file():
         refrescar_noches()
-    if not skip or not JSON_PERFILES.is_file():
-        refrescar_perfiles()
     _names, by, tot = cargar_mae()
-    perfiles = cargar_perfiles()
-    if not (perfiles.get("000025-01") and perfiles.get("000025-07")):
-        perfiles = refrescar_perfiles()
-    ppt = build_ppt(by, tot, perfiles)
+    hourly = cargar_noches()
+    if not (hourly.get("000025-07") and hourly.get("000025-01")):
+        hourly = refrescar_noches()
+    ppt = build_ppt(by, tot, hourly)
     print("\n=== SALIDA ===")
     print(ppt)
     return 0
