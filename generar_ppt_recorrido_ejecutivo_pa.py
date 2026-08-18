@@ -62,8 +62,9 @@ PLACA = "000025-08"
 FALABELLA_DESDE = date(2026, 8, 11)
 PASILLO = "000025-32"
 ARROW = "000025-33"
-UMBRAL_PLACA_DIA = 155.0
-UMBRAL_PLACA_NOCHE = 15.0
+UMBRAL_PLACA_DIA = 290.0
+UMBRAL_FALABELLA_DIA = 140.0
+UMBRAL_NOCHE_MALL = 15.0
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -1167,15 +1168,21 @@ def chart_mam_placa_vs_falabella(
     plt.close(fig)
 
 
-def chart_mam_placa_noches(path: Path, n06: Dict[str, float]) -> float:
-    """m³ 00:00–06:00 de Placa Bancaria, julio–agosto a la fecha."""
+def chart_mam_placa_noches(
+    path: Path, n06_p: Dict[str, float], n06_f: Dict[str, float]
+) -> float:
+    """m³ 00:00–06:00: Placa (jul–ago) y Falabella (desde el 11/08)."""
     dias = _rango_dias(JUL_NOCHE_D0, HASTA)
-    ys = [float(n06.get(d.isoformat(), 0.0) or 0.0) for d in dias]
-    med = _mediana(ys)
+    ys_p = [float(n06_p.get(d.isoformat(), 0.0) or 0.0) for d in dias]
+    ys_f = [
+        float(n06_f.get(d.isoformat(), 0.0) or 0.0) if d >= FALABELLA_DESDE else float("nan")
+        for d in dias
+    ]
+    med = _mediana(ys_p)
     fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
     ax.plot(
         dias,
-        ys,
+        ys_p,
         color=_hex(COLOR_NODO[PLACA]),
         linewidth=1.7,
         marker="o",
@@ -1183,13 +1190,23 @@ def chart_mam_placa_noches(path: Path, n06: Dict[str, float]) -> float:
         zorder=3,
         label="Placa Bancaria",
     )
+    ax.plot(
+        dias,
+        ys_f,
+        color=_hex(COLOR_NODO[FALABELLA]),
+        linewidth=1.8,
+        marker="o",
+        markersize=3.5,
+        zorder=4,
+        label="Falabella",
+    )
     ax.axhline(
-        UMBRAL_PLACA_NOCHE,
+        UMBRAL_NOCHE_MALL,
         color=_hex(GOLD),
         linestyle=":",
         linewidth=1.2,
         zorder=4,
-        label=f"Umbral {fn(UMBRAL_PLACA_NOCHE, 0)} m³",
+        label=f"Umbral noche {fn(UMBRAL_NOCHE_MALL, 0)} m³",
     )
     ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
     ax.set_xlabel("Julio – agosto 2026", fontsize=9, color=_hex(NAVY))
@@ -1676,90 +1693,77 @@ def _slide_mam_placa(prs, by: Dict[str, Dict[str, Any]], mam: Dict[str, Any]) ->
         sl,
         prs,
         "MAM  ·  2. Placa Bancaria",
-        "Mayor consumo del recinto  ·  noche  ·  umbral  ·  Placa vs Falabella desde el 11/08",
+        "Cuando se inyecta Falabella, se corta Placa y el mall sale por Falabella",
     )
     daily_p = (by.get(PLACA) or {}).get("daily") or {}
     daily_f = (by.get(FALABELLA) or {}).get("daily") or {}
-    perfil = ((mam.get("perfil") or {}).get(PLACA) or {}).get("2026-08-10") or {}
     n06_p = (mam.get("n06") or {}).get(PLACA) or {}
+    n06_f = (mam.get("n06") or {}).get(FALABELLA) or {}
     ch_n = CHARTS / "mam_placa_noches_jul_ago.png"
     ch_f = CHARTS / "mam_placa_vs_falabella.png"
-    med_noche = chart_mam_placa_noches(ch_n, n06_p)
+    chart_mam_placa_noches(ch_n, n06_p, n06_f)
     chart_mam_placa_vs_falabella(ch_f, daily_p, daily_f)
-    n10 = sum(float(perfil.get(str(h), perfil.get(h, 0.0)) or 0.0) for h in range(6))
-    if n10 <= 0:
-        n10 = float(n06_p.get("2026-08-10", 0.0) or 0.0)
 
     jul_p = float((by.get(PLACA) or {}).get("jul") or 0)
     jul_tot = sum(float((by.get(n) or {}).get("jul") or 0) for n in MAM_NODOS)
     pct_jul = (jul_p / jul_tot * 100.0) if jul_tot else 0.0
     jul_pas = float((by.get(PASILLO) or {}).get("jul") or 0)
     jul_arr = float((by.get(ARROW) or {}).get("jul") or 0)
+    jul_dia = jul_p / 31.0
+    fala_ahora = [
+        float(daily_f.get(d.isoformat(), 0.0) or 0.0)
+        for d in _rango_dias(date(2026, 8, 15), HASTA)
+    ]
+    fala_dia = _mediana(fala_ahora) if fala_ahora else 0.0
 
-    dias_cmp = _rango_dias(FALABELLA_DESDE, date(2026, 8, 14))
-    sp = sum(float(daily_p.get(d.isoformat(), 0.0) or 0.0) for d in dias_cmp)
-    sf = sum(float(daily_f.get(d.isoformat(), 0.0) or 0.0) for d in dias_cmp)
-    n_cmp = max(len(dias_cmp), 1)
-    mp, mf = sp / n_cmp, sf / n_cmp
-    dias_late = _rango_dias(date(2026, 8, 15), HASTA)
-    sp_l = sum(float(daily_p.get(d.isoformat(), 0.0) or 0.0) for d in dias_late)
-    sf_l = sum(float(daily_f.get(d.isoformat(), 0.0) or 0.0) for d in dias_late)
-
-    _caja(sl, 0.22, 1.08, 12.88, 0.78, fill=(255, 249, 235), line=GOLD)
+    _caja(sl, 0.22, 1.08, 12.88, 0.72, fill=(255, 249, 235), line=GOLD)
     _tb(
         sl,
         0.40,
         1.14,
         12.55,
-        0.66,
+        0.60,
         [
             (
                 f"Placa Bancaria se lleva {fn(pct_jul, 0)} % de julio ({fn(jul_p, 0)} m³). "
-                f"Pasillo Técnico ({fn(jul_pas, 0)} m³) y ARROW ({fn(jul_arr, 1)} m³) son residuales. "
-                "Propuesta: reubicar esos dos puntos para subdividir Placa y ver qué zona alimenta el volumen. "
-                "En julio hubo madrugadas altas (hasta 65 m³); en agosto la noche queda ~0. "
-                "Si esas noches vuelven, un control on/off en Placa tiene sentido. Hoy el mayor valor es partir el caudal diurno.",
-                13,
+                f"Pasillo Técnico ({fn(jul_pas, 0)} m³) y ARROW ({fn(jul_arr, 1)} m³) casi no miden: "
+                "son los puntos para reubicar y partir la línea.",
+                14,
                 False,
                 NAVY,
             )
         ],
     )
 
-    _caja(sl, 0.22, 1.96, 6.38, 4.10)
-    _tb(sl, 0.36, 2.00, 6.10, 0.22, [("NOCHES DE PLACA — m³ 00:00–06:00 (jul–ago)", 11, True, TEAL)])
-    _fit_picture(sl, ch_n, 0.32, 2.24, 6.18, 3.72)
+    _caja(sl, 0.22, 1.90, 6.38, 4.16)
+    _tb(sl, 0.36, 1.94, 6.10, 0.22, [("NOCHE 00–06  ·  mall cerrado", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 0.32, 2.18, 6.18, 3.78)
 
-    _caja(sl, 6.74, 1.96, 6.36, 4.10)
-    _tb(sl, 6.88, 2.00, 6.08, 0.22, [("PLACA vs FALABELLA — m³/día desde el 11/08", 11, True, TEAL)])
-    _fit_picture(sl, ch_f, 6.84, 2.24, 6.16, 3.72)
+    _caja(sl, 6.74, 1.90, 6.36, 4.16)
+    _tb(sl, 6.88, 1.94, 6.08, 0.22, [("DESDE EL 15/08 EL MALL SALE POR FALABELLA", 11, True, TEAL)])
+    _fit_picture(sl, ch_f, 6.84, 2.18, 6.16, 3.78)
 
     _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
     _tb(
         sl,
         0.40,
-        6.20,
+        6.22,
         12.55,
-        1.06,
+        1.04,
         [
             (
-                f"Umbral a cargar: diario Placa {fn(UMBRAL_PLACA_DIA, 0)} m³/día "
-                f"(agosto operativo × 1,25; atrapa un salto tipo junio ~410). "
-                f"Nocturno {fn(UMBRAL_PLACA_NOCHE, 0)} m³ en 00–06 "
-                f"(julio–ago mediana {fn(med_noche, 1)} m³; el 10/08 = {fn(n10, 1)} m³). "
-                "Eso marca noches tipo 3/07 o 13/07 (48–65 m³) sin spamear agosto, ya ~0. "
-                "Falabella aún sin umbral fijo (2–3 semanas de baseline; sus noches desde el 12/08 sí entran al análisis).",
-                12,
+                "Desde el 15/08 Placa se fue a 0. Ya pasó: se inyecta Falabella, "
+                "se corta Placa y el mall sale por Falabella.",
+                14,
                 False,
                 NAVY,
             ),
             (
-                f"11–14/08: Placa {fn(mp, 0)} m³/día vs Falabella {fn(mf, 0)} m³/día "
-                f"(Placa ~{fn(mp / mf, 1) if mf else 0} veces Falabella). "
-                f"15–17/08 Placa suma {fn(sp_l, 0)} m³ y Falabella {fn(sf_l, 0)} m³: "
-                "validar en terreno si Placa se cortó o dejó de medir. "
-                "Prioridad: reubicar Pasillo Técnico y ARROW para subdividir Placa.",
-                12,
+                f"Umbrales: Placa {fn(UMBRAL_PLACA_DIA, 0)} m³/día (julio andaba en {fn(jul_dia, 0)}). "
+                f"Falabella {fn(UMBRAL_FALABELLA_DIA, 0)} m³/día (ahora ~{fn(fala_dia, 0)}). "
+                f"Noche {fn(UMBRAL_NOCHE_MALL, 0)} m³: el mall está cerrado y esa madrugada es alta. "
+                "Siguiente paso: subdividir la línea de Falabella para ver hacia dónde va el consumo de noche.",
+                14,
                 True,
                 NAVY,
             ),
