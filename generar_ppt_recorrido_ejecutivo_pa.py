@@ -11,8 +11,8 @@ Esta versión: MAE + MAM (láminas 1 y 2).
   3) Hallazgos — Estanque Sur (presostatos) + control nocturno Norte (ahorro)
 
   MAM
-  1) Equipos instalados — 5 puntos del recinto
-  2) Consumo mensualizado — mismo gráfico mayo → fecha + peso de julio
+  1–2) Equipos + consumo: dos láminas (detalle) o una sola sintetizada (propuesta)
+
 
 Uso:
   python3 generar_ppt_recorrido_ejecutivo_pa.py
@@ -1039,6 +1039,235 @@ def _slide_equipos_mam(prs) -> None:
     )
 
 
+def _slide_mam_sintesis(prs, by: Dict[str, Dict[str, Any]], tot: Dict[str, float]) -> None:
+    """Una sola lámina: 5 equipos en tiras + gráfico mensual + peso de julio."""
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl,
+        prs,
+        "MAM  ·  Equipos y consumo",
+        f"Mall Arauco Maipú   |   5 puntos WES   |   {PERIODO}   |   propuesta: una lámina",
+    )
+
+    chips = [
+        ("000025-08", "Placa Bancaria", ""),
+        ("000025-10", "Ripley", ""),
+        ("000025-09", "Falabella", "activo 11/08"),
+        ("000025-32", "Pasillo Técnico", "residual"),
+        ("000025-33", "Salida ARROW", "residual"),
+    ]
+    x0, gap, w_chip, y_chip, h_chip = 0.22, 0.10, 2.50, 1.12, 0.72
+    for i, (nid, nom, nota) in enumerate(chips):
+        x = x0 + i * (w_chip + gap)
+        borde = GOLD if nid == FALABELLA else TEAL
+        _caja(sl, x, y_chip, w_chip, h_chip, fill=LIGHT, line=borde)
+        _tb(sl, x + 0.10, y_chip + 0.04, w_chip - 0.18, 0.22, [(nid, 10, True, GOLD)])
+        _tb(sl, x + 0.10, y_chip + 0.26, w_chip - 0.18, 0.24, [(nom, 12, True, NAVY)])
+        if nota:
+            _tb(sl, x + 0.10, y_chip + 0.48, w_chip - 0.18, 0.20, [(nota, 10, False, GRAY)])
+
+    ch_mes = CHARTS / "mam_mensual_may_ago.png"
+    chart_mensual(ch_mes, tot)
+    _caja(sl, 0.22, 1.96, 8.72, 4.18)
+    sl.shapes.add_picture(str(ch_mes), PptInches(0.36), PptInches(2.04), width=PptInches(8.44))
+
+    _caja(sl, 9.08, 1.96, 4.02, 4.18, fill=WHITE, line=TEAL)
+    _tb(sl, 9.22, 2.02, 3.74, 0.22, [("JULIO · último mes cerrado", 11, True, TEAL)])
+    _tb(
+        sl,
+        9.22,
+        2.24,
+        3.74,
+        0.28,
+        [(f"El recinto sumó {fn(tot['jul'], 0)} m³", 12, False, GRAY)],
+    )
+    ranked = sorted(MAM_NODOS, key=lambda n: -float((by.get(n) or {}).get("jul") or 0))
+    y = 2.58
+    for nid in ranked:
+        v = float((by.get(nid) or {}).get("jul") or 0)
+        pct = (v / tot["jul"] * 100) if tot["jul"] else 0
+        extra = " · 11/08" if nid == FALABELLA else ""
+        _caja(sl, 9.22, y, 3.74, 0.66, fill=LIGHT, line=COLOR_NODO[nid])
+        _tb(sl, 9.34, y + 0.04, 3.50, 0.20, [(f"{nid}  {NOMBRE_CORTO[nid]}", 11, True, COLOR_NODO[nid])])
+        _tb(
+            sl,
+            9.34,
+            y + 0.28,
+            3.50,
+            0.30,
+            [(f"{fn(v, 0)} m³    {fn(pct, 0)} %{extra}", 15, True, NAVY)],
+        )
+        y += 0.70
+
+    _caja(sl, 0.22, 6.24, 12.90, 0.48, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.36,
+        6.32,
+        12.62,
+        0.34,
+        [
+            (
+                "Recepción 06/11/2025  ·  Capacitación 14/11/2025  ·  "
+                "Miguel Rupayan  ·  Constanza Vilches  ·  Mantención: C. Bustamante, O. Cuevas y Supervisor Eléctrico",
+                11,
+                False,
+                NAVY,
+            )
+        ],
+    )
+    _tb(
+        sl,
+        0.28,
+        6.76,
+        12.8,
+        0.62,
+        [
+            (
+                f"Mayo {fn(tot['may'], 0)}   ·   Junio {fn(tot['jun'], 0)}   ·   "
+                f"Julio {fn(tot['jul'], 0)}   ·   Agosto {AGO_ETQ}: {fn(tot['ago'], 0)}   ·   "
+                f"proy. ago {fn(tot['ago_proy'], 0)} m³.",
+                12,
+                False,
+                NAVY,
+            ),
+            (
+                "Junio sube por Placa (18/06). Falabella no entra en julio: activo desde el 11/08.",
+                11,
+                False,
+                GRAY,
+            ),
+        ],
+    )
+
+
+def preview_mam_sintesis_png(path: Path, by: Dict[str, Dict[str, Any]], tot: Dict[str, float]) -> Path:
+    """PNG a escala de lámina para mostrar la propuesta sin abrir el PPT."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    ch_mes = CHARTS / "mam_mensual_may_ago.png"
+    chart_mensual(ch_mes, tot)
+
+    dpi = 150
+    W, H = int(13.333 * dpi), int(7.5 * dpi)
+
+    def px(inches: float) -> int:
+        return int(round(inches * dpi))
+
+    def font(size: int, bold: bool = False):
+        face = (
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+            if bold
+            else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+        )
+        return ImageFont.truetype(face, size)
+
+    def rr(draw, box, fill, outline=None, width=2, radius=14):
+        draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+
+    img = Image.new("RGB", (W, H), WHITE)
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 0, W, px(0.92)], fill=NAVY)
+    d.rectangle([0, px(0.92), W, px(0.98)], fill=GOLD)
+    d.text((px(0.28), px(0.16)), "MAM  ·  Equipos y consumo", font=font(28, True), fill=WHITE)
+    d.text(
+        (px(0.28), px(0.52)),
+        f"Mall Arauco Maipú   |   5 puntos WES   |   {PERIODO}   |   propuesta: una lámina",
+        font=font(16),
+        fill=(220, 230, 240),
+    )
+    if LOGO.is_file():
+        logo = Image.open(LOGO).convert("RGBA")
+        logo.thumbnail((px(1.25), px(0.62)))
+        img.paste(logo, (px(11.85), px(0.16)), logo if logo.mode == "RGBA" else None)
+
+    chips = [
+        ("000025-08", "Placa Bancaria", ""),
+        ("000025-10", "Ripley", ""),
+        ("000025-09", "Falabella", "activo 11/08"),
+        ("000025-32", "Pasillo Técnico", "residual"),
+        ("000025-33", "Salida ARROW", "residual"),
+    ]
+    x0, gap, w_chip, y_chip, h_chip = 0.22, 0.10, 2.50, 1.12, 0.72
+    for i, (nid, nom, nota) in enumerate(chips):
+        x = x0 + i * (w_chip + gap)
+        borde = GOLD if nid == FALABELLA else TEAL
+        rr(
+            d,
+            [px(x), px(y_chip), px(x + w_chip), px(y_chip + h_chip)],
+            fill=LIGHT,
+            outline=borde,
+        )
+        d.text((px(x + 0.10), px(y_chip + 0.06)), nid, font=font(13, True), fill=GOLD)
+        d.text((px(x + 0.10), px(y_chip + 0.28)), nom, font=font(16, True), fill=NAVY)
+        if nota:
+            d.text((px(x + 0.10), px(y_chip + 0.50)), nota, font=font(13), fill=GRAY)
+
+    rr(d, [px(0.22), px(1.96), px(8.94), px(6.14)], fill=WHITE, outline=(220, 226, 232), width=1, radius=12)
+    chart = Image.open(ch_mes).convert("RGB")
+    chart.thumbnail((px(8.44), px(4.00)))
+    cx = px(0.36) + (px(8.44) - chart.size[0]) // 2
+    cy = px(2.04) + (px(3.90) - chart.size[1]) // 2
+    img.paste(chart, (cx, max(cy, px(2.02))))
+
+    rr(d, [px(9.08), px(1.96), px(13.10), px(6.14)], fill=WHITE, outline=TEAL, radius=12)
+    d.text((px(9.22), px(2.04)), "JULIO · último mes cerrado", font=font(15, True), fill=TEAL)
+    d.text((px(9.22), px(2.26)), f"El recinto sumó {fn(tot['jul'], 0)} m³", font=font(16), fill=GRAY)
+    ranked = sorted(MAM_NODOS, key=lambda n: -float((by.get(n) or {}).get("jul") or 0))
+    y = 2.58
+    for nid in ranked:
+        v = float((by.get(nid) or {}).get("jul") or 0)
+        pct = (v / tot["jul"] * 100) if tot["jul"] else 0
+        extra = " · 11/08" if nid == FALABELLA else ""
+        rr(
+            d,
+            [px(9.22), px(y), px(12.96), px(y + 0.66)],
+            fill=LIGHT,
+            outline=COLOR_NODO[nid],
+            radius=10,
+        )
+        d.text(
+            (px(9.34), px(y + 0.06)),
+            f"{nid}  {NOMBRE_CORTO[nid]}",
+            font=font(14, True),
+            fill=COLOR_NODO[nid],
+        )
+        d.text(
+            (px(9.34), px(y + 0.30)),
+            f"{fn(v, 0)} m³    {fn(pct, 0)} %{extra}",
+            font=font(20, True),
+            fill=NAVY,
+        )
+        y += 0.70
+
+    rr(d, [px(0.22), px(6.24), px(13.12), px(6.72)], fill=(255, 249, 235), outline=GOLD, radius=10)
+    d.text(
+        (px(0.36), px(6.36)),
+        "Recepción 06/11/2025  ·  Capacitación 14/11/2025  ·  "
+        "Miguel Rupayan  ·  Constanza Vilches  ·  Mantención: C. Bustamante, O. Cuevas y Supervisor Eléctrico",
+        font=font(14),
+        fill=NAVY,
+    )
+    d.text(
+        (px(0.28), px(6.80)),
+        f"Mayo {fn(tot['may'], 0)}   ·   Junio {fn(tot['jun'], 0)}   ·   "
+        f"Julio {fn(tot['jul'], 0)}   ·   Agosto {AGO_ETQ}: {fn(tot['ago'], 0)}   ·   "
+        f"proy. ago {fn(tot['ago_proy'], 0)} m³.",
+        font=font(16, True),
+        fill=NAVY,
+    )
+    d.text(
+        (px(0.28), px(7.08)),
+        "Junio sube por Placa (18/06). Falabella no entra en julio: activo desde el 11/08.",
+        font=font(15),
+        fill=GRAY,
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(path, "PNG")
+    print(f"[OK] preview {path}")
+    return path
+
+
 def _slide_consumo_mam(prs, by: Dict[str, Dict[str, Any]], tot: Dict[str, float]) -> None:
     sl = prs.slides.add_slide(prs.slide_layouts[6])
     _header_bar(
@@ -1131,6 +1360,7 @@ def build_ppt(
     _slide_hallazgos(prs, by, hourly)
     _slide_equipos_mam(prs)
     _slide_consumo_mam(prs, by_mam, tot_mam)
+    _slide_mam_sintesis(prs, by_mam, tot_mam)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / f"Recorrido_ejecutivo_PA_MAE_{HASTA.strftime('%Y%m%d')}.pptx"
     prs.save(str(path))
@@ -1154,8 +1384,10 @@ def main() -> int:
     if not (hourly.get("000025-07") and hourly.get("000025-01")):
         hourly = refrescar_noches()
     ppt = build_ppt(by, tot, hourly, by_mam, tot_mam)
+    preview = preview_mam_sintesis_png(CHARTS / "mam_propuesta_una_lamina.png", by_mam, tot_mam)
     print("\n=== SALIDA ===")
     print(ppt)
+    print(preview)
     print(
         "MAM julio:",
         {n: round(float((by_mam.get(n) or {}).get("jul") or 0), 1) for n in MAM_NODOS},
