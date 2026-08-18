@@ -68,20 +68,18 @@ PASILLO = "000025-32"
 ARROW = "000025-33"
 UMBRAL_PLACA_DIA = 290.0
 UMBRAL_FALABELLA_DIA = 140.0
-UMBRAL_NOCHE_MALL = 15.0
 MATRIZ_MAQ = "000025-13"
 MAQ_ALZA = date(2026, 6, 22)
 MAQ_NOCHE_D0 = date(2026, 6, 1)  # la noche también sube; el gráfico parte acá
 UMBRAL_MAQ_DIA = 240.0
-UMBRAL_MAQ_NOCHE = 15.0
 BAZAR = "000025-35"
 DL_KENNEDY = "000025-36"
 SI500 = "000025-18"
 SI300 = "000025-17"
 CTRL_SI500 = date(2026, 7, 17)
 UMBRAL_SI500_DIA = 145.0
-UMBRAL_SI500_NOCHE = 8.0  # avisa si el corte se cae; residual con control ~2 m³
-UMBRAL_SI300_NOCHE = 4.0
+UMBRAL_SI300_DIA = 45.0
+UMBRAL_SI500_NOCHE = 8.0  # solo interno: residual con control ~2 m³
 MATRIZ_AEB = "000025-11"
 ANILLO_AEB = "000025-12"
 MATRIZ_AA_HASTA = date(2026, 5, 15)  # último día con caudal; ese día entra Matriz 1° piso
@@ -92,6 +90,10 @@ ANILLO_NORTE = "000025-38"
 CUR_NOCHE_D0 = date(2026, 6, 1)  # mayo no se grafica (cambio de anillos)
 UMBRAL_SUR_DIA = 14.0  # ~11 × 1,25
 UMBRAL_NORTE_DIA = 13.0  # ~10 × 1,25
+UMBRAL_MAE_NORTE_DIA = 40.0  # julio ~29
+UMBRAL_MAE_SUR_DIA = 35.0  # post presostatos ~28
+UMBRAL_MAE_PIZZA_DIA = 50.0  # julio ~38
+UMBRAL_MAE_BANOS_DIA = 10.0  # julio ~7
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -1509,14 +1511,6 @@ def chart_maq_matriz_noches(path: Path, n06: Dict[str, float]) -> Dict[str, floa
         label="Matriz Principal",
     )
     ax.axvline(MAQ_ALZA, color=_hex(GOLD), linestyle="--", linewidth=1.1, zorder=4)
-    ax.axhline(
-        UMBRAL_MAQ_NOCHE,
-        color=_hex(GOLD),
-        linestyle=":",
-        linewidth=1.2,
-        zorder=4,
-        label=f"Umbral noche {fn(UMBRAL_MAQ_NOCHE, 0)} m³",
-    )
     ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
     ax.set_xlabel("Junio – agosto 2026", fontsize=9, color=_hex(NAVY))
     ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
@@ -1562,14 +1556,6 @@ def chart_bom_si500_noches(path: Path, n06_500: Dict[str, float]) -> None:
         label="San Ignacio 500",
     )
     ax.axvline(CTRL_SI500, color=_hex(GOLD), linestyle="--", linewidth=1.2, zorder=4)
-    ax.axhline(
-        UMBRAL_SI500_NOCHE,
-        color=_hex(GOLD),
-        linestyle=":",
-        linewidth=1.2,
-        zorder=4,
-        label=f"Umbral noche {fn(UMBRAL_SI500_NOCHE, 0)} m³",
-    )
     ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
     ax.set_xlabel("Julio – agosto 2026", fontsize=9, color=_hex(NAVY))
     ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
@@ -1817,14 +1803,6 @@ def chart_mam_placa_noches(
         zorder=4,
         label="Falabella",
     )
-    ax.axhline(
-        UMBRAL_NOCHE_MALL,
-        color=_hex(GOLD),
-        linestyle=":",
-        linewidth=1.2,
-        zorder=4,
-        label=f"Umbral noche {fn(UMBRAL_NOCHE_MALL, 0)} m³",
-    )
     ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
     ax.set_xlabel("Julio – agosto 2026", fontsize=9, color=_hex(NAVY))
     ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
@@ -1887,6 +1865,23 @@ def _tb(slide, l, t, w, h, lines: List[Tuple[str, int, bool, Tuple[int, int, int
     return box
 
 
+def _vineta_hallazgos(slide, lineas: List[Tuple[str, int, bool, Tuple[int, int, int]]], h: float = 1.18) -> None:
+    """Caja superior de hallazgos: título naranja HALLAZGOS + texto."""
+    _caja(slide, 0.22, 1.08, 12.88, h, fill=(255, 249, 235), line=GOLD)
+    _tb(slide, 0.40, 1.12, 12.55, 0.20, [("HALLAZGOS", 11, True, GOLD)])
+    _tb(slide, 0.40, 1.32, 12.55, max(h - 0.28, 0.36), lineas)
+
+
+def _umbral_dia_de(vol_mes: float, dias: int = 31, factor: float = 1.25) -> float:
+    """Umbral del total de 24 h: ~1,25 × promedio día, redondeado."""
+    if vol_mes <= 0 or dias <= 0:
+        return 0.0
+    crudo = (float(vol_mes) / float(dias)) * factor
+    if crudo >= 40:
+        return float(int(round(crudo / 5.0) * 5.0))
+    return float(int(round(crudo)))
+
+
 def _header_bar(slide, prs, titulo: str, sub: str) -> None:
     bar = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE, 0, 0, prs.slide_width, PptInches(0.92)
@@ -1928,9 +1923,11 @@ def _portada(prs) -> None:
         [
             ("Una lámina de presentación por recinto", 16, False, WHITE),
             (f"Período {PERIODO}   |   Emisión {FECHA_EMISION}", 15, False, (220, 230, 240)),
-            ("Lámina 2: MAE  ·  MAM Placa  ·  MAQ Matriz  ·  BOM SI500  ·  AEB Anillo  ·  CUR  ·  PAK cadena", 14, False, GOLD),
+            ("MAE  ·  MAM  ·  MAQ  ·  BOM  ·  AEB  ·  CUR  ·  PAK", 16, False, GOLD),
         ],
     )
+    if LOGO.is_file():
+        sl.shapes.add_picture(str(LOGO), PptInches(11.70), PptInches(6.85), width=PptInches(1.35))
 
 
 def _slide_hallazgos(
@@ -1956,14 +1953,8 @@ def _slide_hallazgos(
     st_n = st_noc["000025-01"]
     st_p = st_noc["000025-07"]
 
-    _caja(sl, 0.22, 1.08, 12.88, 1.52, fill=(255, 249, 235), line=GOLD)
-    _tb(sl, 0.40, 1.12, 12.55, 0.22, [("HALLAZGOS", 11, True, GOLD)])
-    _tb(
+    _vineta_hallazgos(
         sl,
-        0.40,
-        1.34,
-        12.55,
-        1.20,
         [
             (
                 f"Estanque Norte (control 05/08, 00:00–05:00): noche típica "
@@ -1987,19 +1978,29 @@ def _slide_hallazgos(
                 False,
                 NAVY,
             ),
+            (
+                f"Umbrales a activar (total 24 h): Estanque Norte {fn(UMBRAL_MAE_NORTE_DIA, 0)} m³/día  ·  "
+                f"Estanque Sur {fn(UMBRAL_MAE_SUR_DIA, 0)} m³/día  ·  "
+                f"Pizza Hut {fn(UMBRAL_MAE_PIZZA_DIA, 0)} m³/día  ·  "
+                f"Baños Públicos {fn(UMBRAL_MAE_BANOS_DIA, 0)} m³/día.",
+                12,
+                True,
+                NAVY,
+            ),
         ],
+        h=1.62,
     )
 
-    _caja(sl, 0.22, 2.70, 5.78, 3.42)
-    _tb(sl, 0.36, 2.74, 5.50, 0.22, [("CONTROLES NOCTURNOS — noche típica antes vs con control", 11, True, TEAL)])
+    _caja(sl, 0.22, 2.80, 5.78, 3.32)
+    _tb(sl, 0.36, 2.84, 5.50, 0.22, [("CONTROLES NOCTURNOS — noche típica antes vs con control", 11, True, TEAL)])
     sl.shapes.add_picture(
-        str(ch_noc), PptInches(0.36), PptInches(2.98), width=PptInches(5.48), height=PptInches(3.02)
+        str(ch_noc), PptInches(0.36), PptInches(3.08), width=PptInches(5.48), height=PptInches(2.92)
     )
 
-    _caja(sl, 6.14, 2.70, 6.96, 3.42)
-    _tb(sl, 6.28, 2.74, 6.68, 0.22, [("ESTANQUE SUR — m³/día y costo evitado", 11, True, TEAL)])
+    _caja(sl, 6.14, 2.80, 6.96, 3.32)
+    _tb(sl, 6.28, 2.84, 6.68, 0.22, [("ESTANQUE SUR — m³/día y costo evitado", 11, True, TEAL)])
     sl.shapes.add_picture(
-        str(ch_sur), PptInches(6.28), PptInches(2.98), width=PptInches(6.68), height=PptInches(3.02)
+        str(ch_sur), PptInches(6.28), PptInches(3.08), width=PptInches(6.68), height=PptInches(2.92)
     )
 
     _tb(
@@ -2219,24 +2220,43 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
         otro_nom, otro_med = NOMBRE_CORTO[BAZAR], med_bazar
     onoff_nom = NOMBRE_CORTO[onoff_nid]
     ahorro_mes = onoff_med * 30.0
+    jul_bazar = float((by.get(BAZAR) or {}).get("jul") or 0)
+    jul_ken = float((by.get(DL_KENNEDY) or {}).get("jul") or 0)
+    jul_dl = float((by.get("000025-27") or {}).get("jul") or 0)
+    umb_bazar = _umbral_dia_de(jul_bazar)
+    umb_ken = _umbral_dia_de(jul_ken)
+    umb_dl = _umbral_dia_de(jul_dl)
 
-    _caja(sl, 0.22, 1.08, 12.88, 0.56, fill=(255, 249, 235), line=GOLD)
-    _tb(
+    _vineta_hallazgos(
         sl,
-        0.40,
-        1.14,
-        12.55,
-        0.44,
         [
             (
                 "Sandía Antigua y Sandía Nueva alimentan Distrito de Lujo. "
                 "Desde ahí el caudal se divide en Bazar Gourmet y DL Kennedy. "
                 "Por eso esos tres puntos no se suman a la cabecera: sería doble conteo.",
-                13,
+                12,
                 False,
                 NAVY,
-            )
+            ),
+            (
+                f"Propuesta: on/off 00–06 en {onoff_nom} (el que más gasta de noche: "
+                f"{fn(onoff_med, 1)} m³ vs {fn(otro_med, 1)} m³). "
+                f"{fn(onoff_med, 1)} m³/noche = {_clp(onoff_med)}/noche  ·  "
+                f"{fn(ahorro_mes, 0)} m³/mes = {_clp(ahorro_mes)}/mes "
+                f"(tarifa ${fn(TARIFA_CLP_M3, 0)}/m³).",
+                12,
+                True,
+                NAVY,
+            ),
+            (
+                f"Umbrales a activar (total 24 h): Distrito de Lujo {fn(umb_dl, 0)} m³/día  ·  "
+                f"Bazar Gourmet {fn(umb_bazar, 0)} m³/día  ·  DL Kennedy {fn(umb_ken, 0)} m³/día.",
+                12,
+                True,
+                NAVY,
+            ),
         ],
+        h=1.22,
     )
 
     flujo = [
@@ -2246,8 +2266,8 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
         (8.22, 2.12, "Bazar Gourmet", "000025-35", LIGHT),
         (10.44, 2.12, "DL Kennedy", "000025-36", LIGHT),
     ]
-    yf = 1.74
-    hf = 0.50
+    yf = 2.36
+    hf = 0.42
     for x, w, nom, nid, fill in flujo:
         _caja(sl, x, yf, w, hf, fill=fill, line=COLOR_NODO.get(nid, TEAL))
         _tb(sl, x + 0.08, yf + 0.12, w - 0.16, 0.28, [(nom, 12, True, NAVY)], align=PP_ALIGN.CENTER)
@@ -2255,13 +2275,13 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
     _tb(sl, 4.82, yf + 0.08, 0.50, 0.34, [("→", 18, True, GOLD)], align=PP_ALIGN.CENTER)
     _tb(sl, 7.72, yf + 0.08, 0.50, 0.34, [("→", 18, True, GOLD)], align=PP_ALIGN.CENTER)
 
-    _caja(sl, 0.22, 2.36, 6.38, 3.70)
-    _tb(sl, 0.36, 2.40, 6.10, 0.22, [("10/08 · perfil 24 h  (sombra = 00:00–06:00)", 11, True, TEAL)])
-    _fit_picture(sl, ch_p, 0.32, 2.64, 6.18, 3.32)
+    _caja(sl, 0.22, 2.84, 6.38, 3.22)
+    _tb(sl, 0.36, 2.88, 6.10, 0.22, [("10/08 · perfil 24 h  (sombra = 00:00–06:00)", 11, True, TEAL)])
+    _fit_picture(sl, ch_p, 0.32, 3.12, 6.18, 2.84)
 
-    _caja(sl, 6.74, 2.36, 6.36, 3.70)
-    _tb(sl, 6.88, 2.40, 6.08, 0.22, [("NOCHE 00–06  ·  Bazar Gourmet y DL Kennedy", 11, True, TEAL)])
-    _fit_picture(sl, ch_n, 6.84, 2.64, 6.16, 3.32)
+    _caja(sl, 6.74, 2.84, 6.36, 3.22)
+    _tb(sl, 6.88, 2.88, 6.08, 0.22, [("NOCHE 00–06  ·  Bazar Gourmet y DL Kennedy", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 6.84, 3.12, 6.16, 2.84)
 
     _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
     _tb(
@@ -2273,19 +2293,9 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
         [
             (
                 f"Noche típica 00–06: Bazar Gourmet {fn(med_bazar, 1)} m³  ·  "
-                f"DL Kennedy {fn(med_ken, 1)} m³. El que más gasta de madrugada es {onoff_nom}.",
+                f"DL Kennedy {fn(med_ken, 1)} m³. {otro_nom} queda en {fn(otro_med, 1)} m³/noche.",
                 12,
                 False,
-                NAVY,
-            ),
-            (
-                f"Propuesta: on/off 00–06 en {onoff_nom}. "
-                f"{fn(onoff_med, 1)} m³/noche = {_clp(onoff_med)}/noche  ·  "
-                f"{fn(ahorro_mes, 0)} m³/mes = {_clp(ahorro_mes)}/mes "
-                f"(tarifa ${fn(TARIFA_CLP_M3, 0)}/m³). "
-                f"{otro_nom} queda en {fn(otro_med, 1)} m³/noche.",
-                12,
-                True,
                 NAVY,
             ),
         ],
@@ -2322,32 +2332,36 @@ def _slide_mam_placa(prs, by: Dict[str, Dict[str, Any]], mam: Dict[str, Any]) ->
     ]
     fala_dia = _mediana(fala_ahora) if fala_ahora else 0.0
 
-    _caja(sl, 0.22, 1.08, 12.88, 0.72, fill=(255, 249, 235), line=GOLD)
-    _tb(
+    _vineta_hallazgos(
         sl,
-        0.40,
-        1.14,
-        12.55,
-        0.60,
         [
             (
                 f"Placa Bancaria se lleva {fn(pct_jul, 0)} % de julio ({fn(jul_p, 0)} m³). "
                 f"Pasillo Técnico ({fn(jul_pas, 0)} m³) y ARROW ({fn(jul_arr, 1)} m³) casi no miden: "
                 "son los puntos para reubicar y partir la línea.",
-                14,
+                13,
                 False,
                 NAVY,
-            )
+            ),
+            (
+                f"Umbrales a activar (total 24 h): Placa {fn(UMBRAL_PLACA_DIA, 0)} m³/día "
+                f"(julio andaba en {fn(jul_dia, 0)})  ·  Falabella {fn(UMBRAL_FALABELLA_DIA, 0)} m³/día "
+                f"(ahora ~{fn(fala_dia, 0)}).",
+                13,
+                True,
+                NAVY,
+            ),
         ],
+        h=1.10,
     )
 
-    _caja(sl, 0.22, 1.90, 6.38, 4.16)
-    _tb(sl, 0.36, 1.94, 6.10, 0.22, [("DESDE EL 15/08 EL MALL SALE POR FALABELLA", 11, True, TEAL)])
-    _fit_picture(sl, ch_f, 0.32, 2.18, 6.18, 3.78)
+    _caja(sl, 0.22, 2.28, 6.38, 3.78)
+    _tb(sl, 0.36, 2.32, 6.10, 0.22, [("DESDE EL 15/08 EL MALL SALE POR FALABELLA", 11, True, TEAL)])
+    _fit_picture(sl, ch_f, 0.32, 2.56, 6.18, 3.40)
 
-    _caja(sl, 6.74, 1.90, 6.36, 4.16)
-    _tb(sl, 6.88, 1.94, 6.08, 0.22, [("NOCHE 00–06  ·  mall cerrado", 11, True, TEAL)])
-    _fit_picture(sl, ch_n, 6.84, 2.18, 6.16, 3.78)
+    _caja(sl, 6.74, 2.28, 6.36, 3.78)
+    _tb(sl, 6.88, 2.32, 6.08, 0.22, [("NOCHE 00–06  ·  mall cerrado", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 6.84, 2.56, 6.16, 3.40)
 
     _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
     _tb(
@@ -2359,18 +2373,10 @@ def _slide_mam_placa(prs, by: Dict[str, Dict[str, Any]], mam: Dict[str, Any]) ->
         [
             (
                 "Desde el 15/08 Placa se fue a 0. Ya pasó: se inyecta Falabella, "
-                "se corta Placa y el mall sale por Falabella.",
-                14,
-                False,
-                NAVY,
-            ),
-            (
-                f"Umbrales: Placa {fn(UMBRAL_PLACA_DIA, 0)} m³/día (julio andaba en {fn(jul_dia, 0)}). "
-                f"Falabella {fn(UMBRAL_FALABELLA_DIA, 0)} m³/día (ahora ~{fn(fala_dia, 0)}). "
-                f"Noche {fn(UMBRAL_NOCHE_MALL, 0)} m³: el mall está cerrado y esa madrugada es alta. "
+                "se corta Placa y el mall sale por Falabella. "
                 "Siguiente paso: subdividir la línea de Falabella para ver hacia dónde va el consumo de noche.",
                 14,
-                True,
+                False,
                 NAVY,
             ),
         ],
@@ -2407,33 +2413,36 @@ def _slide_maq_matriz(prs, by: Dict[str, Dict[str, Any]], maq: Dict[str, Any]) -
     ahorro_noche = med_n
     ahorro_mes = ahorro_noche * 30.0
 
-    _caja(sl, 0.22, 1.08, 12.88, 0.72, fill=(255, 249, 235), line=GOLD)
-    _tb(
+    _vineta_hallazgos(
         sl,
-        0.40,
-        1.14,
-        12.55,
-        0.60,
         [
             (
                 f"Matriz Principal se lleva {fn(pct, 0)} % de julio. "
                 f"Desde el 22/06 el día se duplicó (junio {fn(jun / 30.0, 0)} → julio {fn(jul / 31.0, 0)} "
                 f"→ agosto {fn(ago / 17.0, 0)} m³/día) y se quedó arriba. "
                 "Baños es uso hábil: no es el problema.",
-                14,
+                13,
                 False,
                 NAVY,
-            )
+            ),
+            (
+                f"Umbral a activar (total 24 h): Matriz Principal {fn(UMBRAL_MAQ_DIA, 0)} m³/día "
+                f"(julio ~{fn(jul / 31.0, 0)}).",
+                13,
+                True,
+                NAVY,
+            ),
         ],
+        h=1.10,
     )
 
-    _caja(sl, 0.22, 1.90, 6.38, 4.16)
-    _tb(sl, 0.36, 1.94, 6.10, 0.22, [("DÍA · el alza desde junio se sostiene", 11, True, TEAL)])
-    _fit_picture(sl, ch_d, 0.32, 2.18, 6.18, 3.78)
+    _caja(sl, 0.22, 2.28, 6.38, 3.78)
+    _tb(sl, 0.36, 2.32, 6.10, 0.22, [("DÍA · el alza desde junio se sostiene", 11, True, TEAL)])
+    _fit_picture(sl, ch_d, 0.32, 2.56, 6.18, 3.40)
 
-    _caja(sl, 6.74, 1.90, 6.36, 4.16)
-    _tb(sl, 6.88, 1.94, 6.08, 0.22, [("NOCHE 00–06  ·  desde el 01/06", 11, True, TEAL)])
-    _fit_picture(sl, ch_n, 6.84, 2.18, 6.16, 3.78)
+    _caja(sl, 6.74, 2.28, 6.36, 3.78)
+    _tb(sl, 6.88, 2.32, 6.08, 0.22, [("NOCHE 00–06  ·  desde el 01/06", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 6.84, 2.56, 6.16, 3.40)
 
     _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
     _tb(
@@ -2444,9 +2453,8 @@ def _slide_maq_matriz(prs, by: Dict[str, Dict[str, Any]], maq: Dict[str, Any]) -
         1.04,
         [
             (
-                f"Umbrales: diario {fn(UMBRAL_MAQ_DIA, 0)} m³/día (julio ~{fn(jul / 31.0, 0)}). "
-                f"Noche {fn(UMBRAL_MAQ_NOCHE, 0)} m³. Desde el 22/06 la madrugada anda en "
-                f"{fn(med_n, 1)} m³ (antes {fn(st_n.get('med_pre') or 0.0, 1)}). "
+                f"Desde el 22/06 la madrugada anda en {fn(med_n, 1)} m³ "
+                f"(antes {fn(st_n.get('med_pre') or 0.0, 1)}). "
                 f"Mínimo típico por hora 00–06: {fn(min_h, 1)} m³/h.",
                 13,
                 False,
@@ -2499,14 +2507,8 @@ def _slide_bom_control(prs, by: Dict[str, Dict[str, Any]], bom: Dict[str, Any]) 
             f"({altas}). No se leen como fuga: el control puede haber aflojado esas madrugadas."
         )
 
-    _caja(sl, 0.22, 1.08, 12.88, 1.28, fill=(255, 249, 235), line=GOLD)
-    _tb(sl, 0.40, 1.12, 12.55, 0.20, [("HALLAZGOS", 11, True, GOLD)])
-    _tb(
+    _vineta_hallazgos(
         sl,
-        0.40,
-        1.32,
-        12.55,
-        0.98,
         [
             (
                 f"San Ignacio 500 se lleva {fn(pct, 0)} % de julio. "
@@ -2527,16 +2529,24 @@ def _slide_bom_control(prs, by: Dict[str, Dict[str, Any]], bom: Dict[str, Any]) 
                 True,
                 NAVY,
             ),
+            (
+                f"Umbrales a activar (total 24 h): San Ignacio 500 {fn(UMBRAL_SI500_DIA, 0)} m³/día "
+                f"(agosto ~{fn(ago / 17.0, 0)})  ·  San Ignacio 300 {fn(UMBRAL_SI300_DIA, 0)} m³/día.",
+                13,
+                True,
+                NAVY,
+            ),
         ],
+        h=1.32,
     )
 
-    _caja(sl, 0.22, 2.46, 6.38, 3.60)
-    _tb(sl, 0.36, 2.50, 6.10, 0.22, [("AHORRO  ·  noche típica antes vs con control", 11, True, TEAL)])
-    _fit_picture(sl, ch_a, 0.32, 2.74, 6.18, 3.22)
+    _caja(sl, 0.22, 2.50, 6.38, 3.56)
+    _tb(sl, 0.36, 2.54, 6.10, 0.22, [("AHORRO  ·  noche típica antes vs con control", 11, True, TEAL)])
+    _fit_picture(sl, ch_a, 0.32, 2.78, 6.18, 3.18)
 
-    _caja(sl, 6.74, 2.46, 6.36, 3.60)
-    _tb(sl, 6.88, 2.50, 6.08, 0.22, [("NOCHE 00–06  ·  el corte se ve y se sostiene", 11, True, TEAL)])
-    _fit_picture(sl, ch_n, 6.84, 2.74, 6.16, 3.22)
+    _caja(sl, 6.74, 2.50, 6.36, 3.56)
+    _tb(sl, 6.88, 2.54, 6.08, 0.22, [("NOCHE 00–06  ·  el corte se ve y se sostiene", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 6.84, 2.78, 6.16, 3.18)
 
     _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
     _tb(
@@ -2547,11 +2557,7 @@ def _slide_bom_control(prs, by: Dict[str, Dict[str, Any]], bom: Dict[str, Any]) 
         1.04,
         [
             (
-                f"{residual} "
-                f"Umbrales a activar: San Ignacio 500 diario {fn(UMBRAL_SI500_DIA, 0)} m³/día "
-                f"(agosto ~{fn(ago / 17.0, 0)}) y noche {fn(UMBRAL_SI500_NOCHE, 0)} m³ "
-                f"(avisa si el corte se cae). "
-                f"San Ignacio 300: alerta de umbral noche {fn(UMBRAL_SI300_NOCHE, 0)} m³.",
+                f"{residual}",
                 13,
                 False,
                 NAVY,
@@ -2609,14 +2615,8 @@ def _slide_aeb_anillo(prs, by: Dict[str, Dict[str, Any]], aeb: Dict[str, Any]) -
     )
     pico_d = date.fromisoformat(pico_iso[0]).strftime("%d/%m") if pico_iso[0] else "09/07"
 
-    _caja(sl, 0.22, 1.08, 12.88, 1.10, fill=(255, 249, 235), line=GOLD)
-    _tb(sl, 0.40, 1.12, 12.55, 0.20, [("HALLAZGOS", 11, True, GOLD)])
-    _tb(
+    _vineta_hallazgos(
         sl,
-        0.40,
-        1.32,
-        12.55,
-        0.80,
         [
             (
                 f"On/off 00–06: Anillo Plaza {fn(noc_a, 1)} m³/noche = "
@@ -2630,7 +2630,7 @@ def _slide_aeb_anillo(prs, by: Dict[str, Dict[str, Any]], aeb: Dict[str, Any]) -
                 NAVY,
             ),
             (
-                f"Umbrales a activar (total del día): Anillo Plaza {fn(UMBRAL_ANILLO_DIA, 0)} m³/día "
+                f"Umbrales a activar (total 24 h): Anillo Plaza {fn(UMBRAL_ANILLO_DIA, 0)} m³/día "
                 f"(julio {fn(jul_a, 0)}; el 09/07 llegó a {fn(pico, 0)}). "
                 f"Matriz 1° piso {fn(UMBRAL_MATRIZ_AEB_DIA, 0)} m³/día "
                 f"(agosto ~{fn(st_m['dia'][-1], 0)} × 1,25).",
@@ -2639,6 +2639,7 @@ def _slide_aeb_anillo(prs, by: Dict[str, Dict[str, Any]], aeb: Dict[str, Any]) -
                 NAVY,
             ),
         ],
+        h=1.10,
     )
 
     _caja(sl, 0.22, 2.28, 6.38, 3.78)
@@ -2694,31 +2695,36 @@ def _slide_cur_anillos(prs, by: Dict[str, Dict[str, Any]], cur: Dict[str, Any]) 
     pct_n = (jul_n / jul_tot * 100.0) if jul_tot else 0.0
     dif = st_d["sur"][1] - st_d["norte"][1]  # julio m³/día
 
-    _caja(sl, 0.22, 1.08, 12.88, 0.72, fill=(255, 249, 235), line=GOLD)
-    _tb(
+    _vineta_hallazgos(
         sl,
-        0.40,
-        1.14,
-        12.55,
-        0.60,
         [
             (
                 f"Anillo Sur anda un poco sobre Norte: julio {fn(pct_s, 0)} % vs {fn(pct_n, 0)} % "
                 f"(unos {fn(dif, 1)} m³/día). Los dos cubren el mall; la diferencia es chica y se sostiene.",
-                14,
+                13,
                 False,
                 NAVY,
-            )
+            ),
+            (
+                f"Umbrales a activar (total 24 h): Anillo Sur {fn(UMBRAL_SUR_DIA, 0)} m³/día "
+                f"(junio–agosto ~{fn(sum(st_d['sur']) / 3.0, 0)} × 1,25)  ·  "
+                f"Anillo Norte {fn(UMBRAL_NORTE_DIA, 0)} m³/día "
+                f"(junio–agosto ~{fn(sum(st_d['norte']) / 3.0, 0)} × 1,25).",
+                13,
+                True,
+                NAVY,
+            ),
         ],
+        h=1.10,
     )
 
-    _caja(sl, 0.22, 1.90, 6.38, 4.16)
-    _tb(sl, 0.36, 1.94, 6.10, 0.22, [("NOCHE 00–06  ·  los dos anillos", 11, True, TEAL)])
-    _fit_picture(sl, ch_n, 0.32, 2.18, 6.18, 3.78)
+    _caja(sl, 0.22, 2.28, 6.38, 3.78)
+    _tb(sl, 0.36, 2.32, 6.10, 0.22, [("NOCHE 00–06  ·  los dos anillos", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 0.32, 2.56, 6.18, 3.40)
 
-    _caja(sl, 6.74, 1.90, 6.36, 4.16)
-    _tb(sl, 6.88, 1.94, 6.08, 0.22, [("DÍA  ·  promedio mes  ·  Sur un poco sobre Norte", 11, True, TEAL)])
-    _fit_picture(sl, ch_d, 6.84, 2.18, 6.16, 3.78)
+    _caja(sl, 6.74, 2.28, 6.36, 3.78)
+    _tb(sl, 6.88, 2.32, 6.08, 0.22, [("DÍA  ·  promedio mes  ·  Sur un poco sobre Norte", 11, True, TEAL)])
+    _fit_picture(sl, ch_d, 6.84, 2.56, 6.16, 3.40)
 
     _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
     _tb(
@@ -2733,15 +2739,6 @@ def _slide_cur_anillos(prs, by: Dict[str, Dict[str, Any]], cur: Dict[str, Any]) 
                 "La madrugada sigue el mismo patrón chico; no se lee como fuga.",
                 13,
                 False,
-                NAVY,
-            ),
-            (
-                f"Umbrales a activar (total del día): Anillo Sur {fn(UMBRAL_SUR_DIA, 0)} m³/día "
-                f"(junio–agosto ~{fn(sum(st_d['sur']) / 3.0, 0)} × 1,25). "
-                f"Anillo Norte {fn(UMBRAL_NORTE_DIA, 0)} m³/día "
-                f"(junio–agosto ~{fn(sum(st_d['norte']) / 3.0, 0)} × 1,25).",
-                13,
-                True,
                 NAVY,
             ),
         ],
