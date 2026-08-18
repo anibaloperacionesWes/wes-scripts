@@ -411,13 +411,14 @@ def chart_controles_nocturnos(path: Path, hourly: Dict[str, Dict[str, float]]) -
     st_p = _stats_noche(hourly, "000025-07", CTRL_PIZZA)
     st_n = _stats_noche(hourly, "000025-01", CTRL_NORTE)
     labels = ["Pizza Hut\ncontrol 01/07", "Estanque Norte\ncontrol 05/08"]
-    pre = [st_p["pre"], st_n["pre"]]
-    post = [st_p["post"], st_n["post"]]
     x = np.arange(len(labels))
     w = 0.34
     fig, ax = plt.subplots(figsize=(5.55, 3.55), dpi=160)
-    b1 = ax.bar(x - w / 2, pre, w, color="#8FA4B8", label="Noche típica antes", zorder=3)
-    b2 = ax.bar(x + w / 2, post, w, color=_hex(GOLD), label="Noche con control", zorder=3)
+    col_piz = _hex(COLOR_NODO["000025-07"])
+    ax.bar(x[0] - w / 2, st_p["pre"], w, color="#8FA4B8", zorder=3)
+    ax.bar(x[0] + w / 2, st_p["post"], w, color=col_piz, zorder=3)
+    ax.bar(x[1] - w / 2, st_n["pre"], w, color="#8FA4B8", zorder=3)
+    ax.bar(x[1] + w / 2, st_n["post"], w, color=_hex(GOLD), zorder=3)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=9, color=_hex(NAVY))
     ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
@@ -428,15 +429,14 @@ def chart_controles_nocturnos(path: Path, hourly: Dict[str, Dict[str, float]]) -
     ax.spines["bottom"].set_color("#C5CDD6")
     ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
     ax.set_axisbelow(True)
-    ymax = max(pre + post + [1.0]) * 1.45
+    ymax = max(st_p["pre"], st_p["post"], st_n["pre"], st_n["post"], 1.0) * 1.45
     ax.set_ylim(0, ymax)
-    for bars in (b1, b2):
-        for b in bars:
-            h = b.get_height()
+    for xi, st in ((0, st_p), (1, st_n)):
+        for dx, val in ((-w / 2, st["pre"]), (w / 2, st["post"])):
             ax.text(
-                b.get_x() + b.get_width() / 2,
-                h + ymax * 0.03,
-                fn(h, 1),
+                xi + dx,
+                val + ymax * 0.03,
+                fn(val, 1),
                 ha="center",
                 va="bottom",
                 fontsize=10,
@@ -455,7 +455,17 @@ def chart_controles_nocturnos(path: Path, hourly: Dict[str, Dict[str, float]]) -
             ha="left",
             arrowprops=dict(arrowstyle="->", color=_hex(GOLD), lw=0.9),
         )
-    ax.legend(frameon=False, fontsize=8, loc="upper left", labelcolor=_hex(NAVY))
+    ax.legend(
+        handles=[
+            Patch(facecolor="#8FA4B8", edgecolor="none", label="Noche típica antes"),
+            Patch(facecolor=col_piz, edgecolor="none", label="Pizza Hut con control"),
+            Patch(facecolor=_hex(GOLD), edgecolor="none", label="Norte con control"),
+        ],
+        frameon=False,
+        fontsize=8,
+        loc="upper left",
+        labelcolor=_hex(NAVY),
+    )
     fig.tight_layout(pad=0.25)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", facecolor="white")
@@ -873,6 +883,7 @@ def _slide_hallazgos(
     baja = st_sur["baja"]
     pct = (baja / st_sur["pre"] * 100) if st_sur["pre"] else 0.0
     st_n = st_noc["000025-01"]
+    st_p = st_noc["000025-07"]
 
     _caja(sl, 0.22, 1.08, 12.88, 1.28, fill=(255, 249, 235), line=GOLD)
     _tb(sl, 0.40, 1.14, 12.55, 0.26, [("ESTANQUE SUR  ·  PRESÓSTATOS", 11, True, GOLD)])
@@ -913,9 +924,9 @@ def _slide_hallazgos(
     _tb(
         sl,
         0.28,
-        6.32,
+        6.28,
         12.8,
-        1.02,
+        1.12,
         [
             (
                 f"Estanque Norte (control 05/08): noche típica {fn(st_n['pre'], 1)} → "
@@ -928,11 +939,23 @@ def _slide_hallazgos(
                 NAVY,
             ),
             (
-                "Pizza Hut: control desde el 01/07. "
-                "Estanque Sur: corte on/off de mantención nocturna.",
+                f"Pizza Hut (control 01/07): noche típica {fn(st_p['pre'], 1)} → "
+                f"{fn(st_p['post'], 1)} m³.",
                 12,
                 False,
-                GRAY,
+                NAVY,
+            ),
+            (
+                "Estanque Sur: corte on/off a cargo de mantención nocturna.",
+                12,
+                False,
+                NAVY,
+            ),
+            (
+                "Baños Guardias: control instalado; no está solicitado el uso.",
+                12,
+                False,
+                NAVY,
             ),
         ],
     )
