@@ -54,6 +54,8 @@ MAE_NODOS = ["000025-01", "000025-04", "000025-07", "000025-19"]
 MAM_NODOS = ["000025-08", "000025-09", "000025-10", "000025-32", "000025-33"]
 PAK_CADENA = ["000025-27", "000025-35", "000025-36"]
 DIA_PAK_NOCHE = date(2026, 8, 10)
+JUL_NOCHE_D0 = date(2026, 7, 1)
+JUL_NOCHE_D1 = date(2026, 7, 31)
 FALABELLA = "000025-09"
 
 MALLS: List[Dict[str, Any]] = [
@@ -424,8 +426,19 @@ def cargar_cadena_pak() -> Dict[str, Any]:
     return {"perfil": raw.get("perfil") or {}, "n06": raw.get("n06") or {}}
 
 
+def _mediana(vals: List[float]) -> float:
+    xs = sorted(float(v) for v in vals)
+    if not xs:
+        return 0.0
+    n = len(xs)
+    mid = n // 2
+    if n % 2:
+        return xs[mid]
+    return (xs[mid - 1] + xs[mid]) / 2.0
+
+
 def refrescar_cadena_pak() -> Dict[str, Any]:
-    """Perfil 10/08 y m³ 00:00–06:00 (01/08–17/08) para 27, 35 y 36."""
+    """Perfil 10/08 y m³ 00:00–06:00 de julio (mes completo) para 27, 35 y 36."""
     from generar_reporte_word import get_hourly_measures_for_day
 
     data = cargar_cadena_pak()
@@ -440,9 +453,10 @@ def refrescar_cadena_pak() -> Dict[str, Any]:
     pendientes_n: List[Tuple[str, date]] = []
     for nid in PAK_CADENA:
         n06.setdefault(nid, {})
-        for d in _rango_dias(date(2026, 8, 1), HASTA):
+        for d in _rango_dias(JUL_NOCHE_D0, JUL_NOCHE_D1):
             if d.isoformat() not in n06[nid]:
                 pendientes_n.append((nid, d))
+        # 10/08 entra al perfil 24 h; no hace falta toda la serie de agosto.
     print(
         f"[INFO] Cadena PAK: {len(pendientes_p)} perfiles + {len(pendientes_n)} noches",
         flush=True,
@@ -970,24 +984,28 @@ def chart_pak_perfil_10ago(path: Path, perfil: Dict[str, Dict[str, float]]) -> D
     return n06
 
 
-def chart_pak_noches_ago(path: Path, n06: Dict[str, Dict[str, float]]) -> None:
-    """m³ 00:00–06:00 por día en agosto (1–17) para 27, 35 y 36."""
-    dias = _rango_dias(date(2026, 8, 1), HASTA)
+def chart_pak_noches_julio(path: Path, n06: Dict[str, Dict[str, float]]) -> Dict[str, float]:
+    """m³ 00:00–06:00 por día en julio (mes completo) para 27, 35 y 36."""
+    dias = _rango_dias(JUL_NOCHE_D0, JUL_NOCHE_D1)
     fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
+    med: Dict[str, float] = {}
     for nid in PAK_CADENA:
         ys = [float((n06.get(nid) or {}).get(d.isoformat(), 0.0) or 0.0) for d in dias]
+        med[nid] = _mediana(ys)
         ax.plot(
             dias,
             ys,
             color=_hex(COLOR_NODO[nid]),
-            linewidth=1.8,
+            linewidth=1.7,
             marker="o",
-            markersize=4,
+            markersize=3.2,
             label=NOMBRE_CORTO[nid],
             zorder=3,
         )
     ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
+    ax.set_xlabel("Julio 2026", fontsize=9, color=_hex(NAVY))
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=2))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d"))
     ax.tick_params(labelsize=8, colors=_hex(NAVY))
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -996,11 +1014,11 @@ def chart_pak_noches_ago(path: Path, n06: Dict[str, Dict[str, float]]) -> None:
     ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=1)
     ax.set_axisbelow(True)
     ax.legend(frameon=False, fontsize=8, loc="upper left", labelcolor=_hex(NAVY))
-    fig.autofmt_xdate(rotation=30, ha="right")
     fig.tight_layout(pad=0.25)
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", facecolor="white")
     plt.close(fig)
+    return med
 
 
 def _set_run(run, text: str, size: int, bold: bool = False, color=NAVY) -> None:
@@ -1201,15 +1219,16 @@ def _chip_layout(n: int) -> Tuple[float, List[Tuple[float, float, float, float]]
         return 1.96, pos
     n1 = (n + 1) // 2
     n2 = n - n1
-    h = 0.62 if n >= 8 else 0.58
+    h = 0.68 if n >= 8 else 0.58
+    gap = 0.10 if n >= 8 else gap
     w1 = (total_w - gap * (n1 - 1)) / n1
     pos = [(left + i * (w1 + gap), y0, w1, h) for i in range(n1)]
-    y1 = y0 + h + 0.05
+    y1 = y0 + h + 0.08
     w2 = (total_w - gap * max(n2 - 1, 0)) / max(n2, 1)
     row2_w = n2 * w2 + max(n2 - 1, 0) * gap
     x2 = left + (total_w - row2_w) / 2
     pos += [(x2 + i * (w2 + gap), y1, w2, h) for i in range(n2)]
-    return y1 + h + 0.08, pos
+    return y1 + h + 0.10, pos
 
 
 def _fit_picture(slide, path: Path, l: float, t: float, max_w: float, max_h: float) -> None:
@@ -1258,17 +1277,17 @@ def _slide_presentacion(
         fill = (255, 249, 235) if nid in PAK_CADENA else LIGHT
         _caja(sl, x, y, w, h, fill=fill, line=borde)
         id_sz, name_sz_c, nota_sz = (9, 11, 8) if compact else (10, 12, 10)
-        _tb(sl, x + 0.08, y + 0.03, w - 0.14, 0.18, [(nid, id_sz, True, GOLD)])
+        _tb(sl, x + 0.08, y + 0.04, w - 0.14, 0.16, [(nid, id_sz, True, GOLD)])
         _tb(
             sl,
             x + 0.08,
-            y + (0.20 if compact else 0.24),
+            y + (0.22 if compact else 0.24),
             w - 0.14,
             0.22,
             [(NOMBRE_CORTO.get(nid, nid), name_sz_c, True, NAVY)],
         )
         if nota:
-            _tb(sl, x + 0.08, y + h - 0.20, w - 0.14, 0.18, [(nota, nota_sz, False, GRAY)])
+            _tb(sl, x + 0.08, y + h - 0.22, w - 0.14, 0.18, [(nota, nota_sz, False, GRAY)])
 
     ch_mes = CHARTS / f"{mall['code'].lower()}_mensual_may_ago.png"
     chart_mensual(ch_mes, tot, sin_mayo=bool(mall.get("sin_mayo")))
@@ -1357,13 +1376,13 @@ def _slide_presentacion(
 
 
 def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]) -> None:
-    """Sandía Antigua/Nueva → 27 → 35 y 36. Proponer control en 27, validado con noche."""
+    """Sandía Antigua/Nueva → Distrito de Lujo → Bazar y DL Kennedy. Control en el tronco."""
     sl = prs.slides.add_slide(prs.slide_layouts[6])
     _header_bar(
         sl,
         prs,
         "PAK  ·  2. Cadena Sandía / Distrito de Lujo",
-        "22 + 28 alimentan 000025-27  ·  27 se divide en 35 y 36  ·  no entran a cabecera",
+        "Sandía Antigua y Sandía Nueva alimentan Distrito de Lujo  ·  se divide en Bazar Gourmet y DL Kennedy",
     )
     perfil = {
         nid: ((cadena.get("perfil") or {}).get(nid) or {}).get(DIA_PAK_NOCHE.isoformat()) or {}
@@ -1371,27 +1390,24 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
     }
     n06 = cadena.get("n06") or {}
     ch_p = CHARTS / "pak_cadena_perfil_20260810.png"
-    ch_n = CHARTS / "pak_cadena_noches_ago.png"
+    ch_n = CHARTS / "pak_cadena_noches_jul.png"
     n06_10 = chart_pak_perfil_10ago(ch_p, perfil)
-    chart_pak_noches_ago(ch_n, n06)
+    med_jul = chart_pak_noches_julio(ch_n, n06)
     n27, n35, n36 = (n06_10.get(n, 0.0) for n in PAK_CADENA)
-    jul27 = float((by.get("000025-27") or {}).get("jul") or 0)
-    jul35 = float((by.get("000025-35") or {}).get("jul") or 0)
-    jul36 = float((by.get("000025-36") or {}).get("jul") or 0)
+    m27, m35, m36 = (med_jul.get(n, 0.0) for n in PAK_CADENA)
 
-    _caja(sl, 0.22, 1.08, 12.88, 0.78, fill=(255, 249, 235), line=GOLD)
+    _caja(sl, 0.22, 1.08, 12.88, 0.56, fill=(255, 249, 235), line=GOLD)
     _tb(
         sl,
         0.40,
         1.14,
         12.55,
-        0.66,
+        0.44,
         [
             (
-                "Sandía Antigua (000025-22) y Sandía Nueva (000025-28) alimentan "
-                "000025-27 (Distrito de Lujo). Desde 27 el caudal se divide en "
-                "000025-35 (Bazar Gourmet) y 000025-36 (DL Kennedy). "
-                "Por eso 27, 35 y 36 no se suman a la cabecera: sería doble conteo.",
+                "Sandía Antigua y Sandía Nueva alimentan Distrito de Lujo. "
+                "Desde ahí el caudal se divide en Bazar Gourmet y DL Kennedy. "
+                "Por eso esos tres puntos no se suman a la cabecera: sería doble conteo.",
                 13,
                 False,
                 NAVY,
@@ -1400,26 +1416,28 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
     )
 
     flujo = [
-        ("000025-22", "Sandía Antigua", 0.22, LIGHT),
-        ("000025-28", "Sandía Nueva", 2.48, LIGHT),
-        ("000025-27", "Distrito Lujo  ·  tronco", 5.18, (255, 249, 235)),
-        ("000025-35", "Bazar Gourmet", 8.44, LIGHT),
-        ("000025-36", "DL Kennedy", 10.70, LIGHT),
+        (0.22, 2.12, "Sandía Antigua", "000025-22", LIGHT),
+        (2.70, 2.12, "Sandía Nueva", "000025-28", LIGHT),
+        (5.32, 2.40, "Distrito de Lujo", "000025-27", (255, 249, 235)),
+        (8.22, 2.12, "Bazar Gourmet", "000025-35", LIGHT),
+        (10.44, 2.12, "DL Kennedy", "000025-36", LIGHT),
     ]
-    for nid, nom, x, fill in flujo:
-        _caja(sl, x, 1.96, 2.16, 0.58, fill=fill, line=COLOR_NODO.get(nid, TEAL))
-        _tb(sl, x + 0.08, 1.98, 2.00, 0.18, [(nid, 9, True, GOLD)])
-        _tb(sl, x + 0.08, 2.18, 2.00, 0.30, [(nom, 11, True, NAVY)])
-    _tb(sl, 4.64, 2.10, 0.54, 0.28, [("→", 18, True, GOLD)], align=PP_ALIGN.CENTER)
-    _tb(sl, 7.90, 2.10, 0.54, 0.28, [("→", 18, True, GOLD)], align=PP_ALIGN.CENTER)
+    yf = 1.74
+    hf = 0.50
+    for x, w, nom, nid, fill in flujo:
+        _caja(sl, x, yf, w, hf, fill=fill, line=COLOR_NODO.get(nid, TEAL))
+        _tb(sl, x + 0.08, yf + 0.12, w - 0.16, 0.28, [(nom, 12, True, NAVY)], align=PP_ALIGN.CENTER)
+    _tb(sl, 2.34, yf + 0.08, 0.36, 0.34, [("+", 16, True, GOLD)], align=PP_ALIGN.CENTER)
+    _tb(sl, 4.82, yf + 0.08, 0.50, 0.34, [("→", 18, True, GOLD)], align=PP_ALIGN.CENTER)
+    _tb(sl, 7.72, yf + 0.08, 0.50, 0.34, [("→", 18, True, GOLD)], align=PP_ALIGN.CENTER)
 
-    _caja(sl, 0.22, 2.66, 6.38, 3.40)
-    _tb(sl, 0.36, 2.70, 6.10, 0.22, [("10/08 · perfil 24 h  (sombra = 00:00–06:00)", 11, True, TEAL)])
-    _fit_picture(sl, ch_p, 0.32, 2.94, 6.18, 3.02)
+    _caja(sl, 0.22, 2.36, 6.38, 3.70)
+    _tb(sl, 0.36, 2.40, 6.10, 0.22, [("10/08 · perfil 24 h  (sombra = 00:00–06:00)", 11, True, TEAL)])
+    _fit_picture(sl, ch_p, 0.32, 2.64, 6.18, 3.32)
 
-    _caja(sl, 6.74, 2.66, 6.36, 3.40)
-    _tb(sl, 6.88, 2.70, 6.08, 0.22, [("Agosto · m³ de madrugada (00:00–06:00)", 11, True, TEAL)])
-    _fit_picture(sl, ch_n, 6.84, 2.94, 6.16, 3.02)
+    _caja(sl, 6.74, 2.36, 6.36, 3.70)
+    _tb(sl, 6.88, 2.40, 6.08, 0.22, [("Julio · m³ de madrugada (00:00–06:00)", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 6.84, 2.64, 6.16, 3.32)
 
     _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
     _tb(
@@ -1430,18 +1448,18 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
         1.06,
         [
             (
-                f"10/08 noche 00–06: Distrito de Lujo {fn(n27, 1)} m³  ·  "
-                f"Bazar {fn(n35, 1)} m³  ·  DL Kennedy {fn(n36, 1)} m³. "
-                f"Julio: 27 = {fn(jul27, 0)} m³  ·  35 = {fn(jul35, 0)} m³  ·  "
-                f"36 = {fn(jul36, 0)} m³.",
+                f"Julio (31 noches): Distrito de Lujo mediana {fn(m27, 1)} m³  ·  "
+                f"Bazar Gourmet {fn(m35, 1)} m³  ·  DL Kennedy {fn(m36, 1)} m³. "
+                f"Ejemplo 10/08 00–06: Distrito de Lujo {fn(n27, 1)} m³  ·  "
+                f"Bazar {fn(n35, 1)} m³  ·  DL Kennedy {fn(n36, 1)} m³.",
                 13,
                 False,
                 NAVY,
             ),
             (
-                "Propuesta: instalar control nocturno en 000025-27 (tronco). "
-                "De madrugada, Bazar (35) sigue a 27 y DL Kennedy (36) queda residual. "
-                "Cortar 27 corta el caudal de noche del Distrito de Lujo.",
+                "Propuesta: instalar control nocturno en Distrito de Lujo (tronco). "
+                "De madrugada, Bazar Gourmet sigue al tronco y DL Kennedy queda residual. "
+                "Cortar el tronco corta el caudal de noche del Distrito de Lujo.",
                 13,
                 True,
                 NAVY,
@@ -1490,7 +1508,12 @@ def main() -> int:
     if not (hourly.get("000025-07") and hourly.get("000025-01")):
         hourly = refrescar_noches()
     cadena_pak = cargar_cadena_pak()
-    if not ((cadena_pak.get("perfil") or {}).get("000025-27") or {}).get(DIA_PAK_NOCHE.isoformat()):
+    n06_27 = ((cadena_pak.get("n06") or {}).get("000025-27") or {})
+    if (
+        not ((cadena_pak.get("perfil") or {}).get("000025-27") or {}).get(DIA_PAK_NOCHE.isoformat())
+        or JUL_NOCHE_D0.isoformat() not in n06_27
+        or JUL_NOCHE_D1.isoformat() not in n06_27
+    ):
         cadena_pak = refrescar_cadena_pak()
     ppt = build_ppt(by, hourly, cadena_pak)
     print("\n=== SALIDA ===")
