@@ -48,6 +48,7 @@ JSON_PAK_CADENA = OUT_DIR / "noches_cadena_pak.json"
 JSON_MAM_PLACA = OUT_DIR / "noches_mam_placa.json"
 JSON_MAQ_MATRIZ = OUT_DIR / "noches_maq_matriz.json"
 JSON_BOM_SI500 = OUT_DIR / "noches_bom_si500.json"
+JSON_AEB = OUT_DIR / "noches_aeb.json"
 JSON_PERFILES = OUT_DIR / "perfiles_horarios_control_mae.json"
 LOGO = ROOT / "logo wes.bmp"
 FONDO = ROOT / "Parque arauco fondo.jpg"
@@ -77,6 +78,11 @@ CTRL_SI500 = date(2026, 7, 17)
 UMBRAL_SI500_DIA = 145.0
 UMBRAL_SI500_NOCHE = 8.0  # avisa si el corte se cae; residual con control ~2 m³
 UMBRAL_SI300_NOCHE = 4.0
+MATRIZ_AEB = "000025-11"
+ANILLO_AEB = "000025-12"
+MATRIZ_AA_HASTA = date(2026, 5, 15)  # último día con caudal; ese día entra Matriz 1° piso
+UMBRAL_ANILLO_DIA = 22.0
+UMBRAL_MATRIZ_AEB_NOCHE = 3.0
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -125,7 +131,7 @@ MALLS: List[Dict[str, Any]] = [
         "recepcion": "29/10/2025 / relocalizado 16/01/2026",
         "capacitacion": "20/11/2025",
         "usuarios": "Tamara Martínez  ·  Tomás Saba  ·  Sebastián Araneda",
-        "caption": "Matriz 1° piso y Anillo Plaza. Relocalizado en enero 2026.",
+        "caption": "Matriz 1° piso y Anillo Plaza. Matriz A.A. desactivada 15/05. Lámina 2: alza Anillo y umbrales.",
     },
     {
         "code": "CUR",
@@ -197,6 +203,7 @@ CHIP_NOTA = {
     "000025-33": "residual",
     "000025-34": "uso hábil",
     "000025-17": "monitoreo",
+    "000025-11": "activo 15/05",
     "000025-22": "alimenta 27",
     "000025-28": "alimenta 27",
     "000025-27": "cadena · no suma",
@@ -232,6 +239,8 @@ COLOR_NODO: Dict[str, Tuple[int, int, int]] = {
     "000025-34": (123, 163, 201),
     "000025-18": (13, 59, 102),
     "000025-17": (196, 92, 38),
+    "000025-11": (13, 59, 102),
+    "000025-12": (196, 92, 38),
 }
 _ci = 0
 for _mall in MALLS:
@@ -643,6 +652,61 @@ def refrescar_bom_si500() -> Dict[str, Any]:
     payload = {"n06": n06}
     JSON_BOM_SI500.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
+
+
+def cargar_aeb() -> Dict[str, Any]:
+    if not JSON_AEB.is_file():
+        return {"n06": {}}
+    raw = json.loads(JSON_AEB.read_text(encoding="utf-8"))
+    return {"n06": raw.get("n06") or {}}
+
+
+def refrescar_aeb() -> Dict[str, Any]:
+    """m³ 00:00–06:00 de Matriz 1° piso y Anillo Plaza (mayo–agosto a la fecha)."""
+    from generar_reporte_word import get_hourly_measures_for_day
+
+    data = cargar_aeb()
+    n06: Dict[str, Dict[str, float]] = data.get("n06") or {}
+    pendientes: List[Tuple[str, date]] = []
+    for nid in (MATRIZ_AEB, ANILLO_AEB):
+        n06.setdefault(nid, {})
+        for d in _rango_dias(DESDE, HASTA):
+            if d.isoformat() not in n06[nid]:
+                pendientes.append((nid, d))
+    print(f"[INFO] AEB: {len(pendientes)} noches", flush=True)
+
+    def _noche(nid: str, d: date) -> Tuple[str, str, float]:
+        serie = get_hourly_measures_for_day(nid, datetime(d.year, d.month, d.day)) or []
+        return nid, d.isoformat(), round(_n06_de_serie(serie), 2)
+
+    if pendientes:
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futs = [pool.submit(_noche, nid, d) for nid, d in pendientes]
+            for i, fut in enumerate(as_completed(futs), 1):
+                nid, iso, v = fut.result()
+                n06[nid][iso] = v
+                if i % 20 == 0 or i == len(pendientes):
+                    print(f"  {i}/{len(pendientes)} noches AEB", flush=True)
+                    JSON_AEB.write_text(
+                        json.dumps({"n06": n06}, ensure_ascii=False, indent=2),
+                        encoding="utf-8",
+                    )
+    payload = {"n06": n06}
+    JSON_AEB.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
+
+
+def _prom_mes(serie: Dict[str, float], year: int, month: int, activos: Dict[str, float] | None = None) -> float:
+    """Promedio diario o nocturno del mes, solo días con caudal de día."""
+    vals: List[float] = []
+    for iso, v in serie.items():
+        d = date.fromisoformat(iso)
+        if d.year != year or d.month != month or d > HASTA:
+            continue
+        if activos is not None and float(activos.get(iso, 0.0) or 0.0) <= 0.1:
+            continue
+        vals.append(float(v))
+    return (sum(vals) / len(vals)) if vals else 0.0
 
 
 def _stats_si500(n06: Dict[str, float]) -> Dict[str, Any]:
@@ -1472,6 +1536,62 @@ def chart_bom_si500_ahorro(path: Path, st: Dict[str, float]) -> None:
     plt.close(fig)
 
 
+def chart_aeb_dia_noche(
+    path: Path,
+    daily: Dict[str, float],
+    n06: Dict[str, float],
+    *,
+    color_dia: Tuple[int, int, int],
+    umbral: float,
+    umbral_noche: bool,
+    umbral_etq: str,
+) -> Dict[str, List[float]]:
+    """Barras por mes: promedio día + promedio noche 00–06, con umbral."""
+    meses = [
+        (2026, 5, "Mayo"),
+        (2026, 6, "Junio"),
+        (2026, 7, "Julio"),
+        (2026, 8, f"Agosto\n1–{HASTA.day}"),
+    ]
+    dias_avg = [_prom_mes(daily, y, m) for y, m, _ in meses]
+    noc_avg = [_prom_mes(n06, y, m, activos=daily) for y, m, _ in meses]
+    labels = [lab for _, _, lab in meses]
+    x = np.arange(len(meses))
+    w = 0.36
+    fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
+    ax.bar(x - w / 2, dias_avg, w, color=_hex(color_dia), zorder=3, label="Promedio día")
+    ax.bar(x + w / 2, noc_avg, w, color=_hex(GOLD), zorder=3, label="Promedio noche 00–06")
+    ax.axhline(
+        umbral,
+        color="#C04545" if umbral_noche else _hex(GOLD),
+        linestyle=":",
+        linewidth=1.2,
+        zorder=4,
+        label=umbral_etq,
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9, color=_hex(NAVY))
+    ax.set_ylabel("m³ / día  ·  m³ / noche", fontsize=9, color=_hex(NAVY))
+    ax.tick_params(axis="y", labelsize=8, colors=_hex(NAVY))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5CDD6")
+    ax.spines["bottom"].set_color("#C5CDD6")
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
+    ax.set_axisbelow(True)
+    ymax = max(dias_avg + noc_avg + [umbral, 1.0]) * 1.28
+    ax.set_ylim(0, ymax)
+    for xi, d, n in zip(x, dias_avg, noc_avg):
+        ax.text(xi - w / 2, d + ymax * 0.02, fn(d, 0), ha="center", va="bottom", fontsize=8, color=_hex(NAVY), fontweight="bold")
+        ax.text(xi + w / 2, n + ymax * 0.02, fn(n, 1), ha="center", va="bottom", fontsize=8, color=_hex(NAVY), fontweight="bold")
+    ax.legend(frameon=False, fontsize=7.5, loc="upper left", labelcolor=_hex(NAVY))
+    fig.tight_layout(pad=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return {"dia": dias_avg, "noche": noc_avg}
+
+
 def chart_mam_placa_noches(
     path: Path, n06_p: Dict[str, float], n06_f: Dict[str, float]
 ) -> float:
@@ -1615,7 +1735,7 @@ def _portada(prs) -> None:
         [
             ("Una lámina de presentación por recinto", 16, False, WHITE),
             (f"Período {PERIODO}   |   Emisión {FECHA_EMISION}", 15, False, (220, 230, 240)),
-            ("Lámina 2: MAE  ·  MAM Placa  ·  MAQ Matriz  ·  BOM SI500  ·  PAK cadena", 14, False, GOLD),
+            ("Lámina 2: MAE  ·  MAM Placa  ·  MAQ Matriz  ·  BOM SI500  ·  AEB Anillo  ·  PAK cadena", 14, False, GOLD),
         ],
     )
 
@@ -2249,6 +2369,104 @@ def _slide_bom_control(prs, by: Dict[str, Dict[str, Any]], bom: Dict[str, Any]) 
     )
 
 
+def _slide_aeb_anillo(prs, by: Dict[str, Dict[str, Any]], aeb: Dict[str, Any]) -> None:
+    """Matriz A.A. desactivada 15/05, alza Anillo Plaza y umbrales."""
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl,
+        prs,
+        "AEB  ·  2. Anillo Plaza y Matriz",
+        "Matriz A.A. desactivada 15/05  ·  alza Anillo  ·  umbrales",
+    )
+    daily_a = (by.get(ANILLO_AEB) or {}).get("daily") or {}
+    daily_m = (by.get(MATRIZ_AEB) or {}).get("daily") or {}
+    n06_a = (aeb.get("n06") or {}).get(ANILLO_AEB) or {}
+    n06_m = (aeb.get("n06") or {}).get(MATRIZ_AEB) or {}
+    ch_a = CHARTS / "aeb_anillo_dia_noche.png"
+    ch_m = CHARTS / "aeb_matriz_dia_noche.png"
+    st_a = chart_aeb_dia_noche(
+        ch_a,
+        daily_a,
+        n06_a,
+        color_dia=COLOR_NODO[ANILLO_AEB],
+        umbral=UMBRAL_ANILLO_DIA,
+        umbral_noche=False,
+        umbral_etq=f"Umbral día {fn(UMBRAL_ANILLO_DIA, 0)} m³",
+    )
+    chart_aeb_dia_noche(
+        ch_m,
+        daily_m,
+        n06_m,
+        color_dia=COLOR_NODO[MATRIZ_AEB],
+        umbral=UMBRAL_MATRIZ_AEB_NOCHE,
+        umbral_noche=True,
+        umbral_etq=f"Umbral noche {fn(UMBRAL_MATRIZ_AEB_NOCHE, 0)} m³",
+    )
+    may_a, jun_a, jul_a, ago_a = st_a["dia"]
+    pico = max((float(v) for iso, v in daily_a.items() if iso.startswith("2026-07")), default=0.0)
+    pico_iso = max(
+        ((iso, float(v)) for iso, v in daily_a.items() if iso.startswith("2026-07")),
+        key=lambda x: x[1],
+        default=("", 0.0),
+    )
+    pico_d = date.fromisoformat(pico_iso[0]).strftime("%d/%m") if pico_iso[0] else "09/07"
+
+    _caja(sl, 0.22, 1.08, 12.88, 0.72, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.40,
+        1.14,
+        12.55,
+        0.60,
+        [
+            (
+                f"Matriz A.A. se desactivó el {MATRIZ_AA_HASTA.strftime('%d/%m')}: "
+                "desde ese día el recinto se lee en Matriz 1° piso y Anillo Plaza. "
+                f"Anillo Plaza subió (mayo {fn(may_a, 0)} → junio {fn(jun_a, 0)} → julio {fn(jul_a, 0)} m³/día; "
+                f"pico {fn(pico, 0)} el {pico_d}). Agosto {fn(ago_a, 0)}: ¿hay un trabajo en curso?",
+                14,
+                False,
+                NAVY,
+            )
+        ],
+    )
+
+    _caja(sl, 0.22, 1.90, 6.38, 4.16)
+    _tb(sl, 0.36, 1.94, 6.10, 0.22, [("ANILLO PLAZA  ·  promedio día vs noche", 11, True, TEAL)])
+    _fit_picture(sl, ch_a, 0.32, 2.18, 6.18, 3.78)
+
+    _caja(sl, 6.74, 1.90, 6.36, 4.16)
+    _tb(sl, 6.88, 1.94, 6.08, 0.22, [("MATRIZ 1° PISO  ·  promedio día vs noche", 11, True, TEAL)])
+    _fit_picture(sl, ch_m, 6.84, 2.18, 6.16, 3.78)
+
+    _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.40,
+        6.22,
+        12.55,
+        1.04,
+        [
+            (
+                f"Pregunta para el recinto: el alza de Anillo Plaza (mayo {fn(may_a, 0)} → julio {fn(jul_a, 0)} m³/día) "
+                f"¿se está trabajando? Agosto baja a {fn(ago_a, 0)} m³/día, pero sigue sobre mayo.",
+                13,
+                False,
+                NAVY,
+            ),
+            (
+                f"Umbrales a activar: Anillo Plaza diario {fn(UMBRAL_ANILLO_DIA, 0)} m³/día "
+                f"(julio {fn(jul_a, 0)}; el 09/07 llegó a {fn(pico, 0)}). "
+                f"Matriz 1° piso noche {fn(UMBRAL_MATRIZ_AEB_NOCHE, 0)} m³ 00–06 "
+                f"(el día está estable; la madrugada es lo que hay que ver).",
+                13,
+                True,
+                NAVY,
+            ),
+        ],
+    )
+
+
 def build_ppt(
     by: Dict[str, Dict[str, Any]],
     hourly: Dict[str, Dict[str, float]],
@@ -2256,6 +2474,7 @@ def build_ppt(
     mam_placa: Dict[str, Any],
     maq_matriz: Dict[str, Any],
     bom_si500: Dict[str, Any],
+    aeb: Dict[str, Any],
 ) -> Path:
     prs = Presentation()
     prs.slide_width = PptInches(13.333)
@@ -2273,6 +2492,8 @@ def build_ppt(
             _slide_maq_matriz(prs, by, maq_matriz)
         if mall["code"] == "BOM":
             _slide_bom_control(prs, by, bom_si500)
+        if mall["code"] == "AEB":
+            _slide_aeb_anillo(prs, by, aeb)
         if mall["code"] == "PAK":
             _slide_pak_cadena(prs, by, cadena_pak)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -2299,6 +2520,8 @@ def main() -> int:
         refrescar_maq_matriz()
     if not skip or not JSON_BOM_SI500.is_file():
         refrescar_bom_si500()
+    if not skip or not JSON_AEB.is_file():
+        refrescar_aeb()
     _names, by, _tot = cargar_mall(JSON_ALL, todos)
     hourly = cargar_noches()
     if not (hourly.get("000025-07") and hourly.get("000025-01")):
@@ -2327,7 +2550,17 @@ def main() -> int:
         or CTRL_SI500.isoformat() not in n06_b500
     ):
         bom_si500 = refrescar_bom_si500()
-    ppt = build_ppt(by, hourly, cadena_pak, mam_placa, maq_matriz, bom_si500)
+    aeb = cargar_aeb()
+    n06_ae11 = ((aeb.get("n06") or {}).get(MATRIZ_AEB) or {})
+    n06_ae12 = ((aeb.get("n06") or {}).get(ANILLO_AEB) or {})
+    if (
+        MATRIZ_AA_HASTA.isoformat() not in n06_ae11
+        or HASTA.isoformat() not in n06_ae11
+        or HASTA.isoformat() not in n06_ae12
+        or DESDE.isoformat() not in n06_ae12
+    ):
+        aeb = refrescar_aeb()
+    ppt = build_ppt(by, hourly, cadena_pak, mam_placa, maq_matriz, bom_si500, aeb)
     print("\n=== SALIDA ===")
     print(ppt)
     for mall in MALLS:
