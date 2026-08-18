@@ -1391,9 +1391,19 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
     ch_p = CHARTS / "pak_cadena_perfil_20260810.png"
     ch_n = CHARTS / "pak_cadena_noches_jul.png"
     n06_10 = chart_pak_perfil_10ago(ch_p, perfil)
-    med_jul = chart_pak_noches_julio(ch_n, n06)
+    chart_pak_noches_julio(ch_n, n06)
     n27, n35, n36 = (n06_10.get(n, 0.0) for n in PAK_CADENA)
-    m27, m35, m36 = (med_jul.get(n, 0.0) for n in PAK_CADENA)
+    ramal_10 = n35 + n36
+    hueco_10 = n27 - ramal_10
+    huecos_jul = []
+    for d in _rango_dias(JUL_NOCHE_D0, JUL_NOCHE_D1):
+        iso = d.isoformat()
+        a = float((n06.get("000025-27") or {}).get(iso, 0.0) or 0.0)
+        b = float((n06.get("000025-35") or {}).get(iso, 0.0) or 0.0)
+        c = float((n06.get("000025-36") or {}).get(iso, 0.0) or 0.0)
+        huecos_jul.append(a - b - c)
+    hueco_jul = _mediana(huecos_jul)
+    pct_ramal = (ramal_10 / n27 * 100.0) if n27 else 0.0
 
     _caja(sl, 0.22, 1.08, 12.88, 0.56, fill=(255, 249, 235), line=GOLD)
     _tb(
@@ -1447,19 +1457,21 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
         1.06,
         [
             (
-                f"Julio (31 noches): Distrito de Lujo mediana {fn(m27, 1)} m³  ·  "
-                f"Bazar Gourmet {fn(m35, 1)} m³  ·  DL Kennedy {fn(m36, 1)} m³. "
-                f"Ejemplo 10/08 00–06: Distrito de Lujo {fn(n27, 1)} m³  ·  "
-                f"Bazar {fn(n35, 1)} m³  ·  DL Kennedy {fn(n36, 1)} m³.",
-                13,
+                f"10/08 00–06: Distrito de Lujo {fn(n27, 1)} m³  ·  "
+                f"Bazar {fn(n35, 1)} + DL Kennedy {fn(n36, 1)} = {fn(ramal_10, 1)} m³. "
+                f"Quedan {fn(hueco_10, 1)} m³ en el tronco que no aparecen en esos dos ramales. "
+                f"En julio esa diferencia de madrugada es estable "
+                f"(mediana {fn(hueco_jul, 1)} m³/noche; Bazar + Kennedy cubren "
+                f"{fn(pct_ramal, 0)} % del tronco).",
+                12,
                 False,
                 NAVY,
             ),
             (
-                "Propuesta: instalar control nocturno en Distrito de Lujo (tronco). "
-                "De madrugada, Bazar Gourmet sigue al tronco y DL Kennedy queda residual. "
-                "Cortar el tronco corta el caudal de noche del Distrito de Lujo.",
-                13,
+                "No asignamos ese hueco a un destino: no está en Bazar ni en DL Kennedy. "
+                "Propuesta: control nocturno en Distrito de Lujo (tronco). "
+                "Cortar el tronco corta Bazar, DL Kennedy y también ese caudal no ramaleado.",
+                12,
                 True,
                 NAVY,
             ),
