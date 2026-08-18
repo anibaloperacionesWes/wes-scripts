@@ -46,6 +46,7 @@ JSON_MAM = OUT_DIR / "datos_mam_may_ago.json"
 JSON_NOCHES = OUT_DIR / "noches_control_mae.json"
 JSON_PAK_CADENA = OUT_DIR / "noches_cadena_pak.json"
 JSON_MAM_PLACA = OUT_DIR / "noches_mam_placa.json"
+JSON_MAQ_MATRIZ = OUT_DIR / "noches_maq_matriz.json"
 JSON_PERFILES = OUT_DIR / "perfiles_horarios_control_mae.json"
 LOGO = ROOT / "logo wes.bmp"
 FONDO = ROOT / "Parque arauco fondo.jpg"
@@ -65,6 +66,10 @@ ARROW = "000025-33"
 UMBRAL_PLACA_DIA = 290.0
 UMBRAL_FALABELLA_DIA = 140.0
 UMBRAL_NOCHE_MALL = 15.0
+MATRIZ_MAQ = "000025-13"
+MAQ_ALZA = date(2026, 6, 22)
+UMBRAL_MAQ_DIA = 240.0
+UMBRAL_MAQ_NOCHE = 15.0
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -94,7 +99,7 @@ MALLS: List[Dict[str, Any]] = [
         "recepcion": "06/11/2025 / relocalizado 17/02/2026",
         "capacitacion": "14/11/2025",
         "usuarios": "Mario Freitez  ·  Tomás Saba  ·  Sebastián Araneda  ·  Mantención: I. Dustan, K. Varas, L. Méndez, C. Leyto",
-        "caption": "Matriz Principal concentra el recinto; Baños es consumo de uso hábil.",
+        "caption": "Matriz concentra el recinto. Lámina 2: alza desde junio, umbral y control de noche.",
     },
     {
         "code": "BOM",
@@ -216,6 +221,8 @@ COLOR_NODO: Dict[str, Tuple[int, int, int]] = {
     "000025-27": (196, 92, 38),
     "000025-35": (201, 162, 39),
     "000025-36": (90, 140, 110),
+    "000025-13": (13, 59, 102),
+    "000025-34": (123, 163, 201),
     "000025-18": (13, 59, 102),
     "000025-17": (196, 92, 38),
 }
@@ -555,6 +562,42 @@ def refrescar_mam_placa() -> Dict[str, Any]:
                     print(f"  {i}/{len(pendientes_n)} noches MAM Placa", flush=True)
     payload = {"perfil": perfil, "n06": n06}
     JSON_MAM_PLACA.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
+
+
+def cargar_maq_matriz() -> Dict[str, Any]:
+    if not JSON_MAQ_MATRIZ.is_file():
+        return {"n06": {}}
+    raw = json.loads(JSON_MAQ_MATRIZ.read_text(encoding="utf-8"))
+    return {"n06": raw.get("n06") or {}}
+
+
+def refrescar_maq_matriz() -> Dict[str, Any]:
+    """m³ 00:00–06:00 de Matriz Principal MAQ (julio–agosto a la fecha)."""
+    from generar_reporte_word import get_hourly_measures_for_day
+
+    data = cargar_maq_matriz()
+    n06: Dict[str, Dict[str, float]] = data.get("n06") or {}
+    n06.setdefault(MATRIZ_MAQ, {})
+    pendientes: List[date] = [
+        d for d in _rango_dias(JUL_NOCHE_D0, HASTA) if d.isoformat() not in n06[MATRIZ_MAQ]
+    ]
+    print(f"[INFO] MAQ Matriz: {len(pendientes)} noches", flush=True)
+
+    def _noche(d: date) -> Tuple[str, float]:
+        serie = get_hourly_measures_for_day(MATRIZ_MAQ, datetime(d.year, d.month, d.day)) or []
+        return d.isoformat(), round(_n06_de_serie(serie), 2)
+
+    if pendientes:
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futs = [pool.submit(_noche, d) for d in pendientes]
+            for i, fut in enumerate(as_completed(futs), 1):
+                iso, v = fut.result()
+                n06[MATRIZ_MAQ][iso] = v
+                if i % 15 == 0 or i == len(pendientes):
+                    print(f"  {i}/{len(pendientes)} noches MAQ Matriz", flush=True)
+    payload = {"n06": n06}
+    JSON_MAQ_MATRIZ.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
 
 
@@ -1168,6 +1211,89 @@ def chart_mam_placa_vs_falabella(
     plt.close(fig)
 
 
+def chart_maq_matriz_diario(path: Path, daily: Dict[str, float]) -> None:
+    """m³/día de Matriz Principal desde junio: el alza del 22/06 se sostiene."""
+    dias = _rango_dias(date(2026, 6, 1), HASTA)
+    ys = [float(daily.get(d.isoformat(), 0.0) or 0.0) for d in dias]
+    fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
+    ax.axvspan(MAQ_ALZA, dias[-1] + timedelta(days=1), color="#F4E6C8", alpha=0.45, zorder=0)
+    ax.plot(
+        dias,
+        ys,
+        color=_hex(COLOR_NODO[MATRIZ_MAQ]),
+        linewidth=1.8,
+        zorder=3,
+    )
+    ax.axvline(MAQ_ALZA, color=_hex(GOLD), linestyle="--", linewidth=1.1, zorder=4)
+    ax.set_ylabel("m³/día", fontsize=10, color=_hex(NAVY))
+    ax.set_xlabel("Junio – agosto 2026", fontsize=9, color=_hex(NAVY))
+    ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
+    ax.tick_params(labelsize=8, colors=_hex(NAVY))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5CDD6")
+    ax.spines["bottom"].set_color("#C5CDD6")
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=1)
+    ax.set_axisbelow(True)
+    ymax = ax.get_ylim()[1]
+    ax.text(
+        MAQ_ALZA + timedelta(days=2),
+        ymax * 0.12 if ymax else 1,
+        "22/06 alza",
+        fontsize=8,
+        color="#8A6A12",
+        fontweight="bold",
+    )
+    fig.tight_layout(pad=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+def chart_maq_matriz_noches(path: Path, n06: Dict[str, float]) -> float:
+    """m³ 00:00–06:00 de Matriz Principal, julio–agosto."""
+    dias = _rango_dias(JUL_NOCHE_D0, HASTA)
+    ys = [float(n06.get(d.isoformat(), 0.0) or 0.0) for d in dias]
+    med = _mediana(ys)
+    fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
+    ax.plot(
+        dias,
+        ys,
+        color=_hex(COLOR_NODO[MATRIZ_MAQ]),
+        linewidth=1.7,
+        marker="o",
+        markersize=3.0,
+        zorder=3,
+        label="Matriz Principal",
+    )
+    ax.axhline(
+        UMBRAL_MAQ_NOCHE,
+        color=_hex(GOLD),
+        linestyle=":",
+        linewidth=1.2,
+        zorder=4,
+        label=f"Umbral noche {fn(UMBRAL_MAQ_NOCHE, 0)} m³",
+    )
+    ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
+    ax.set_xlabel("Julio – agosto 2026", fontsize=9, color=_hex(NAVY))
+    ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
+    ax.tick_params(labelsize=8, colors=_hex(NAVY))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5CDD6")
+    ax.spines["bottom"].set_color("#C5CDD6")
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=1)
+    ax.set_axisbelow(True)
+    ax.legend(frameon=False, fontsize=8, loc="upper right", labelcolor=_hex(NAVY))
+    fig.tight_layout(pad=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return med
+
+
 def chart_mam_placa_noches(
     path: Path, n06_p: Dict[str, float], n06_f: Dict[str, float]
 ) -> float:
@@ -1311,7 +1437,7 @@ def _portada(prs) -> None:
         [
             ("Una lámina de presentación por recinto", 16, False, WHITE),
             (f"Período {PERIODO}   |   Emisión {FECHA_EMISION}", 15, False, (220, 230, 240)),
-            ("Lámina 2: MAE hallazgos  ·  MAM Placa Bancaria  ·  PAK cadena Sandía / DL", 14, False, GOLD),
+            ("Lámina 2: MAE  ·  MAM Placa  ·  MAQ Matriz  ·  PAK cadena", 14, False, GOLD),
         ],
     )
 
@@ -1771,11 +1897,91 @@ def _slide_mam_placa(prs, by: Dict[str, Dict[str, Any]], mam: Dict[str, Any]) ->
     )
 
 
+def _slide_maq_matriz(prs, by: Dict[str, Dict[str, Any]], maq: Dict[str, Any]) -> None:
+    """Alza desde junio, umbrales y control nocturno en Matriz Principal."""
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl,
+        prs,
+        "MAQ  ·  2. Matriz Principal",
+        "Alza desde junio  ·  umbrales  ·  la noche pide un control",
+    )
+    daily = (by.get(MATRIZ_MAQ) or {}).get("daily") or {}
+    n06 = (maq.get("n06") or {}).get(MATRIZ_MAQ) or {}
+    ch_d = CHARTS / "maq_matriz_diario_jun_ago.png"
+    ch_n = CHARTS / "maq_matriz_noches_jul_ago.png"
+    chart_maq_matriz_diario(ch_d, daily)
+    med_n = chart_maq_matriz_noches(ch_n, n06)
+
+    jul = float((by.get(MATRIZ_MAQ) or {}).get("jul") or 0)
+    ago = float((by.get(MATRIZ_MAQ) or {}).get("ago") or 0)
+    jun = float((by.get(MATRIZ_MAQ) or {}).get("jun") or 0)
+    jul_tot = sum(float((by.get(n) or {}).get("jul") or 0) for n in ["000025-13", "000025-34"])
+    pct = (jul / jul_tot * 100.0) if jul_tot else 0.0
+    ahorro_mes = med_n * 30.0
+
+    _caja(sl, 0.22, 1.08, 12.88, 0.72, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.40,
+        1.14,
+        12.55,
+        0.60,
+        [
+            (
+                f"Matriz Principal se lleva {fn(pct, 0)} % de julio. "
+                f"Desde el 22/06 el día se duplicó (junio {fn(jun / 30.0, 0)} → julio {fn(jul / 31.0, 0)} "
+                f"→ agosto {fn(ago / 17.0, 0)} m³/día) y se quedó arriba. "
+                "Baños es uso hábil: no es el problema.",
+                14,
+                False,
+                NAVY,
+            )
+        ],
+    )
+
+    _caja(sl, 0.22, 1.90, 6.38, 4.16)
+    _tb(sl, 0.36, 1.94, 6.10, 0.22, [("DÍA · el alza desde junio se sostiene", 11, True, TEAL)])
+    _fit_picture(sl, ch_d, 0.32, 2.18, 6.18, 3.78)
+
+    _caja(sl, 6.74, 1.90, 6.36, 4.16)
+    _tb(sl, 6.88, 1.94, 6.08, 0.22, [("NOCHE 00–06  ·  mall cerrado", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 6.84, 2.18, 6.16, 3.78)
+
+    _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.40,
+        6.22,
+        12.55,
+        1.04,
+        [
+            (
+                f"Umbrales: diario {fn(UMBRAL_MAQ_DIA, 0)} m³/día (julio ~{fn(jul / 31.0, 0)}). "
+                f"Noche {fn(UMBRAL_MAQ_NOCHE, 0)} m³: el mall está cerrado y hoy la madrugada anda en "
+                f"{fn(med_n, 0)} m³.",
+                14,
+                False,
+                NAVY,
+            ),
+            (
+                f"Buena medida: poner un control on/off de madrugada en Matriz. "
+                f"La gráfica de la derecha lo muestra: ~{fn(med_n, 0)} m³/noche, "
+                f"unos {fn(ahorro_mes, 0)} m³/mes si se corta el caudal inhábil.",
+                14,
+                True,
+                NAVY,
+            ),
+        ],
+    )
+
+
 def build_ppt(
     by: Dict[str, Dict[str, Any]],
     hourly: Dict[str, Dict[str, float]],
     cadena_pak: Dict[str, Any],
     mam_placa: Dict[str, Any],
+    maq_matriz: Dict[str, Any],
 ) -> Path:
     prs = Presentation()
     prs.slide_width = PptInches(13.333)
@@ -1789,6 +1995,8 @@ def build_ppt(
             _slide_hallazgos(prs, by, hourly)
         if mall["code"] == "MAM":
             _slide_mam_placa(prs, by, mam_placa)
+        if mall["code"] == "MAQ":
+            _slide_maq_matriz(prs, by, maq_matriz)
         if mall["code"] == "PAK":
             _slide_pak_cadena(prs, by, cadena_pak)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1811,6 +2019,8 @@ def main() -> int:
         refrescar_cadena_pak()
     if not skip or not JSON_MAM_PLACA.is_file():
         refrescar_mam_placa()
+    if not skip or not JSON_MAQ_MATRIZ.is_file():
+        refrescar_maq_matriz()
     _names, by, _tot = cargar_mall(JSON_ALL, todos)
     hourly = cargar_noches()
     if not (hourly.get("000025-07") and hourly.get("000025-01")):
@@ -1827,7 +2037,11 @@ def main() -> int:
     n06_pl = ((mam_placa.get("n06") or {}).get(PLACA) or {})
     if JUL_NOCHE_D0.isoformat() not in n06_pl or HASTA.isoformat() not in n06_pl:
         mam_placa = refrescar_mam_placa()
-    ppt = build_ppt(by, hourly, cadena_pak, mam_placa)
+    maq_matriz = cargar_maq_matriz()
+    n06_mq = ((maq_matriz.get("n06") or {}).get(MATRIZ_MAQ) or {})
+    if JUL_NOCHE_D0.isoformat() not in n06_mq or HASTA.isoformat() not in n06_mq:
+        maq_matriz = refrescar_maq_matriz()
+    ppt = build_ppt(by, hourly, cadena_pak, mam_placa, maq_matriz)
     print("\n=== SALIDA ===")
     print(ppt)
     for mall in MALLS:
