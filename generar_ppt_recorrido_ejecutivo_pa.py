@@ -90,10 +90,15 @@ GRAY = (90, 90, 90)
 LIGHT = (245, 247, 250)
 WHITE = (255, 255, 255)
 GOLD_SOFT = (232, 213, 163)
+TARIFA_CLP_M3 = 1400.0  # misma tarifa del PPT 7 Malls
 
 
 def fn(v: float, dec: int = 1) -> str:
     return format_number_chilean(float(v), dec)
+
+
+def _clp(m3: float) -> str:
+    return f"${fn(float(m3) * TARIFA_CLP_M3, 0)}"
 
 
 def _rango_horas(horas: List[int]) -> str:
@@ -320,6 +325,13 @@ def chart_sur_diario(path: Path, daily: Dict[str, float]) -> Dict[str, float]:
     pre = _avg_daily(daily, DESDE, SUR_REPARACION - timedelta(days=1))
     post = _avg_daily(daily, SUR_REPARACION + timedelta(days=1), HASTA)
     dia10 = float(daily.get(SUR_REPARACION.isoformat()) or 0.0)
+    n_post = sum(
+        1
+        for iso in daily
+        if SUR_REPARACION + timedelta(days=1) <= date.fromisoformat(iso) <= HASTA
+    )
+    baja = max(0.0, pre - post)
+    m3_acum = baja * float(n_post)
 
     fig, ax = plt.subplots(figsize=(7.15, 3.55), dpi=160)
     ax.axvspan(datetime(2026, 5, 1), datetime(2026, 6, 10), color="#F4E6C8", alpha=0.55, zorder=0)
@@ -356,6 +368,17 @@ def chart_sur_diario(path: Path, daily: Dict[str, float]) -> Dict[str, float]:
         color=_hex(NAVY),
         fontweight="bold",
     )
+    ax.text(
+        datetime(2026, 7, 8),
+        max(vals) * 0.78 if vals else 90,
+        f"−{fn(baja, 0)} m³/día\n{_clp(baja)} / día\n{_clp(baja * 30)} / mes",
+        fontsize=9,
+        color=_hex(NAVY),
+        fontweight="bold",
+        va="top",
+        ha="left",
+        bbox=dict(boxstyle="round,pad=0.35", facecolor="white", edgecolor=_hex(GOLD), linewidth=1.2),
+    )
     ax.set_ylabel("m³/día", fontsize=10, color=_hex(NAVY))
     ax.set_xlim(datetime(2026, 5, 1), datetime(2026, 8, 18))
     ax.set_ylim(0, max(vals) * 1.18 if vals else 1)
@@ -373,7 +396,14 @@ def chart_sur_diario(path: Path, daily: Dict[str, float]) -> Dict[str, float]:
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    return {"pre": pre, "post": post, "dia10": dia10}
+    return {
+        "pre": pre,
+        "post": post,
+        "dia10": dia10,
+        "baja": baja,
+        "n_post": n_post,
+        "m3_acum": m3_acum,
+    }
 
 
 def chart_horas_en_cero(
@@ -783,41 +813,43 @@ def _slide_hallazgos(
     ch_noc = CHARTS / "mae_horas_en_cero.png"
     st_sur = chart_sur_diario(ch_sur, daily_sur)
     st_h = chart_horas_en_cero(ch_noc, perfiles)
-    baja = st_sur["pre"] - st_sur["post"]
+    baja = st_sur["baja"]
     pct = (baja / st_sur["pre"] * 100) if st_sur["pre"] else 0.0
 
-    _caja(sl, 0.22, 1.10, 12.88, 1.12, fill=(255, 249, 235), line=GOLD)
-    _tb(sl, 0.40, 1.16, 12.55, 0.28, [("ESTANQUE SUR  ·  PRESÓSTATOS", 11, True, GOLD)])
+    _caja(sl, 0.22, 1.08, 12.88, 1.28, fill=(255, 249, 235), line=GOLD)
+    _tb(sl, 0.40, 1.14, 12.55, 0.26, [("ESTANQUE SUR  ·  PRESÓSTATOS", 11, True, GOLD)])
     _tb(
         sl,
         0.40,
-        1.44,
+        1.40,
         12.55,
-        0.68,
+        0.88,
         [
             (
                 f"El 10/06 se repararon los presostatos. El estanque venía en "
                 f"{fn(st_sur['pre'], 0)} m³/día (mayo–9/jun) y ese día ya marca "
                 f"{fn(st_sur['dia10'], 0)} m³. Desde el 11/06 se sostiene en "
                 f"{fn(st_sur['post'], 0)} m³/día (−{fn(baja, 0)} m³/día, {fn(pct, 0)}%). "
-                "No es fuga residual: la baja quedó en el dato diario.",
-                13,
+                f"A ${fn(TARIFA_CLP_M3, 0)}/m³: {_clp(baja)}/día  ·  {_clp(baja * 30)}/mes  ·  "
+                f"acumulado 11/06–{HASTA.strftime('%d/%m')}: {_clp(st_sur['m3_acum'])} "
+                f"({fn(st_sur['m3_acum'], 0)} m³ en {int(st_sur['n_post'])} días).",
+                12,
                 False,
                 NAVY,
             )
         ],
     )
 
-    _caja(sl, 0.22, 2.32, 5.78, 3.92)
-    _tb(sl, 0.36, 2.38, 5.50, 0.28, [("ESTANQUE NORTE — horas en cero (desde 05/08)", 11, True, TEAL)])
+    _caja(sl, 0.22, 2.46, 5.78, 3.78)
+    _tb(sl, 0.36, 2.52, 5.50, 0.26, [("ESTANQUE NORTE — horas en cero (desde 05/08)", 11, True, TEAL)])
     sl.shapes.add_picture(
-        str(ch_noc), PptInches(0.36), PptInches(2.68), width=PptInches(5.48), height=PptInches(3.32)
+        str(ch_noc), PptInches(0.36), PptInches(2.80), width=PptInches(5.48), height=PptInches(3.20)
     )
 
-    _caja(sl, 6.14, 2.32, 6.96, 3.92)
-    _tb(sl, 6.28, 2.38, 6.68, 0.28, [("ESTANQUE SUR — m³/día (la baja post 10/06)", 11, True, TEAL)])
+    _caja(sl, 6.14, 2.46, 6.96, 3.78)
+    _tb(sl, 6.28, 2.52, 6.68, 0.26, [("ESTANQUE SUR — m³/día y costo evitado", 11, True, TEAL)])
     sl.shapes.add_picture(
-        str(ch_sur), PptInches(6.28), PptInches(2.68), width=PptInches(6.68), height=PptInches(3.32)
+        str(ch_sur), PptInches(6.28), PptInches(2.80), width=PptInches(6.68), height=PptInches(3.20)
     )
 
     norte_r = _rango_horas(st_h.get("norte_horas_cero") or [])
