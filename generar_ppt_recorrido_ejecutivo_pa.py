@@ -268,6 +268,7 @@ AGO_ETQ = f"1–{HASTA.day}"
 SUR_REPARACION = date(2026, 6, 10)  # presostatos Estanque Sur
 CTRL_PIZZA = date(2026, 7, 1)
 CTRL_NORTE = date(2026, 8, 5)
+HORAS_CTRL_NORTE = 5  # 00:00–05:00 (hasta las 05:00)
 # 26–29/07 Pizza Hut: la noche volvió; no entra a la mediana post-control.
 PIZZA_NOCHES_ATIPICAS = {date(2026, 7, 26), date(2026, 7, 27), date(2026, 7, 28), date(2026, 7, 29)}
 
@@ -874,6 +875,11 @@ def _stats_noche(hourly: Dict[str, Dict[str, float]], nid: str, ctrl: date) -> D
     }
 
 
+def _ahorro_norte_mes(st: Dict[str, float]) -> float:
+    """Ahorro mensual Norte: m³ de la noche × 5 h de control × 30 días."""
+    return round(float(st.get("ahorro_noche") or 0.0), 1) * HORAS_CTRL_NORTE * 30.0
+
+
 def _avg_daily(daily: Dict[str, float], d0: date, d1: date) -> float:
     vals = [
         float(v)
@@ -1010,11 +1016,14 @@ def chart_controles_nocturnos(path: Path, hourly: Dict[str, Dict[str, float]]) -
             )
     # Ahorro Norte, sobre las barras del punto
     if st_n["ahorro_noche"] >= 0.2:
+        mes_n = _ahorro_norte_mes(st_n)
         ax.annotate(
-            f"ahorro {fn(st_n['ahorro_noche'], 1)} m³/noche\n{_clp(st_n['ahorro_noche'])}/noche",
+            f"ahorro {fn(st_n['ahorro_noche'], 1)} m³\n"
+            f"× {HORAS_CTRL_NORTE} h × 30 d\n"
+            f"{fn(mes_n, 0)} m³/mes\n{_clp(mes_n)}/mes",
             xy=(1 + w / 2, st_n["post"]),
-            xytext=(1.22, ymax * 0.72),
-            fontsize=8.5,
+            xytext=(1.18, ymax * 0.58),
+            fontsize=8,
             color=_hex(NAVY),
             fontweight="bold",
             ha="left",
@@ -1942,24 +1951,18 @@ def _slide_hallazgos(
         1.12,
         [
             (
-                f"Estanque Norte (control 05/08): noche típica {fn(st_n['pre'], 1)} → "
-                f"{fn(st_n['post'], 1)} m³. Ahorro {fn(st_n['ahorro_noche'], 1)} m³/noche "
-                f"({_clp(st_n['ahorro_noche'])}/noche · {_clp(st_n['ahorro_noche'] * 30)}/mes). "
-                f"En {int(st_n['n_post'])} noches: {fn(st_n['ahorro_acum'], 0)} m³ = "
-                f"{_clp(st_n['ahorro_acum'])} (tarifa ${fn(TARIFA_CLP_M3, 0)}/m³).",
+                f"Estanque Norte (control 05/08, 00:00–05:00): noche típica "
+                f"{fn(st_n['pre'], 1)} → {fn(st_n['post'], 1)} m³, ahorro "
+                f"{fn(st_n['ahorro_noche'], 1)} m³. × {HORAS_CTRL_NORTE} h de control × 30 días = "
+                f"{fn(_ahorro_norte_mes(st_n), 0)} m³/mes = {_clp(_ahorro_norte_mes(st_n))}/mes "
+                f"(tarifa ${fn(TARIFA_CLP_M3, 0)}/m³). Es el que más ahorra de los controles MAE.",
                 12,
-                False,
+                True,
                 NAVY,
             ),
             (
                 f"Pizza Hut (control 01/07): noche típica {fn(st_p['pre'], 1)} → "
-                f"{fn(st_p['post'], 1)} m³.",
-                12,
-                False,
-                NAVY,
-            ),
-            (
-                "Estanque Sur: corte on/off a cargo de mantención nocturna.",
+                f"{fn(st_p['post'], 1)} m³. Estanque Sur: corte on/off a cargo de mantención nocturna.",
                 12,
                 False,
                 NAVY,
