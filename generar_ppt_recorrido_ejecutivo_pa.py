@@ -82,7 +82,7 @@ MATRIZ_AEB = "000025-11"
 ANILLO_AEB = "000025-12"
 MATRIZ_AA_HASTA = date(2026, 5, 15)  # último día con caudal; ese día entra Matriz 1° piso
 UMBRAL_ANILLO_DIA = 22.0
-UMBRAL_MATRIZ_AEB_NOCHE = 3.0
+UMBRAL_MATRIZ_AEB_DIA = 75.0  # agosto ~58 × 1,25; solo se ofrece umbral del día
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -2393,14 +2393,14 @@ def _slide_aeb_anillo(prs, by: Dict[str, Dict[str, Any]], aeb: Dict[str, Any]) -
         umbral_noche=False,
         umbral_etq=f"Umbral día {fn(UMBRAL_ANILLO_DIA, 0)} m³",
     )
-    chart_aeb_dia_noche(
+    st_m = chart_aeb_dia_noche(
         ch_m,
         daily_m,
         n06_m,
         color_dia=COLOR_NODO[MATRIZ_AEB],
-        umbral=UMBRAL_MATRIZ_AEB_NOCHE,
-        umbral_noche=True,
-        umbral_etq=f"Umbral noche {fn(UMBRAL_MATRIZ_AEB_NOCHE, 0)} m³",
+        umbral=UMBRAL_MATRIZ_AEB_DIA,
+        umbral_noche=False,
+        umbral_etq=f"Umbral día {fn(UMBRAL_MATRIZ_AEB_DIA, 0)} m³",
     )
     may_a, jun_a, jul_a, ago_a = st_a["dia"]
     pico = max((float(v) for iso, v in daily_a.items() if iso.startswith("2026-07")), default=0.0)
@@ -2455,9 +2455,10 @@ def _slide_aeb_anillo(prs, by: Dict[str, Dict[str, Any]], aeb: Dict[str, Any]) -
                 NAVY,
             ),
             (
-                f"Umbrales a activar: Anillo Plaza diario {fn(UMBRAL_ANILLO_DIA, 0)} m³/día "
+                f"Umbrales a activar (total del día): Anillo Plaza {fn(UMBRAL_ANILLO_DIA, 0)} m³/día "
                 f"(julio {fn(jul_a, 0)}; el 09/07 llegó a {fn(pico, 0)}). "
-                f"Matriz 1° piso: umbral noche {fn(UMBRAL_MATRIZ_AEB_NOCHE, 0)} m³ 00–06.",
+                f"Matriz 1° piso {fn(UMBRAL_MATRIZ_AEB_DIA, 0)} m³/día "
+                f"(agosto ~{fn(st_m['dia'][-1], 0)} × 1,25).",
                 13,
                 True,
                 NAVY,
