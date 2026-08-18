@@ -2745,6 +2745,231 @@ def _slide_cur_anillos(prs, by: Dict[str, Dict[str, Any]], cur: Dict[str, Any]) 
     )
 
 
+def _filas_propuesta(
+    by: Dict[str, Dict[str, Any]],
+    hourly: Dict[str, Dict[str, float]],
+    cadena_pak: Dict[str, Any],
+    maq_matriz: Dict[str, Any],
+    bom_si500: Dict[str, Any],
+    aeb: Dict[str, Any],
+    cur: Dict[str, Any],
+) -> List[Dict[str, str]]:
+    """Qué proponemos en cada recinto: on/off (ahorro) + umbral 24 h."""
+    st_n = _stats_noche(hourly, "000025-01", CTRL_NORTE)
+    mes_n = _ahorro_norte_mes(st_n)
+
+    n06_mq = (maq_matriz.get("n06") or {}).get(MATRIZ_MAQ) or {}
+    noc_maq = _mediana(
+        [
+            float(v)
+            for iso, v in n06_mq.items()
+            if date.fromisoformat(iso) >= MAQ_ALZA
+        ]
+    )
+    mes_maq = noc_maq * 30.0
+
+    st_b = _stats_si500((bom_si500.get("n06") or {}).get(SI500) or {})
+    mes_bom = float(st_b.get("ahorro_noche") or 0.0) * 30.0
+
+    daily_a = (by.get(ANILLO_AEB) or {}).get("daily") or {}
+    daily_m = (by.get(MATRIZ_AEB) or {}).get("daily") or {}
+    n06_a = (aeb.get("n06") or {}).get(ANILLO_AEB) or {}
+    n06_m = (aeb.get("n06") or {}).get(MATRIZ_AEB) or {}
+    noc_a = (
+        _prom_mes(n06_a, 2026, 7, activos=daily_a) + _prom_mes(n06_a, 2026, 8, activos=daily_a)
+    ) / 2.0
+    noc_m = (
+        _prom_mes(n06_m, 2026, 7, activos=daily_m) + _prom_mes(n06_m, 2026, 8, activos=daily_m)
+    ) / 2.0
+    mes_aeb = (noc_a + noc_m) * 30.0
+
+    n06_cs = (cur.get("n06") or {}).get(ANILLO_SUR) or {}
+    n06_cn = (cur.get("n06") or {}).get(ANILLO_NORTE) or {}
+    med_sur = _mediana([float(v) for v in n06_cs.values()])
+    med_nor = _mediana([float(v) for v in n06_cn.values()])
+
+    n06_pak = cadena_pak.get("n06") or {}
+    med_bazar = _mediana([float(v) for v in (n06_pak.get(BAZAR) or {}).values()])
+    med_ken = _mediana([float(v) for v in (n06_pak.get(DL_KENNEDY) or {}).values()])
+    if med_bazar >= med_ken:
+        pak_nom, pak_med, pak_otro, pak_otro_m = "Bazar Gourmet", med_bazar, "DL Kennedy", med_ken
+    else:
+        pak_nom, pak_med, pak_otro, pak_otro_m = "DL Kennedy", med_ken, "Bazar Gourmet", med_bazar
+    mes_pak = pak_med * 30.0
+    umb_dl = _umbral_dia_de(float((by.get("000025-27") or {}).get("jul") or 0))
+    umb_bazar = _umbral_dia_de(float((by.get(BAZAR) or {}).get("jul") or 0))
+    umb_ken = _umbral_dia_de(float((by.get(DL_KENNEDY) or {}).get("jul") or 0))
+
+    return [
+        {
+            "code": "MAE",
+            "nombre": "Mall Arauco Estación",
+            "onoff": (
+                f"On/off: Estanque Norte ya operativo (05/08, 00:00–05:00) "
+                f"{fn(st_n['pre'], 1)} → {fn(st_n['post'], 1)} m³ = "
+                f"{fn(mes_n, 0)} m³/mes = {_clp(mes_n)}/mes. Pizza Hut control 01/07."
+            ),
+            "umbral": (
+                f"Umbrales 24 h: Norte {fn(UMBRAL_MAE_NORTE_DIA, 0)}  ·  "
+                f"Sur {fn(UMBRAL_MAE_SUR_DIA, 0)}  ·  Pizza Hut {fn(UMBRAL_MAE_PIZZA_DIA, 0)}  ·  "
+                f"Baños {fn(UMBRAL_MAE_BANOS_DIA, 0)} m³/día."
+            ),
+        },
+        {
+            "code": "MAM",
+            "nombre": "Mall Arauco Maipú",
+            "onoff": (
+                "On/off: no se propone corte ahora. Desde el 15/08 el mall sale por Falabella. "
+                "Siguiente paso: partir esa línea para ver a dónde va la noche."
+            ),
+            "umbral": (
+                f"Umbrales 24 h: Placa Bancaria {fn(UMBRAL_PLACA_DIA, 0)}  ·  "
+                f"Falabella {fn(UMBRAL_FALABELLA_DIA, 0)} m³/día."
+            ),
+        },
+        {
+            "code": "MAQ",
+            "nombre": "Mall Arauco Quilicura",
+            "onoff": (
+                f"On/off a proponer 00–06 en Matriz Principal: "
+                f"{fn(noc_maq, 1)} m³/noche = {fn(mes_maq, 0)} m³/mes = {_clp(mes_maq)}/mes."
+            ),
+            "umbral": f"Umbral 24 h: Matriz Principal {fn(UMBRAL_MAQ_DIA, 0)} m³/día.",
+        },
+        {
+            "code": "BOM",
+            "nombre": "Buenaventura (San Ignacio)",
+            "onoff": (
+                f"On/off: San Ignacio 500 ya operativo desde 17/07. "
+                f"Ahorro {fn(st_b['ahorro_noche'], 1)} m³/noche = "
+                f"{fn(mes_bom, 0)} m³/mes = {_clp(mes_bom)}/mes."
+            ),
+            "umbral": (
+                f"Umbrales 24 h: San Ignacio 500 {fn(UMBRAL_SI500_DIA, 0)}  ·  "
+                f"San Ignacio 300 {fn(UMBRAL_SI300_DIA, 0)} m³/día."
+            ),
+        },
+        {
+            "code": "AEB",
+            "nombre": "Arauco El Bosque",
+            "onoff": (
+                f"On/off a proponer 00–06 en Anillo Plaza ({fn(noc_a, 1)} m³) y Matriz 1° piso "
+                f"({fn(noc_m, 1)} m³): {fn(noc_a + noc_m, 1)} m³/noche = "
+                f"{fn(mes_aeb, 0)} m³/mes = {_clp(mes_aeb)}/mes."
+            ),
+            "umbral": (
+                f"Umbrales 24 h: Anillo Plaza {fn(UMBRAL_ANILLO_DIA, 0)}  ·  "
+                f"Matriz 1° piso {fn(UMBRAL_MATRIZ_AEB_DIA, 0)} m³/día."
+            ),
+        },
+        {
+            "code": "CUR",
+            "nombre": "Arauco Curauma",
+            "onoff": (
+                f"On/off: no se propone. Noche típica Sur {fn(med_sur, 1)} · Norte {fn(med_nor, 1)} m³. "
+                "Es chica; no se lee como fuga."
+            ),
+            "umbral": (
+                f"Umbrales 24 h: Anillo Sur {fn(UMBRAL_SUR_DIA, 0)}  ·  "
+                f"Anillo Norte {fn(UMBRAL_NORTE_DIA, 0)} m³/día."
+            ),
+        },
+        {
+            "code": "PAK",
+            "nombre": "Parque Arauco Kennedy",
+            "onoff": (
+                f"On/off a proponer 00–06 en {pak_nom} "
+                f"({fn(pak_med, 1)} vs {fn(pak_otro_m, 1)} m³ de {pak_otro}): "
+                f"{fn(pak_med, 1)} m³/noche = {fn(mes_pak, 0)} m³/mes = {_clp(mes_pak)}/mes."
+            ),
+            "umbral": (
+                f"Umbrales 24 h: Distrito de Lujo {fn(umb_dl, 0)}  ·  "
+                f"Bazar Gourmet {fn(umb_bazar, 0)}  ·  DL Kennedy {fn(umb_ken, 0)} m³/día."
+            ),
+        },
+    ]
+
+
+def _portada_resumen(prs) -> None:
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    if FONDO.is_file():
+        pic = sl.shapes.add_picture(str(FONDO), 0, 0, width=prs.slide_width, height=prs.slide_height)
+        spTree = sl.shapes._spTree
+        spTree.remove(pic.element)
+        spTree.insert(2, pic.element)
+    veil = sl.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, PptInches(3.55), prs.slide_width, PptInches(3.95))
+    veil.fill.solid()
+    veil.fill.fore_color.rgb = _rgb(NAVY)
+    veil.line.fill.background()
+    _tb(sl, 0.6, 3.75, 12, 0.5, [("WES  ·  Parque Arauco", 16, True, GOLD)])
+    _tb(sl, 0.6, 4.18, 12, 0.7, [("Propuesta: on/off y umbrales", 32, True, WHITE)])
+    _tb(
+        sl,
+        0.6,
+        4.95,
+        12,
+        1.2,
+        [
+            ("Qué pedimos en cada recinto  ·  ahorro de madrugada y umbral del día (24 h)", 16, False, WHITE),
+            (f"Período {PERIODO}   |   Emisión {FECHA_EMISION}", 15, False, (220, 230, 240)),
+            ("MAE  ·  MAM  ·  MAQ  ·  BOM  ·  AEB  ·  CUR  ·  PAK", 16, False, GOLD),
+        ],
+    )
+    if LOGO.is_file():
+        sl.shapes.add_picture(str(LOGO), PptInches(11.70), PptInches(6.85), width=PptInches(1.35))
+
+
+def _slide_resumen_propuestas(prs, filas: List[Dict[str, str]]) -> None:
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl,
+        prs,
+        "Propuesta por recinto  ·  on/off y umbrales",
+        "Umbral = total de las 24 h (promedio operativo × 1,25)  ·  On/off = corte 00:00–06:00",
+    )
+    y0, gap, bottom = 1.08, 0.05, 7.38
+    n = max(len(filas), 1)
+    h = (bottom - y0 - gap * (n - 1)) / n
+    y = y0
+    for fila in filas:
+        _caja(sl, 0.22, y, 12.88, h, fill=(255, 249, 235), line=GOLD)
+        _tb(sl, 0.36, y + 0.04, 12.60, 0.20, [(f"{fila['code']}  ·  {fila['nombre']}", 12, True, GOLD)])
+        _tb(
+            sl,
+            0.36,
+            y + 0.24,
+            12.60,
+            h - 0.30,
+            [
+                (fila["onoff"], 11, False, NAVY),
+                (fila["umbral"], 11, True, NAVY),
+            ],
+        )
+        y += h + gap
+
+
+def build_ppt_resumen(
+    by: Dict[str, Dict[str, Any]],
+    hourly: Dict[str, Dict[str, float]],
+    cadena_pak: Dict[str, Any],
+    maq_matriz: Dict[str, Any],
+    bom_si500: Dict[str, Any],
+    aeb: Dict[str, Any],
+    cur: Dict[str, Any],
+) -> Path:
+    filas = _filas_propuesta(by, hourly, cadena_pak, maq_matriz, bom_si500, aeb, cur)
+    prs = Presentation()
+    prs.slide_width = PptInches(13.333)
+    prs.slide_height = PptInches(7.5)
+    _portada_resumen(prs)
+    _slide_resumen_propuestas(prs, filas)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    path = OUT_DIR / f"Propuesta_onoff_umbrales_PA_7malls_{HASTA.strftime('%Y%m%d')}.pptx"
+    prs.save(str(path))
+    print(f"[OK] PPT resumen {path}")
+    return path
+
+
 def build_ppt(
     by: Dict[str, Dict[str, Any]],
     hourly: Dict[str, Dict[str, float]],
@@ -2862,8 +3087,10 @@ def main() -> int:
     ):
         cur = refrescar_cur()
     ppt = build_ppt(by, hourly, cadena_pak, mam_placa, maq_matriz, bom_si500, aeb, cur)
+    ppt_res = build_ppt_resumen(by, hourly, cadena_pak, maq_matriz, bom_si500, aeb, cur)
     print("\n=== SALIDA ===")
     print(ppt)
+    print(ppt_res)
     for mall in MALLS:
         ids = nodos_totales(mall)
         tot = totales_de(by, ids)
