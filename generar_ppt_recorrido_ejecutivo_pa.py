@@ -47,6 +47,7 @@ JSON_NOCHES = OUT_DIR / "noches_control_mae.json"
 JSON_PAK_CADENA = OUT_DIR / "noches_cadena_pak.json"
 JSON_MAM_PLACA = OUT_DIR / "noches_mam_placa.json"
 JSON_MAQ_MATRIZ = OUT_DIR / "noches_maq_matriz.json"
+JSON_BOM_SI500 = OUT_DIR / "noches_bom_si500.json"
 JSON_PERFILES = OUT_DIR / "perfiles_horarios_control_mae.json"
 LOGO = ROOT / "logo wes.bmp"
 FONDO = ROOT / "Parque arauco fondo.jpg"
@@ -70,6 +71,12 @@ MATRIZ_MAQ = "000025-13"
 MAQ_ALZA = date(2026, 6, 22)
 UMBRAL_MAQ_DIA = 240.0
 UMBRAL_MAQ_NOCHE = 15.0
+SI500 = "000025-18"
+SI300 = "000025-17"
+CTRL_SI500 = date(2026, 7, 17)
+UMBRAL_SI500_DIA = 145.0
+UMBRAL_SI500_NOCHE = 8.0  # avisa si el corte se cae; residual con control ~2 m³
+UMBRAL_SI300_NOCHE = 4.0
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -109,7 +116,7 @@ MALLS: List[Dict[str, Any]] = [
         "recepcion": "18/11/2025",
         "capacitacion": "11/12/2025",
         "usuarios": "Aliro Cortés  ·  Tomás Saba  ·  Sebastián Araneda",
-        "caption": "San Ignacio 500 es el mayor volumen; 300 queda en monitoreo.",
+        "caption": "San Ignacio 500 es el mayor volumen. Lámina 2: control nocturno desde 17/07, ahorro y umbral.",
     },
     {
         "code": "AEB",
@@ -599,6 +606,79 @@ def refrescar_maq_matriz() -> Dict[str, Any]:
     payload = {"n06": n06}
     JSON_MAQ_MATRIZ.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
+
+
+def cargar_bom_si500() -> Dict[str, Any]:
+    if not JSON_BOM_SI500.is_file():
+        return {"n06": {}}
+    raw = json.loads(JSON_BOM_SI500.read_text(encoding="utf-8"))
+    return {"n06": raw.get("n06") or {}}
+
+
+def refrescar_bom_si500() -> Dict[str, Any]:
+    """m³ 00:00–06:00 de San Ignacio 500 y 300 (julio–agosto a la fecha)."""
+    from generar_reporte_word import get_hourly_measures_for_day
+
+    data = cargar_bom_si500()
+    n06: Dict[str, Dict[str, float]] = data.get("n06") or {}
+    pendientes: List[Tuple[str, date]] = []
+    for nid in (SI500, SI300):
+        n06.setdefault(nid, {})
+        for d in _rango_dias(JUL_NOCHE_D0, HASTA):
+            if d.isoformat() not in n06[nid]:
+                pendientes.append((nid, d))
+    print(f"[INFO] BOM SI500/SI300: {len(pendientes)} noches", flush=True)
+
+    def _noche(nid: str, d: date) -> Tuple[str, str, float]:
+        serie = get_hourly_measures_for_day(nid, datetime(d.year, d.month, d.day)) or []
+        return nid, d.isoformat(), round(_n06_de_serie(serie), 2)
+
+    if pendientes:
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futs = [pool.submit(_noche, nid, d) for nid, d in pendientes]
+            for i, fut in enumerate(as_completed(futs), 1):
+                nid, iso, v = fut.result()
+                n06[nid][iso] = v
+                if i % 15 == 0 or i == len(pendientes):
+                    print(f"  {i}/{len(pendientes)} noches BOM", flush=True)
+    payload = {"n06": n06}
+    JSON_BOM_SI500.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return payload
+
+
+def _stats_si500(n06: Dict[str, float]) -> Dict[str, Any]:
+    """Noche típica 7 días antes del 17/07 vs con control, y residuales."""
+    pre0 = CTRL_SI500 - timedelta(days=7)
+    pre, post_vals = [], []
+    post_altas: List[Tuple[date, float]] = []
+    vispera = 0.0
+    for iso, v in n06.items():
+        d = date.fromisoformat(iso)
+        fv = float(v)
+        if d == CTRL_SI500 - timedelta(days=2):
+            vispera = fv  # 15/07, última noche alta de referencia
+        if pre0 <= d < CTRL_SI500:
+            pre.append(fv)
+        elif d >= CTRL_SI500:
+            post_vals.append(fv)
+            if fv >= UMBRAL_SI500_NOCHE:
+                post_altas.append((d, fv))
+    post_altas.sort(key=lambda x: -x[1])
+    pre_m = _mediana(pre)
+    post_m = _mediana(post_vals)
+    ahorro = max(0.0, pre_m - post_m)
+    return {
+        "pre": pre_m,
+        "post": post_m,
+        "ahorro_noche": ahorro,
+        "n_pre": float(len(pre)),
+        "n_post": float(len(post_vals)),
+        "ahorro_acum": ahorro * float(len(post_vals)),
+        "max_post": max(post_vals) if post_vals else 0.0,
+        "n_sobre_umbral": float(len(post_altas)),
+        "noches_altas": post_altas[:3],
+        "vispera": vispera,
+    }
 
 
 def cargar_perfiles() -> Dict[str, Dict[str, Dict[str, float]]]:
@@ -1294,6 +1374,119 @@ def chart_maq_matriz_noches(path: Path, n06: Dict[str, float]) -> float:
     return med
 
 
+def chart_bom_si500_noches(
+    path: Path, n06_500: Dict[str, float], n06_300: Dict[str, float]
+) -> None:
+    """m³ 00:00–06:00: SI500 (control 17/07) y SI300 (sin control)."""
+    dias = _rango_dias(JUL_NOCHE_D0, HASTA)
+    ys500 = [float(n06_500.get(d.isoformat(), 0.0) or 0.0) for d in dias]
+    ys300 = [float(n06_300.get(d.isoformat(), 0.0) or 0.0) for d in dias]
+    fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
+    ax.axvspan(CTRL_SI500, dias[-1] + timedelta(days=1), color="#E7F1F8", alpha=0.65, zorder=0)
+    ax.plot(
+        dias,
+        ys500,
+        color=_hex(COLOR_NODO[SI500]),
+        linewidth=1.8,
+        marker="o",
+        markersize=3.0,
+        zorder=3,
+        label="San Ignacio 500",
+    )
+    ax.plot(
+        dias,
+        ys300,
+        color=_hex(COLOR_NODO[SI300]),
+        linewidth=1.3,
+        linestyle="--",
+        marker="o",
+        markersize=2.4,
+        zorder=3,
+        label="San Ignacio 300 (sin control)",
+    )
+    ax.axvline(CTRL_SI500, color=_hex(GOLD), linestyle="--", linewidth=1.2, zorder=4)
+    ax.axhline(
+        UMBRAL_SI500_NOCHE,
+        color=_hex(GOLD),
+        linestyle=":",
+        linewidth=1.2,
+        zorder=4,
+        label=f"Umbral noche {fn(UMBRAL_SI500_NOCHE, 0)} m³",
+    )
+    ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
+    ax.set_xlabel("Julio – agosto 2026", fontsize=9, color=_hex(NAVY))
+    ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
+    ax.tick_params(labelsize=8, colors=_hex(NAVY))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5CDD6")
+    ax.spines["bottom"].set_color("#C5CDD6")
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=1)
+    ax.set_axisbelow(True)
+    ymax = ax.get_ylim()[1]
+    ax.text(
+        CTRL_SI500 + timedelta(days=1),
+        ymax * 0.88 if ymax else 1,
+        "17/07 control",
+        fontsize=8,
+        color="#8A6A12",
+        fontweight="bold",
+    )
+    ax.legend(frameon=False, fontsize=7.5, loc="upper right", labelcolor=_hex(NAVY))
+    fig.tight_layout(pad=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+def chart_bom_si500_ahorro(path: Path, st: Dict[str, float]) -> None:
+    """Noche típica SI500 antes vs con control, con ahorro en $."""
+    fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
+    labels = ["Antes\n(10–16/07)", "Con control\n(17/07–17/08)"]
+    vals = [st["pre"], st["post"]]
+    cols = ["#8FA4B8", _hex(COLOR_NODO[SI500])]
+    bars = ax.bar(labels, vals, color=cols, width=0.55, zorder=3)
+    ax.set_ylabel("m³ / noche (00:00–06:00)", fontsize=9, color=_hex(NAVY))
+    ax.tick_params(labelsize=9, colors=_hex(NAVY))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5CDD6")
+    ax.spines["bottom"].set_color("#C5CDD6")
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
+    ax.set_axisbelow(True)
+    ymax = max(vals + [1.0]) * 1.55
+    ax.set_ylim(0, ymax)
+    for bar, val in zip(bars, vals):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            val + ymax * 0.03,
+            fn(val, 1),
+            ha="center",
+            va="bottom",
+            fontsize=12,
+            color=_hex(NAVY),
+            fontweight="bold",
+        )
+    if st["ahorro_noche"] >= 0.2:
+        ax.annotate(
+            f"ahorro {fn(st['ahorro_noche'], 1)} m³/noche\n"
+            f"{_clp(st['ahorro_noche'])}/noche\n"
+            f"{_clp(st['ahorro_noche'] * 30)}/mes",
+            xy=(1, st["post"]),
+            xytext=(1.18, ymax * 0.55),
+            fontsize=9,
+            color=_hex(NAVY),
+            fontweight="bold",
+            ha="left",
+            arrowprops=dict(arrowstyle="->", color=_hex(GOLD), lw=0.9),
+        )
+    fig.tight_layout(pad=0.25)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
 def chart_mam_placa_noches(
     path: Path, n06_p: Dict[str, float], n06_f: Dict[str, float]
 ) -> float:
@@ -1437,7 +1630,7 @@ def _portada(prs) -> None:
         [
             ("Una lámina de presentación por recinto", 16, False, WHITE),
             (f"Período {PERIODO}   |   Emisión {FECHA_EMISION}", 15, False, (220, 230, 240)),
-            ("Lámina 2: MAE  ·  MAM Placa  ·  MAQ Matriz  ·  PAK cadena", 14, False, GOLD),
+            ("Lámina 2: MAE  ·  MAM Placa  ·  MAQ Matriz  ·  BOM SI500  ·  PAK cadena", 14, False, GOLD),
         ],
     )
 
@@ -1976,12 +2169,110 @@ def _slide_maq_matriz(prs, by: Dict[str, Dict[str, Any]], maq: Dict[str, Any]) -
     )
 
 
+def _slide_bom_control(prs, by: Dict[str, Dict[str, Any]], bom: Dict[str, Any]) -> None:
+    """Control operativo en San Ignacio 500 desde 17/07: noche, ahorro y umbral."""
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl,
+        prs,
+        "BOM  ·  2. San Ignacio 500",
+        "Control nocturno operativo  ·  ahorro  ·  umbral",
+    )
+    n06_500 = (bom.get("n06") or {}).get(SI500) or {}
+    n06_300 = (bom.get("n06") or {}).get(SI300) or {}
+    st = _stats_si500(n06_500)
+    ch_n = CHARTS / "bom_si500_noches_jul_ago.png"
+    ch_a = CHARTS / "bom_si500_ahorro.png"
+    chart_bom_si500_noches(ch_n, n06_500, n06_300)
+    chart_bom_si500_ahorro(ch_a, st)
+
+    jul = float((by.get(SI500) or {}).get("jul") or 0)
+    ago = float((by.get(SI500) or {}).get("ago") or 0)
+    jul_tot = sum(float((by.get(n) or {}).get("jul") or 0) for n in [SI500, SI300])
+    pct = (jul / jul_tot * 100.0) if jul_tot else 0.0
+    n_post = int(st["n_post"])
+    if st["n_sobre_umbral"] < 1:
+        residual = (
+            f"Desde el 17/07 no hay noche alta: residual típico {fn(st['post'], 1)} m³ "
+            f"(máximo {fn(st['max_post'], 1)}). No se lee como fuga."
+        )
+    else:
+        altas = ", ".join(
+            f"{d.strftime('%d/%m')} {fn(v, 1)} m³" for d, v in st["noches_altas"]
+        )
+        residual = (
+            f"Quedan {fn(st['n_sobre_umbral'], 0)} noches ≥ {fn(UMBRAL_SI500_NOCHE, 0)} m³ "
+            f"({altas}). No se leen como fuga: el control puede haber aflojado esas madrugadas."
+        )
+
+    _caja(sl, 0.22, 1.08, 12.88, 0.72, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.40,
+        1.14,
+        12.55,
+        0.60,
+        [
+            (
+                f"San Ignacio 500 se lleva {fn(pct, 0)} % de julio. "
+                f"Control on/off operativo desde el 17/07: la madrugada pasó de "
+                f"{fn(st['pre'], 0)} a {fn(st['post'], 1)} m³ "
+                f"(el 15/07 eran {fn(st['vispera'], 0)} m³) y se sostiene hasta hoy. "
+                "San Ignacio 300 sigue sin control.",
+                14,
+                False,
+                NAVY,
+            )
+        ],
+    )
+
+    _caja(sl, 0.22, 1.90, 6.38, 4.16)
+    _tb(sl, 0.36, 1.94, 6.10, 0.22, [("NOCHE 00–06  ·  el corte se ve y se sostiene", 11, True, TEAL)])
+    _fit_picture(sl, ch_n, 0.32, 2.18, 6.18, 3.78)
+
+    _caja(sl, 6.74, 1.90, 6.36, 4.16)
+    _tb(sl, 6.88, 1.94, 6.08, 0.22, [("AHORRO  ·  noche típica antes vs con control", 11, True, TEAL)])
+    _fit_picture(sl, ch_a, 6.84, 2.18, 6.16, 3.78)
+
+    _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.40,
+        6.22,
+        12.55,
+        1.04,
+        [
+            (
+                f"{residual} "
+                f"Umbrales a activar: San Ignacio 500 diario {fn(UMBRAL_SI500_DIA, 0)} m³/día "
+                f"(agosto ~{fn(ago / 17.0, 0)}) y noche {fn(UMBRAL_SI500_NOCHE, 0)} m³ "
+                f"(avisa si el corte se cae). "
+                f"San Ignacio 300 noche {fn(UMBRAL_SI300_NOCHE, 0)} m³ (sin on/off).",
+                13,
+                False,
+                NAVY,
+            ),
+            (
+                f"Ahorro del corte 00–06: {fn(st['ahorro_noche'], 1)} m³/noche = "
+                f"{_clp(st['ahorro_noche'])}/noche  ·  {_clp(st['ahorro_noche'] * 30)}/mes. "
+                f"Acumulado 17/07–{HASTA.strftime('%d/%m')} ({n_post} noches): "
+                f"{fn(st['ahorro_acum'], 0)} m³ = {_clp(st['ahorro_acum'])} "
+                f"(tarifa ${fn(TARIFA_CLP_M3, 0)}/m³).",
+                13,
+                True,
+                NAVY,
+            ),
+        ],
+    )
+
+
 def build_ppt(
     by: Dict[str, Dict[str, Any]],
     hourly: Dict[str, Dict[str, float]],
     cadena_pak: Dict[str, Any],
     mam_placa: Dict[str, Any],
     maq_matriz: Dict[str, Any],
+    bom_si500: Dict[str, Any],
 ) -> Path:
     prs = Presentation()
     prs.slide_width = PptInches(13.333)
@@ -1997,6 +2288,8 @@ def build_ppt(
             _slide_mam_placa(prs, by, mam_placa)
         if mall["code"] == "MAQ":
             _slide_maq_matriz(prs, by, maq_matriz)
+        if mall["code"] == "BOM":
+            _slide_bom_control(prs, by, bom_si500)
         if mall["code"] == "PAK":
             _slide_pak_cadena(prs, by, cadena_pak)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -2021,6 +2314,8 @@ def main() -> int:
         refrescar_mam_placa()
     if not skip or not JSON_MAQ_MATRIZ.is_file():
         refrescar_maq_matriz()
+    if not skip or not JSON_BOM_SI500.is_file():
+        refrescar_bom_si500()
     _names, by, _tot = cargar_mall(JSON_ALL, todos)
     hourly = cargar_noches()
     if not (hourly.get("000025-07") and hourly.get("000025-01")):
@@ -2041,7 +2336,18 @@ def main() -> int:
     n06_mq = ((maq_matriz.get("n06") or {}).get(MATRIZ_MAQ) or {})
     if JUL_NOCHE_D0.isoformat() not in n06_mq or HASTA.isoformat() not in n06_mq:
         maq_matriz = refrescar_maq_matriz()
-    ppt = build_ppt(by, hourly, cadena_pak, mam_placa, maq_matriz)
+    bom_si500 = cargar_bom_si500()
+    n06_b500 = ((bom_si500.get("n06") or {}).get(SI500) or {})
+    n06_b300 = ((bom_si500.get("n06") or {}).get(SI300) or {})
+    if (
+        JUL_NOCHE_D0.isoformat() not in n06_b500
+        or HASTA.isoformat() not in n06_b500
+        or JUL_NOCHE_D0.isoformat() not in n06_b300
+        or HASTA.isoformat() not in n06_b300
+        or CTRL_SI500.isoformat() not in n06_b500
+    ):
+        bom_si500 = refrescar_bom_si500()
+    ppt = build_ppt(by, hourly, cadena_pak, mam_placa, maq_matriz, bom_si500)
     print("\n=== SALIDA ===")
     print(ppt)
     for mall in MALLS:
