@@ -3,12 +3,11 @@
 Recorrido ejecutivo Parque Arauco — PPT aparte de las fichas.
 
 Misma estética (navy / gold / cards / fondo PA). Se arma mall por mall.
-Esta versión: MAE + MAM (láminas 1 y 2).
+Esta versión: MAE + MAM.
 
   MAE
-  1) Equipos instalados — 4 puntos del deck (sin 000025-02)
-  2) Consumo mensualizado — gráfico mayo → fecha (agosto a la fecha vs proyección)
-  3) Hallazgos — Estanque Sur (presostatos) + control nocturno Norte (ahorro)
+  1) Equipos y consumo — una lámina (4 puntos en tiras + gráfico mayo → fecha + peso de julio)
+  2) Hallazgos — Estanque Sur (presostatos) + control nocturno Norte (ahorro)
 
   MAM
   1) Equipos y consumo — una lámina (5 puntos en tiras + gráfico mayo → fecha + peso de julio)
@@ -788,124 +787,6 @@ def _portada(prs) -> None:
     )
 
 
-def _slide_equipos(prs) -> None:
-    sl = prs.slides.add_slide(prs.slide_layouts[6])
-    _header_bar(
-        sl,
-        prs,
-        "MAE  ·  1. Equipos instalados",
-        "4 puntos activos WES   |   Mall Arauco Estación   |   Recepción 20/10/2025",
-    )
-    # 2x2 cards
-    cards = [
-        ("000025-01", "Estanque Norte — locales mall"),
-        ("000025-04", "Baños públicos del recinto"),
-        ("000025-07", "Local Pizza Hut"),
-        ("000025-19", "Sala de bomba — estanque sur"),
-    ]
-    positions = [(0.28, 1.18), (6.78, 1.18), (0.28, 3.55), (6.78, 3.55)]
-    for (nid, nota), (x, y) in zip(cards, positions):
-        _caja(sl, x, y, 6.28, 2.18, fill=LIGHT, line=TEAL)
-        _tb(sl, x + 0.22, y + 0.18, 5.85, 0.32, [(nid, 12, True, GOLD)])
-        _tb(sl, x + 0.22, y + 0.52, 5.85, 0.70, [(NOMBRE_LARGO[nid], 22, True, NAVY)])
-        _tb(sl, x + 0.22, y + 1.32, 5.85, 0.55, [(nota, 14, False, GRAY)])
-
-    _caja(sl, 0.28, 5.90, 12.78, 1.28, fill=(255, 249, 235), line=GOLD)
-    _tb(sl, 0.48, 6.02, 12.4, 0.28, [("RECINTO", 11, True, GOLD)])
-    _tb(
-        sl,
-        0.48,
-        6.32,
-        12.4,
-        0.72,
-        [
-            (
-                "Recepción 20/10/2025  ·  Capacitación 18/02/2025  ·  "
-                "Usuarios: medioambiente.dcl@parauco.com  ·  Sala de monitores MAE  ·  "
-                "Sergio Fuenzalida — Analista Gestión Ambiental",
-                13,
-                False,
-                NAVY,
-            )
-        ],
-    )
-
-
-def _slide_consumo(prs, by: Dict[str, Dict[str, Any]], tot: Dict[str, float]) -> None:
-    sl = prs.slides.add_slide(prs.slide_layouts[6])
-    _header_bar(
-        sl,
-        prs,
-        "MAE  ·  2. Consumo mensualizado",
-        f"Suma de los 4 puntos WES   |   {PERIODO}   |   Agosto: a la fecha vs proyección al 31",
-    )
-
-    ch_mes = CHARTS / "mae_mensual_may_ago.png"
-    chart_mensual(ch_mes, tot)
-
-    _caja(sl, 0.22, 1.12, 8.72, 5.05)
-    sl.shapes.add_picture(str(ch_mes), PptInches(0.38), PptInches(1.22), width=PptInches(8.40))
-
-    _caja(sl, 9.08, 1.12, 4.02, 5.05, fill=WHITE, line=TEAL)
-    _tb(sl, 9.22, 1.22, 3.74, 0.28, [("JULIO · último mes cerrado", 11, True, TEAL)])
-    _tb(
-        sl,
-        9.22,
-        1.50,
-        3.74,
-        0.62,
-        [
-            (
-                f"El recinto sumó {fn(tot['jul'], 0)} m³. Peso de cada equipo en el total:",
-                13,
-                False,
-                GRAY,
-            )
-        ],
-    )
-    ranked = sorted(MAE_NODOS, key=lambda n: -float((by.get(n) or {}).get("jul") or 0))
-    y = 2.20
-    for nid in ranked:
-        v = float((by.get(nid) or {}).get("jul") or 0)
-        pct = (v / tot["jul"] * 100) if tot["jul"] else 0
-        _caja(sl, 9.22, y, 3.74, 0.88, fill=LIGHT, line=COLOR_NODO[nid])
-        _tb(sl, 9.36, y + 0.08, 3.46, 0.28, [(NOMBRE_CORTO[nid], 13, True, COLOR_NODO[nid])])
-        _tb(
-            sl,
-            9.36,
-            y + 0.38,
-            3.46,
-            0.40,
-            [(f"{fn(v, 0)} m³    {fn(pct, 0)} %", 18, True, NAVY)],
-        )
-        y += 0.96
-
-    _tb(
-        sl,
-        0.28,
-        6.28,
-        13.0,
-        1.05,
-        [
-            (
-                f"Mayo {fn(tot['may'], 0)} m³   ·   Junio {fn(tot['jun'], 0)} m³   ·   "
-                f"Julio {fn(tot['jul'], 0)} m³   ·   Agosto {AGO_ETQ}: {fn(tot['ago'], 0)} m³   ·   "
-                f"Proyección agosto: {fn(tot['ago_proy'], 0)} m³ ({fn(tot['ago_d'])} m³/día × 31).",
-                13,
-                False,
-                NAVY,
-            ),
-            (
-                "Dorado = lo que agosto ya lleva. Tramo claro = proyección del resto del mes. "
-                "Mayo cierra más alto por Estanque Sur, antes de la reparación del 10/06.",
-                12,
-                False,
-                GRAY,
-            ),
-        ],
-    )
-
-
 def _slide_hallazgos(
     prs,
     by: Dict[str, Dict[str, Any]],
@@ -915,7 +796,7 @@ def _slide_hallazgos(
     _header_bar(
         sl,
         prs,
-        "MAE  ·  3. Hallazgos",
+        "MAE  ·  Hallazgos",
         "Estanque Sur: reparación de presostatos (10/06)  ·  Estanque Norte: control nocturno",
     )
 
@@ -1000,6 +881,107 @@ def _slide_hallazgos(
                 12,
                 False,
                 NAVY,
+            ),
+        ],
+    )
+
+
+def _slide_mae_sintesis(prs, by: Dict[str, Dict[str, Any]], tot: Dict[str, float]) -> None:
+    """Una sola lámina: 4 equipos en tiras + gráfico mensual + peso de julio."""
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl,
+        prs,
+        "MAE  ·  Equipos y consumo",
+        f"Mall Arauco Estación   |   4 puntos WES   |   {PERIODO}",
+    )
+
+    chips = [
+        ("000025-01", "Estanque Norte", "locales mall"),
+        ("000025-07", "Pizza Hut", ""),
+        ("000025-19", "Estanque Sur", "sala de bomba"),
+        ("000025-04", "Baños Públicos", ""),
+    ]
+    x0, gap, w_chip, y_chip, h_chip = 0.22, 0.12, 3.135, 1.12, 0.72
+    for i, (nid, nom, nota) in enumerate(chips):
+        x = x0 + i * (w_chip + gap)
+        borde = COLOR_NODO[nid]
+        _caja(sl, x, y_chip, w_chip, h_chip, fill=LIGHT, line=borde)
+        _tb(sl, x + 0.12, y_chip + 0.04, w_chip - 0.22, 0.22, [(nid, 10, True, GOLD)])
+        _tb(sl, x + 0.12, y_chip + 0.26, w_chip - 0.22, 0.24, [(nom, 13, True, NAVY)])
+        if nota:
+            _tb(sl, x + 0.12, y_chip + 0.48, w_chip - 0.22, 0.20, [(nota, 10, False, GRAY)])
+
+    ch_mes = CHARTS / "mae_mensual_may_ago.png"
+    chart_mensual(ch_mes, tot)
+    _caja(sl, 0.22, 1.96, 8.72, 4.18)
+    sl.shapes.add_picture(str(ch_mes), PptInches(0.36), PptInches(2.04), width=PptInches(8.44))
+
+    _caja(sl, 9.08, 1.96, 4.02, 4.18, fill=WHITE, line=TEAL)
+    _tb(sl, 9.22, 2.02, 3.74, 0.22, [("JULIO · último mes cerrado", 11, True, TEAL)])
+    _tb(
+        sl,
+        9.22,
+        2.24,
+        3.74,
+        0.28,
+        [(f"El recinto sumó {fn(tot['jul'], 0)} m³", 12, False, GRAY)],
+    )
+    ranked = sorted(MAE_NODOS, key=lambda n: -float((by.get(n) or {}).get("jul") or 0))
+    y = 2.56
+    for nid in ranked:
+        v = float((by.get(nid) or {}).get("jul") or 0)
+        pct = (v / tot["jul"] * 100) if tot["jul"] else 0
+        _caja(sl, 9.22, y, 3.74, 0.84, fill=LIGHT, line=COLOR_NODO[nid])
+        _tb(sl, 9.34, y + 0.08, 3.50, 0.24, [(NOMBRE_CORTO[nid], 13, True, COLOR_NODO[nid])])
+        _tb(
+            sl,
+            9.34,
+            y + 0.38,
+            3.50,
+            0.36,
+            [(f"{fn(v, 0)} m³    {fn(pct, 0)} %", 16, True, NAVY)],
+        )
+        y += 0.88
+
+    _caja(sl, 0.22, 6.24, 12.90, 0.48, fill=(255, 249, 235), line=GOLD)
+    _tb(
+        sl,
+        0.36,
+        6.32,
+        12.62,
+        0.34,
+        [
+            (
+                "Recepción 20/10/2025  ·  Capacitación 18/02/2025  ·  "
+                "medioambiente.dcl@parauco.com  ·  Sala de monitores MAE  ·  "
+                "Sergio Fuenzalida — Analista Gestión Ambiental",
+                11,
+                False,
+                NAVY,
+            )
+        ],
+    )
+    _tb(
+        sl,
+        0.28,
+        6.76,
+        12.8,
+        0.62,
+        [
+            (
+                f"Mayo {fn(tot['may'], 0)}   ·   Junio {fn(tot['jun'], 0)}   ·   "
+                f"Julio {fn(tot['jul'], 0)}   ·   Agosto {AGO_ETQ}: {fn(tot['ago'], 0)}   ·   "
+                f"proy. ago {fn(tot['ago_proy'], 0)} m³.",
+                12,
+                False,
+                NAVY,
+            ),
+            (
+                "Mayo cierra más alto por Estanque Sur, antes de la reparación del 10/06.",
+                11,
+                False,
+                GRAY,
             ),
         ],
     )
@@ -1243,8 +1225,7 @@ def build_ppt(
     prs.slide_width = PptInches(13.333)
     prs.slide_height = PptInches(7.5)
     _portada(prs)
-    _slide_equipos(prs)
-    _slide_consumo(prs, by, tot)
+    _slide_mae_sintesis(prs, by, tot)
     _slide_hallazgos(prs, by, hourly)
     _slide_mam_sintesis(prs, by_mam, tot_mam)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1270,10 +1251,9 @@ def main() -> int:
     if not (hourly.get("000025-07") and hourly.get("000025-01")):
         hourly = refrescar_noches()
     ppt = build_ppt(by, tot, hourly, by_mam, tot_mam)
-    preview = preview_mam_sintesis_png(CHARTS / "mam_propuesta_una_lamina.png", by_mam, tot_mam)
     print("\n=== SALIDA ===")
     print(ppt)
-    print(preview)
+    print("MAE julio:", {n: round(float((by.get(n) or {}).get("jul") or 0), 1) for n in MAE_NODOS}, "total", round(tot["jul"], 1))
     print(
         "MAM julio:",
         {n: round(float((by_mam.get(n) or {}).get("jul") or 0), 1) for n in MAM_NODOS},
