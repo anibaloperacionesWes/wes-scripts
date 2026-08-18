@@ -616,18 +616,17 @@ def cargar_bom_si500() -> Dict[str, Any]:
 
 
 def refrescar_bom_si500() -> Dict[str, Any]:
-    """m³ 00:00–06:00 de San Ignacio 500 y 300 (julio–agosto a la fecha)."""
+    """m³ 00:00–06:00 de San Ignacio 500 (julio–agosto a la fecha)."""
     from generar_reporte_word import get_hourly_measures_for_day
 
     data = cargar_bom_si500()
     n06: Dict[str, Dict[str, float]] = data.get("n06") or {}
     pendientes: List[Tuple[str, date]] = []
-    for nid in (SI500, SI300):
-        n06.setdefault(nid, {})
-        for d in _rango_dias(JUL_NOCHE_D0, HASTA):
-            if d.isoformat() not in n06[nid]:
-                pendientes.append((nid, d))
-    print(f"[INFO] BOM SI500/SI300: {len(pendientes)} noches", flush=True)
+    n06.setdefault(SI500, {})
+    for d in _rango_dias(JUL_NOCHE_D0, HASTA):
+        if d.isoformat() not in n06[SI500]:
+            pendientes.append((SI500, d))
+    print(f"[INFO] BOM SI500: {len(pendientes)} noches", flush=True)
 
     def _noche(nid: str, d: date) -> Tuple[str, str, float]:
         serie = get_hourly_measures_for_day(nid, datetime(d.year, d.month, d.day)) or []
@@ -1374,13 +1373,10 @@ def chart_maq_matriz_noches(path: Path, n06: Dict[str, float]) -> float:
     return med
 
 
-def chart_bom_si500_noches(
-    path: Path, n06_500: Dict[str, float], n06_300: Dict[str, float]
-) -> None:
-    """m³ 00:00–06:00: SI500 (control 17/07) y SI300 (sin control)."""
+def chart_bom_si500_noches(path: Path, n06_500: Dict[str, float]) -> None:
+    """m³ 00:00–06:00 de San Ignacio 500: el corte del 17/07 se sostiene."""
     dias = _rango_dias(JUL_NOCHE_D0, HASTA)
     ys500 = [float(n06_500.get(d.isoformat(), 0.0) or 0.0) for d in dias]
-    ys300 = [float(n06_300.get(d.isoformat(), 0.0) or 0.0) for d in dias]
     fig, ax = plt.subplots(figsize=(6.55, 2.85), dpi=160)
     ax.axvspan(CTRL_SI500, dias[-1] + timedelta(days=1), color="#E7F1F8", alpha=0.65, zorder=0)
     ax.plot(
@@ -1392,17 +1388,6 @@ def chart_bom_si500_noches(
         markersize=3.0,
         zorder=3,
         label="San Ignacio 500",
-    )
-    ax.plot(
-        dias,
-        ys300,
-        color=_hex(COLOR_NODO[SI300]),
-        linewidth=1.3,
-        linestyle="--",
-        marker="o",
-        markersize=2.4,
-        zorder=3,
-        label="San Ignacio 300 (sin control)",
     )
     ax.axvline(CTRL_SI500, color=_hex(GOLD), linestyle="--", linewidth=1.2, zorder=4)
     ax.axhline(
@@ -2179,11 +2164,10 @@ def _slide_bom_control(prs, by: Dict[str, Dict[str, Any]], bom: Dict[str, Any]) 
         "Control nocturno operativo  ·  ahorro  ·  umbral",
     )
     n06_500 = (bom.get("n06") or {}).get(SI500) or {}
-    n06_300 = (bom.get("n06") or {}).get(SI300) or {}
     st = _stats_si500(n06_500)
     ch_n = CHARTS / "bom_si500_noches_jul_ago.png"
     ch_a = CHARTS / "bom_si500_ahorro.png"
-    chart_bom_si500_noches(ch_n, n06_500, n06_300)
+    chart_bom_si500_noches(ch_n, n06_500)
     chart_bom_si500_ahorro(ch_a, st)
 
     jul = float((by.get(SI500) or {}).get("jul") or 0)
@@ -2217,8 +2201,7 @@ def _slide_bom_control(prs, by: Dict[str, Dict[str, Any]], bom: Dict[str, Any]) 
                 f"San Ignacio 500 se lleva {fn(pct, 0)} % de julio. "
                 f"Control on/off operativo desde el 17/07: la madrugada pasó de "
                 f"{fn(st['pre'], 0)} a {fn(st['post'], 1)} m³ "
-                f"(el 15/07 eran {fn(st['vispera'], 0)} m³) y se sostiene hasta hoy. "
-                "San Ignacio 300 sigue sin control.",
+                f"(el 15/07 eran {fn(st['vispera'], 0)} m³) y se sostiene hasta hoy.",
                 14,
                 False,
                 NAVY,
@@ -2247,7 +2230,7 @@ def _slide_bom_control(prs, by: Dict[str, Dict[str, Any]], bom: Dict[str, Any]) 
                 f"Umbrales a activar: San Ignacio 500 diario {fn(UMBRAL_SI500_DIA, 0)} m³/día "
                 f"(agosto ~{fn(ago / 17.0, 0)}) y noche {fn(UMBRAL_SI500_NOCHE, 0)} m³ "
                 f"(avisa si el corte se cae). "
-                f"San Ignacio 300 noche {fn(UMBRAL_SI300_NOCHE, 0)} m³ (sin on/off).",
+                f"San Ignacio 300: alerta de umbral noche {fn(UMBRAL_SI300_NOCHE, 0)} m³.",
                 13,
                 False,
                 NAVY,
@@ -2338,12 +2321,9 @@ def main() -> int:
         maq_matriz = refrescar_maq_matriz()
     bom_si500 = cargar_bom_si500()
     n06_b500 = ((bom_si500.get("n06") or {}).get(SI500) or {})
-    n06_b300 = ((bom_si500.get("n06") or {}).get(SI300) or {})
     if (
         JUL_NOCHE_D0.isoformat() not in n06_b500
         or HASTA.isoformat() not in n06_b500
-        or JUL_NOCHE_D0.isoformat() not in n06_b300
-        or HASTA.isoformat() not in n06_b300
         or CTRL_SI500.isoformat() not in n06_b500
     ):
         bom_si500 = refrescar_bom_si500()
