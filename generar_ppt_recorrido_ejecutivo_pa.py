@@ -233,13 +233,13 @@ def fn(v: float, dec: int = 1) -> str:
     return format_number_chilean(float(v), dec)
 
 
-def _etq_pct_julio(nid: str, vol: float, jul: float) -> str:
+def _etq_pct_julio(nid: str, vol: float, jul: float, un_decimal: bool = False) -> str:
     """% de julio en las lengüetas. Falabella = 0 (no operativo). Residuales no se pintan 0%."""
     if nid == FALABELLA or jul <= 0:
         return "0 %"
     pct = float(vol) / jul * 100.0
     if pct >= 1:
-        return f"{fn(pct, 0)} %"
+        return f"{fn(pct, 1 if un_decimal else 0)} %"
     if vol > 0 and pct < 0.1:
         return "<0,1 %"
     if vol > 0:
@@ -1118,7 +1118,7 @@ def _slide_presentacion(
             y + card_h * 0.42,
             3.50,
             0.32,
-            [(f"{fn(v, 0)} m³    {_etq_pct_julio(nid, v, tot['jul'])}{extra}", val_sz, True, NAVY)],
+            [(f"{fn(v, 0)} m³    {_etq_pct_julio(nid, v, tot['jul'], un_decimal=n_rank >= 6)}{extra}", val_sz, True, NAVY)],
         )
         y += step
 
