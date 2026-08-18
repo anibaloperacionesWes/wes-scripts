@@ -2457,8 +2457,7 @@ def _slide_aeb_anillo(prs, by: Dict[str, Dict[str, Any]], aeb: Dict[str, Any]) -
             (
                 f"Umbrales a activar: Anillo Plaza diario {fn(UMBRAL_ANILLO_DIA, 0)} m³/día "
                 f"(julio {fn(jul_a, 0)}; el 09/07 llegó a {fn(pico, 0)}). "
-                f"Matriz 1° piso noche {fn(UMBRAL_MATRIZ_AEB_NOCHE, 0)} m³ 00–06 "
-                f"(el día está estable; la madrugada es lo que hay que ver).",
+                f"Matriz 1° piso: umbral noche {fn(UMBRAL_MATRIZ_AEB_NOCHE, 0)} m³ 00–06.",
                 13,
                 True,
                 NAVY,
