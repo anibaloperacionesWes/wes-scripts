@@ -54,6 +54,7 @@ MAE_NODOS = ["000025-01", "000025-04", "000025-07", "000025-19"]
 MAM_NODOS = ["000025-08", "000025-09", "000025-10", "000025-32", "000025-33"]
 PAK_CADENA = ["000025-27", "000025-35", "000025-36"]
 DIA_PAK_NOCHE = date(2026, 8, 10)
+FALABELLA = "000025-09"
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -1277,23 +1278,23 @@ def _slide_presentacion(
 
     _caja(sl, 9.08, chart_top, 4.02, chart_h, fill=WHITE, line=TEAL)
     jul_tit = "JULIO · cabecera" if mall["code"] == "PAK" else "JULIO · último mes cerrado"
-    _tb(sl, 9.22, chart_top + 0.06, 3.74, 0.20, [(jul_tit, 11, True, TEAL)])
+    _tb(sl, 9.22, chart_top + 0.05, 3.74, 0.18, [(jul_tit, 11, True, TEAL)])
     _tb(
         sl,
         9.22,
-        chart_top + 0.26,
+        chart_top + 0.23,
         3.74,
-        0.24,
+        0.22,
         [(f"El recinto sumó {fn(tot['jul'], 0)} m³", 12, False, GRAY)],
     )
     ranked = sorted(rank_ids, key=lambda n: -float((by.get(n) or {}).get("jul") or 0))
     n_rank = max(len(ranked), 1)
-    y0 = chart_top + 0.52
+    y0 = chart_top + 0.46
     avail = (chart_top + chart_h - 0.08) - y0
     step = avail / n_rank
-    card_h = min(0.84, step - 0.04)
-    name_sz = 11 if n_rank >= 6 else 13
-    val_sz = 13 if n_rank >= 6 else 16
+    card_h = min(0.84, max(0.36, step - 0.04))
+    name_sz = 10 if n_rank >= 6 else 13
+    val_sz = 12 if n_rank >= 6 else 16
     y = y0
     for nid in ranked:
         v = float((by.get(nid) or {}).get("jul") or 0)
@@ -1302,9 +1303,9 @@ def _slide_presentacion(
         _tb(
             sl,
             9.34,
-            y + 0.04,
+            y + 0.03,
             3.50,
-            0.20,
+            min(0.18, card_h * 0.42),
             [(NOMBRE_CORTO.get(nid, nid), name_sz, True, COLOR_NODO.get(nid, NAVY))],
         )
         _tb(
@@ -1312,7 +1313,7 @@ def _slide_presentacion(
             9.34,
             y + card_h * 0.42,
             3.50,
-            0.32,
+            min(0.26, card_h * 0.52),
             [(f"{fn(v, 0)} m³    {_etq_pct_julio(nid, v, tot['jul'], un_decimal=n_rank >= 6)}{extra}", val_sz, True, NAVY)],
         )
         y += step
@@ -1439,9 +1440,8 @@ def _slide_pak_cadena(prs, by: Dict[str, Dict[str, Any]], cadena: Dict[str, Any]
             ),
             (
                 "Propuesta: instalar control nocturno en 000025-27 (tronco). "
-                "Si 27 corta de madrugada, 35 y 36 deberían seguirlo. "
-                "La gráfica de agosto muestra caudal de noche sostenido en los tres puntos: "
-                "es el candidato a validar en terreno.",
+                "De madrugada, Bazar (35) sigue a 27 y DL Kennedy (36) queda residual. "
+                "Cortar 27 corta el caudal de noche del Distrito de Lujo.",
                 13,
                 True,
                 NAVY,
