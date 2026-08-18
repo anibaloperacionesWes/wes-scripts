@@ -63,7 +63,7 @@ FALABELLA_DESDE = date(2026, 8, 11)
 PASILLO = "000025-32"
 ARROW = "000025-33"
 UMBRAL_PLACA_DIA = 155.0
-UMBRAL_PLACA_NOCHE = 5.0
+UMBRAL_PLACA_NOCHE = 15.0
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -1208,6 +1208,9 @@ def chart_mam_placa_noches(path: Path, n06: Dict[str, float]) -> float:
     fig.savefig(path, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return med
+
+
+def _set_run(run, text: str, size: int, bold: bool = False, color=NAVY) -> None:
     run.text = text
     run.font.size = PptPt(size)
     run.font.bold = bold
@@ -1714,7 +1717,8 @@ def _slide_mam_placa(prs, by: Dict[str, Dict[str, Any]], mam: Dict[str, Any]) ->
                 f"Placa Bancaria se lleva {fn(pct_jul, 0)} % de julio ({fn(jul_p, 0)} m³). "
                 f"Pasillo Técnico ({fn(jul_pas, 0)} m³) y ARROW ({fn(jul_arr, 1)} m³) son residuales. "
                 "Propuesta: reubicar esos dos puntos para subdividir Placa y ver qué zona alimenta el volumen. "
-                "La madrugada de Placa ya está ~0: un control on/off ahorra poco de noche; el valor está en partir el caudal diurno.",
+                "En julio hubo madrugadas altas (hasta 65 m³); en agosto la noche queda ~0. "
+                "Si esas noches vuelven, un control on/off en Placa tiene sentido. Hoy el mayor valor es partir el caudal diurno.",
                 13,
                 False,
                 NAVY,
@@ -1743,7 +1747,8 @@ def _slide_mam_placa(prs, by: Dict[str, Dict[str, Any]], mam: Dict[str, Any]) ->
                 f"(agosto operativo × 1,25; atrapa un salto tipo junio ~410). "
                 f"Nocturno {fn(UMBRAL_PLACA_NOCHE, 0)} m³ en 00–06 "
                 f"(julio–ago mediana {fn(med_noche, 1)} m³; el 10/08 = {fn(n10, 1)} m³). "
-                "Falabella aún sin umbral fijo (2–3 semanas de baseline).",
+                "Eso marca noches tipo 3/07 o 13/07 (48–65 m³) sin spamear agosto, ya ~0. "
+                "Falabella aún sin umbral fijo (2–3 semanas de baseline; sus noches desde el 12/08 sí entran al análisis).",
                 12,
                 False,
                 NAVY,
