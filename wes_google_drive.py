@@ -36,6 +36,18 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 # (misma que G:\Mi unidad\Agente WES\wes-scripts\reports)
 DEFAULT_REPORTS_FOLDER_ID = "1r-eMj4SWkxJs045MDfky2x3jqrifalcj"
 
+# Carpeta Drive: Agente WES / wes-scripts
+# (misma que G:\Mi unidad\Agente WES\wes-scripts)
+DEFAULT_WES_SCRIPTS_FOLDER_ID = "1WvEmtl3bexNvffxheGIQ6bUkN-iA4Lhg"
+
+# Carpeta Drive: Agente WES / wes-scripts / mantenimiento wes
+# (misma que G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes)
+DEFAULT_MANTENIMIENTO_FOLDER_ID = "150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX"
+
+# Carpeta Drive: G:\Mi unidad\Actas de Mantencion
+# Actas PDF: {Cliente}/{Año}/{mes}/
+DEFAULT_ACTAS_MANTENCION_FOLDER_ID = "1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ"
+
 
 def _env(name: str) -> str:
     return os.environ.get(name, "").strip()
@@ -212,3 +224,87 @@ def subir_varios(
     return [
         subir_a_drive(p, subcarpeta=subcarpeta, folder_id=folder_id) for p in paths
     ]
+
+
+def subir_a_mantenimiento_wes(
+    file_path: Path | str,
+    *,
+    subcarpeta: Optional[str] = None,
+    nombre: Optional[str] = None,
+) -> Dict[str, str]:
+    """
+    Sube bajo Agente WES / wes-scripts / mantenimiento wes
+    (nunca a la raíz de Mi unidad ni suelto en reports).
+    """
+    return subir_a_drive(
+        file_path,
+        folder_id=DEFAULT_MANTENIMIENTO_FOLDER_ID,
+        subcarpeta=subcarpeta,
+        nombre=nombre,
+    )
+
+
+_MESES_ES = (
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
+)
+
+_MAP_CLIENTE_ACTAS = {
+    "COR. PUENTE": "CORP PUENTE ALTO",
+    "GENCHI": "GENDARMERIA",
+    "LA FLORIDA": "CORP LA FLORIDA",
+    "LA REINA": "CORP LA REINA",
+    "PROVIDENCIA": "CORP PROVIDENCIA",
+    "LAS CONDES": "COLEGIO LAS CONDES",
+    "NIDO": "NIDO DE AGUILAS",
+    "BUPA ANTOFGASTA": "BUPA",
+    "HEGC": "HOSPITAL EXEQUIEL GONZALEZ CORTES",
+    "MADECCO": "MADECO",
+    "MAE": "MADECO",
+    "PAE": "PARQUE ARAUCO",
+    "PAK": "PARQUE ARAUCO",
+}
+
+
+def carpeta_acta_cliente_mes(cliente: str, fecha: Optional[str] = None) -> str:
+    """Ruta relativa bajo Actas de Mantencion: Cliente/Año/mes."""
+    from datetime import datetime
+
+    cli = _MAP_CLIENTE_ACTAS.get((cliente or "SIN_CLIENTE").strip(), (cliente or "SIN_CLIENTE").strip())
+    d = None
+    if fecha:
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+            try:
+                d = datetime.strptime(str(fecha)[:10], fmt)
+                break
+            except ValueError:
+                continue
+    if d is None:
+        d = datetime.now()
+    return f"{cli}/{d.year}/{_MESES_ES[d.month - 1]}"
+
+
+def subir_acta_mantencion(
+    file_path: Path | str,
+    *,
+    cliente: str,
+    fecha: Optional[str] = None,
+    nombre: Optional[str] = None,
+) -> Dict[str, str]:
+    """Sube PDF de acta a G:\\Mi unidad\\Actas de Mantencion\\Cliente\\Año\\mes\\."""
+    return subir_a_drive(
+        file_path,
+        folder_id=DEFAULT_ACTAS_MANTENCION_FOLDER_ID,
+        subcarpeta=carpeta_acta_cliente_mes(cliente, fecha),
+        nombre=nombre,
+    )

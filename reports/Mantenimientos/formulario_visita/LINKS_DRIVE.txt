@@ -1,0 +1,22 @@
+Formulario permanente + archivos de mantenimiento WES
+
+IMPORTANTE: todo queda bajo
+  G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes
+
+Carpeta mantenimiento wes:
+https://drive.google.com/drive/folders/150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX
+
+Carpeta técnicos / formulario:
+https://drive.google.com/drive/folders/1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC
+
+Actas PDF del formulario (por cliente):
+  ...\Tecnicos_WES_Formulario\Actas_visita_PDF\{CLIENTE}\
+
+PDF ejemplo hermoseado:
+https://drive.google.com/file/d/1Ri6_W2cL7I1oqlG5TTARQIDyD__c7xKO/view?usp=drivesdk
+
+Vista previa imagen:
+https://drive.google.com/file/d/1Mu2yhpKIztf8rFDuAyI5OlJ6jAUt-EHe/view?usp=drivesdk
+
+Formulario /exec:
+https://script.google.com/macros/s/AKfycbzr5Md52h7yHk4T_UhS1H5RsdIKox49EHB5IkFKPsAU2RA-aLTBIG1NWc50vxbTM601/exec

@@ -1,0 +1,29 @@
+DESTINOS GOOGLE DRIVE — mantenimiento WES
+==========================================
+
+1) Código / formulario / auxiliares
+-----------------------------------
+  G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes
+  https://drive.google.com/drive/folders/150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX
+
+  Incluye Tecnicos_WES_Formulario (link del web, instrucciones, logo).
+
+2) Actas PDF (destino oficial de terreno)
+-----------------------------------------
+  G:\Mi unidad\Actas de Mantencion
+  https://drive.google.com/drive/folders/1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ
+
+  Estructura:
+    Actas de Mantencion\{Cliente}\{Año}\{mes}\
+    Ejemplo: Actas de Mantencion\CDUC\2026\agosto\
+
+  Meses en español: enero, febrero, marzo, ...
+
+3) Firma
+--------
+  La firma va SOLO dentro del PDF del acta.
+  No se guarda un PNG de firma suelto en Drive.
+
+4) Reportes de consumo/API
+--------------------------
+  Siguen en Agente WES\wes-scripts\reports (otra carpeta).

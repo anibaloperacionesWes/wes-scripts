@@ -1,0 +1,13 @@
+{
+  "script_id": "1Kbj3kzYvAzkfAhdv92LCG_fgl6k2SDu5s4EBJpAWftY6BJ6SxfUGs6Zc",
+  "script_edit_link": "https://script.google.com/d/1Kbj3kzYvAzkfAhdv92LCG_fgl6k2SDu5s4EBJpAWftY6BJ6SxfUGs6Zc/edit?usp=drivesdk",
+  "folder_id": "1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC",
+  "folder_link": "https://drive.google.com/drive/folders/1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC",
+  "instrucciones_link": "https://drive.google.com/file/d/1xNlP1yDQyhUHiA5EbJCLWR7q7M5v7uwa/view?usp=drivesdk",
+  "sheet_registro": "https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit",
+  "nota": "El link /exec permanente aparece después de Implementar → Aplicación web (acceso Cualquiera). Pegalo aquí cuando lo tengas.",
+  "webapp_exec_url": ""
+}
+
+Abrí y activá (1 vez):
+https://script.google.com/d/1Kbj3kzYvAzkfAhdv92LCG_fgl6k2SDu5s4EBJpAWftY6BJ6SxfUGs6Zc/edit?usp=drivesdk

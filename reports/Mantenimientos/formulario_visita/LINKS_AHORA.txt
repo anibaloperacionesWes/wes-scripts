@@ -1,0 +1,20 @@
+LINKS FORMULARIO WES
+====================
+
+PERMANENTE (activar 1 vez):
+1) Abrí el Script:
+https://script.google.com/d/1Kbj3kzYvAzkfAhdv92LCG_fgl6k2SDu5s4EBJpAWftY6BJ6SxfUGs6Zc/edit
+
+2) Implementar → Nueva implementación → Aplicación web
+   Ejecutar como: Yo
+   Quién tiene acceso: Cualquiera
+3) Copiá la URL que termina en /exec y compartila con técnicos.
+
+CARPETA TÉCNICOS:
+https://drive.google.com/drive/folders/1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC
+
+SHEET FALLAS (ya permanente):
+https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
+
+TEMPORAL (solo mientras este agente está vivo):
+https://times-cakes-intimate-spiritual.trycloudflare.com/
