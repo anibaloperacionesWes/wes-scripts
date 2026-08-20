@@ -1,22 +1,17 @@
-PEGAR AHORA — Formulario (checklists cerrados)
-==============================================
+PEGAR AHORA — Formulario (abrir y plegar checklists)
+=====================================================
 
-1) Abrí este Google Doc (versión nueva, no el .txt viejo):
-   https://docs.google.com/document/d/1q35xFtaXQjIKFaIf9-4t8lgv95ialWEdFBRlRcMif1Q/edit?usp=drivesdk
+1) Google Doc NUEVO:
+   https://docs.google.com/document/d/1hlQw4NGtT42ydJuvkBh_Ac-hf5kzRVGUnCdeJKrmRq8/edit?usp=drivesdk
 
 2) Ctrl+A → Ctrl+C
 
-3) Apps Script → archivo Formulario → Ctrl+A → Ctrl+V → Guardar
+3) Apps Script → Formulario → Ctrl+A → Ctrl+V → Guardar
 
-4) Implementar → Administrar implementaciones → editar la del /exec oficial
-   → Nueva versión (NO “Nueva implementación”)
+4) Implementar → Administrar implementaciones → editar /exec oficial → Nueva versión
 
-5) Recargá el link oficial (forzá refresh).
-
-Qué debés ver:
-- Sección “Checklists” con 3 botones: CIR / CPA / SAB
-- Empiezan CERRADOS
-- Solo se abren al tocar el título
-
-TXT respaldo:
-https://drive.google.com/file/d/1V3XKGcd7w7OWisOFk02PRlGkWUwZAtL1/view?usp=drivesdk
+Qué ver:
+- CIR / CPA / SAB empiezan cerrados
+- Tocás → se DESPLIEGAN
+- Tocás de nuevo → se PLIEGAN
+- El texto del botón dice "abrir" / "plegar"

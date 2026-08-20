@@ -142,7 +142,7 @@
       background: #fbfcfe;
       overflow: hidden;
     }
-    .check-fold.open {
+    .check-fold.is-open {
       background: #fff;
       box-shadow: 0 6px 16px rgba(15, 47, 77, 0.06);
     }
@@ -162,19 +162,20 @@
       border-radius: 0;
       box-shadow: none;
     }
-    .check-fold > button.fold-toggle::after {
-      content: "▸";
+    .check-fold .fold-chevron {
       margin-left: auto;
       color: var(--blue-2);
-      font-size: 1.05rem;
+      font-size: 1.1rem;
+      line-height: 1;
       transition: transform .18s ease;
     }
-    .check-fold.open > button.fold-toggle::after { transform: rotate(90deg); }
-    .check-fold .fold-body {
-      display: none !important;
-      padding: 0 12px 12px;
+    .check-fold.is-open .fold-chevron { transform: rotate(90deg); }
+    .check-fold .fold-hint {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #5b738a;
+      white-space: nowrap;
     }
-    .check-fold.open .fold-body { display: block !important; }
     .check-fold .fold-count {
       font-size: 0.75rem;
       font-weight: 700;
@@ -184,6 +185,7 @@
       border-radius: 999px;
       padding: 3px 8px;
     }
+    .check-fold .fold-body { padding: 0 12px 12px; }
     @media (max-width: 640px) {
       .check-item { grid-template-columns: 1fr; gap: 6px; }
     }
@@ -339,28 +341,34 @@
 
       <section class="card">
         <h2>Checklists</h2>
-        <p class="note" style="margin:0 0 10px">Empiezan cerrados. Tocá CIR, CPA o SAB para abrir o cerrar.</p>
+        <p class="note" style="margin:0 0 10px">Tocá el título para <b>abrir</b> o <b>volver a plegar</b> cada checklist.</p>
         <div class="check-folds">
-          <div class="check-fold" id="fold_cir" data-tech="CIR">
+          <div class="check-fold" id="fold_cir" data-tech="CIR" data-open="0">
             <button type="button" class="fold-toggle" aria-expanded="false">
               <span>Checklist CIR</span>
               <span class="fold-count" id="cir_count">0 ítems</span>
+              <span class="fold-hint" data-fold-hint>abrir</span>
+              <span class="fold-chevron" aria-hidden="true">▸</span>
             </button>
-            <div class="fold-body" id="cir_list" style="display:none"></div>
+            <div class="fold-body" id="cir_list" hidden></div>
           </div>
-          <div class="check-fold" id="fold_cpa" data-tech="CPA">
+          <div class="check-fold" id="fold_cpa" data-tech="CPA" data-open="0">
             <button type="button" class="fold-toggle" aria-expanded="false">
               <span>Checklist CPA</span>
               <span class="fold-count" id="cpa_count">0 ítems</span>
+              <span class="fold-hint" data-fold-hint>abrir</span>
+              <span class="fold-chevron" aria-hidden="true">▸</span>
             </button>
-            <div class="fold-body" id="cpa_list" style="display:none"></div>
+            <div class="fold-body" id="cpa_list" hidden></div>
           </div>
-          <div class="check-fold" id="fold_sab" data-tech="SAB">
+          <div class="check-fold" id="fold_sab" data-tech="SAB" data-open="0">
             <button type="button" class="fold-toggle" aria-expanded="false">
               <span>Checklist SAB (si aplica)</span>
               <span class="fold-count" id="sab_count">0 ítems</span>
+              <span class="fold-hint" data-fold-hint>abrir</span>
+              <span class="fold-chevron" aria-hidden="true">▸</span>
             </button>
-            <div class="fold-body" id="sab_list" style="display:none"></div>
+            <div class="fold-body" id="sab_list" hidden></div>
           </div>
         </div>
       </section>
@@ -744,26 +752,35 @@
     function setFoldOpen(fold, open) {
       if (!fold) return;
       const want = !!open;
-      fold.classList.toggle("open", want);
+      fold.dataset.open = want ? "1" : "0";
+      fold.classList.toggle("is-open", want);
       const btn = fold.querySelector("button.fold-toggle");
       if (btn) btn.setAttribute("aria-expanded", want ? "true" : "false");
+      const hint = fold.querySelector("[data-fold-hint]");
+      if (hint) hint.textContent = want ? "plegar" : "abrir";
       const body = fold.querySelector(".fold-body");
-      if (body) body.style.display = want ? "block" : "none";
+      if (body) {
+        if (want) {
+          body.removeAttribute("hidden");
+          body.style.display = "block";
+        } else {
+          body.setAttribute("hidden", "");
+          body.style.display = "none";
+        }
+      }
     }
 
     function wireChecklistFolds() {
       document.querySelectorAll(".check-fold").forEach((fold) => {
-        // Siempre cerrados al iniciar (no se abren solos)
         setFoldOpen(fold, false);
-      });
-      document.querySelectorAll(".check-fold > button.fold-toggle").forEach((btn) => {
-        if (btn.dataset.wired === "1") return;
+        const btn = fold.querySelector("button.fold-toggle");
+        if (!btn || btn.dataset.wired === "1") return;
         btn.dataset.wired = "1";
         btn.addEventListener("click", (ev) => {
           ev.preventDefault();
           ev.stopPropagation();
-          const fold = btn.closest(".check-fold");
-          setFoldOpen(fold, !fold.classList.contains("open"));
+          const isOpen = fold.dataset.open === "1";
+          setFoldOpen(fold, !isOpen);
         });
       });
     }
