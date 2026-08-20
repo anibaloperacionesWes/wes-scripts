@@ -1,17 +1,19 @@
-PEGAR AHORA — Formulario (abrir y plegar checklists)
-=====================================================
+PEGAR AHORA v4 — checklists: 1 click = 1 lista; abrir y plegar
+===============================================================
 
-1) Google Doc NUEVO:
-   https://docs.google.com/document/d/1hlQw4NGtT42ydJuvkBh_Ac-hf5kzRVGUnCdeJKrmRq8/edit?usp=drivesdk
+MEJOR (no rompe el HTML):
+1) Abrí el TXT:
+   https://drive.google.com/file/d/1P3MTvK6Ybx6WWgtl-bBNFyLz0DRz1yLO/view?usp=drivesdk
+2) File → Download / Abrir con editor de texto → Ctrl+A → Ctrl+C
 
-2) Ctrl+A → Ctrl+C
+ALTERNATIVA Doc:
+   https://docs.google.com/document/d/1PmPqgvZ7FRaRDNNmDa7tzEYGN0ReVoFjvxCzyW8Stwo/edit?usp=drivesdk
 
 3) Apps Script → Formulario → Ctrl+A → Ctrl+V → Guardar
+4) Nueva versión del /exec oficial
 
-4) Implementar → Administrar implementaciones → editar /exec oficial → Nueva versión
-
-Qué ver:
-- CIR / CPA / SAB empiezan cerrados
-- Tocás → se DESPLIEGAN
-- Tocás de nuevo → se PLIEGAN
-- El texto del botón dice "abrir" / "plegar"
+Comportamiento:
+- CIR, CPA y SAB empiezan CERRADOS
+- Un click abre SOLO esa lista
+- Otro click la PLIEGA
+- Las otras no se tocan

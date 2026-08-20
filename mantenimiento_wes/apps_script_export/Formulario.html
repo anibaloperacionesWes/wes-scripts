@@ -341,36 +341,8 @@
 
       <section class="card">
         <h2>Checklists</h2>
-        <p class="note" style="margin:0 0 10px">Tocá el título para <b>abrir</b> o <b>volver a plegar</b> cada checklist.</p>
-        <div class="check-folds">
-          <div class="check-fold" id="fold_cir" data-tech="CIR" data-open="0">
-            <button type="button" class="fold-toggle" aria-expanded="false">
-              <span>Checklist CIR</span>
-              <span class="fold-count" id="cir_count">0 ítems</span>
-              <span class="fold-hint" data-fold-hint>abrir</span>
-              <span class="fold-chevron" aria-hidden="true">▸</span>
-            </button>
-            <div class="fold-body" id="cir_list" hidden></div>
-          </div>
-          <div class="check-fold" id="fold_cpa" data-tech="CPA" data-open="0">
-            <button type="button" class="fold-toggle" aria-expanded="false">
-              <span>Checklist CPA</span>
-              <span class="fold-count" id="cpa_count">0 ítems</span>
-              <span class="fold-hint" data-fold-hint>abrir</span>
-              <span class="fold-chevron" aria-hidden="true">▸</span>
-            </button>
-            <div class="fold-body" id="cpa_list" hidden></div>
-          </div>
-          <div class="check-fold" id="fold_sab" data-tech="SAB" data-open="0">
-            <button type="button" class="fold-toggle" aria-expanded="false">
-              <span>Checklist SAB (si aplica)</span>
-              <span class="fold-count" id="sab_count">0 ítems</span>
-              <span class="fold-hint" data-fold-hint>abrir</span>
-              <span class="fold-chevron" aria-hidden="true">▸</span>
-            </button>
-            <div class="fold-body" id="sab_list" hidden></div>
-          </div>
-        </div>
+        <p class="note" style="margin:0 0 10px">Tocá un título para abrir; tocá de nuevo para plegar. Cada uno por separado.</p>
+        <div class="check-folds" id="check_folds_root"></div>
       </section>
 
       <section class="card">
@@ -715,7 +687,82 @@
       }
     }
 
+    const foldState = { cir: false, cpa: false, sab: false };
+
+    function applyCheckFold(key) {
+      const open = !!foldState[key];
+      const fold = document.getElementById("fold_" + key);
+      const body = document.getElementById(key + "_list");
+      const btn = fold ? fold.querySelector("button.fold-toggle") : null;
+      const hint = fold ? fold.querySelector(".fold-hint") : null;
+      if (fold) fold.classList.toggle("is-open", open);
+      if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (hint) hint.textContent = open ? "plegar" : "abrir";
+      if (body) {
+        // Apps Script a veces ignora display normal / hidden → forzar !important
+        body.style.setProperty("display", open ? "block" : "none", "important");
+      }
+    }
+
+    function toggleCheckFold(key) {
+      if (!Object.prototype.hasOwnProperty.call(foldState, key)) return;
+      foldState[key] = !foldState[key];
+      applyCheckFold(key);
+    }
+
+    function buildChecklistFolds() {
+      const root = document.getElementById("check_folds_root");
+      if (!root) return;
+      root.innerHTML = "";
+      const defs = [
+        { key: "cir", title: "Checklist CIR" },
+        { key: "cpa", title: "Checklist CPA" },
+        { key: "sab", title: "Checklist SAB (si aplica)" },
+      ];
+      defs.forEach((def) => {
+        foldState[def.key] = false;
+        const wrap = document.createElement("div");
+        wrap.className = "check-fold";
+        wrap.id = "fold_" + def.key;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "fold-toggle";
+        btn.setAttribute("aria-expanded", "false");
+        btn.innerHTML =
+          "<span>" +
+          def.title +
+          "</span>" +
+          '<span class="fold-count" id="' +
+          def.key +
+          '_count">0 ítems</span>' +
+          '<span class="fold-hint">abrir</span>' +
+          '<span class="fold-chevron" aria-hidden="true">▸</span>';
+
+        // Closure por key: un click toca SOLO este checklist
+        btn.onclick = function (ev) {
+          if (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+          }
+          toggleCheckFold(def.key);
+          return false;
+        };
+
+        const body = document.createElement("div");
+        body.className = "fold-body";
+        body.id = def.key + "_list";
+        body.style.setProperty("display", "none", "important");
+
+        wrap.appendChild(btn);
+        wrap.appendChild(body);
+        root.appendChild(wrap);
+        applyCheckFold(def.key);
+      });
+    }
+
     function checklist(container, prefix, items, estados) {
+      if (!container) return;
       container.innerHTML = "";
       for (const item of items) {
         const row = document.createElement("div");
@@ -747,41 +794,18 @@
         const n = items.length;
         countEl.textContent = n + (n === 1 ? " ítem" : " ítems");
       }
-    }
-
-    function setFoldOpen(fold, open) {
-      if (!fold) return;
-      const want = !!open;
-      fold.dataset.open = want ? "1" : "0";
-      fold.classList.toggle("is-open", want);
-      const btn = fold.querySelector("button.fold-toggle");
-      if (btn) btn.setAttribute("aria-expanded", want ? "true" : "false");
-      const hint = fold.querySelector("[data-fold-hint]");
-      if (hint) hint.textContent = want ? "plegar" : "abrir";
-      const body = fold.querySelector(".fold-body");
-      if (body) {
-        if (want) {
-          body.removeAttribute("hidden");
-          body.style.display = "block";
-        } else {
-          body.setAttribute("hidden", "");
-          body.style.display = "none";
-        }
+      // Mantener plegado después de llenar ítems
+      if (Object.prototype.hasOwnProperty.call(foldState, prefix)) {
+        foldState[prefix] = false;
+        applyCheckFold(prefix);
       }
     }
 
     function wireChecklistFolds() {
-      document.querySelectorAll(".check-fold").forEach((fold) => {
-        setFoldOpen(fold, false);
-        const btn = fold.querySelector("button.fold-toggle");
-        if (!btn || btn.dataset.wired === "1") return;
-        btn.dataset.wired = "1";
-        btn.addEventListener("click", (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          const isOpen = fold.dataset.open === "1";
-          setFoldOpen(fold, !isOpen);
-        });
+      // Compat: estado ya aplicado en buildChecklistFolds
+      ["cir", "cpa", "sab"].forEach((key) => {
+        foldState[key] = false;
+        applyCheckFold(key);
       });
     }
 
@@ -890,6 +914,7 @@
       fillSelect(document.getElementById("tipo_falla"), Object.keys(c.tipos_falla).sort(), "— sin falla / N/A —");
       chips(document.getElementById("motivos"), "motivo", c.opciones.motivos, true);
       chips(document.getElementById("tecnologias"), "tecnologia", c.opciones.tecnologias, true);
+      buildChecklistFolds();
       checklist(document.getElementById("cir_list"), "cir", c.opciones.cir, c.opciones.estados_checklist);
       checklist(document.getElementById("cpa_list"), "cpa", c.opciones.cpa, c.opciones.estados_checklist);
       checklist(document.getElementById("sab_list"), "sab", c.opciones.sab, c.opciones.estados_checklist);
