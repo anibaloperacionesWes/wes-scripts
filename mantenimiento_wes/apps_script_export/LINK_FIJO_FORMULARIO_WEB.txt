@@ -1,19 +1,16 @@
 LINK FIJO FORMULARIO WEB — TÉCNICOS WES
 =======================================
 
-OFICIAL (usar este):
-https://script.google.com/macros/s/AKfycbz94JnPklpLKTTbgDXJrflCgfIhJEHBp-Sk1i-LI1J2FchNjpKnvOw19gTn75j7sGJl/exec
+OFICIAL (único — usar este):
+https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
 
-Entrar con correo @wes.cl (ej. mauricioorellana@wes.cl).
-Debe aparecer:
-  • Check "Enviar PDF por correo al cliente"
+Alternativa (mismo deployment, sin dominio wes.cl):
+https://script.google.com/macros/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+
+Entrar con correo @wes.cl.
+Debe mostrar:
+  • Clientes / máquinas (RENCA: ICCO, ICCP, GIMNASIO…)
   • Tecnología On/Off
-  • RENCA: ICCO, ICCP, GIMNASIO MUNICIPAL, etc.
+  • Check "Enviar PDF por correo al cliente"
 
-LINK VIEJO (NO USAR — no recibe actualizaciones):
-https://script.google.com/macros/s/AKfycbzr5Md52h7yHk4T_UhS1H5RsdIKox49EHB5IkFKPsAU2RA-aLTBIG1NWc50vxbTM601/exec
-
-Si después del login no carga:
-1) Anibal abre el mismo link una vez en el PC
-2) Si Google pide Permitir → Aceptar
-3) Recargar y reenviar a técnicos
+Links viejos: NO USAR (archivados).
