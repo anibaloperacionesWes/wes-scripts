@@ -135,7 +135,14 @@ def procesar_visita(data: Dict[str, Any]) -> Dict[str, Any]:
     report_pdf = reports_dir / pdf_path.name
     report_pdf.write_bytes(pdf_path.read_bytes())
 
-    email_info = enviar_acta_pdf_cliente(pdf_path, data)
+    if data.get("enviar_correo_cliente", True):
+        email_info = enviar_acta_pdf_cliente(pdf_path, data)
+    else:
+        email_info = {
+            "ok": False,
+            "skip": "Trabajo interno: envío al cliente desactivado",
+            "to": [],
+        }
     drive_info = _maybe_upload_drive(report_pdf)
 
     # Actualiza link PDF en la fila digital si hay Drive
@@ -236,12 +243,23 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(raw.decode("utf-8"))
             if not data.get("cliente") or not data.get("maquina"):
                 raise ValueError("Cliente y máquina son obligatorios")
-            if not data.get("email_cliente"):
-                raise ValueError("Correo del cliente es obligatorio")
+            enviar_correo = data.get("enviar_correo_cliente", True)
+            if isinstance(enviar_correo, str):
+                enviar_correo = enviar_correo.strip().lower() not in {"0", "false", "no", "off"}
+            data["enviar_correo_cliente"] = bool(enviar_correo)
+            data["trabajo_interno"] = not bool(enviar_correo)
+            if data["enviar_correo_cliente"] and not data.get("email_cliente"):
+                raise ValueError("Correo del cliente es obligatorio si vas a enviar el PDF")
             if not data.get("solucion"):
                 raise ValueError("Solución / diagnóstico es obligatorio")
             if not data.get("firma_png"):
                 raise ValueError("Firma obligatoria")
+            if not data.get("recibido_por"):
+                data["recibido_por"] = (
+                    "WES interno / oficina" if data["trabajo_interno"] else ""
+                )
+                if not data["recibido_por"]:
+                    raise ValueError("Nombre quien recibe es obligatorio")
             result = procesar_visita(data)
             body = json.dumps(result, ensure_ascii=False).encode("utf-8")
             self._send(200, body, "application/json; charset=utf-8")

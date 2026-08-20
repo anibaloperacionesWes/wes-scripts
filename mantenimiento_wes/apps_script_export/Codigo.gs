@@ -139,14 +139,30 @@ function procesarVisita(data) {
   if (!data || !data.cliente || !data.maquina) {
     throw new Error('Cliente y máquina son obligatorios');
   }
-  if (!data.email_cliente) {
-    throw new Error('Correo del cliente es obligatorio');
+  var enviarCorreo = data.enviar_correo_cliente;
+  if (enviarCorreo === undefined || enviarCorreo === null || enviarCorreo === '') {
+    enviarCorreo = true;
+  }
+  if (typeof enviarCorreo === 'string') {
+    enviarCorreo = ['0', 'false', 'no', 'off'].indexOf(String(enviarCorreo).toLowerCase()) < 0;
+  }
+  data.enviar_correo_cliente = !!enviarCorreo;
+  data.trabajo_interno = !data.enviar_correo_cliente;
+
+  if (data.enviar_correo_cliente && !data.email_cliente) {
+    throw new Error('Correo del cliente es obligatorio si vas a enviar el PDF');
   }
   if (!data.solucion) {
     throw new Error('Solución / diagnóstico es obligatorio');
   }
   if (!data.firma_png) {
     throw new Error('Firma obligatoria');
+  }
+  if (!data.recibido_por) {
+    data.recibido_por = data.trabajo_interno ? 'WES interno / oficina' : '';
+    if (!data.recibido_por) {
+      throw new Error('Nombre quien recibe es obligatorio');
+    }
   }
 
   var folio = asignarFolio_();
@@ -163,11 +179,15 @@ function procesarVisita(data) {
   var pdfFile = generarYGuardarPdf_(carpeta, stem, data, firmaBlob);
   var row = appendSheet_(data, pdfFile.getUrl());
   try {
-    guardarContactosDesdeVisita_(data);
+    if (data.enviar_correo_cliente) {
+      guardarContactosDesdeVisita_(data);
+    }
   } catch (eContact) {
     // No bloquea el envío si falla el registro de contactos
   }
-  var emailInfo = enviarCorreo_(data, pdfFile);
+  var emailInfo = data.enviar_correo_cliente
+    ? enviarCorreo_(data, pdfFile)
+    : { ok: false, skip: 'Trabajo interno: envío al cliente desactivado', to: [] };
 
   return {
     ok: true,
@@ -178,9 +198,12 @@ function procesarVisita(data) {
     email_ok: emailInfo.ok,
     email_to: emailInfo.to,
     email_skip: emailInfo.skip || '',
+    trabajo_interno: !!data.trabajo_interno,
     message: emailInfo.ok
       ? 'Folio ' + folio + ' · PDF generado y correo enviado a ' + emailInfo.to.join(', ')
-      : 'Folio ' + folio + ' · PDF generado. Correo: ' + (emailInfo.skip || 'pendiente'),
+      : data.trabajo_interno
+        ? 'Folio ' + folio + ' · PDF interno (sin correo al cliente)'
+        : 'Folio ' + folio + ' · PDF generado. Correo: ' + (emailInfo.skip || 'pendiente'),
   };
 }
 
@@ -648,6 +671,9 @@ function appendSheet_(data, pdfLink) {
 }
 
 function enviarCorreo_(data, pdfFile) {
+  if (data && data.enviar_correo_cliente === false) {
+    return { ok: false, skip: 'Trabajo interno: envío al cliente desactivado', to: [] };
+  }
   var to = splitEmails_(data.email_cliente);
   if (!to.length) {
     return { ok: false, skip: 'Falta email_cliente', to: [] };

@@ -96,6 +96,16 @@ def enviar_acta_pdf_cliente(
     *,
     dry_run: bool = False,
 ) -> Dict[str, Any]:
+    enviar = data.get("enviar_correo_cliente", True)
+    if isinstance(enviar, str):
+        enviar = enviar.strip().lower() not in {"0", "false", "no", "off"}
+    if not enviar:
+        return {
+            "ok": False,
+            "skip": "Trabajo interno: envío al cliente desactivado",
+            "to": [],
+        }
+
     to_list = _split_emails(data.get("email_cliente") or "")
     for c in data.get("contactos_seleccionados") or []:
         if c.get("firmante") or c.get("enviar_to"):

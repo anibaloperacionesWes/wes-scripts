@@ -27,3 +27,11 @@ aunque CONTACTOS_ENVIOS_ACTAS ya estaba bien.
    ICCO · ICCP · ESCUELA LO VELEZQUEZ · GIMNASIO MUNICIPAL · PISCINA MUNICIPAL
 
 Atajo: en CONTACTOS_ENVIOS_ACTAS hay hoja APPS_SCRIPT_CATALOGOS con el JSON listo para pegar en "catalogos".
+
+
+ACTUALIZACIÓN — correo opcional (trabajo interno oficina)
+========================================================
+También reemplazá Formulario.html y Codigo.gs (misma carpeta).
+Aparece el check «Enviar PDF por correo al cliente».
+Desmarcado = PDF + Excel, sin mail al cliente.
+Luego: Implementar → Nueva versión.

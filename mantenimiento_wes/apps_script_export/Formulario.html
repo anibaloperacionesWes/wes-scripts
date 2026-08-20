@@ -304,33 +304,42 @@
         <h2>Cliente · firma · envío PDF</h2>
         <div class="row">
           <div>
-            <label for="recibido_por">Nombre quien recibe *</label>
-            <input id="recibido_por" required autocomplete="name" />
+            <label for="recibido_por">Nombre quien recibe</label>
+            <input id="recibido_por" autocomplete="name" placeholder="En interno puede quedar WES / oficina" />
           </div>
           <div>
             <label for="cargo">Cargo</label>
             <input id="cargo" placeholder="Encargado mantención / JO" />
           </div>
         </div>
-        <div class="row">
-          <div>
-            <label for="email_cliente">Correo encargado general (cliente) *</label>
-            <input id="email_cliente" type="email" required placeholder="encargado.cliente@… se autocompleta si ya está registrado" />
+        <label class="chip on" style="display:flex;width:100%;margin:8px 0 10px;gap:10px;align-items:flex-start">
+          <input type="checkbox" id="enviar_correo_cliente" checked style="margin-top:3px" />
+          <span>
+            <b>Enviar PDF por correo al cliente</b><br/>
+            <span style="font-size:0.85rem;opacity:.85">Desmarcá esto en trabajos internos de oficina (no se reporta al cliente).</span>
+          </span>
+        </label>
+        <div id="bloqueCorreo">
+          <div class="row">
+            <div>
+              <label for="email_cliente">Correo encargado general (cliente)</label>
+              <input id="email_cliente" type="email" placeholder="encargado.cliente@… se autocompleta si ya está registrado" />
+            </div>
+            <div>
+              <label for="email_cc">CC encargado del punto (colegio / sitio)</label>
+              <input id="email_cc" placeholder="inspector / director del punto — se guarda para la próxima" />
+            </div>
           </div>
-          <div>
-            <label for="email_cc">CC encargado del punto (colegio / sitio)</label>
-            <input id="email_cc" placeholder="inspector / director del punto — se guarda para la próxima" />
-          </div>
+          <p class="note" id="contactosHint" style="margin-top:4px">
+            Si ya hay registro, se rellenan solos al elegir cliente y máquina. Lo que escriban Mauricio/Aníbal queda guardado para no tipearlo de nuevo.
+          </p>
         </div>
-        <p class="note" id="contactosHint" style="margin-top:4px">
-          Si ya hay registro, se rellenan solos al elegir cliente y máquina. Lo que escriban Mauricio/Aníbal queda guardado para no tipearlo de nuevo.
-        </p>
         <label>Firma en pantalla *</label>
         <div class="pad-wrap">
           <div class="hint" id="hint">Firmá aquí</div>
           <canvas id="pad" width="1000" height="400"></canvas>
         </div>
-        <p class="note">Al enviar se genera el PDF, se manda al correo del cliente pidiendo acusar recibo, y se registra la fila en el Excel de análisis.</p>
+        <p class="note" id="notaEnvio">Al enviar se genera el PDF, se manda al correo del cliente pidiendo acusar recibo, y se registra la fila en el Excel de análisis.</p>
         <div class="actions">
           <button type="button" class="btn-clear" id="btnClear">Borrar firma</button>
           <button type="submit" class="btn-send" id="btnSend">Completar · PDF · Enviar</button>
@@ -669,6 +678,8 @@
         lectura_medidor: document.getElementById("lectura_medidor").value.trim(),
         recibido_por: document.getElementById("recibido_por").value.trim(),
         cargo: document.getElementById("cargo").value.trim(),
+        enviar_correo_cliente: !!document.getElementById("enviar_correo_cliente").checked,
+        trabajo_interno: !document.getElementById("enviar_correo_cliente").checked,
         email_cliente: document.getElementById("email_cliente").value.trim(),
         email_cc: document.getElementById("email_cc").value.trim(),
         firma_png: canvas.toDataURL("image/png"),
@@ -676,6 +687,15 @@
         checklist_cpa: collectChecklist("cpa"),
         checklist_sab: collectChecklist("sab"),
       };
+      if (payload.enviar_correo_cliente && !payload.email_cliente) {
+        status.textContent = "Completá el correo del cliente o desmarcá el envío (trabajo interno).";
+        status.className = "status err";
+        return;
+      }
+      if (!payload.enviar_correo_cliente && !payload.recibido_por) {
+        payload.recibido_por = "WES interno / oficina";
+        document.getElementById("recibido_por").value = payload.recibido_por;
+      }
       btn.disabled = true;
       const okBanner = document.getElementById("okBanner");
       const okTitle = document.getElementById("okTitle");
@@ -692,16 +712,21 @@
         if (!info || !info.ok) throw new Error((info && info.error) || "Error al procesar");
 
         const mailOk = !!info.email_ok;
+        const interno = !payload.enviar_correo_cliente;
         const folioTxt = info.folio ? `Folio <b>${info.folio}</b> · ` : '';
         okTitle.textContent = mailOk
           ? "✓ Listo: PDF generado y correo enviado"
-          : "✓ PDF generado (correo pendiente)";
+          : interno
+            ? "✓ Listo: PDF interno (sin correo al cliente)"
+            : "✓ PDF generado (correo pendiente)";
         okBody.innerHTML =
           `<div>${folioTxt}Cliente: <b>${payload.cliente}</b> · Sitio: <b>${payload.maquina}</b></div>` +
           `<div>Excel: fila <b>${info.excel_row}</b></div>` +
           (mailOk
             ? `<div class="muted">Revisá la bandeja de <b>${payload.email_cliente}</b> (y spam). Asunto: Acta de visita · Acusar recibo.</div>`
-            : `<div class="muted">Correo no enviado: ${info.email_skip || "sin SMTP"}. El PDF igual quedó guardado.</div>`);
+            : interno
+              ? `<div class="muted">Trabajo interno: no se envió correo al cliente. El PDF quedó registrado.</div>`
+              : `<div class="muted">Correo no enviado: ${info.email_skip || "sin SMTP"}. El PDF igual quedó guardado.</div>`);
         if (info.folio) {
           document.getElementById("folio").value = String(info.folio);
         }
@@ -726,8 +751,10 @@
         okBanner.scrollIntoView({ behavior: "smooth", block: "center" });
         status.textContent = mailOk
           ? `Confirmado: correo enviado a ${payload.email_cliente}`
-          : `PDF listo. Correo: ${info.email_skip || "no enviado"}`;
-        status.className = mailOk ? "status" : "status warn";
+          : interno
+            ? "PDF interno listo (sin correo al cliente)"
+            : `PDF listo. Correo: ${info.email_skip || "no enviado"}`;
+        status.className = mailOk || interno ? "status" : "status warn";
       } catch (err) {
         status.textContent = String(err.message || err);
         status.className = "status err";
@@ -736,9 +763,33 @@
       }
     };
 
+    function syncEnvioCorreoUI() {
+      const on = document.getElementById("enviar_correo_cliente").checked;
+      const bloque = document.getElementById("bloqueCorreo");
+      const email = document.getElementById("email_cliente");
+      const btn = document.getElementById("btnSend");
+      const nota = document.getElementById("notaEnvio");
+      const chip = document.getElementById("enviar_correo_cliente").closest("label");
+      if (bloque) bloque.style.opacity = on ? "1" : "0.45";
+      if (email) email.required = on;
+      if (btn) btn.textContent = on ? "Completar · PDF · Enviar" : "Completar · PDF (interno)";
+      if (nota) {
+        nota.textContent = on
+          ? "Al completar: PDF + correo al cliente (acusar recibo) + fila en Excel."
+          : "Trabajo interno: PDF + registro en Excel, sin correo al cliente.";
+      }
+      if (chip) chip.classList.toggle("on", on);
+    }
+
     boot().catch((e) => {
       document.getElementById("status").textContent = String(e);
       document.getElementById("status").className = "status err";
+    }).then(() => {
+      const chk = document.getElementById("enviar_correo_cliente");
+      if (chk) {
+        chk.addEventListener("change", syncEnvioCorreoUI);
+        syncEnvioCorreoUI();
+      }
     });
   </script>
 </body>
