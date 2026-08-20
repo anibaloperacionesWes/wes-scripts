@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Acta de visita WES</title>
+  <style>
+    :root {
+      --ink: #0f2f4d;
+      --blue: #1f4e79;
+      --blue-2: #2e75b6;
+      --sky: #e7f0f8;
+      --line: #c5d5e6;
+      --amber: #fff4d6;
+      --ok: #1b7a4e;
+      --card: rgba(255,255,255,0.92);
+      --shadow: 0 10px 28px rgba(15, 47, 77, 0.10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+      color: #14202b;
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #d7e8f7 0%, transparent 55%),
+        radial-gradient(900px 420px at 100% 0%, #cfe0ef 0%, transparent 50%),
+        linear-gradient(180deg, #f3f7fb 0%, #eef3f8 100%);
+      min-height: 100vh;
+      padding: 14px;
+    }
+    .wrap { max-width: 760px; margin: 0 auto 40px; }
+    header.hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      padding: 22px 20px 18px;
+      color: #fff;
+      background:
+        linear-gradient(135deg, rgba(15,47,77,0.92), rgba(46,117,182,0.88)),
+        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+      animation: rise 0.55s ease-out;
+    }
+    header.hero h1 {
+      margin: 8px 0 4px;
+      font-size: clamp(1.55rem, 4vw, 2rem);
+      letter-spacing: -0.02em;
+      font-weight: 750;
+    }
+    header.hero .brand {
+      font-size: 0.85rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.9;
+      font-weight: 700;
+    }
+    header.hero p { margin: 0; opacity: 0.92; max-width: 36rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+      animation: rise 0.65s ease-out;
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2::before {
+      content: "";
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--blue-2);
+      box-shadow: 0 0 0 4px rgba(46,117,182,0.18);
+    }
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--blue);
+      margin: 10px 0 4px;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 1rem;
+      background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--blue-2);
+      box-shadow: 0 0 0 3px rgba(46,117,182,0.15);
+    }
+    textarea { min-height: 84px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 640px) {
+      .row, .row3 { grid-template-columns: 1fr; }
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .chip input { display: none; }
+    .chip.on {
+      background: var(--sky);
+      border-color: var(--blue-2);
+      color: var(--ink);
+      font-weight: 650;
+    }
+    .check-item {
+      display: grid;
+      grid-template-columns: 1.4fr 0.9fr 1.2fr;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px dashed #d9e4ef;
+    }
+    .check-item:last-child { border-bottom: 0; }
+    .check-item .name { font-size: 0.92rem; }
+    .check-item select { background: var(--amber); }
+    .pad-wrap {
+      border: 2px dashed var(--blue-2);
+      border-radius: 14px;
+      background: #fafcff;
+      overflow: hidden;
+      touch-action: none;
+      position: relative;
+    }
+    canvas { display: block; width: 100%; height: 200px; touch-action: none; }
+    .hint {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: #8aa0b5; pointer-events: none;
+    }
+    .hint.hide { display: none; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    button {
+      border: 0; border-radius: 12px; padding: 13px 12px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-clear { background: #eef2f7; color: #334; }
+    .btn-send {
+      background: linear-gradient(135deg, var(--blue), var(--blue-2));
+      color: #fff;
+      grid-column: 1 / -1;
+      box-shadow: 0 8px 18px rgba(31,78,121,0.25);
+    }
+    .btn-send:disabled { opacity: 0.55; }
+    .status { margin-top: 10px; min-height: 1.3em; font-size: 0.92rem; color: var(--ok); }
+    .status.err { color: #a11; }
+    .status.warn { color: #9a6b00; }
+    .ok-banner {
+      display: none;
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #e8f7ef;
+      border: 1px solid #9fd5b5;
+      color: #145c38;
+    }
+    .ok-banner.show { display: block; animation: rise 0.35s ease-out; }
+    .ok-banner h3 { margin: 0 0 6px; font-size: 1.05rem; }
+    .ok-banner a {
+      display: inline-block;
+      margin-top: 8px;
+      margin-right: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--blue);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+    .ok-banner .muted { color: #2f6b4d; font-size: 0.88rem; margin-top: 6px; }
+    .note {
+      font-size: 0.82rem; color: #5b6b7c; margin-top: 6px; line-height: 1.4;
+    }
+    footer { text-align: center; color: #6a7b8c; font-size: 0.75rem; margin-top: 8px; }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="brand">WES · Water Efficiency System</div>
+      <h1>Acta de visita técnica</h1>
+      <p>Link permanente para técnicos WES. Completá en terreno, firmá y enviá el PDF al cliente (acusar recibo). Queda registrado en el Excel de fallas.</p>
+    </header>
+
+    <form id="form">
+      <section class="card">
+        <h2>Datos de la instalación</h2>
+        <div class="row">
+          <div>
+            <label for="folio">N° Folio / OT</label>
+            <input id="folio" value="<?!= PROXIMO_FOLIO ?>" readonly />
+            <div class="note">Un solo número automático desde 2250 (folio = OT).</div>
+          </div>
+          <div>
+            <label for="tecnico">Técnico WES *</label>
+            <select id="tecnico" required></select>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="cliente">Cliente *</label>
+            <select id="cliente" required></select>
+          </div>
+          <div>
+            <label for="maquina">Máquina / sitio *</label>
+            <select id="maquina" required></select>
+          </div>
+        </div>
+        <div class="row3">
+          <div>
+            <label for="comuna">Comuna</label>
+            <input id="comuna" placeholder="Ej: Providencia" />
+          </div>
+          <div>
+            <label for="fecha">Fecha *</label>
+            <input id="fecha" type="date" required />
+          </div>
+          <div>
+            <label for="hora">Hora</label>
+            <input id="hora" type="time" />
+          </div>
+        </div>
+        <label>Motivo de visita</label>
+        <div class="chips" id="motivos"></div>
+        <label>Tecnología instalada</label>
+        <div class="chips" id="tecnologias"></div>
+      </section>
+
+      <section class="card">
+        <h2>Diagnóstico y trabajo</h2>
+        <div class="row">
+          <div>
+            <label for="tipo_mtto">Tipo de mantenimiento *</label>
+            <select id="tipo_mtto" required></select>
+          </div>
+          <div>
+            <label for="tipo_falla">Tipo de falla</label>
+            <select id="tipo_falla"></select>
+          </div>
+        </div>
+        <label for="falla_especifica">Falla específica</label>
+        <select id="falla_especifica"></select>
+        <label for="solucion">Solución y/o diagnóstico *</label>
+        <textarea id="solucion" required placeholder="Qué se hizo / hallazgo principal"></textarea>
+        <label for="observaciones">Observaciones</label>
+        <textarea id="observaciones" placeholder="Sugerencias, pendientes, materiales"></textarea>
+        <div class="row">
+          <div>
+            <label for="estado_visita">Estado visita</label>
+            <select id="estado_visita">
+              <option value="cerrada">cerrada</option>
+              <option value="en_curso">en_curso</option>
+              <option value="abierta">abierta</option>
+            </select>
+          </div>
+          <div>
+            <label for="lectura_medidor">Lectura medidor (auditoría)</label>
+            <input id="lectura_medidor" placeholder="Opcional" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Checklist CIR</h2>
+        <div id="cir_list"></div>
+      </section>
+
+      <section class="card">
+        <h2>Checklist CPA</h2>
+        <div id="cpa_list"></div>
+      </section>
+
+      <section class="card">
+        <h2>Checklist SAB (si aplica)</h2>
+        <div id="sab_list"></div>
+      </section>
+
+      <section class="card">
+        <h2>Cliente · firma · envío PDF</h2>
+        <div class="row">
+          <div>
+            <label for="recibido_por">Nombre quien recibe</label>
+            <input id="recibido_por" autocomplete="name" placeholder="En interno puede quedar WES / oficina" />
+          </div>
+          <div>
+            <label for="cargo">Cargo</label>
+            <input id="cargo" placeholder="Encargado mantención / JO" />
+          </div>
+        </div>
+        <label class="chip on" style="display:flex;width:100%;margin:8px 0 10px;gap:10px;align-items:flex-start">
+          <input type="checkbox" id="enviar_correo_cliente" checked style="margin-top:3px" />
+          <span>
+            <b>Enviar PDF por correo al cliente</b><br/>
+            <span style="font-size:0.85rem;opacity:.85">Desmarcá esto en trabajos internos de oficina (no se reporta al cliente).</span>
+          </span>
+        </label>
+        <div id="bloqueCorreo">
+          <div class="row">
+            <div>
+              <label for="email_cliente">Correo encargado general (cliente)</label>
+              <input id="email_cliente" type="email" placeholder="encargado.cliente@… se autocompleta si ya está registrado" />
+            </div>
+            <div>
+              <label for="email_cc">CC encargado del punto (colegio / sitio)</label>
+              <input id="email_cc" placeholder="inspector / director del punto — se guarda para la próxima" />
+            </div>
+          </div>
+          <p class="note" id="contactosHint" style="margin-top:4px">
+            Si ya hay registro, se rellenan solos al elegir cliente y máquina. Lo que escriban Mauricio/Aníbal queda guardado para no tipearlo de nuevo.
+          </p>
+        </div>
+        <label>Firma en pantalla *</label>
+        <div class="pad-wrap">
+          <div class="hint" id="hint">Firmá aquí</div>
+          <canvas id="pad" width="1000" height="400"></canvas>
+        </div>
+        <p class="note" id="notaEnvio">Al enviar se genera el PDF, se manda al correo del cliente pidiendo acusar recibo, y se registra la fila en el Excel de análisis.</p>
+        <div class="actions">
+          <button type="button" class="btn-clear" id="btnClear">Borrar firma</button>
+          <button type="submit" class="btn-send" id="btnSend">Completar · PDF · Enviar</button>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="ok-banner" id="okBanner">
+          <h3 id="okTitle">Listo</h3>
+          <div id="okBody"></div>
+          <div id="okLinks"></div>
+        </div>
+      </section>
+    </form>
+    <footer>WES · formulario digital de mantención · sin Google Form</footer>
+  </div>
+
+    <script>
+    const CATALOGOS = <?!= CATALOGOS_JSON ?>;
+    const state = { catalogos: null, dirty: false, contactos: {} };
+
+    async function loadCatalogos() {
+      // Respaldo embebido; luego refresca desde CONTACTOS_ENVIOS_ACTAS (vivo)
+      state.catalogos = CATALOGOS;
+      state.contactos = (CATALOGOS && CATALOGOS.contactos) || {};
+      if (typeof google === "undefined" || !google.script || !google.script.run) return;
+      await new Promise((resolve) => {
+        google.script.run
+          .withSuccessHandler((live) => {
+            if (live && live.clientes_maquinas) {
+              state.catalogos = live;
+              if (live.contactos) state.contactos = live.contactos;
+            }
+            resolve();
+          })
+          .withFailureHandler(() => resolve())
+          .getCatalogos();
+      });
+    }
+
+    function aplicarContactosGuardados() {
+      const cli = document.getElementById("cliente").value.trim();
+      const maq = document.getElementById("maquina").value.trim();
+      const emailCli = document.getElementById("email_cliente");
+      const emailCc = document.getElementById("email_cc");
+      const hint = document.getElementById("contactosHint");
+      if (!cli) {
+        if (hint) hint.textContent = "Elegí cliente (y luego el punto) para autocompletar correos guardados.";
+        return;
+      }
+      // Prioridad: Sheet vivo vía Apps Script; fallback catálogo embebido
+      const applyLocal = () => {
+        const base = (state.contactos && state.contactos[cli]) || {};
+        const punto = (base.puntos && base.puntos[maq]) || {};
+        if (base.email_general) emailCli.value = base.email_general;
+        if (maq && punto.email_cc) emailCc.value = punto.email_cc;
+        else if (!maq) emailCc.value = "";
+        if (hint) {
+          const parts = [];
+          if (base.email_general) parts.push("general OK");
+          if (maq && punto.email_cc) parts.push("punto OK");
+          else if (maq) parts.push("punto sin registro aún (completar CC y se guarda)");
+          hint.textContent = parts.length
+            ? "Contactos: " + parts.join(" · ")
+            : "Sin correos guardados aún para este cliente. Completá To/CC y se registran al enviar.";
+        }
+      };
+      if (typeof google !== "undefined" && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler((c) => {
+            if (!c) return applyLocal();
+            if (c.email_general) emailCli.value = c.email_general;
+            if (c.email_cc) emailCc.value = c.email_cc;
+            else if (maq) {
+              /* keep typed CC if user already wrote; only clear if empty machine switch handled above */
+            }
+            // refrescar cache local
+            if (!state.contactos[cli]) state.contactos[cli] = { puntos: {} };
+            if (c.email_general) state.contactos[cli].email_general = c.email_general;
+            if (maq && c.email_cc) {
+              state.contactos[cli].puntos = state.contactos[cli].puntos || {};
+              state.contactos[cli].puntos[maq] = {
+                email_cc: c.email_cc,
+                nombre: c.nombre_punto || "",
+                cargo: c.cargo_punto || "",
+              };
+            }
+            if (hint) {
+              const parts = [];
+              if (c.email_general) parts.push("general: " + c.email_general);
+              if (c.email_cc) parts.push("CC punto: " + c.email_cc);
+              else if (maq) parts.push("punto sin registro (completar CC)");
+              hint.textContent = parts.length ? "Contactos guardados → " + parts.join(" · ") : hint.textContent;
+            }
+          })
+          .withFailureHandler(applyLocal)
+          .getContactosPara(cli, maq);
+      } else {
+        applyLocal();
+      }
+    }
+
+    function fillSelect(sel, items, blank = "— seleccionar —") {
+      sel.innerHTML = "";
+      const o0 = document.createElement("option");
+      o0.value = "";
+      o0.textContent = blank;
+      sel.appendChild(o0);
+      for (const it of items) {
+        const o = document.createElement("option");
+        o.value = it;
+        o.textContent = it;
+        sel.appendChild(o);
+      }
+    }
+
+    function chips(container, name, options, multi = true) {
+      container.innerHTML = "";
+      for (const opt of options) {
+        const lab = document.createElement("label");
+        lab.className = "chip";
+        const inp = document.createElement("input");
+        inp.type = multi ? "checkbox" : "radio";
+        inp.name = name;
+        inp.value = opt;
+        if (!multi && opt === options[0]) inp.checked = true;
+        if (multi && opt === "Mantenimiento") inp.checked = true;
+        if (inp.checked) lab.classList.add("on");
+        inp.addEventListener("change", () => {
+          if (multi) lab.classList.toggle("on", inp.checked);
+          else {
+            container.querySelectorAll(".chip").forEach((c) => c.classList.remove("on"));
+            if (inp.checked) lab.classList.add("on");
+          }
+        });
+        lab.appendChild(inp);
+        lab.appendChild(document.createTextNode(" " + opt));
+        container.appendChild(lab);
+      }
+    }
+
+    function checklist(container, prefix, items, estados) {
+      container.innerHTML = "";
+      for (const item of items) {
+        const row = document.createElement("div");
+        row.className = "check-item";
+        const name = document.createElement("div");
+        name.className = "name";
+        name.textContent = item;
+        const sel = document.createElement("select");
+        sel.dataset.key = item;
+        sel.dataset.prefix = prefix;
+        for (const e of estados) {
+          const o = document.createElement("option");
+          o.value = e;
+          o.textContent = e;
+          if (e === "OK") o.selected = true;
+          sel.appendChild(o);
+        }
+        const obs = document.createElement("input");
+        obs.placeholder = "Obs. / medición";
+        obs.dataset.obsFor = item;
+        obs.dataset.prefix = prefix;
+        row.appendChild(name);
+        row.appendChild(sel);
+        row.appendChild(obs);
+        container.appendChild(row);
+      }
+    }
+
+    function selectedChips(name) {
+      return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map((x) => x.value);
+    }
+
+    function collectChecklist(prefix) {
+      const out = [];
+      document.querySelectorAll(`select[data-prefix="${prefix}"]`).forEach((sel) => {
+        const key = sel.dataset.key;
+        const obsEl = [...document.querySelectorAll(`input[data-prefix="${prefix}"]`)].find(
+          (el) => el.dataset.obsFor === key
+        );
+        out.push({ elemento: key, estado: sel.value, obs: obsEl ? obsEl.value.trim() : "" });
+      });
+      return out;
+    }
+
+    // Firma
+    const canvas = document.getElementById("pad");
+    const ctx = canvas.getContext("2d");
+    const hint = document.getElementById("hint");
+    let drawing = false;
+    let last = null;
+
+    function resizeCanvas() {
+      const ratio = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const w = Math.max(320, Math.floor(rect.width * ratio));
+      const h = Math.max(160, Math.floor(200 * ratio));
+      const prev = state.dirty ? canvas.toDataURL() : null;
+      canvas.width = w;
+      canvas.height = h;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "#12263a";
+      ctx.lineWidth = Math.max(2.2, 2.4 * ratio);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, w, h);
+      if (prev) {
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0, w, h);
+        img.src = prev;
+      }
+    }
+
+    function pos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      return {
+        x: (t.clientX - rect.left) * (canvas.width / rect.width),
+        y: (t.clientY - rect.top) * (canvas.height / rect.height),
+      };
+    }
+    function start(e) {
+      e.preventDefault();
+      drawing = true;
+      state.dirty = true;
+      hint.classList.add("hide");
+      last = pos(e);
+    }
+    function move(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      const p = pos(e);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last = p;
+    }
+    function end(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      drawing = false;
+      last = null;
+    }
+    canvas.addEventListener("mousedown", start);
+    canvas.addEventListener("mousemove", move);
+    canvas.addEventListener("mouseup", end);
+    canvas.addEventListener("mouseleave", end);
+    canvas.addEventListener("touchstart", start, { passive: false });
+    canvas.addEventListener("touchmove", move, { passive: false });
+    canvas.addEventListener("touchend", end, { passive: false });
+
+    document.getElementById("btnClear").onclick = () => {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      state.dirty = false;
+      hint.classList.remove("hide");
+    };
+
+    function todayISO() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    async function boot() {
+      await loadCatalogos();
+      const c = state.catalogos;
+      const clientes = Object.keys(c.clientes_maquinas).sort();
+      fillSelect(document.getElementById("cliente"), clientes);
+      fillSelect(document.getElementById("tecnico"), c.opciones.tecnicos);
+      fillSelect(document.getElementById("tipo_mtto"), c.opciones.tipos_mtto);
+      fillSelect(document.getElementById("tipo_falla"), Object.keys(c.tipos_falla).sort(), "— sin falla / N/A —");
+      chips(document.getElementById("motivos"), "motivo", c.opciones.motivos, true);
+      chips(document.getElementById("tecnologias"), "tecnologia", c.opciones.tecnologias, true);
+      checklist(document.getElementById("cir_list"), "cir", c.opciones.cir, c.opciones.estados_checklist);
+      checklist(document.getElementById("cpa_list"), "cpa", c.opciones.cpa, c.opciones.estados_checklist);
+      checklist(document.getElementById("sab_list"), "sab", c.opciones.sab, c.opciones.estados_checklist);
+      document.getElementById("fecha").value = todayISO();
+      const now = new Date();
+      document.getElementById("hora").value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      resizeCanvas();
+      window.addEventListener("resize", resizeCanvas);
+
+      document.getElementById("cliente").onchange = () => {
+        const cli = document.getElementById("cliente").value;
+        const cat = state.catalogos;
+        fillSelect(document.getElementById("maquina"), (cat.clientes_maquinas[cli] || []));
+        document.getElementById("email_cc").value = "";
+        aplicarContactosGuardados();
+      };
+      document.getElementById("maquina").onchange = () => {
+        document.getElementById("email_cc").value = "";
+        aplicarContactosGuardados();
+      };
+      document.getElementById("tipo_falla").onchange = () => {
+        const t = document.getElementById("tipo_falla").value;
+        fillSelect(document.getElementById("falla_especifica"), (state.catalogos.tipos_falla[t] || []), "— seleccionar —");
+      };
+
+      // Cargar contactos vivos desde Sheet (sin redeploy)
+      if (typeof google !== "undefined" && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler((dict) => {
+            if (dict && typeof dict === "object") state.contactos = dict;
+          })
+          .getContactos();
+      }
+    }
+
+    document.getElementById("form").onsubmit = async (ev) => {
+      ev.preventDefault();
+      const status = document.getElementById("status");
+      const btn = document.getElementById("btnSend");
+      status.className = "status";
+      status.textContent = "Procesando…";
+      if (!state.dirty) {
+        status.textContent = "Falta la firma en pantalla.";
+        status.className = "status err";
+        return;
+      }
+      const payload = {
+        cliente: document.getElementById("cliente").value.trim(),
+        maquina: document.getElementById("maquina").value.trim(),
+        comuna: document.getElementById("comuna").value.trim(),
+        fecha: document.getElementById("fecha").value,
+        hora: document.getElementById("hora").value,
+        tecnico: document.getElementById("tecnico").value,
+        ot: "", // se iguala al folio en el servidor
+        motivos: selectedChips("motivo"),
+        tecnologias: selectedChips("tecnologia"),
+        tipo_mtto: document.getElementById("tipo_mtto").value,
+        tipo_falla: document.getElementById("tipo_falla").value,
+        falla_especifica: document.getElementById("falla_especifica").value,
+        solucion: document.getElementById("solucion").value.trim(),
+        observaciones: document.getElementById("observaciones").value.trim(),
+        estado_visita: document.getElementById("estado_visita").value,
+        lectura_medidor: document.getElementById("lectura_medidor").value.trim(),
+        recibido_por: document.getElementById("recibido_por").value.trim(),
+        cargo: document.getElementById("cargo").value.trim(),
+        enviar_correo_cliente: !!document.getElementById("enviar_correo_cliente").checked,
+        trabajo_interno: !document.getElementById("enviar_correo_cliente").checked,
+        email_cliente: document.getElementById("email_cliente").value.trim(),
+        email_cc: document.getElementById("email_cc").value.trim(),
+        firma_png: canvas.toDataURL("image/png"),
+        checklist_cir: collectChecklist("cir"),
+        checklist_cpa: collectChecklist("cpa"),
+        checklist_sab: collectChecklist("sab"),
+      };
+      if (payload.enviar_correo_cliente && !payload.email_cliente) {
+        status.textContent = "Completá el correo del cliente o desmarcá el envío (trabajo interno).";
+        status.className = "status err";
+        return;
+      }
+      if (!payload.enviar_correo_cliente && !payload.recibido_por) {
+        payload.recibido_por = "WES interno / oficina";
+        document.getElementById("recibido_por").value = payload.recibido_por;
+      }
+      btn.disabled = true;
+      const okBanner = document.getElementById("okBanner");
+      const okTitle = document.getElementById("okTitle");
+      const okBody = document.getElementById("okBody");
+      const okLinks = document.getElementById("okLinks");
+      okBanner.classList.remove("show");
+      try {
+        const info = await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler((err) => reject(new Error(err && err.message ? err.message : String(err))))
+            .procesarVisita(payload);
+        });
+        if (!info || !info.ok) throw new Error((info && info.error) || "Error al procesar");
+
+        const mailOk = !!info.email_ok;
+        const interno = !payload.enviar_correo_cliente;
+        const folioTxt = info.folio ? `Folio <b>${info.folio}</b> · ` : '';
+        okTitle.textContent = mailOk
+          ? "✓ Listo: PDF generado y correo enviado"
+          : interno
+            ? "✓ Listo: PDF interno (sin correo al cliente)"
+            : "✓ PDF generado (correo pendiente)";
+        okBody.innerHTML =
+          `<div>${folioTxt}Cliente: <b>${payload.cliente}</b> · Sitio: <b>${payload.maquina}</b></div>` +
+          `<div>Excel: fila <b>${info.excel_row}</b></div>` +
+          (mailOk
+            ? `<div class="muted">Revisá la bandeja de <b>${payload.email_cliente}</b> (y spam). Asunto: Acta de visita · Acusar recibo.</div>`
+            : interno
+              ? `<div class="muted">Trabajo interno: no se envió correo al cliente. El PDF quedó registrado.</div>`
+              : `<div class="muted">Correo no enviado: ${info.email_skip || "sin SMTP"}. El PDF igual quedó guardado.</div>`);
+        if (info.folio) {
+          document.getElementById("folio").value = String(info.folio);
+        }
+        okLinks.innerHTML = "";
+        if (info.pdf_url) {
+          const a = document.createElement("a");
+          a.href = info.pdf_url;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "Abrir / descargar PDF";
+          okLinks.appendChild(a);
+        }
+        if (info.drive_link) {
+          const a = document.createElement("a");
+          a.href = info.drive_link;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "Ver en Drive";
+          okLinks.appendChild(a);
+        }
+        okBanner.classList.add("show");
+        okBanner.scrollIntoView({ behavior: "smooth", block: "center" });
+        status.textContent = mailOk
+          ? `Confirmado: correo enviado a ${payload.email_cliente}`
+          : interno
+            ? "PDF interno listo (sin correo al cliente)"
+            : `PDF listo. Correo: ${info.email_skip || "no enviado"}`;
+        status.className = mailOk || interno ? "status" : "status warn";
+      } catch (err) {
+        status.textContent = String(err.message || err);
+        status.className = "status err";
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    function syncEnvioCorreoUI() {
+      const on = document.getElementById("enviar_correo_cliente").checked;
+      const bloque = document.getElementById("bloqueCorreo");
+      const email = document.getElementById("email_cliente");
+      const btn = document.getElementById("btnSend");
+      const nota = document.getElementById("notaEnvio");
+      const chip = document.getElementById("enviar_correo_cliente").closest("label");
+      if (bloque) bloque.style.opacity = on ? "1" : "0.45";
+      if (email) email.required = on;
+      if (btn) btn.textContent = on ? "Completar · PDF · Enviar" : "Completar · PDF (interno)";
+      if (nota) {
+        nota.textContent = on
+          ? "Al completar: PDF + correo al cliente (acusar recibo) + fila en Excel."
+          : "Trabajo interno: PDF + registro en Excel, sin correo al cliente.";
+      }
+      if (chip) chip.classList.toggle("on", on);
+    }
+
+    boot().catch((e) => {
+      document.getElementById("status").textContent = String(e);
+      document.getElementById("status").className = "status err";
+    }).then(() => {
+      const chk = document.getElementById("enviar_correo_cliente");
+      if (chk) {
+        chk.addEventListener("change", syncEnvioCorreoUI);
+        syncEnvioCorreoUI();
+      }
+    });
+  </script>
+</body>
+</html>
