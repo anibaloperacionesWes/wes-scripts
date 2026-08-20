@@ -455,6 +455,177 @@ def _grafico_diario_sin_wes(
     plt.close(fig)
 
 
+def _nombres_cortos() -> List[str]:
+    return ["ICCP", "Lo Velásquez", "Gimnasio", "Piscina"]
+
+
+def _grafico_todos_casos_comparar(
+    nombres: List[str],
+    m3_sin: List[float],
+    m3_con: List[float],
+    etiqueta_con: str,
+    titulo: str,
+    out_png: Path,
+) -> None:
+    """Un gráfico con los 4 puntos: sin WES ahora vs la semana elegida para comparar."""
+    import numpy as np
+
+    x = np.arange(len(nombres))
+    w = 0.36
+    fig, ax = plt.subplots(figsize=(11.4, 5.6))
+    bars_sin = ax.bar(x - w / 2, m3_sin, width=w, color=COLOR_SIN, label="Sin WES desde el 17/08", zorder=2)
+    bars_con = ax.bar(
+        x + w / 2,
+        m3_con,
+        width=w,
+        color=COLOR_AHORRO,
+        label=f"Mejor para comparar ({etiqueta_con})",
+        zorder=2,
+    )
+    ymax = max(list(m3_sin) + list(m3_con) + [1.0]) * 1.22
+    ax.set_ylim(0, ymax)
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(nombres, fontsize=10)
+    ax.set_ylabel("Consumo ventana homóloga (m³)")
+    ax.set_title(titulo, fontweight="bold", fontsize=12, color="#1F4788")
+    ax.grid(axis="y", alpha=0.3, zorder=0)
+    ax.legend(fontsize=9, loc="upper left")
+    for bars in (bars_sin, bars_con):
+        for bar in bars:
+            h = bar.get_height()
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                h + ymax * 0.015,
+                format_number_chilean(float(h), 1),
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                color="#333333",
+            )
+    for i, (a, b) in enumerate(zip(m3_sin, m3_con)):
+        ahorro, pct = _rendimiento(float(a), float(b))
+        ax.text(
+            x[i],
+            ymax * 0.96,
+            f"{pct:+.0f} %",
+            ha="center",
+            va="top",
+            fontsize=9,
+            fontweight="bold",
+            color=COLOR_AHORRO if pct > 0 else COLOR_SIN,
+        )
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _grafico_panel_4_diario(
+    dias: Sequence[date],
+    series: Dict[str, List[float]],
+    hora_corte_hoy: int,
+    out_png: Path,
+) -> None:
+    """Días sin WES desde el 17, los 4 puntos en un solo panel."""
+    nomb = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+    labels = []
+    for i, d in enumerate(dias):
+        lab = f"{nomb[d.weekday()]}\n{d:%d/%m}"
+        if i == len(dias) - 1:
+            lab = f"{lab}\nhasta {hora_corte_hoy:02d}:59"
+        labels.append(lab)
+    fig, axes = plt.subplots(2, 2, figsize=(12.6, 7.4))
+    for ax, (nid, nom) in zip(axes.ravel(), PUNTOS):
+        vals = list(series[nid])
+        x = list(range(len(dias)))
+        bars = ax.bar(x, vals, color=COLOR_SIN, zorder=2)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, fontsize=8)
+        ax.set_ylabel("m³")
+        ax.set_title(nom, fontsize=10, fontweight="bold", color="#1F4788")
+        ax.grid(axis="y", alpha=0.3, zorder=0)
+        ymax = max(vals + [0.1]) * 1.28
+        ax.set_ylim(0, ymax)
+        for bar, v in zip(bars, vals):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                v + ymax * 0.02,
+                format_number_chilean(float(v), 1),
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                color="#333333",
+            )
+    fig.suptitle(
+        "Los 4 puntos — días sin WES desde el 17/08",
+        fontsize=13,
+        fontweight="bold",
+        color="#1F4788",
+    )
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _grafico_panel_4_semanas(
+    etiquetas: List[str],
+    series_con: Dict[str, List[float]],
+    series_sin: Dict[str, float],
+    etiqueta_sin: str,
+    idx_recomendada: Optional[int],
+    out_png: Path,
+) -> None:
+    """Semanas con WES + barra roja sin WES, los 4 puntos en un solo panel."""
+    from matplotlib.patches import Patch
+
+    fig, axes = plt.subplots(2, 2, figsize=(14.2, 8.6))
+    labs = list(etiquetas) + [etiqueta_sin]
+    for ax, (nid, nom) in zip(axes.ravel(), PUNTOS):
+        vals = list(series_con[nid]) + [float(series_sin[nid])]
+        colors = ["#5B9BD5"] * len(etiquetas) + [COLOR_SIN]
+        if idx_recomendada is not None and 0 <= idx_recomendada < len(etiquetas):
+            colors[idx_recomendada] = COLOR_AHORRO
+        x = list(range(len(labs)))
+        bars = ax.bar(x, vals, color=colors, zorder=2)
+        ax.axhline(float(series_sin[nid]), color=COLOR_SIN, linestyle=":", linewidth=1.0, alpha=0.8, zorder=1)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labs, rotation=65, ha="right", fontsize=6.5)
+        ax.set_ylabel("m³")
+        ax.set_title(nom, fontsize=10, fontweight="bold", color="#1F4788")
+        ax.grid(axis="y", alpha=0.3, zorder=0)
+        ymax = max(vals + [1.0]) * 1.18
+        ax.set_ylim(0, ymax)
+        for bar, v in zip(bars, vals):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                v + ymax * 0.012,
+                f"{v:.0f}" if v >= 10 else f"{v:.1f}",
+                ha="center",
+                va="bottom",
+                fontsize=5.5,
+                color="#333333",
+            )
+    fig.suptitle(
+        "Los 4 puntos — semanas con WES vs sin WES hasta ahora (rojo)",
+        fontsize=13,
+        fontweight="bold",
+        color="#1F4788",
+    )
+    fig.legend(
+        handles=[
+            Patch(facecolor="#5B9BD5", label="Semanas con WES"),
+            Patch(facecolor=COLOR_AHORRO, label="Mejor para comparar (10–16 ago)"),
+            Patch(facecolor=COLOR_SIN, label="Sin WES desde el 17/08"),
+        ],
+        loc="upper right",
+        fontsize=8,
+        ncol=3,
+        bbox_to_anchor=(0.99, 0.98),
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
 def _grafico_ranking_pct(etiquetas: List[str], pcts: List[float], titulo: str, out_png: Path) -> None:
     fig, ax = plt.subplots(figsize=(12.5, 5.2))
     x = list(range(len(etiquetas)))
@@ -834,6 +1005,19 @@ def _word(
         "Mayor ahorro = mejor % entre semanas operativas (sin receso)."
     )
 
+    doc.add_heading("Los 4 puntos juntos", level=1)
+    if "todos_casos" in pngs:
+        doc.add_picture(str(pngs["todos_casos"]), width=Cm(16.2))
+        doc.add_paragraph(
+            "Rojo = sin WES desde el 17. Verde = semana 10–16 ago (mejor para comparar). "
+            "El % sobre cada par es el rendimiento de esa comparación."
+        )
+    if "panel_diario" in pngs:
+        doc.add_picture(str(pngs["panel_diario"]), width=Cm(16.2))
+    if "panel_semanas" in pngs:
+        doc.add_paragraph("")
+        doc.add_picture(str(pngs["panel_semanas"]), width=Cm(16.4))
+
     def _pinta_encabezado(tbl, headers: List[str]) -> None:
         for j, hd in enumerate(headers):
             cell = tbl.rows[0].cells[j]
@@ -1071,6 +1255,7 @@ def main() -> int:
     png_dir.mkdir(exist_ok=True)
 
     pngs: Dict[str, Path] = {}
+    series_dia: Dict[str, List[float]] = {}
     dias_sin = []
     d = LUNES_SIN_WES
     while d <= ahora.date():
@@ -1094,6 +1279,7 @@ def main() -> int:
             hora_corte_hoy=hora_corte,
         )
         pngs[f"diario_{nid}"] = pdia
+        series_dia[nid] = vals_dia
 
         filas_op = [
             v
@@ -1116,6 +1302,35 @@ def main() -> int:
             idx_recomendada=idx_rec,
         )
         pngs[f"semanas_{nid}"] = psem
+
+    p_all = png_dir / "todos_casos_comparar.png"
+    _grafico_todos_casos_comparar(
+        _nombres_cortos(),
+        [ventana_sin[nid].m3_total for nid, _ in PUNTOS],
+        [
+            next(v for v in ventanas[nid] if v.lunes == ULTIMO_LUNES_CON_WES).m3_total
+            for nid, _ in PUNTOS
+        ],
+        _etiqueta_semana(ULTIMO_LUNES_CON_WES),
+        "Renca — los 4 puntos: sin WES desde el 17/08 vs 10–16 ago (con WES)",
+        p_all,
+    )
+    pngs["todos_casos"] = p_all
+
+    p_dia4 = png_dir / "panel_diario_4.png"
+    _grafico_panel_4_diario(dias_sin, series_dia, hora_corte, p_dia4)
+    pngs["panel_diario"] = p_dia4
+
+    p_sem4 = png_dir / "panel_semanas_4.png"
+    _grafico_panel_4_semanas(
+        [_etiqueta_semana(l) for l in lunes_con],
+        {nid: [v.m3_total for v in ventanas[nid]] for nid, _ in PUNTOS},
+        {nid: ventana_sin[nid].m3_total for nid, _ in PUNTOS},
+        f"Sin WES\n{LUNES_SIN_WES:%d/%m}–{ahora:%d/%m}",
+        len(lunes_con) - 1,
+        p_sem4,
+    )
+    pngs["panel_semanas"] = p_sem4
 
     xlsx = out_dir / "comparacion_renca_sin_wes_ago17_vs_semanas_mayo.xlsx"
     _excel(xlsx, diario_por_nodo, ventanas, ventana_sin, semanas, hora_corte, ahora)
