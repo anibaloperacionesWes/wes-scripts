@@ -1,0 +1,70 @@
+REHACER FORMULARIO WEB — LIMPIO (1 SOLO LINK)
+=============================================
+
+Objetivo: un solo formulario funcionando. Borrar/archivar el resto.
+
+PASO 0 — Abrir el proyecto
+https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
+
+=============================================
+PASO 1 — Pegar los 3 archivos (Google Docs)
+=============================================
+Para CADA archivo de la izquierda:
+  catalogos  → Doc: https://docs.google.com/document/d/1PVTHJSYQc4E5tEch02HW7BVcNU7JPJAFl6YB5CPTw5w/edit
+  Codigo     → Doc: https://docs.google.com/document/d/1sg3dEBScEtbZvpwS5Bq41v_7w2olcZ-JXYSbDHUPVko/edit
+  Formulario → Doc: https://docs.google.com/document/d/1N1WK4WBEOyenp4tJOlbFgBU0CU8YzbllVywJ047WnWE/edit
+
+En cada uno:
+  1) Abrí el Google Doc
+  2) Ctrl+A → Ctrl+C
+  3) En Apps Script clic en el archivo (catalogos / Codigo / Formulario)
+  4) Ctrl+A → Supr
+  5) Ctrl+V
+  6) Ctrl+S
+  7) NO debe quedar texto tipo "Mostrando..." ni nombre del archivo
+
+Orden sugerido: catalogos → Codigo → Formulario
+
+=============================================
+PASO 2 — Archivar TODAS las implementaciones viejas
+=============================================
+1) Implementar → Administrar implementaciones
+2) En Activa: para CADA "Sin título"
+   - clic en el ícono de archivo/archivar (caja)
+   - confirmar
+3) Dejá Activa VACÍA (todas archivadas)
+   Así no hay links viejos confundiendo.
+
+=============================================
+PASO 3 — Crear UNA sola implementación nueva
+=============================================
+1) Implementar → Nueva implementación
+2) Tipo: App web
+3) Descripción: Formulario WES oficial
+4) Ejecutar como: Yo (anibal.aoperaciones@wes.cl)
+5) Usuarios con acceso: Cualquier usuario de WES SPA
+   (o "Cualquiera" si los técnicos no entran con @wes.cl)
+6) Implementar
+7) COPIÁ la URL que te da (termina en /exec)
+8) Listo
+
+Esa URL es LA ÚNICA oficial.
+
+=============================================
+PASO 4 — Probar
+=============================================
+Abrí la URL nueva (Ctrl+F5) y verificá:
+  [ ] Cargan clientes (RENCA, MAE, etc.)
+  [ ] RENCA tiene ICCO / ICCP / GIMNASIO...
+  [ ] Tecnología tiene On/Off
+  [ ] Check "Enviar PDF por correo al cliente"
+  [ ] Se puede firmar y completar (interno sin correo)
+
+=============================================
+PASO 5 — Avisarme el link nuevo
+=============================================
+Pegame solo ESA url /exec y la dejo documentada.
+NO usen links viejos.
+
+Proyecto Apps Script (no es el form):
+https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
