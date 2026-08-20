@@ -370,15 +370,29 @@ def _grafico_semanas_mas_barra_sin(
     titulo: str,
     out_png: Path,
     etiqueta_sin: str = "Sin WES\nhasta ahora",
+    idx_recomendada: Optional[int] = None,
 ) -> None:
     """Todas las semanas con WES + una barra roja final con el acumulado sin control."""
+    from matplotlib.patches import Patch
+
     labs = list(etiquetas) + [etiqueta_sin]
     vals = list(valores_con) + [valor_sin]
     colors = ["#5B9BD5"] * len(etiquetas) + [COLOR_SIN]
+    if idx_recomendada is not None and 0 <= idx_recomendada < len(etiquetas):
+        colors[idx_recomendada] = COLOR_AHORRO
     fig, ax = plt.subplots(figsize=(13.6, 5.6))
     x = list(range(len(labs)))
     bars = ax.bar(x, vals, color=colors, zorder=2)
     ax.axhline(valor_sin, color=COLOR_SIN, linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
+    ax.legend(
+        handles=[
+            Patch(facecolor="#5B9BD5", label="Semanas con WES"),
+            Patch(facecolor=COLOR_AHORRO, label="Mejor para comparar (10–16 ago)"),
+            Patch(facecolor=COLOR_SIN, label="Sin WES desde el 17/08"),
+        ],
+        fontsize=8,
+        loc="upper right",
+    )
     ax.set_xticks(x)
     ax.set_xticklabels(labs, rotation=50, ha="right", fontsize=8)
     ax.set_ylabel("Consumo ventana homóloga (m³)")
@@ -401,35 +415,41 @@ def _grafico_semanas_mas_barra_sin(
     plt.close(fig)
 
 
-def _grafico_panel_4_puntos_pareado(
-    etiquetas: List[str],
-    series_con: Dict[str, List[float]],
-    series_sin: Dict[str, float],
-    etiqueta_sin: str,
+def _grafico_diario_sin_wes(
+    dias: Sequence[date],
+    valores: Sequence[float],
+    titulo: str,
     out_png: Path,
+    hora_corte_hoy: Optional[int] = None,
 ) -> None:
-    import numpy as np
-
-    fig, axes = plt.subplots(2, 2, figsize=(14.2, 8.4))
-    w = 0.38
-    for ax, (nid, nom) in zip(axes.ravel(), PUNTOS):
-        vals = series_con[nid]
-        sin = series_sin[nid]
-        x = np.arange(len(etiquetas))
-        ax.bar(x - w / 2, vals, width=w, color=COLOR_WES, label="Con WES", zorder=2)
-        ax.bar(x + w / 2, [sin] * len(etiquetas), width=w, color=COLOR_SIN, label=etiqueta_sin, zorder=2)
-        ax.set_title(nom, fontsize=10, fontweight="bold", color="#1F4788")
-        ax.set_ylabel("m³")
-        ax.set_xticks(list(x))
-        ax.set_xticklabels(etiquetas, rotation=60, ha="right", fontsize=6.5)
-        ax.grid(axis="y", alpha=0.3, zorder=0)
-        ax.legend(fontsize=7, loc="upper right")
-    fig.suptitle(
-        "Sin WES hasta ahora vs Con WES de cada semana calificada",
-        fontsize=13,
-        fontweight="bold",
-        color="#1F4788",
-    )
+    """Barras diarias del periodo sin control (desde el lunes 17)."""
+    nomb = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+    labels = []
+    for i, d in enumerate(dias):
+        lab = f"{nomb[d.weekday()]} {d:%d/%m}"
+        if i == len(dias) - 1 and hora_corte_hoy is not None:
+            lab = f"{lab}\nhasta {hora_corte_hoy:02d}:59"
+        labels.append(lab)
+    fig, ax = plt.subplots(figsize=(8.8, 4.2))
+    x = list(range(len(dias)))
+    bars = ax.bar(x, list(valores), color=COLOR_SIN, zorder=2)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.set_ylabel("m³")
+    ax.set_title(titulo, fontweight="bold", fontsize=11, color="#1F4788")
+    ax.grid(axis="y", alpha=0.3, zorder=0)
+    ymax = max(list(valores) + [0.1]) * 1.22
+    ax.set_ylim(0, ymax)
+    for bar, v in zip(bars, valores):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            v + ymax * 0.02,
+            format_number_chilean(float(v), 1),
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            color="#333333",
+        )
     fig.tight_layout()
     fig.savefig(out_png, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -782,6 +802,7 @@ def _word(
     mejor_por_punto: Dict[str, Tuple[VentanaPunto, float, float]],
     mediana_por_punto: Dict[str, float],
 ) -> None:
+    """Un punto = días sin WES desde el 17 + barras por semanas + tabla de mejor comparación."""
     doc = Document()
     doc.styles["Normal"].font.name = "Calibri"
     doc.styles["Normal"].font.size = Pt(11)
@@ -790,339 +811,103 @@ def _word(
     except Exception:
         pass
 
-    h = doc.add_heading("Rendimiento hídrico WES — Renca (sin control desde el 17/08/2026)", level=0)
+    h = doc.add_heading("Renca — sin WES desde el 17/08 vs semanas con WES", level=0)
     if h.runs:
         h.runs[0].font.color.rgb = COLOR_HEAD
 
-    p = doc.add_paragraph()
-    p.add_run("Cliente / comuna: ").bold = True
-    p.add_run("ICCP Renca — Escuela Lo Velásquez, Gimnasio municipal y Piscina municipal.")
-    p = doc.add_paragraph()
-    p.add_run("Generado: ").bold = True
-    p.add_run(ahora.strftime("%d/%m/%Y %H:%M") + " (hora Chile).")
-
-    doc.add_heading("1. Pregunta y método", level=1)
-    doc.add_paragraph(
-        "Desde el lunes 17 de agosto de 2026 los equipos quedaron sin control WES. "
-        "Se compara ese periodo (hasta ahora) con cada semana lunes–domingo desde mayo 2026, "
-        "cuando el control sí estaba activo, para responder: (a) qué semana genera el mayor "
-        "rendimiento de ahorro hídrico; (b) si esta ventana con WES ahorra más que la misma "
-        "ventana sin WES."
-    )
     horas_eq = next(iter(ventana_sin.values())).horas_equivalentes
-    etiqueta_sin = f"Sin WES {LUNES_SIN_WES:%d/%m}–{ahora:%d/%m} {ahora:%H:%M}"
-    doc.add_paragraph(
-        f"Ventana homóloga (manzanas con manzanas): lunes 17 + martes 18 + miércoles 19 completos "
-        f"+ jueves 20 desde 00:00 hasta las {hora_corte:02d}:59 (última hora completa). "
-        f"Son {horas_eq} horas equivalentes en cada semana con WES (mismo lun–jue hasta esa hora)."
-    )
-    doc.add_paragraph(
-        "Rendimiento % = (consumo Sin WES − consumo Con WES) / consumo Sin WES × 100. "
-        "Positivo: esa semana con WES consumió menos que el acumulado actual sin control. "
-        "En los gráficos de barras pareadas, el rojo es siempre el mismo valor (Sin WES hasta ahora) "
-        "y el azul es el Con WES de esa semana. "
-        "Se excluyen de la semana ganadora los recesos (consumo < 20 % de la mediana del punto). "
-        f"Valoración referencial: ${format_number_chilean(TARIFA_CLP_M3, 0)} CLP/m³."
-    )
-
-    # Totales actuales
-    doc.add_heading("2. Periodo sin WES hasta ahora (17–20 agosto 2026)", level=1)
-    tbl = doc.add_table(rows=1 + len(PUNTOS) + 1, cols=6)
-    tbl.style = "Table Grid"
-    headers = [
-        "Establecimiento",
-        "Lunes 17 (m³)",
-        "Martes 18 (m³)",
-        "Miércoles 19 (m³)",
-        f"Jueves 20 hasta {hora_corte:02d}:59 (m³)",
-        "Total ventana (m³)",
-    ]
-    for j, hd in enumerate(headers):
-        cell = tbl.rows[0].cells[j]
-        cell.text = hd
-        _set_cell_shading(cell, "1F4788")
-        for run in cell.paragraphs[0].runs:
-            run.bold = True
-            run.font.color.rgb = RGBColor(255, 255, 255)
-            run.font.size = Pt(9)
-    tot = [0.0, 0.0, 0.0, 0.0, 0.0]
-    for i, (nid, nom) in enumerate(PUNTOS, start=1):
-        v = ventana_sin[nid]
-        vals = [v.m3_lunes, v.m3_martes, v.m3_miercoles_corte, v.m3_jueves_corte, v.m3_total]
-        for k, x in enumerate(vals):
-            tot[k] += x
-        tbl.rows[i].cells[0].text = nom
-        for j, x in enumerate(vals):
-            tbl.rows[i].cells[j + 1].text = format_number_chilean(x, 1)
-    last = tbl.rows[1 + len(PUNTOS)]
-    last.cells[0].text = "Total 4 puntos"
-    for run in last.cells[0].paragraphs[0].runs:
-        run.bold = True
-    for j, x in enumerate(tot):
-        last.cells[j + 1].text = format_number_chilean(x, 1)
-        for run in last.cells[j + 1].paragraphs[0].runs:
-            run.bold = True
-
-    m3_sin_total = tot[4]
-    doc.add_paragraph(
-        f"Consumo conjunto sin control hasta ahora: {format_number_chilean(m3_sin_total, 1)} m³ "
-        f"({format_number_chilean(m3_sin_total / horas_eq * 24, 1)} m³/día de ritmo)."
-    )
-
-    doc.add_heading("3. Gráficos: Sin WES hasta ahora vs Con WES de cada semana", level=1)
-    doc.add_paragraph(
-        "En rojo, el consumo acumulado sin control desde el lunes 17. En azul, el consumo de la "
-        "misma ventana horaria en cada semana calificada con WES (mayo → 16 agosto). "
-        "Si la barra azul queda bajo la roja, esa semana con control ahorró frente a lo que llevamos ahora."
-    )
-    if "pareado_agregado" in pngs:
-        doc.add_picture(str(pngs["pareado_agregado"]), width=Cm(16.4))
-    if "semanas_mas_sin" in pngs:
-        doc.add_paragraph("")
-        doc.add_picture(str(pngs["semanas_mas_sin"]), width=Cm(16.4))
-    if "panel_4_puntos" in pngs:
-        doc.add_paragraph("")
-        doc.add_picture(str(pngs["panel_4_puntos"]), width=Cm(16.4))
-
-    doc.add_heading("4. Comparación inmediata: última semana con WES vs ahora sin WES", level=1)
-    doc.add_paragraph(
-        "La lectura más limpia es la semana previa (lunes 10 a domingo 16 de agosto, control activo) "
-        "contra el mismo tramo lun–jue de esta semana, ya sin control."
-    )
-    prev_lunes = ULTIMO_LUNES_CON_WES
-    tblp = doc.add_table(rows=1 + len(PUNTOS) + 1, cols=6)
-    tblp.style = "Table Grid"
-    hp = ["Establecimiento", "10–16 ago con WES (m³)", "Sin WES hasta ahora (m³)", "Ahorro (m³)", "Rendimiento", "CLP"]
-    for j, hd in enumerate(hp):
-        cell = tblp.rows[0].cells[j]
-        cell.text = hd
-        _set_cell_shading(cell, "1F4788")
-        for run in cell.paragraphs[0].runs:
-            run.bold = True
-            run.font.color.rgb = RGBColor(255, 255, 255)
-            run.font.size = Pt(9)
-    tot_prev = 0.0
-    tot_sin_p = 0.0
-    for i, (nid, nom) in enumerate(PUNTOS, start=1):
-        prev = next(v for v in ventanas[nid] if v.lunes == prev_lunes)
-        sin = ventana_sin[nid]
-        ahorro, pct = _rendimiento(sin.m3_total, prev.m3_total)
-        tot_prev += prev.m3_total
-        tot_sin_p += sin.m3_total
-        row = tblp.rows[i]
-        row.cells[0].text = nom
-        row.cells[1].text = format_number_chilean(prev.m3_total, 1)
-        row.cells[2].text = format_number_chilean(sin.m3_total, 1)
-        row.cells[3].text = format_number_chilean(ahorro, 1)
-        row.cells[4].text = format_number_chilean(pct, 1) + " %"
-        row.cells[5].text = "$" + format_number_chilean(ahorro * TARIFA_CLP_M3, 0)
-    ahorro_p, pct_p = _rendimiento(tot_sin_p, tot_prev)
-    lastp = tblp.rows[1 + len(PUNTOS)]
-    lastp.cells[0].text = "Total 4 puntos"
-    lastp.cells[1].text = format_number_chilean(tot_prev, 1)
-    lastp.cells[2].text = format_number_chilean(tot_sin_p, 1)
-    lastp.cells[3].text = format_number_chilean(ahorro_p, 1)
-    lastp.cells[4].text = format_number_chilean(pct_p, 1) + " %"
-    lastp.cells[5].text = "$" + format_number_chilean(ahorro_p * TARIFA_CLP_M3, 0)
-    for c in lastp.cells:
-        for run in c.paragraphs[0].runs:
-            run.bold = True
-    doc.add_paragraph(
-        f"En esta ventana, con WES se consumieron {format_number_chilean(tot_prev, 1)} m³ y sin WES "
-        f"{format_number_chilean(tot_sin_p, 1)} m³. El control de la semana previa ahorra "
-        f"{format_number_chilean(ahorro_p, 1)} m³ ({format_number_chilean(pct_p, 1)} %), "
-        f"≈ ${format_number_chilean(ahorro_p * TARIFA_CLP_M3, 0)}. "
-        "El salto lo explica sobre todo la piscina (de ~31 m³/día con control a ~56–58 m³/día sin control) "
-        "e ICCP (de ~16 m³/día a ~21 m³/día)."
-    )
-
-    doc.add_heading("5. Semana de mayor rendimiento operativo (mayo → 16 agosto)", level=1)
-    doc.add_paragraph(
-        "Entre las semanas con ocupación comparable (se descartan recesos: piscina o recinto en ~0 m³), "
-        "la ganadora es la de mayor rendimiento % respecto del periodo actual sin WES."
-    )
-
-    tbl2 = doc.add_table(rows=1 + len(PUNTOS) + 1, cols=7)
-    tbl2.style = "Table Grid"
-    h2 = ["Establecimiento", "Mejor semana", "Con WES (m³)", "Sin WES (m³)", "Ahorro (m³)", "Rendimiento", "CLP"]
-    for j, hd in enumerate(h2):
-        cell = tbl2.rows[0].cells[j]
-        cell.text = hd
-        _set_cell_shading(cell, "1F4788")
-        for run in cell.paragraphs[0].runs:
-            run.bold = True
-            run.font.color.rgb = RGBColor(255, 255, 255)
-            run.font.size = Pt(9)
-
-    ahorros = []
-    for i, (nid, nom) in enumerate(PUNTOS, start=1):
-        v, ahorro, pct = mejor_por_punto[nid]
-        ahorros.append(ahorro)
-        sin = ventana_sin[nid]
-        row = tbl2.rows[i]
-        row.cells[0].text = nom
-        row.cells[1].text = _etiqueta_semana(v.lunes)
-        row.cells[2].text = format_number_chilean(v.m3_total, 1)
-        row.cells[3].text = format_number_chilean(sin.m3_total, 1)
-        row.cells[4].text = format_number_chilean(ahorro, 1)
-        row.cells[5].text = format_number_chilean(pct, 1) + " %"
-        row.cells[6].text = "$" + format_number_chilean(ahorro * TARIFA_CLP_M3, 0)
-
-    # Agregado: mejor semana OPERATIVA (piscina abierta y escuela no en receso)
-    ranking_op = []
-    for t in ranking_agregado:
-        pisc = next(v for v in ventanas["000017-06"] if v.lunes == t[0])
-        esc = next(v for v in ventanas["000017-04"] if v.lunes == t[0])
-        if pisc.nota == "operativa" and esc.nota != "receso":
-            ranking_op.append(t)
-    ranking_op = ranking_op or list(ranking_agregado)
-    best_agg = max(ranking_op, key=lambda t: t[2])
-    best_agg_m3 = max(ranking_op, key=lambda t: t[1])
-    last = tbl2.rows[1 + len(PUNTOS)]
-    last.cells[0].text = "Agregado 4 puntos (mejor semana operativa)"
-    last.cells[1].text = _etiqueta_semana(best_agg[0])
-    last.cells[2].text = format_number_chilean(best_agg[3], 1)
-    last.cells[3].text = format_number_chilean(m3_sin_total, 1)
-    last.cells[4].text = format_number_chilean(best_agg[1], 1)
-    last.cells[5].text = format_number_chilean(best_agg[2], 1) + " %"
-    last.cells[6].text = "$" + format_number_chilean(best_agg[1] * TARIFA_CLP_M3, 0)
-    for c in last.cells:
-        for run in c.paragraphs[0].runs:
-            run.bold = True
-
-    doc.add_paragraph("")
-    if "resumen_puntos" in pngs:
-        doc.add_picture(str(pngs["resumen_puntos"]), width=Cm(16.2))
-    if "ranking_agregado" in pngs:
-        doc.add_paragraph("")
-        doc.add_picture(str(pngs["ranking_agregado"]), width=Cm(16.2))
-
-    doc.add_heading("6. ¿Esta ventana con WES ahorra más que sin WES?", level=1)
-    import statistics
-
-    agg_op = [t[3] for t in ranking_op]
-    mediana_agg = statistics.median(agg_op) if agg_op else 0.0
-    ahorro_med, pct_med = _rendimiento(m3_sin_total, mediana_agg)
-    ahorro_best, pct_best = _rendimiento(m3_sin_total, best_agg[3])
-
-    doc.add_paragraph(
-        f"En la misma ventana, el consumo conjunto sin WES fue "
-        f"{format_number_chilean(m3_sin_total, 1)} m³. "
-        f"La mediana de las {len(ranking_op)} semanas operativas con WES (mayo–16 ago, sin receso de piscina) fue "
-        f"{format_number_chilean(mediana_agg, 1)} m³ "
-        f"(rendimiento {format_number_chilean(pct_med, 1)} %, "
-        f"{format_number_chilean(ahorro_med, 1)} m³). "
-        f"La mejor semana operativa ({_etiqueta_semana(best_agg[0])}) bajó a "
-        f"{format_number_chilean(best_agg[3], 1)} m³ "
-        f"({format_number_chilean(pct_best, 1)} %, "
-        f"{format_number_chilean(ahorro_best, 1)} m³). "
-        f"La última semana con control (10–16 ago) ahorró {format_number_chilean(ahorro_p, 1)} m³ "
-        f"({format_number_chilean(pct_p, 1)} %) en la misma ventana."
-    )
-
-    if tot_sin_p > tot_prev:
-        doc.add_paragraph(
-            "Conclusión: el periodo CON control WES genera más rendimiento de ahorro que este periodo "
-            "SIN control. En la comparación de temporada (10–16 ago vs 17–19 ago) el consumo ya subió "
-            f"{format_number_chilean(pct_p, 1)} %. Restaurar el control es lo que recupera ese caudal, "
-            "en particular en piscina e ICCP."
-        )
+    nomb_off = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+    offset_hoy = (ahora.date() - LUNES_SIN_WES).days
+    dias_completos = [nomb_off[i] for i in range(offset_hoy) if i < 7]
+    dia_parcial = nomb_off[offset_hoy] if 0 <= offset_hoy < 7 else ""
+    if dias_completos:
+        ventana_txt = f"{', '.join(dias_completos)} completos + {dia_parcial} hasta {hora_corte:02d}:59"
     else:
-        doc.add_paragraph(
-            "Conclusión: el consumo actual sin WES no supera la última semana con control; "
-            "revisar el detalle por establecimiento."
-        )
+        ventana_txt = f"{dia_parcial} hasta {hora_corte:02d}:59"
+    p = doc.add_paragraph()
+    p.add_run("Periodo sin control: ").bold = True
+    p.add_run(
+        f"lunes 17/08 a {ahora:%d/%m/%Y %H:%M} Chile "
+        f"({ventana_txt}; {horas_eq} h). "
+        "Cada semana con WES se mide en las mismas horas. "
+        "Mejor para comparar = semana previa (10–16 ago, misma estación). "
+        "Mayor ahorro = mejor % entre semanas operativas (sin receso)."
+    )
 
-    doc.add_heading("7. Detalle por establecimiento", level=1)
+    def _pinta_encabezado(tbl, headers: List[str]) -> None:
+        for j, hd in enumerate(headers):
+            cell = tbl.rows[0].cells[j]
+            cell.text = hd
+            _set_cell_shading(cell, "1F4788")
+            for run in cell.paragraphs[0].runs:
+                run.bold = True
+                run.font.color.rgb = RGBColor(255, 255, 255)
+                run.font.size = Pt(9)
+
     for nid, nom in PUNTOS:
-        v_best, ahorro, pct = mejor_por_punto[nid]
         sin = ventana_sin[nid]
-        med = mediana_por_punto[nid]
-        ahorro_med_p, pct_med_p = _rendimiento(sin.m3_total, med)
-        doc.add_heading(nom, level=2)
-        doc.add_paragraph(
-            f"Sin WES hasta ahora: {format_number_chilean(sin.m3_total, 1)} m³ "
-            f"(lun {format_number_chilean(sin.m3_lunes, 1)} / "
-            f"mar {format_number_chilean(sin.m3_martes, 1)} / "
-            f"mié {format_number_chilean(sin.m3_miercoles_corte, 1)} / "
-            f"jue-corte {format_number_chilean(sin.m3_jueves_corte, 1)}). "
-            f"Mejor semana con WES: {_etiqueta_semana(v_best.lunes)} con "
-            f"{format_number_chilean(v_best.m3_total, 1)} m³ "
-            f"(ahorro {format_number_chilean(ahorro, 1)} m³; {format_number_chilean(pct, 1)} %). "
-            f"Mediana con WES: {format_number_chilean(med, 1)} m³ "
-            f"({format_number_chilean(pct_med_p, 1)} %)."
-        )
-        keyp0 = f"pareado_{nid}"
-        if keyp0 in pngs:
-            doc.add_picture(str(pngs[keyp0]), width=Cm(16.0))
-        key = f"semanas_{nid}"
-        if key in pngs:
-            doc.add_picture(str(pngs[key]), width=Cm(16.0))
-        keyp = f"pct_{nid}"
-        if keyp in pngs:
-            doc.add_picture(str(pngs[keyp]), width=Cm(16.0))
-        keyh = f"perfil_{nid}"
-        if keyh in pngs:
-            doc.add_picture(str(pngs[keyh]), width=Cm(16.0))
+        v_best, ahorro_best, pct_best = mejor_por_punto[nid]
+        prev = next(v for v in ventanas[nid] if v.lunes == ULTIMO_LUNES_CON_WES)
+        ahorro_prev, pct_prev = _rendimiento(sin.m3_total, prev.m3_total)
 
-    if "serie_diaria" in pngs:
-        doc.add_heading("8. Serie diaria mayo–agosto", level=1)
+        doc.add_heading(nom, level=1)
         doc.add_paragraph(
-            "La banda roja marca el periodo sin control (desde el lunes 17/08). "
-            "Piscina y gimnasio dominan el volumen; escuela e ICCP tienen consumos menores y más estables."
+            f"Sin WES hasta ahora: {format_number_chilean(sin.m3_total, 1)} m³. "
+            f"Mejor para comparar: {_etiqueta_semana(prev.lunes)} "
+            f"({format_number_chilean(prev.m3_total, 1)} m³ con WES → "
+            f"{format_number_chilean(pct_prev, 1)} %). "
+            f"Mayor ahorro operativo: {_etiqueta_semana(v_best.lunes)} "
+            f"({format_number_chilean(pct_best, 1)} %; {format_number_chilean(ahorro_best, 1)} m³)."
         )
-        doc.add_picture(str(pngs["serie_diaria"]), width=Cm(16.2))
 
-    doc.add_heading("9. Lectura operativa", level=1)
-    bullets = [
-        f"La comparación es de {horas_eq} horas equivalentes, no de una semana calendario completa "
-        f"(el periodo sin WES aún no cierra el domingo 23/08).",
-        "La semana 15–21 jun (piscina en 0 m³) y 22 jun–5 jul (escuela en 0 m³) se marcan como receso: "
-        "no se cuentan como el mejor rendimiento WES.",
-        "Piscina: con WES en agosto venía ~31 m³/día; el lunes 17 y martes 18 sin control subió a 56 y 58 m³/día "
-        "(nivel similar a mayo). Ese es el mayor volumen perdido.",
-        "ICCP: lun–mar con WES ~16 m³/día; sin WES ~21 m³/día.",
-        "Escuela Lo Velásquez y gimnasio: en esta ventana el consumo sin WES no supera de forma clara "
-        "la semana previa con control; el ahorro conjunto lo arrastran piscina e ICCP.",
-        "Cuando se complete la semana 17–23 ago conviene repetir el cruce lun–dom contra lun–dom.",
-        f"Tarifa usada para CLP: ${format_number_chilean(TARIFA_CLP_M3, 0)} / m³ (referencial).",
-    ]
-    for b in bullets:
-        doc.add_paragraph(b, style="List Bullet")
+        if f"diario_{nid}" in pngs:
+            doc.add_picture(str(pngs[f"diario_{nid}"]), width=Cm(15.6))
+        if f"semanas_{nid}" in pngs:
+            doc.add_paragraph("")
+            doc.add_picture(str(pngs[f"semanas_{nid}"]), width=Cm(16.2))
 
-    doc.add_heading("10. Respuesta directa", level=1)
-    doc.add_paragraph(
-        f"• Semana de mayor rendimiento operativo conjunto (4 puntos, sin receso de piscina): "
-        f"{_etiqueta_semana(best_agg[0])} "
-        f"({format_number_chilean(best_agg[2], 1)} %; {format_number_chilean(best_agg[1], 1)} m³ "
-        f"en la ventana homóloga vs el periodo actual sin WES)."
-    )
-    doc.add_paragraph(
-        f"• Comparación de temporada (la más justa): 10–16 ago CON WES vs sin WES hasta ahora → "
-        f"{format_number_chilean(pct_p, 1)} % a favor del control "
-        f"({format_number_chilean(ahorro_p, 1)} m³ en {horas_eq} h)."
-    )
-    if best_agg_m3[0] != best_agg[0]:
-        doc.add_paragraph(
-            f"• Semana de mayor volumen de ahorro conjunto: {_etiqueta_semana(best_agg_m3[0])} "
-            f"({format_number_chilean(best_agg_m3[1], 1)} m³; {format_number_chilean(best_agg_m3[2], 1)} %)."
+        filas = [
+            v
+            for v in ventanas[nid]
+            if v.nota == "operativa" or v.lunes == ULTIMO_LUNES_CON_WES
+        ]
+        if not filas:
+            filas = [v for v in ventanas[nid] if v.nota != "receso"]
+        tbl = doc.add_table(rows=1 + len(filas), cols=6)
+        tbl.style = "Table Grid"
+        _pinta_encabezado(
+            tbl,
+            ["Semana", "Con WES (m³)", "Sin WES ahora (m³)", "Ahorro (m³)", "%", "Selección"],
         )
-    for nid, nom in PUNTOS:
-        v, ahorro, pct = mejor_por_punto[nid]
-        doc.add_paragraph(
-            f"• {nom}: mejor semana {_etiqueta_semana(v.lunes)} "
-            f"({format_number_chilean(pct, 1)} %; {format_number_chilean(ahorro, 1)} m³)."
-        )
-    if tot_sin_p > tot_prev:
-        doc.add_paragraph(
-            "• Esta ventana CON WES genera más ahorro que la misma ventana SIN WES: "
-            "el lunes 17 y martes 18 ya superan el ritmo de la semana previa con equipos activos "
-            "(sobre todo piscina e ICCP)."
-        )
+        for i, v in enumerate(filas, start=1):
+            ahorro, pct = _rendimiento(sin.m3_total, v.m3_total)
+            marca = ""
+            if v.lunes == ULTIMO_LUNES_CON_WES and v.lunes == v_best.lunes:
+                marca = "Mejor para comparar y mayor ahorro"
+            elif v.lunes == ULTIMO_LUNES_CON_WES:
+                marca = "Mejor para comparar"
+            elif v.lunes == v_best.lunes:
+                marca = "Mayor ahorro"
+            row = tbl.rows[i]
+            row.cells[0].text = _etiqueta_semana(v.lunes)
+            row.cells[1].text = format_number_chilean(v.m3_total, 1)
+            row.cells[2].text = format_number_chilean(sin.m3_total, 1)
+            row.cells[3].text = format_number_chilean(ahorro, 1)
+            row.cells[4].text = format_number_chilean(pct, 1) + " %"
+            row.cells[5].text = marca
+            if marca:
+                for c in row.cells:
+                    _set_cell_shading(c, "E2EFDA")
+                    for run in c.paragraphs[0].runs:
+                        run.bold = True
+                        run.font.size = Pt(9)
+            else:
+                for c in row.cells:
+                    for run in c.paragraphs[0].runs:
+                        run.font.size = Pt(9)
 
     out_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_docx)
-
 
 def _convertir_pdf(docx_path: Path) -> Optional[Path]:
     pdf_path = docx_path.with_suffix(".pdf")
@@ -1285,157 +1070,52 @@ def main() -> int:
     png_dir = out_dir / "graficos"
     png_dir.mkdir(exist_ok=True)
 
-    etiquetas = [_etiqueta_semana(l) for l in lunes_con]
-    etiqueta_sin = f"Sin WES {LUNES_SIN_WES:%d/%m}–{ahora:%d/%m} {ahora:%H:%M}"
     pngs: Dict[str, Path] = {}
-
-    # Semanas calificadas (operativas a nivel agregado: piscina abierta y escuela no en receso)
-    idx_op = [
-        i
-        for i, lunes in enumerate(lunes_con)
-        if any(t[0] == lunes for t in ranking_operativo)
-    ]
-    etq_op = [etiquetas[i] for i in idx_op]
-    vals_op = [ranking_agregado[i][3] for i in idx_op]
-
-    pool_idx = ranking_operativo or ranking_agregado
-    vals_agg = [t[3] for t in ranking_agregado]
-    pcts_agg = [t[2] for t in ranking_agregado]
-    idx_best = max(
-        range(len(ranking_agregado)),
-        key=lambda i: ranking_agregado[i][2]
-        if ranking_agregado[i][0] in {t[0] for t in pool_idx}
-        else -999,
-    )
-
-    p_par = png_dir / "pareado_agregado_sin_vs_cada_semana.png"
-    _grafico_pareado_sin_vs_semanas(
-        etq_op or etiquetas,
-        vals_op or vals_agg,
-        m3_sin_total,
-        "Renca (4 puntos) — Sin WES hasta ahora vs Con WES de cada semana calificada",
-        p_par,
-        etiqueta_sin=etiqueta_sin,
-    )
-    pngs["pareado_agregado"] = p_par
-
-    p_fin = png_dir / "semanas_con_wes_mas_barra_sin.png"
-    _grafico_semanas_mas_barra_sin(
-        etq_op or etiquetas,
-        vals_op or vals_agg,
-        m3_sin_total,
-        "Renca (4 puntos) — cada semana con WES y el acumulado sin control (barra roja)",
-        p_fin,
-        etiqueta_sin=f"Sin WES\n{LUNES_SIN_WES:%d/%m}–{ahora:%d/%m}",
-    )
-    pngs["semanas_mas_sin"] = p_fin
-
-    p1 = png_dir / "barras_agregado_ventana.png"
-    _grafico_barras_semanas(
-        etiquetas,
-        vals_agg,
-        m3_sin_total,
-        "Renca (4 puntos) — Con WES por semana vs línea Sin WES hasta ahora",
-        "m³ ventana homóloga",
-        p1,
-        idx_mejor=idx_best,
-        etiqueta_sin=etiqueta_sin,
-    )
-    pngs["resumen_semanas_agg"] = p1
-    p2 = png_dir / "ranking_pct_agregado.png"
-    _grafico_ranking_pct(
-        etiquetas,
-        pcts_agg,
-        f"Rendimiento de ahorro agregado vs Sin WES {LUNES_SIN_WES:%d/%m}–{ahora:%d/%m}",
-        p2,
-    )
-    pngs["ranking_agregado"] = p2
-
-    nombres_cortos = ["ICCP", "Lo Velásquez", "Gimnasio", "Piscina"]
-    m3_sin_l = [ventana_sin[nid].m3_total for nid, _ in PUNTOS]
-    m3_prev_l = [ventanas[nid][-1].m3_total for nid, _ in PUNTOS]
-    m3_med_l = [mediana_por_punto[nid] for nid, _ in PUNTOS]
-    p3 = png_dir / "resumen_puntos.png"
-    _grafico_resumen_puntos(
-        nombres_cortos,
-        m3_sin_l,
-        m3_prev_l,
-        m3_med_l,
-        "10–16 ago",
-        p3,
-    )
-    pngs["resumen_puntos"] = p3
-
-    p4 = png_dir / "serie_diaria.png"
-    _grafico_serie_diaria(diario_por_nodo, {n: nom for n, nom in PUNTOS}, d_ini, d_fin, p4)
-    pngs["serie_diaria"] = p4
-
-    series_con_op: Dict[str, List[float]] = {}
-    series_sin: Dict[str, float] = {}
-    for nid, _ in PUNTOS:
-        series_con_op[nid] = [ventanas[nid][i].m3_total for i in (idx_op or list(range(len(lunes_con))))]
-        series_sin[nid] = ventana_sin[nid].m3_total
-    p_panel = png_dir / "panel_4_puntos_pareado.png"
-    _grafico_panel_4_puntos_pareado(
-        etq_op or etiquetas,
-        series_con_op,
-        series_sin,
-        "Sin WES hasta ahora",
-        p_panel,
-    )
-    pngs["panel_4_puntos"] = p_panel
+    dias_sin = []
+    d = LUNES_SIN_WES
+    while d <= ahora.date():
+        dias_sin.append(d)
+        d += timedelta(days=1)
 
     for nid, nom in PUNTOS:
-        vals = [v.m3_total for v in ventanas[nid]]
-        pcts = [_rendimiento(ventana_sin[nid].m3_total, v.m3_total)[1] for v in ventanas[nid]]
-        idx_p_candidates = [i for i, v in enumerate(ventanas[nid]) if v.nota == "operativa"]
-        idx_p = max(idx_p_candidates or range(len(pcts)), key=lambda i: pcts[i])
-        vals_op_p = [ventanas[nid][i].m3_total for i in (idx_op or list(range(len(lunes_con))))]
-        pp0 = png_dir / f"pareado_{nid}.png"
-        _grafico_pareado_sin_vs_semanas(
-            etq_op or etiquetas,
-            vals_op_p,
-            ventana_sin[nid].m3_total,
-            f"{nom} — Sin WES hasta ahora vs Con WES de cada semana calificada",
-            pp0,
-            etiqueta_sin=etiqueta_sin,
+        sin = ventana_sin[nid]
+        vals_dia = []
+        for i, dia in enumerate(dias_sin):
+            if i < offset_hoy:
+                vals_dia.append(float(diario_por_nodo[nid].get(dia, 0.0)))
+            else:
+                vals_dia.append(max(0.0, float(sin.m3_total) - sum(vals_dia)))
+        pdia = png_dir / f"diario_sin_{nid}.png"
+        _grafico_diario_sin_wes(
+            dias_sin,
+            vals_dia,
+            f"{nom} — días sin WES desde el 17/08",
+            pdia,
+            hora_corte_hoy=hora_corte,
         )
-        pngs[f"pareado_{nid}"] = pp0
-        ps = png_dir / f"barras_{nid}.png"
-        _grafico_barras_semanas(
-            etiquetas,
-            vals,
-            ventana_sin[nid].m3_total,
-            f"{nom} — Con WES por semana vs línea Sin WES hasta ahora",
-            "m³ ventana homóloga",
-            ps,
-            idx_mejor=idx_p,
-            etiqueta_sin=etiqueta_sin,
-        )
-        pngs[f"semanas_{nid}"] = ps
-        pp = png_dir / f"pct_{nid}.png"
-        _grafico_ranking_pct(
-            etiquetas,
-            pcts,
-            f"{nom} — rendimiento % vs Sin WES {LUNES_SIN_WES:%d/%m}–{ahora:%d/%m}",
-            pp,
-        )
-        pngs[f"pct_{nid}"] = pp
+        pngs[f"diario_{nid}"] = pdia
 
-        v_best = mejor_por_punto[nid][0]
-        vec_sin = vecs[(nid, dia_parcial_actual)]
-        vec_con = vecs[(nid, v_best.lunes + timedelta(days=offset_parcial))]
-        ph = png_dir / f"perfil_parcial_{nid}.png"
-        _grafico_perfil_24h(
-            vec_sin,
-            vec_con,
-            f"{nom} — perfil {nomb_off[offset_parcial]}: "
-            f"{dia_parcial_actual:%d/%m} sin WES vs "
-            f"{v_best.lunes + timedelta(days=offset_parcial):%d/%m} con WES",
-            ph,
-            hora_corte=hora_corte,
+        filas_op = [
+            v
+            for v in ventanas[nid]
+            if v.nota == "operativa" or v.lunes == ULTIMO_LUNES_CON_WES
+        ]
+        if not filas_op:
+            filas_op = [v for v in ventanas[nid] if v.nota != "receso"]
+        etq_op = [_etiqueta_semana(v.lunes) for v in filas_op]
+        vals_op = [v.m3_total for v in filas_op]
+        idx_rec = next((i for i, v in enumerate(filas_op) if v.lunes == ULTIMO_LUNES_CON_WES), None)
+        psem = png_dir / f"semanas_{nid}.png"
+        _grafico_semanas_mas_barra_sin(
+            etq_op,
+            vals_op,
+            sin.m3_total,
+            f"{nom} — semanas con WES vs sin WES hasta ahora (rojo)",
+            psem,
+            etiqueta_sin=f"Sin WES\n{LUNES_SIN_WES:%d/%m}–{ahora:%d/%m}",
+            idx_recomendada=idx_rec,
         )
-        pngs[f"perfil_{nid}"] = ph
+        pngs[f"semanas_{nid}"] = psem
 
     xlsx = out_dir / "comparacion_renca_sin_wes_ago17_vs_semanas_mayo.xlsx"
     _excel(xlsx, diario_por_nodo, ventanas, ventana_sin, semanas, hora_corte, ahora)
