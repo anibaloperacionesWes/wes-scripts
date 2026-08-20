@@ -783,10 +783,15 @@ function getContactosPara(cliente, maquina) {
   var maq = String(maquina || '').trim();
   var base = all[cli] || {};
   var punto = (base.puntos && base.puntos[maq]) || {};
+  // Generales del cliente (máquina vacía) SIEMPRE — ej. David Campos en CORMUP
+  var generales = base.emails_general && base.emails_general.length
+    ? base.emails_general.slice()
+    : splitEmails_(base.email_general || '');
   return {
     cliente: cli,
     maquina: maq,
-    email_general: base.email_general || '',
+    email_general: generales.join(', '),
+    emails_general: generales,
     nombre_general: base.nombre_general || '',
     cargo_general: base.cargo_general || '',
     email_cc: punto.email_cc || '',
@@ -795,34 +800,31 @@ function getContactosPara(cliente, maquina) {
   };
 }
 
+/**
+ * Ya NO reescribe el encargado GENERAL del cliente (máquina vacía).
+ * Ese dato se cura en el Excel (ej. David Campos en CORMUP).
+ * Solo actualiza el contacto del PUNTO si hay CC, sin duplicar ni borrar nombre/cargo.
+ */
 function guardarContactosDesdeVisita_(data) {
   var cli = String(data.cliente || '').trim();
   if (!cli) return;
   var maq = String(data.maquina || '').trim();
+  if (!maq) return;
   var stamp = Utilities.formatDate(new Date(), 'America/Santiago', 'yyyy-MM-dd HH:mm');
-  var emailsGen = splitEmails_(data.email_cliente);
   var emailsCc = splitEmails_(data.email_cc);
+  if (!emailsCc.length) return;
 
-  if (emailsGen.length) {
-    upsertContactoFila_({
-      cliente: cli,
-      maquina: '',
-      rol: 'general',
-      nombre: '',
-      cargo: '',
-      email: emailsGen.join(', '),
-      actualizado: stamp,
-    });
-  }
-  if (maq && emailsCc.length) {
+  // Un email por fila; no crear si ya existe mismo cliente+máquina+email
+  for (var i = 0; i < emailsCc.length; i++) {
     upsertContactoFila_({
       cliente: cli,
       maquina: maq,
-      rol: 'punto',
+      rol: 'CC',
       nombre: String(data.recibido_por || '').trim(),
       cargo: String(data.cargo || '').trim(),
-      email: emailsCc.join(', '),
+      email: emailsCc[i],
       actualizado: stamp,
+      noPisarNombre: true,
     });
   }
 }
@@ -850,21 +852,37 @@ function upsertContactoFila_(row) {
   var cli = String(row.cliente || '').trim();
   var maq = String(row.maquina || '').trim();
   var rol = String(row.rol || '').trim();
+  var email = String(row.email || '').trim();
+  var emailKey = email.toLowerCase();
+  var nombre = String(row.nombre || '').trim();
+  var cargo = String(row.cargo || '').trim();
+  var stamp = row.actualizado || '';
   if (last >= 2) {
     var vals = sh.getRange(2, 1, last, 7).getValues();
     for (var i = 0; i < vals.length; i++) {
       var rCli = String(vals[i][0] || '').trim();
       var rMaq = String(vals[i][1] || '').trim();
-      var rRol = String(vals[i][2] || '').trim();
-      if (rCli === cli && rMaq === maq && rRol === rol) {
+      var rEmail = String(vals[i][5] || '').trim().toLowerCase();
+      // Match por cliente+máquina+email (evita duplicar CC vs punto)
+      if (rCli === cli && rMaq === maq && rEmail && rEmail === emailKey) {
+        var prevNombre = String(vals[i][3] || '').trim();
+        var prevCargo = String(vals[i][4] || '').trim();
+        var prevRol = String(vals[i][2] || '').trim();
+        var newNombre = nombre || prevNombre;
+        var newCargo = cargo || prevCargo;
+        var newRol = prevRol || rol;
+        if (row.noPisarNombre) {
+          newNombre = prevNombre || nombre;
+          newCargo = prevCargo || cargo;
+        }
         sh.getRange(i + 2, 1, 1, 7).setValues([
-          [cli, maq, rol, row.nombre || '', row.cargo || '', row.email || '', row.actualizado || ''],
+          [cli, maq, newRol, newNombre, newCargo, email, stamp],
         ]);
         return;
       }
     }
   }
-  sh.appendRow([cli, maq, rol, row.nombre || '', row.cargo || '', row.email || '', row.actualizado || '']);
+  sh.appendRow([cli, maq, rol, nombre, cargo, email, stamp]);
 }
 
 function leerContactosDict_() {
@@ -882,17 +900,36 @@ function leerContactosDict_() {
       var nombre = String(vals[i][3] || '').trim();
       var cargo = String(vals[i][4] || '').trim();
       var email = String(vals[i][5] || '').trim();
-      if (!out[cli]) out[cli] = { email_general: '', nombre_general: '', cargo_general: '', puntos: {} };
-      if (rol === 'general' || (!maq && email)) {
-        out[cli].email_general = email;
-        if (nombre) out[cli].nombre_general = nombre;
-        if (cargo) out[cli].cargo_general = cargo;
-      } else if (maq) {
-        out[cli].puntos[maq] = {
-          email_cc: email,
-          nombre: nombre,
-          cargo: cargo,
+      if (!email || email.indexOf('@') < 0) continue;
+      if (!out[cli]) {
+        out[cli] = {
+          email_general: '',
+          emails_general: [],
+          nombre_general: '',
+          cargo_general: '',
+          puntos: {},
         };
+      }
+      // Máquina vacía = siempre va (gerente / corporación / SLEP)
+      if (!maq && (rol === 'general' || rol === 'to' || rol === 'cc' || !rol)) {
+        if (out[cli].emails_general.indexOf(email) < 0) {
+          out[cli].emails_general.push(email);
+        }
+        out[cli].email_general = out[cli].emails_general.join(', ');
+        if (nombre && !out[cli].nombre_general) out[cli].nombre_general = nombre;
+        if (cargo && !out[cli].cargo_general) out[cli].cargo_general = cargo;
+      } else if (maq) {
+        // Preferir fila con más datos; no pisar si ya hay email
+        if (!out[cli].puntos[maq]) {
+          out[cli].puntos[maq] = { email_cc: email, nombre: nombre, cargo: cargo };
+        } else {
+          var cur = out[cli].puntos[maq];
+          var emails = splitEmails_(cur.email_cc);
+          if (emails.indexOf(email) < 0) emails.push(email);
+          cur.email_cc = emails.join(', ');
+          if (nombre && !cur.nombre) cur.nombre = nombre;
+          if (cargo && !cur.cargo) cur.cargo = cargo;
+        }
       }
     }
   } catch (e) {}

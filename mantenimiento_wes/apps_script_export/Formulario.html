@@ -409,10 +409,12 @@
         google.script.run
           .withSuccessHandler((c) => {
             if (!c) return applyLocal();
+            // Generales del cliente (máquina vacía) → TO (ej. David Campos / SLEP+Corporación)
             if (c.email_general) emailCli.value = c.email_general;
+            // Encargado del punto / quien recepciona → CC
             if (c.email_cc) emailCc.value = c.email_cc;
             else if (maq) {
-              /* keep typed CC if user already wrote; only clear if empty machine switch handled above */
+              /* keep typed CC if user already wrote */
             }
             // refrescar cache local
             if (!state.contactos[cli]) state.contactos[cli] = { puntos: {} };

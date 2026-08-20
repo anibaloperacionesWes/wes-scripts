@@ -14,7 +14,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -31,7 +31,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -48,7 +48,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -65,7 +65,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -82,7 +82,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -99,7 +99,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -116,7 +116,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -133,7 +133,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -150,7 +150,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -167,7 +167,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -184,7 +184,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COR. PUENTE",
@@ -201,7 +201,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -218,7 +218,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -235,7 +235,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -252,7 +252,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -269,7 +269,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -286,7 +286,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -303,7 +303,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -320,7 +320,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -337,7 +337,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -354,7 +354,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -371,7 +371,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -388,7 +388,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -405,7 +405,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -422,7 +422,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -439,7 +439,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -456,7 +456,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -473,7 +473,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -490,7 +490,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -507,7 +507,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -524,7 +524,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -541,7 +541,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -558,7 +558,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -575,7 +575,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -592,7 +592,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -609,7 +609,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -626,7 +626,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "COPEC",
@@ -643,7 +643,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "NIDO",
@@ -660,7 +660,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "NIDO",
@@ -677,7 +677,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "NIDO",
@@ -694,7 +694,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "NIDO",
@@ -711,7 +711,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "NIDO",
@@ -728,7 +728,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "NIDO",
@@ -745,7 +745,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "NIDO",
@@ -762,7 +762,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "NIDO",
@@ -779,7 +779,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "LO VALLEDOR",
@@ -796,7 +796,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "LO VALLEDOR",
@@ -813,7 +813,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "LO VALLEDOR",
@@ -830,7 +830,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PROVIDENCIA",
@@ -847,7 +847,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PROVIDENCIA",
@@ -864,7 +864,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PROVIDENCIA",
@@ -881,7 +881,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PROVIDENCIA",
@@ -898,7 +898,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PROVIDENCIA",
@@ -915,7 +915,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "DERCO",
@@ -932,7 +932,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "DERCO",
@@ -949,7 +949,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "DERCO",
@@ -966,7 +966,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "DERCO",
@@ -983,7 +983,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "DERCO",
@@ -1000,7 +1000,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "DERCO",
@@ -1017,7 +1017,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "DERCO",
@@ -1034,7 +1034,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "RENCA",
@@ -1042,16 +1042,16 @@
     "maquina": "",
     "rol": "general",
     "rol_tipo": "general",
-    "nombre": "Fernanda Rojas",
-    "cargo": "Líder de Innovación en Sustentabilidad",
-    "email": "fernanda.rojas@renca.cl",
+    "nombre": "",
+    "cargo": "",
+    "email": "Fabiola.Fuentes@sleplosparques.gob.cl",
     "firmante": false,
     "enviar_to": true,
     "enviar_cc": false,
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "RENCA",
@@ -1068,7 +1068,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "RENCA",
@@ -1085,7 +1085,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "RENCA",
@@ -1102,7 +1102,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "RENCA",
@@ -1119,7 +1119,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "RENCA",
@@ -1136,7 +1136,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "RENCA",
@@ -1153,7 +1153,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "RENCA",
@@ -1170,7 +1170,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "RENCA",
@@ -1187,7 +1187,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "LAS CONDES",
@@ -1204,7 +1204,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "AGUNSA",
@@ -1221,7 +1221,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "AGUNSA",
@@ -1238,7 +1238,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "AGUNSA",
@@ -1255,7 +1255,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "AGUNSA",
@@ -1272,7 +1272,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "AGUNSA",
@@ -1289,7 +1289,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CDUC",
@@ -1306,7 +1306,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CDUC",
@@ -1323,7 +1323,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CDUC",
@@ -1340,7 +1340,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CDUC",
@@ -1357,7 +1357,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CDUC",
@@ -1374,7 +1374,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "BUPA ANTOFGASTA",
@@ -1391,7 +1391,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "BUPA ANTOFGASTA",
@@ -1408,7 +1408,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "BUPA ANTOFGASTA",
@@ -1425,7 +1425,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "BUPA ANTOFGASTA",
@@ -1442,7 +1442,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "LA REINA",
@@ -1459,7 +1459,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "UDD",
@@ -1476,7 +1476,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "UDD",
@@ -1493,7 +1493,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "LA FLORIDA",
@@ -1510,7 +1510,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "FUNDO ZAPALLAR",
@@ -1527,7 +1527,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "FUNDO ZAPALLAR",
@@ -1544,7 +1544,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "FUNDO ZAPALLAR",
@@ -1561,7 +1561,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "FUNDO ZAPALLAR",
@@ -1578,7 +1578,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "FUNDO ZAPALLAR",
@@ -1595,7 +1595,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "FUNDO ZAPALLAR",
@@ -1612,7 +1612,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "FUNDO ZAPALLAR",
@@ -1629,7 +1629,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "FUNDO ZAPALLAR",
@@ -1646,7 +1646,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "FUNDO ZAPALLAR",
@@ -1663,7 +1663,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1680,7 +1680,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1697,7 +1697,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1714,7 +1714,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1731,7 +1731,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1748,7 +1748,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1765,7 +1765,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1782,7 +1782,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1799,7 +1799,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1816,7 +1816,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1833,7 +1833,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1850,7 +1850,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAE",
@@ -1867,7 +1867,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "AEB",
@@ -1884,7 +1884,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "AEB",
@@ -1901,7 +1901,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "AEB",
@@ -1918,7 +1918,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "AEB",
@@ -1935,7 +1935,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "BOM",
@@ -1952,7 +1952,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "BOM",
@@ -1969,7 +1969,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "BOM",
@@ -1986,7 +1986,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "BOM",
@@ -2003,7 +2003,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "BOM",
@@ -2020,7 +2020,7 @@
     "activo": true,
     "email_ok": false,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CUR",
@@ -2037,7 +2037,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CUR",
@@ -2054,7 +2054,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CUR",
@@ -2071,7 +2071,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAM",
@@ -2088,7 +2088,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAM",
@@ -2105,7 +2105,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAM",
@@ -2122,7 +2122,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAM",
@@ -2139,7 +2139,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAM",
@@ -2156,7 +2156,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAM",
@@ -2173,7 +2173,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAQ",
@@ -2190,7 +2190,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAQ",
@@ -2207,7 +2207,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "MAQ",
@@ -2224,7 +2224,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2241,7 +2241,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2258,7 +2258,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2275,7 +2275,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2292,7 +2292,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2309,7 +2309,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2326,7 +2326,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2343,7 +2343,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2360,7 +2360,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2377,7 +2377,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2394,7 +2394,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "PAK",
@@ -2411,7 +2411,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -2428,7 +2428,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -2445,7 +2445,7 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
   },
   {
     "cliente": "CORMUP",
@@ -2462,6 +2462,91 @@
     "activo": true,
     "email_ok": true,
     "notas": "",
-    "fuente": "CONTACTOS_ENVIOS_ACTAS"
+    "fuente": "MAESTRO_FORMULARIO_WES"
+  },
+  {
+    "cliente": "RENCA",
+    "sitio": "ESCUELA LO VELEZQUEZ",
+    "maquina": "ESCUELA LO VELEZQUEZ",
+    "rol": "punto",
+    "rol_tipo": "cc",
+    "nombre": "Fabiola Fuentes",
+    "cargo": "Jefa de infraestructura",
+    "email": "andrea.romero@sleplosparques.gob.cl",
+    "firmante": false,
+    "enviar_to": false,
+    "enviar_cc": true,
+    "activo": true,
+    "email_ok": true,
+    "notas": "",
+    "fuente": "MAESTRO_FORMULARIO_WES"
+  },
+  {
+    "cliente": "RENCA",
+    "sitio": "ICCO",
+    "maquina": "ICCO",
+    "rol": "punto",
+    "rol_tipo": "cc",
+    "nombre": "Fabiola Fuentes",
+    "cargo": "Jefa de infraestructura",
+    "email": "maximiliano.gabarroche@sleplosparques.gob.cl",
+    "firmante": false,
+    "enviar_to": false,
+    "enviar_cc": true,
+    "activo": true,
+    "email_ok": true,
+    "notas": "",
+    "fuente": "MAESTRO_FORMULARIO_WES"
+  },
+  {
+    "cliente": "RENCA",
+    "sitio": "ICCP",
+    "maquina": "ICCP",
+    "rol": "punto",
+    "rol_tipo": "cc",
+    "nombre": "Fabiola Fuentes",
+    "cargo": "Jefa de infraestructura",
+    "email": "Patricio.Diaz@sleplosparques.gob.cl",
+    "firmante": false,
+    "enviar_to": false,
+    "enviar_cc": true,
+    "activo": true,
+    "email_ok": true,
+    "notas": "",
+    "fuente": "MAESTRO_FORMULARIO_WES"
+  },
+  {
+    "cliente": "RENCA",
+    "sitio": "GIMNASIO MUNICIPAL",
+    "maquina": "GIMNASIO MUNICIPAL",
+    "rol": "punto",
+    "rol_tipo": "cc",
+    "nombre": "Juan Erazo",
+    "cargo": "Encargado de mantenimiento",
+    "email": "juan.erazo@renca.cl",
+    "firmante": false,
+    "enviar_to": false,
+    "enviar_cc": true,
+    "activo": true,
+    "email_ok": true,
+    "notas": "",
+    "fuente": "MAESTRO_FORMULARIO_WES"
+  },
+  {
+    "cliente": "RENCA",
+    "sitio": "PISCINA MUNICIPAL",
+    "maquina": "PISCINA MUNICIPAL",
+    "rol": "punto",
+    "rol_tipo": "cc",
+    "nombre": "Juan Erazo",
+    "cargo": "Encargado de mantenimiento",
+    "email": "juan.erazo@renca.cl",
+    "firmante": false,
+    "enviar_to": false,
+    "enviar_cc": true,
+    "activo": true,
+    "email_ok": true,
+    "notas": "",
+    "fuente": "MAESTRO_FORMULARIO_WES"
   }
 ]

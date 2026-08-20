@@ -1,26 +1,24 @@
 {
-  "fuente": "/workspace/mantenimiento_wes/MAESTRO_FORMULARIO_WES.xlsx",
+  "fuente": "/workspace/mantenimiento_wes/maestro/MAESTRO_FORMULARIO_WES.xlsx",
   "hojas": [
-    "Instrucciones",
-    "Puntos",
     "Contactos",
-    "Tecnicos",
-    "Fallas",
-    "Opciones"
+    "Instrucciones",
+    "Clientes_catalogo",
+    "APPS_SCRIPT_CATALOGOS"
   ],
-  "clientes": 29,
-  "pares_maquina": 155,
-  "contactos": 145,
-  "contactos_con_email": 129,
+  "clientes": 23,
+  "pares_maquina": 120,
+  "contactos": 150,
+  "contactos_con_email": 134,
   "tecnicos": 8,
-  "tipos_falla": 9,
+  "tipos_falla": 0,
   "ejemplo_renca": [
-    "ESCUELA LO VELEZQUEZ",
-    "GIMNASIO MUNICIPAL",
     "ICCO",
     "ICCP",
+    "ESCUELA LO VELEZQUEZ",
+    "GIMNASIO MUNICIPAL",
     "PISCINA MUNICIPAL"
   ],
-  "sync_at": "2026-08-18T03:16:25",
+  "sync_at": "2026-08-20T17:18:10",
   "historial_evaluaciones": "https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit"
 }
