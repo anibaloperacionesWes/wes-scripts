@@ -1,13 +1,16 @@
-LISTO PARA MAÑANA — botones Abrir / Cerrar por checklist
-=======================================================
+FIX checklists — menú + botones (sin confiar en display:none)
+=============================================================
 
-Cada checklist (CIR, CPA, SAB) tiene un botón grande:
-  [Abrir checklist CIR]  →  [Cerrar checklist CIR]
+TXT (pegá desde acá):
+https://drive.google.com/file/d/1JxgQuYpgp6Eaq_dVfGKqIVCqfS40Lg4u/view?usp=drivesdk
 
-1) Descargá / abrí este TXT (no uses Doc viejo):
-   https://drive.google.com/file/d/1o9fwRGq27iw6nsZ99SIH8s_NlB9ai4xz/view?usp=drivesdk
+1) Descargar TXT → Bloc de notas → Ctrl+A → Ctrl+C
+2) Apps Script → Formulario → borrar TODO → pegar → Guardar
+3) Nueva versión del /exec
+4) Recargar el formulario (cerrar pestaña y abrir de nuevo)
 
-2) Ctrl+A → Ctrl+C
-3) Apps Script → Formulario → Ctrl+A → Ctrl+V → Guardar
-4) Nueva versión del /exec oficial
-5) Probar: un botón abre solo esa lista; el mismo la cierra
+Debés ver:
+- Menú «Ver checklist»: ocultos / CIR / CPA / SAB
+- Botones Abrir CIR / Abrir CPA / Abrir SAB
+- Texto de estado debajo del menú
+- Al abrir uno, los otros se ocultan de verdad (salen del DOM)

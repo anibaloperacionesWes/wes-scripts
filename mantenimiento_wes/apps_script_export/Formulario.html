@@ -334,7 +334,14 @@
 
       <section class="card">
         <h2>Checklists</h2>
-        <p class="note" style="margin:0 0 10px">Usá el botón <b>Abrir</b> / <b>Cerrar</b> de cada checklist (CIR, CPA, SAB).</p>
+        <label for="checklist_picker">Ver checklist</label>
+        <select id="checklist_picker">
+          <option value="">— ocultos (elegí uno) —</option>
+          <option value="cir">CIR</option>
+          <option value="cpa">CPA</option>
+          <option value="sab">SAB</option>
+        </select>
+        <p class="note" id="fold_status" style="margin:8px 0 10px">Ningún checklist abierto. También podés usar los botones de abajo.</p>
         <div class="check-folds" id="check_folds_root"></div>
       </section>
 
@@ -681,41 +688,84 @@
     }
 
     const foldState = { cir: false, cpa: false, sab: false };
+    const foldStash = { cir: null, cpa: null, sab: null };
+
+    function setFoldStatus(msg) {
+      const el = document.getElementById("fold_status");
+      if (el) el.textContent = msg;
+    }
 
     function applyCheckFold(key) {
       const open = !!foldState[key];
       const fold = document.getElementById("fold_" + key);
-      const body = document.getElementById(key + "_list");
       const btn = document.getElementById("btn_fold_" + key);
+      let body = document.getElementById(key + "_list");
+
       if (fold) fold.classList.toggle("is-open", open);
       if (btn) {
-        const label = (btn.dataset.title || key).toUpperCase();
-        btn.textContent = open ? "Cerrar checklist " + label : "Abrir checklist " + label;
-        btn.setAttribute("aria-expanded", open ? "true" : "false");
+        const label = (btn.getAttribute("data-title") || key).toUpperCase();
+        btn.textContent = open ? ("Cerrar " + label) : ("Abrir " + label);
       }
-      if (body) {
-        body.style.setProperty("display", open ? "block" : "none", "important");
+
+      // No confiar en CSS display: sacar / poner el bloque en el DOM
+      if (open) {
+        if (!body && foldStash[key] && fold) {
+          fold.appendChild(foldStash[key]);
+          body = foldStash[key];
+          foldStash[key] = null;
+        }
+        if (body) {
+          body.style.cssText = "display:block;margin-top:10px;";
+        }
+      } else {
+        body = body || foldStash[key];
+        if (body && body.parentNode) {
+          foldStash[key] = body;
+          body.parentNode.removeChild(body);
+        } else if (body && !body.parentNode) {
+          foldStash[key] = body;
+        }
       }
+    }
+
+    function showOnlyChecklist(key) {
+      ["cir", "cpa", "sab"].forEach(function (k) {
+        foldState[k] = key !== "" && k === key;
+        applyCheckFold(k);
+      });
+      const picker = document.getElementById("checklist_picker");
+      if (picker && picker.value !== (key || "")) picker.value = key || "";
+      if (!key) setFoldStatus("Ningún checklist abierto.");
+      else setFoldStatus("Mostrando checklist " + String(key).toUpperCase() + ". Elegí otra opción o tocá Cerrar.");
     }
 
     function toggleCheckFold(key) {
       if (!Object.prototype.hasOwnProperty.call(foldState, key)) return;
-      foldState[key] = !foldState[key];
-      applyCheckFold(key);
+      if (foldState[key]) {
+        showOnlyChecklist("");
+      } else {
+        showOnlyChecklist(key);
+      }
     }
-    // Por si el HTML inline lo necesita
     window.toggleCheckFold = toggleCheckFold;
+    window.showOnlyChecklist = showOnlyChecklist;
 
     function buildChecklistFolds() {
       const root = document.getElementById("check_folds_root");
-      if (!root) return;
+      if (!root) {
+        setFoldStatus("ERROR: no está check_folds_root (pegá de nuevo el Formulario completo).");
+        return;
+      }
       root.innerHTML = "";
+      foldStash.cir = foldStash.cpa = foldStash.sab = null;
+
       const defs = [
         { key: "cir", title: "CIR" },
         { key: "cpa", title: "CPA" },
         { key: "sab", title: "SAB" },
       ];
-      defs.forEach((def) => {
+
+      defs.forEach(function (def) {
         foldState[def.key] = false;
 
         const wrap = document.createElement("div");
@@ -724,45 +774,59 @@
 
         const head = document.createElement("div");
         head.className = "fold-head";
-        head.innerHTML =
-          "<span>Checklist " +
-          def.title +
-          '</span><span class="fold-count" id="' +
-          def.key +
-          '_count">0 ítems</span>';
+        const title = document.createElement("span");
+        title.textContent = "Checklist " + def.title;
+        const count = document.createElement("span");
+        count.className = "fold-count";
+        count.id = def.key + "_count";
+        count.textContent = "0 ítems";
+        head.appendChild(title);
+        head.appendChild(count);
 
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "btn-fold";
         btn.id = "btn_fold_" + def.key;
-        btn.dataset.title = def.title;
-        btn.setAttribute("aria-expanded", "false");
-        btn.textContent = "Abrir checklist " + def.title;
-
-        // Botón explícito: solo afecta a esta key
-        (function (k) {
-          btn.addEventListener("click", function (ev) {
-            ev.preventDefault();
-            ev.stopPropagation();
-            toggleCheckFold(k);
-          });
-        })(def.key);
+        btn.setAttribute("data-title", def.title);
+        btn.textContent = "Abrir " + def.title;
 
         const body = document.createElement("div");
         body.className = "fold-body";
         body.id = def.key + "_list";
-        body.style.setProperty("display", "none", "important");
 
         wrap.appendChild(head);
         wrap.appendChild(btn);
         wrap.appendChild(body);
         root.appendChild(wrap);
-        applyCheckFold(def.key);
+
+        // Handler por atributo + listener (doble seguro en Apps Script)
+        btn.setAttribute("onclick", "toggleCheckFold('" + def.key + "'); return false;");
+        btn.onclick = function () {
+          toggleCheckFold(def.key);
+          return false;
+        };
       });
+
+      const picker = document.getElementById("checklist_picker");
+      if (picker) {
+        picker.onchange = function () {
+          showOnlyChecklist(picker.value || "");
+        };
+      }
+
+      // Los cuerpos quedan en el DOM para que checklist() los llene; después boot los pliega.
+      setFoldStatus("Armando checklists…");
     }
 
     function checklist(container, prefix, items, estados) {
-      if (!container) return;
+      // Si el bloque ya fue sacado del DOM, usar el stash
+      if (!container && foldStash[prefix]) container = foldStash[prefix];
+      if (!container) {
+        container = document.createElement("div");
+        container.className = "fold-body";
+        container.id = prefix + "_list";
+        foldStash[prefix] = container;
+      }
       container.innerHTML = "";
       for (const item of items) {
         const row = document.createElement("div");
@@ -794,7 +858,8 @@
         const n = items.length;
         countEl.textContent = n + (n === 1 ? " ítem" : " ítems");
       }
-      // Mantener plegado después de llenar ítems
+      // Guardar referencia llena y dejar plegado (fuera del DOM)
+      foldStash[prefix] = container;
       if (Object.prototype.hasOwnProperty.call(foldState, prefix)) {
         foldState[prefix] = false;
         applyCheckFold(prefix);
@@ -815,12 +880,18 @@
 
     function collectChecklist(prefix) {
       const out = [];
-      document.querySelectorAll(`select[data-prefix="${prefix}"]`).forEach((sel) => {
-        const key = sel.dataset.key;
-        const obsEl = [...document.querySelectorAll(`input[data-prefix="${prefix}"]`)].find(
-          (el) => el.dataset.obsFor === key
-        );
-        out.push({ elemento: key, estado: sel.value, obs: obsEl ? obsEl.value.trim() : "" });
+      const root = document.getElementById(prefix + "_list") || foldStash[prefix];
+      if (!root) return out;
+      const selects = root.querySelectorAll('select[data-prefix="' + prefix + '"]');
+      selects.forEach((sel) => {
+        const key = sel.dataset.key || sel.getAttribute("data-key") || "";
+        let obs = "";
+        root.querySelectorAll('input[data-prefix="' + prefix + '"]').forEach((el) => {
+          if ((el.dataset.obsFor || el.getAttribute("data-obs-for")) === key) {
+            obs = String(el.value || "").trim();
+          }
+        });
+        out.push({ elemento: key, estado: sel.value, obs: obs });
       });
       return out;
     }
@@ -918,7 +989,8 @@
       checklist(document.getElementById("cir_list"), "cir", c.opciones.cir, c.opciones.estados_checklist);
       checklist(document.getElementById("cpa_list"), "cpa", c.opciones.cpa, c.opciones.estados_checklist);
       checklist(document.getElementById("sab_list"), "sab", c.opciones.sab, c.opciones.estados_checklist);
-      wireChecklistFolds();
+      showOnlyChecklist("");
+      setFoldStatus("Listo: menú «Ver checklist» o botones Abrir / Cerrar.");
       document.getElementById("fecha").value = todayISO();
       const now = new Date();
       document.getElementById("hora").value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
