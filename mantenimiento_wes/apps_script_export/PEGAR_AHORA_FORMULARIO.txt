@@ -1,19 +1,13 @@
-PEGAR AHORA v4 — checklists: 1 click = 1 lista; abrir y plegar
-===============================================================
+LISTO PARA MAÑANA — botones Abrir / Cerrar por checklist
+=======================================================
 
-MEJOR (no rompe el HTML):
-1) Abrí el TXT:
-   https://drive.google.com/file/d/1P3MTvK6Ybx6WWgtl-bBNFyLz0DRz1yLO/view?usp=drivesdk
-2) File → Download / Abrir con editor de texto → Ctrl+A → Ctrl+C
+Cada checklist (CIR, CPA, SAB) tiene un botón grande:
+  [Abrir checklist CIR]  →  [Cerrar checklist CIR]
 
-ALTERNATIVA Doc:
-   https://docs.google.com/document/d/1PmPqgvZ7FRaRDNNmDa7tzEYGN0ReVoFjvxCzyW8Stwo/edit?usp=drivesdk
+1) Descargá / abrí este TXT (no uses Doc viejo):
+   https://drive.google.com/file/d/1o9fwRGq27iw6nsZ99SIH8s_NlB9ai4xz/view?usp=drivesdk
 
+2) Ctrl+A → Ctrl+C
 3) Apps Script → Formulario → Ctrl+A → Ctrl+V → Guardar
 4) Nueva versión del /exec oficial
-
-Comportamiento:
-- CIR, CPA y SAB empiezan CERRADOS
-- Un click abre SOLO esa lista
-- Otro click la PLIEGA
-- Las otras no se tocan
+5) Probar: un botón abre solo esa lista; el mismo la cierra

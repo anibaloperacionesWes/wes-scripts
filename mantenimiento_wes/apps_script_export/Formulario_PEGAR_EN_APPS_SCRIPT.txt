@@ -141,40 +141,17 @@
       border-radius: 14px;
       background: #fbfcfe;
       overflow: hidden;
+      padding: 10px;
     }
-    .check-fold.is-open {
-      background: #fff;
-      box-shadow: 0 6px 16px rgba(15, 47, 77, 0.06);
-    }
-    .check-fold > button.fold-toggle {
-      width: 100%;
-      border: 0;
-      background: transparent;
-      cursor: pointer;
+    .check-fold.is-open { background: #fff; }
+    .check-fold .fold-head {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 14px 14px;
+      gap: 8px;
+      margin-bottom: 8px;
       font-weight: 750;
-      font-size: 1rem;
       color: var(--blue);
-      text-align: left;
-      border-radius: 0;
-      box-shadow: none;
-    }
-    .check-fold .fold-chevron {
-      margin-left: auto;
-      color: var(--blue-2);
-      font-size: 1.1rem;
-      line-height: 1;
-      transition: transform .18s ease;
-    }
-    .check-fold.is-open .fold-chevron { transform: rotate(90deg); }
-    .check-fold .fold-hint {
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: #5b738a;
-      white-space: nowrap;
+      font-size: 1rem;
     }
     .check-fold .fold-count {
       font-size: 0.75rem;
@@ -185,7 +162,23 @@
       border-radius: 999px;
       padding: 3px 8px;
     }
-    .check-fold .fold-body { padding: 0 12px 12px; }
+    .check-fold .btn-fold {
+      width: 100%;
+      background: var(--sky);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      box-shadow: none;
+      margin: 0;
+    }
+    .check-fold.is-open .btn-fold {
+      background: #e8f0f8;
+      color: var(--blue);
+    }
+    .check-fold .fold-body {
+      margin-top: 10px;
+      padding-top: 4px;
+      border-top: 1px dashed #d9e4ef;
+    }
     @media (max-width: 640px) {
       .check-item { grid-template-columns: 1fr; gap: 6px; }
     }
@@ -341,7 +334,7 @@
 
       <section class="card">
         <h2>Checklists</h2>
-        <p class="note" style="margin:0 0 10px">Tocá un título para abrir; tocá de nuevo para plegar. Cada uno por separado.</p>
+        <p class="note" style="margin:0 0 10px">Usá el botón <b>Abrir</b> / <b>Cerrar</b> de cada checklist (CIR, CPA, SAB).</p>
         <div class="check-folds" id="check_folds_root"></div>
       </section>
 
@@ -693,13 +686,14 @@
       const open = !!foldState[key];
       const fold = document.getElementById("fold_" + key);
       const body = document.getElementById(key + "_list");
-      const btn = fold ? fold.querySelector("button.fold-toggle") : null;
-      const hint = fold ? fold.querySelector(".fold-hint") : null;
+      const btn = document.getElementById("btn_fold_" + key);
       if (fold) fold.classList.toggle("is-open", open);
-      if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
-      if (hint) hint.textContent = open ? "plegar" : "abrir";
+      if (btn) {
+        const label = (btn.dataset.title || key).toUpperCase();
+        btn.textContent = open ? "Cerrar checklist " + label : "Abrir checklist " + label;
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      }
       if (body) {
-        // Apps Script a veces ignora display normal / hidden → forzar !important
         body.style.setProperty("display", open ? "block" : "none", "important");
       }
     }
@@ -709,51 +703,57 @@
       foldState[key] = !foldState[key];
       applyCheckFold(key);
     }
+    // Por si el HTML inline lo necesita
+    window.toggleCheckFold = toggleCheckFold;
 
     function buildChecklistFolds() {
       const root = document.getElementById("check_folds_root");
       if (!root) return;
       root.innerHTML = "";
       const defs = [
-        { key: "cir", title: "Checklist CIR" },
-        { key: "cpa", title: "Checklist CPA" },
-        { key: "sab", title: "Checklist SAB (si aplica)" },
+        { key: "cir", title: "CIR" },
+        { key: "cpa", title: "CPA" },
+        { key: "sab", title: "SAB" },
       ];
       defs.forEach((def) => {
         foldState[def.key] = false;
+
         const wrap = document.createElement("div");
         wrap.className = "check-fold";
         wrap.id = "fold_" + def.key;
 
+        const head = document.createElement("div");
+        head.className = "fold-head";
+        head.innerHTML =
+          "<span>Checklist " +
+          def.title +
+          '</span><span class="fold-count" id="' +
+          def.key +
+          '_count">0 ítems</span>';
+
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = "fold-toggle";
+        btn.className = "btn-fold";
+        btn.id = "btn_fold_" + def.key;
+        btn.dataset.title = def.title;
         btn.setAttribute("aria-expanded", "false");
-        btn.innerHTML =
-          "<span>" +
-          def.title +
-          "</span>" +
-          '<span class="fold-count" id="' +
-          def.key +
-          '_count">0 ítems</span>' +
-          '<span class="fold-hint">abrir</span>' +
-          '<span class="fold-chevron" aria-hidden="true">▸</span>';
+        btn.textContent = "Abrir checklist " + def.title;
 
-        // Closure por key: un click toca SOLO este checklist
-        btn.onclick = function (ev) {
-          if (ev) {
+        // Botón explícito: solo afecta a esta key
+        (function (k) {
+          btn.addEventListener("click", function (ev) {
             ev.preventDefault();
             ev.stopPropagation();
-          }
-          toggleCheckFold(def.key);
-          return false;
-        };
+            toggleCheckFold(k);
+          });
+        })(def.key);
 
         const body = document.createElement("div");
         body.className = "fold-body";
         body.id = def.key + "_list";
         body.style.setProperty("display", "none", "important");
 
+        wrap.appendChild(head);
         wrap.appendChild(btn);
         wrap.appendChild(body);
         root.appendChild(wrap);
