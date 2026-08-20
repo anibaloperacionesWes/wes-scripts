@@ -150,6 +150,7 @@ class VentanaPunto:
     m3_lunes: float
     m3_martes: float
     m3_miercoles_corte: float
+    m3_jueves_corte: float
     m3_total: float
     m3_nocturno: float  # 00–06 del lun+mar + mié hasta min(6, corte)
     horas_equivalentes: int
@@ -173,36 +174,37 @@ def _consumo_ventana(
     nombre: str,
     lunes: date,
     diario: Dict[date, float],
-    vec_mie: List[float],
+    vec_parcial: Optional[List[float]],
+    offsets_completos: Sequence[int],
+    offset_parcial: Optional[int],
     hora_corte: int,
     con_wes: bool,
 ) -> VentanaPunto:
-    d_lun = lunes
-    d_mar = lunes + timedelta(days=1)
-    d_mie = lunes + timedelta(days=2)
-    m3_lun = float(diario.get(d_lun, 0.0))
-    m3_mar = float(diario.get(d_mar, 0.0))
-    m3_mie = _suma_horas(vec_mie, 0, hora_corte)
-    noct_lun = 0.0
-    noct_mar = 0.0
-    # Nocturno lun/mar se aproxima con total diario solo si más adelante hay vectores;
-    # para ranking de ventana usamos miércoles 00–min(6, corte) + se completa en informe
-    # con vectores del periodo actual. Aquí nocturno = horas 0–6 del miércoles (siempre
-    # dentro del corte si hora_corte >= 6, que es el caso a media tarde).
-    noct_mie = _suma_horas(vec_mie, 0, min(6, hora_corte))
-    horas = 24 + 24 + (hora_corte + 1)
+    m3_off = [0.0] * 7
+    horas = 0
+    for off in offsets_completos:
+        if 0 <= off < 7:
+            m3_off[off] = float(diario.get(lunes + timedelta(days=off), 0.0))
+            horas += 24
+    if offset_parcial is not None and vec_parcial is not None and 0 <= offset_parcial < 7:
+        m3_off[offset_parcial] = _suma_horas(vec_parcial, 0, hora_corte)
+        horas += hora_corte + 1
+    noct = 0.0
+    if offset_parcial is not None and vec_parcial is not None:
+        noct = _suma_horas(vec_parcial, 0, min(6, hora_corte))
     return VentanaPunto(
         node_id=node_id,
         nombre=nombre,
         lunes=lunes,
         con_wes=con_wes,
-        m3_lunes=m3_lun,
-        m3_martes=m3_mar,
-        m3_miercoles_corte=m3_mie,
-        m3_total=m3_lun + m3_mar + m3_mie,
-        m3_nocturno=noct_lun + noct_mar + noct_mie,
+        m3_lunes=m3_off[0],
+        m3_martes=m3_off[1],
+        m3_miercoles_corte=m3_off[2],
+        m3_jueves_corte=m3_off[3],
+        m3_total=float(sum(m3_off)),
+        m3_nocturno=noct,
         horas_equivalentes=horas,
-        vec_miercoles=list(vec_mie),
+        vec_miercoles=list(vec_parcial or []),
     )
 
 
@@ -273,8 +275,9 @@ def _grafico_barras_semanas(
     ylabel: str,
     out_png: Path,
     idx_mejor: Optional[int] = None,
+    etiqueta_sin: str = "Sin WES hasta ahora",
 ) -> None:
-    fig, ax = plt.subplots(figsize=(12.5, 5.2))
+    fig, ax = plt.subplots(figsize=(13.2, 5.4))
     x = list(range(len(etiquetas)))
     colors = []
     for i in range(len(etiquetas)):
@@ -282,13 +285,13 @@ def _grafico_barras_semanas(
             colors.append(COLOR_AHORRO)
         else:
             colors.append("#5B9BD5")
-    ax.bar(x, valores_con, color=colors, zorder=2, label="Con WES (ventana homóloga)")
+    ax.bar(x, valores_con, color=colors, zorder=2, label="Con WES (esa semana)")
     ax.axhline(
         valor_sin,
         color=COLOR_SIN,
         linestyle="--",
-        linewidth=1.8,
-        label=f"Sin WES 17–19 ago ({format_number_chilean(valor_sin, 1)} m³)",
+        linewidth=2.0,
+        label=f"{etiqueta_sin} ({format_number_chilean(valor_sin, 1)} m³)",
         zorder=3,
     )
     ax.set_xticks(x)
@@ -297,6 +300,136 @@ def _grafico_barras_semanas(
     ax.set_title(titulo, fontweight="bold", fontsize=11, color="#1F4788")
     ax.grid(axis="y", alpha=0.3, zorder=0)
     ax.legend(fontsize=8, loc="upper right")
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _grafico_pareado_sin_vs_semanas(
+    etiquetas: List[str],
+    valores_con: List[float],
+    valor_sin: float,
+    titulo: str,
+    out_png: Path,
+    etiqueta_sin: str = "Sin WES hasta ahora",
+    figsize: Tuple[float, float] = (13.4, 5.6),
+) -> None:
+    """Barras pareadas: Con WES de cada semana calificada vs Sin WES acumulado."""
+    import numpy as np
+
+    n = len(etiquetas)
+    x = np.arange(n)
+    w = 0.38
+    fig, ax = plt.subplots(figsize=figsize)
+    bars_con = ax.bar(
+        x - w / 2,
+        valores_con,
+        width=w,
+        color=COLOR_WES,
+        label="Con WES (esa semana)",
+        zorder=2,
+    )
+    bars_sin = ax.bar(
+        x + w / 2,
+        [valor_sin] * n,
+        width=w,
+        color=COLOR_SIN,
+        label=etiqueta_sin,
+        zorder=2,
+    )
+    ymax = max([valor_sin] + list(valores_con) + [1.0]) * 1.18
+    ax.set_ylim(0, ymax)
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(etiquetas, rotation=50, ha="right", fontsize=8)
+    ax.set_ylabel("Consumo ventana homóloga (m³)")
+    ax.set_title(titulo, fontweight="bold", fontsize=11, color="#1F4788")
+    ax.grid(axis="y", alpha=0.3, zorder=0)
+    ax.legend(fontsize=8, loc="upper right")
+    for bar in list(bars_con) + list(bars_sin):
+        h = bar.get_height()
+        if h <= 0:
+            continue
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            h + ymax * 0.012,
+            f"{h:.0f}" if h >= 10 else f"{h:.1f}",
+            ha="center",
+            va="bottom",
+            fontsize=6.5,
+            color="#333333",
+        )
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _grafico_semanas_mas_barra_sin(
+    etiquetas: List[str],
+    valores_con: List[float],
+    valor_sin: float,
+    titulo: str,
+    out_png: Path,
+    etiqueta_sin: str = "Sin WES\nhasta ahora",
+) -> None:
+    """Todas las semanas con WES + una barra roja final con el acumulado sin control."""
+    labs = list(etiquetas) + [etiqueta_sin]
+    vals = list(valores_con) + [valor_sin]
+    colors = ["#5B9BD5"] * len(etiquetas) + [COLOR_SIN]
+    fig, ax = plt.subplots(figsize=(13.6, 5.6))
+    x = list(range(len(labs)))
+    bars = ax.bar(x, vals, color=colors, zorder=2)
+    ax.axhline(valor_sin, color=COLOR_SIN, linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labs, rotation=50, ha="right", fontsize=8)
+    ax.set_ylabel("Consumo ventana homóloga (m³)")
+    ax.set_title(titulo, fontweight="bold", fontsize=11, color="#1F4788")
+    ax.grid(axis="y", alpha=0.3, zorder=0)
+    ymax = max(vals + [1.0]) * 1.16
+    ax.set_ylim(0, ymax)
+    for bar, v in zip(bars, vals):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            v + ymax * 0.012,
+            f"{v:.0f}" if v >= 10 else f"{v:.1f}",
+            ha="center",
+            va="bottom",
+            fontsize=7,
+            color="#333333",
+        )
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _grafico_panel_4_puntos_pareado(
+    etiquetas: List[str],
+    series_con: Dict[str, List[float]],
+    series_sin: Dict[str, float],
+    etiqueta_sin: str,
+    out_png: Path,
+) -> None:
+    import numpy as np
+
+    fig, axes = plt.subplots(2, 2, figsize=(14.2, 8.4))
+    w = 0.38
+    for ax, (nid, nom) in zip(axes.ravel(), PUNTOS):
+        vals = series_con[nid]
+        sin = series_sin[nid]
+        x = np.arange(len(etiquetas))
+        ax.bar(x - w / 2, vals, width=w, color=COLOR_WES, label="Con WES", zorder=2)
+        ax.bar(x + w / 2, [sin] * len(etiquetas), width=w, color=COLOR_SIN, label=etiqueta_sin, zorder=2)
+        ax.set_title(nom, fontsize=10, fontweight="bold", color="#1F4788")
+        ax.set_ylabel("m³")
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(etiquetas, rotation=60, ha="right", fontsize=6.5)
+        ax.grid(axis="y", alpha=0.3, zorder=0)
+        ax.legend(fontsize=7, loc="upper right")
+    fig.suptitle(
+        "Sin WES hasta ahora vs Con WES de cada semana calificada",
+        fontsize=13,
+        fontweight="bold",
+        color="#1F4788",
+    )
     fig.tight_layout()
     fig.savefig(out_png, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -331,7 +464,7 @@ def _grafico_resumen_puntos(
     x = np.arange(len(nombres))
     w = 0.26
     fig, ax = plt.subplots(figsize=(11, 5.2))
-    ax.bar(x - w, m3_sin, width=w, color=COLOR_SIN, label="Sin WES (17–19 ago)", zorder=2)
+    ax.bar(x - w, m3_sin, width=w, color=COLOR_SIN, label="Sin WES hasta ahora", zorder=2)
     ax.bar(x, m3_mejor, width=w, color=COLOR_AHORRO, label=f"Última semana con WES ({etiqueta_mejor})", zorder=2)
     ax.bar(x + w, m3_mediana, width=w, color="#5B9BD5", label="Mediana semanas operativas con WES", zorder=2)
     ax.set_xticks(list(x))
@@ -470,7 +603,8 @@ def _excel(
         "Control",
         "m³ lunes",
         "m³ martes",
-        "m³ miércoles (hasta hora corte)",
+        "m³ miércoles",
+        "m³ jueves (hasta hora corte)",
         "m³ ventana",
         "m³ Sin WES (misma ventana)",
         "Ahorro m³",
@@ -493,6 +627,7 @@ def _excel(
                     round(v.m3_lunes, 4),
                     round(v.m3_martes, 4),
                     round(v.m3_miercoles_corte, 4),
+                    round(v.m3_jueves_corte, 4),
                     round(v.m3_total, 4),
                     round(sin.m3_total, 4),
                     round(ahorro, 4),
@@ -510,6 +645,7 @@ def _excel(
                 round(sin.m3_lunes, 4),
                 round(sin.m3_martes, 4),
                 round(sin.m3_miercoles_corte, 4),
+                round(sin.m3_jueves_corte, 4),
                 round(sin.m3_total, 4),
                 round(sin.m3_total, 4),
                 0,
@@ -569,7 +705,7 @@ def _excel(
         "Establecimiento",
         "Mejor semana (mayor %)",
         "m³ con WES",
-        "m³ sin WES (17–19 ago)",
+        "m³ sin WES (hasta ahora)",
         "Ahorro m³",
         "Rendimiento %",
         "Ahorro CLP",
@@ -611,10 +747,10 @@ def _excel(
     ws5 = wb.create_sheet("Metadatos")
     ws5["A1"] = "Periodo sin WES"
     ws5["B1"] = f"{LUNES_SIN_WES:%d/%m/%Y} 00:00 Chile hasta {ahora:%d/%m/%Y %H:%M} Chile"
-    ws5["A2"] = "Última hora completa incluida (miércoles)"
+    ws5["A2"] = "Última hora completa incluida (día de hoy)"
     ws5["B2"] = f"{hora_corte:02d}:00–{hora_corte:02d}:59"
     ws5["A3"] = "Horas equivalentes de la ventana"
-    ws5["B3"] = 48 + hora_corte + 1
+    ws5["B3"] = next(iter(ventana_sin.values())).horas_equivalentes
     ws5["A4"] = "Semanas con WES"
     ws5["B4"] = f"{PRIMER_LUNES_CON_WES:%d/%m/%Y} a {ULTIMO_LUNES_CON_WES:%d/%m/%Y} (lunes de cada semana)"
     ws5["A5"] = "Tarifa CLP/m³"
@@ -674,26 +810,33 @@ def _word(
         "ventana sin WES."
     )
     horas_eq = next(iter(ventana_sin.values())).horas_equivalentes
+    etiqueta_sin = f"Sin WES {LUNES_SIN_WES:%d/%m}–{ahora:%d/%m} {ahora:%H:%M}"
     doc.add_paragraph(
-        f"Ventana homóloga (manzanas con manzanas): lunes 00:00–24:00 + martes 00:00–24:00 + "
-        f"miércoles 00:00–{hora_corte:02d}:59 (última hora completa al momento del informe). "
-        f"Son {horas_eq} horas equivalentes en cada semana. "
-        f"El miércoles 19/08 se corta a las {hora_corte:02d}:59 para no comparar un día incompleto "
-        f"contra miércoles históricos de 24 h."
+        f"Ventana homóloga (manzanas con manzanas): lunes 17 + martes 18 + miércoles 19 completos "
+        f"+ jueves 20 desde 00:00 hasta las {hora_corte:02d}:59 (última hora completa). "
+        f"Son {horas_eq} horas equivalentes en cada semana con WES (mismo lun–jue hasta esa hora)."
     )
     doc.add_paragraph(
         "Rendimiento % = (consumo Sin WES − consumo Con WES) / consumo Sin WES × 100. "
-        "Positivo: esa semana con WES consumió menos que el periodo actual sin control. "
-        "Se excluyen de la semana ganadora los recesos (consumo < 20 % de la mediana del punto): "
-        "un recinto cerrado no es ahorro del equipo. "
+        "Positivo: esa semana con WES consumió menos que el acumulado actual sin control. "
+        "En los gráficos de barras pareadas, el rojo es siempre el mismo valor (Sin WES hasta ahora) "
+        "y el azul es el Con WES de esa semana. "
+        "Se excluyen de la semana ganadora los recesos (consumo < 20 % de la mediana del punto). "
         f"Valoración referencial: ${format_number_chilean(TARIFA_CLP_M3, 0)} CLP/m³."
     )
 
     # Totales actuales
-    doc.add_heading("2. Periodo sin WES (17–19 agosto 2026)", level=1)
-    tbl = doc.add_table(rows=1 + len(PUNTOS) + 1, cols=5)
+    doc.add_heading("2. Periodo sin WES hasta ahora (17–20 agosto 2026)", level=1)
+    tbl = doc.add_table(rows=1 + len(PUNTOS) + 1, cols=6)
     tbl.style = "Table Grid"
-    headers = ["Establecimiento", "Lunes 17 (m³)", "Martes 18 (m³)", f"Miércoles 19 hasta {hora_corte:02d}:59 (m³)", "Total ventana (m³)"]
+    headers = [
+        "Establecimiento",
+        "Lunes 17 (m³)",
+        "Martes 18 (m³)",
+        "Miércoles 19 (m³)",
+        f"Jueves 20 hasta {hora_corte:02d}:59 (m³)",
+        "Total ventana (m³)",
+    ]
     for j, hd in enumerate(headers):
         cell = tbl.rows[0].cells[j]
         cell.text = hd
@@ -702,10 +845,10 @@ def _word(
             run.bold = True
             run.font.color.rgb = RGBColor(255, 255, 255)
             run.font.size = Pt(9)
-    tot = [0.0, 0.0, 0.0, 0.0]
+    tot = [0.0, 0.0, 0.0, 0.0, 0.0]
     for i, (nid, nom) in enumerate(PUNTOS, start=1):
         v = ventana_sin[nid]
-        vals = [v.m3_lunes, v.m3_martes, v.m3_miercoles_corte, v.m3_total]
+        vals = [v.m3_lunes, v.m3_martes, v.m3_miercoles_corte, v.m3_jueves_corte, v.m3_total]
         for k, x in enumerate(vals):
             tot[k] += x
         tbl.rows[i].cells[0].text = nom
@@ -720,22 +863,36 @@ def _word(
         for run in last.cells[j + 1].paragraphs[0].runs:
             run.bold = True
 
-    m3_sin_total = tot[3]
+    m3_sin_total = tot[4]
     doc.add_paragraph(
-        f"Consumo conjunto sin control en la ventana: {format_number_chilean(m3_sin_total, 1)} m³ "
+        f"Consumo conjunto sin control hasta ahora: {format_number_chilean(m3_sin_total, 1)} m³ "
         f"({format_number_chilean(m3_sin_total / horas_eq * 24, 1)} m³/día de ritmo)."
     )
 
-    doc.add_heading("3. Comparación inmediata: última semana con WES vs ahora sin WES", level=1)
+    doc.add_heading("3. Gráficos: Sin WES hasta ahora vs Con WES de cada semana", level=1)
+    doc.add_paragraph(
+        "En rojo, el consumo acumulado sin control desde el lunes 17. En azul, el consumo de la "
+        "misma ventana horaria en cada semana calificada con WES (mayo → 16 agosto). "
+        "Si la barra azul queda bajo la roja, esa semana con control ahorró frente a lo que llevamos ahora."
+    )
+    if "pareado_agregado" in pngs:
+        doc.add_picture(str(pngs["pareado_agregado"]), width=Cm(16.4))
+    if "semanas_mas_sin" in pngs:
+        doc.add_paragraph("")
+        doc.add_picture(str(pngs["semanas_mas_sin"]), width=Cm(16.4))
+    if "panel_4_puntos" in pngs:
+        doc.add_paragraph("")
+        doc.add_picture(str(pngs["panel_4_puntos"]), width=Cm(16.4))
+
+    doc.add_heading("4. Comparación inmediata: última semana con WES vs ahora sin WES", level=1)
     doc.add_paragraph(
         "La lectura más limpia es la semana previa (lunes 10 a domingo 16 de agosto, control activo) "
-        "contra el mismo tramo lun–mié de esta semana, ya sin control. Misma estación, misma ocupación "
-        "esperable, mismos días de la semana."
+        "contra el mismo tramo lun–jue de esta semana, ya sin control."
     )
     prev_lunes = ULTIMO_LUNES_CON_WES
     tblp = doc.add_table(rows=1 + len(PUNTOS) + 1, cols=6)
     tblp.style = "Table Grid"
-    hp = ["Establecimiento", "10–16 ago con WES (m³)", "17–19 ago sin WES (m³)", "Ahorro (m³)", "Rendimiento", "CLP"]
+    hp = ["Establecimiento", "10–16 ago con WES (m³)", "Sin WES hasta ahora (m³)", "Ahorro (m³)", "Rendimiento", "CLP"]
     for j, hd in enumerate(hp):
         cell = tblp.rows[0].cells[j]
         cell.text = hd
@@ -779,7 +936,7 @@ def _word(
         "e ICCP (de ~16 m³/día a ~21 m³/día)."
     )
 
-    doc.add_heading("4. Semana de mayor rendimiento operativo (mayo → 16 agosto)", level=1)
+    doc.add_heading("5. Semana de mayor rendimiento operativo (mayo → 16 agosto)", level=1)
     doc.add_paragraph(
         "Entre las semanas con ocupación comparable (se descartan recesos: piscina o recinto en ~0 m³), "
         "la ganadora es la de mayor rendimiento % respecto del periodo actual sin WES."
@@ -840,7 +997,7 @@ def _word(
         doc.add_paragraph("")
         doc.add_picture(str(pngs["ranking_agregado"]), width=Cm(16.2))
 
-    doc.add_heading("5. ¿Esta ventana con WES ahorra más que sin WES?", level=1)
+    doc.add_heading("6. ¿Esta ventana con WES ahorra más que sin WES?", level=1)
     import statistics
 
     agg_op = [t[3] for t in ranking_op]
@@ -849,7 +1006,7 @@ def _word(
     ahorro_best, pct_best = _rendimiento(m3_sin_total, best_agg[3])
 
     doc.add_paragraph(
-        f"En la misma ventana lun–mié, el consumo conjunto sin WES fue "
+        f"En la misma ventana, el consumo conjunto sin WES fue "
         f"{format_number_chilean(m3_sin_total, 1)} m³. "
         f"La mediana de las {len(ranking_op)} semanas operativas con WES (mayo–16 ago, sin receso de piscina) fue "
         f"{format_number_chilean(mediana_agg, 1)} m³ "
@@ -876,7 +1033,7 @@ def _word(
             "revisar el detalle por establecimiento."
         )
 
-    doc.add_heading("6. Detalle por establecimiento", level=1)
+    doc.add_heading("7. Detalle por establecimiento", level=1)
     for nid, nom in PUNTOS:
         v_best, ahorro, pct = mejor_por_punto[nid]
         sin = ventana_sin[nid]
@@ -884,16 +1041,20 @@ def _word(
         ahorro_med_p, pct_med_p = _rendimiento(sin.m3_total, med)
         doc.add_heading(nom, level=2)
         doc.add_paragraph(
-            f"Sin WES (17–19 ago): {format_number_chilean(sin.m3_total, 1)} m³ "
+            f"Sin WES hasta ahora: {format_number_chilean(sin.m3_total, 1)} m³ "
             f"(lun {format_number_chilean(sin.m3_lunes, 1)} / "
             f"mar {format_number_chilean(sin.m3_martes, 1)} / "
-            f"mié-corte {format_number_chilean(sin.m3_miercoles_corte, 1)}). "
+            f"mié {format_number_chilean(sin.m3_miercoles_corte, 1)} / "
+            f"jue-corte {format_number_chilean(sin.m3_jueves_corte, 1)}). "
             f"Mejor semana con WES: {_etiqueta_semana(v_best.lunes)} con "
             f"{format_number_chilean(v_best.m3_total, 1)} m³ "
             f"(ahorro {format_number_chilean(ahorro, 1)} m³; {format_number_chilean(pct, 1)} %). "
             f"Mediana con WES: {format_number_chilean(med, 1)} m³ "
             f"({format_number_chilean(pct_med_p, 1)} %)."
         )
+        keyp0 = f"pareado_{nid}"
+        if keyp0 in pngs:
+            doc.add_picture(str(pngs[keyp0]), width=Cm(16.0))
         key = f"semanas_{nid}"
         if key in pngs:
             doc.add_picture(str(pngs[key]), width=Cm(16.0))
@@ -905,14 +1066,14 @@ def _word(
             doc.add_picture(str(pngs[keyh]), width=Cm(16.0))
 
     if "serie_diaria" in pngs:
-        doc.add_heading("7. Serie diaria mayo–agosto", level=1)
+        doc.add_heading("8. Serie diaria mayo–agosto", level=1)
         doc.add_paragraph(
             "La banda roja marca el periodo sin control (desde el lunes 17/08). "
             "Piscina y gimnasio dominan el volumen; escuela e ICCP tienen consumos menores y más estables."
         )
         doc.add_picture(str(pngs["serie_diaria"]), width=Cm(16.2))
 
-    doc.add_heading("8. Lectura operativa", level=1)
+    doc.add_heading("9. Lectura operativa", level=1)
     bullets = [
         f"La comparación es de {horas_eq} horas equivalentes, no de una semana calendario completa "
         f"(el periodo sin WES aún no cierra el domingo 23/08).",
@@ -929,7 +1090,7 @@ def _word(
     for b in bullets:
         doc.add_paragraph(b, style="List Bullet")
 
-    doc.add_heading("9. Respuesta directa", level=1)
+    doc.add_heading("10. Respuesta directa", level=1)
     doc.add_paragraph(
         f"• Semana de mayor rendimiento operativo conjunto (4 puntos, sin receso de piscina): "
         f"{_etiqueta_semana(best_agg[0])} "
@@ -937,7 +1098,7 @@ def _word(
         f"en la ventana homóloga vs el periodo actual sin WES)."
     )
     doc.add_paragraph(
-        f"• Comparación de temporada (la más justa): 10–16 ago CON WES vs 17–19 ago SIN WES → "
+        f"• Comparación de temporada (la más justa): 10–16 ago CON WES vs sin WES hasta ahora → "
         f"{format_number_chilean(pct_p, 1)} % a favor del control "
         f"({format_number_chilean(ahorro_p, 1)} m³ en {horas_eq} h)."
     )
@@ -990,13 +1151,19 @@ def _convertir_pdf(docx_path: Path) -> Optional[Path]:
 
 def main() -> int:
     ahora = _ahora_chile()
+    offset_hoy = (ahora.date() - LUNES_SIN_WES).days
+    if offset_hoy < 0:
+        print("[ERROR] El periodo sin WES aún no comienza.")
+        return 1
+    offsets_completos = list(range(0, offset_hoy))
+    offset_parcial = offset_hoy
     hora_corte = _ultima_hora_completa(ahora)
-    if ahora.date() > LUNES_SIN_WES + timedelta(days=2):
-        # Ya pasó el miércoles 19: ventana = lun+mar+mié completos.
-        hora_corte = 23
-    elif ahora.date() == LUNES_SIN_WES:
-        print("[AVISO] Aún es lunes 17; la ventana será solo horas de hoy.")
-    print(f"Ahora Chile: {ahora:%Y-%m-%d %H:%M} | última hora completa miércoles: {hora_corte:02d}:00")
+    nomb_off = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+    print(
+        f"Ahora Chile: {ahora:%Y-%m-%d %H:%M} | "
+        f"completos: {[nomb_off[i] for i in offsets_completos] or 'ninguno'} | "
+        f"parcial {nomb_off[offset_parcial]} 00–{hora_corte:02d}"
+    )
 
     d_ini = date(2026, 5, 1)
     d_fin = ahora.date()
@@ -1008,17 +1175,19 @@ def main() -> int:
         diario_por_nodo[nid] = _fetch_diario(nid, d_ini, d_fin)
         print(f"  {nid} {nom}: {len(diario_por_nodo[nid])} días")
 
-    # Miércoles a consultar (cada semana con WES + miércoles actual)
-    miercoles_ids: List[Tuple[str, date]] = []
+    parcial_ids: List[Tuple[str, date]] = []
     for lunes in lunes_con:
-        mie = lunes + timedelta(days=2)
+        dia_p = lunes + timedelta(days=offset_parcial)
         for nid, _ in PUNTOS:
-            miercoles_ids.append((nid, mie))
-    mie_actual = LUNES_SIN_WES + timedelta(days=2)
+            parcial_ids.append((nid, dia_p))
+    dia_parcial_actual = LUNES_SIN_WES + timedelta(days=offset_parcial)
     for nid, _ in PUNTOS:
-        miercoles_ids.append((nid, mie_actual))
+        parcial_ids.append((nid, dia_parcial_actual))
 
-    print(f"Descargando serie horaria de {len(miercoles_ids)} miércoles (corte 00–{hora_corte:02d})...")
+    print(
+        f"Descargando serie horaria de {len(parcial_ids)} "
+        f"{nomb_off[offset_parcial]}es (corte 00–{hora_corte:02d})..."
+    )
     vecs: Dict[Tuple[str, date], List[float]] = {}
 
     def _job(item: Tuple[str, date]) -> Tuple[Tuple[str, date], List[float]]:
@@ -1026,14 +1195,14 @@ def main() -> int:
         return item, _vector_24h(nid, dia)
 
     with ThreadPoolExecutor(max_workers=8) as ex:
-        futs = [ex.submit(_job, it) for it in miercoles_ids]
+        futs = [ex.submit(_job, it) for it in parcial_ids]
         done = 0
         for fut in as_completed(futs):
             key, vec = fut.result()
             vecs[key] = vec
             done += 1
-            if done % 10 == 0 or done == len(miercoles_ids):
-                print(f"  horarios {done}/{len(miercoles_ids)}")
+            if done % 10 == 0 or done == len(parcial_ids):
+                print(f"  horarios {done}/{len(parcial_ids)}")
 
     ventanas: Dict[str, List[VentanaPunto]] = {nid: [] for nid, _ in PUNTOS}
     ventana_sin: Dict[str, VentanaPunto] = {}
@@ -1041,10 +1210,18 @@ def main() -> int:
 
     for nid, nom in PUNTOS:
         for lunes in lunes_con:
-            mie = lunes + timedelta(days=2)
+            dia_p = lunes + timedelta(days=offset_parcial)
             ventanas[nid].append(
                 _consumo_ventana(
-                    nid, nom, lunes, diario_por_nodo[nid], vecs[(nid, mie)], hora_corte, True
+                    nid,
+                    nom,
+                    lunes,
+                    diario_por_nodo[nid],
+                    vecs[(nid, dia_p)],
+                    offsets_completos,
+                    offset_parcial,
+                    hora_corte,
+                    True,
                 )
             )
             semanas[nid].append(_semana_completa(nid, nom, lunes, diario_por_nodo[nid], True))
@@ -1053,7 +1230,9 @@ def main() -> int:
             nom,
             LUNES_SIN_WES,
             diario_por_nodo[nid],
-            vecs[(nid, mie_actual)],
+            vecs[(nid, dia_parcial_actual)],
+            offsets_completos,
+            offset_parcial,
             hora_corte,
             False,
         )
@@ -1107,9 +1286,18 @@ def main() -> int:
     png_dir.mkdir(exist_ok=True)
 
     etiquetas = [_etiqueta_semana(l) for l in lunes_con]
+    etiqueta_sin = f"Sin WES {LUNES_SIN_WES:%d/%m}–{ahora:%d/%m} {ahora:%H:%M}"
     pngs: Dict[str, Path] = {}
 
-    # Agregado
+    # Semanas calificadas (operativas a nivel agregado: piscina abierta y escuela no en receso)
+    idx_op = [
+        i
+        for i, lunes in enumerate(lunes_con)
+        if any(t[0] == lunes for t in ranking_operativo)
+    ]
+    etq_op = [etiquetas[i] for i in idx_op]
+    vals_op = [ranking_agregado[i][3] for i in idx_op]
+
     pool_idx = ranking_operativo or ranking_agregado
     vals_agg = [t[3] for t in ranking_agregado]
     pcts_agg = [t[2] for t in ranking_agregado]
@@ -1119,22 +1307,46 @@ def main() -> int:
         if ranking_agregado[i][0] in {t[0] for t in pool_idx}
         else -999,
     )
+
+    p_par = png_dir / "pareado_agregado_sin_vs_cada_semana.png"
+    _grafico_pareado_sin_vs_semanas(
+        etq_op or etiquetas,
+        vals_op or vals_agg,
+        m3_sin_total,
+        "Renca (4 puntos) — Sin WES hasta ahora vs Con WES de cada semana calificada",
+        p_par,
+        etiqueta_sin=etiqueta_sin,
+    )
+    pngs["pareado_agregado"] = p_par
+
+    p_fin = png_dir / "semanas_con_wes_mas_barra_sin.png"
+    _grafico_semanas_mas_barra_sin(
+        etq_op or etiquetas,
+        vals_op or vals_agg,
+        m3_sin_total,
+        "Renca (4 puntos) — cada semana con WES y el acumulado sin control (barra roja)",
+        p_fin,
+        etiqueta_sin=f"Sin WES\n{LUNES_SIN_WES:%d/%m}–{ahora:%d/%m}",
+    )
+    pngs["semanas_mas_sin"] = p_fin
+
     p1 = png_dir / "barras_agregado_ventana.png"
     _grafico_barras_semanas(
         etiquetas,
         vals_agg,
         m3_sin_total,
-        "Renca (4 puntos) — consumo ventana lun–mié con WES vs sin WES actual",
+        "Renca (4 puntos) — Con WES por semana vs línea Sin WES hasta ahora",
         "m³ ventana homóloga",
         p1,
         idx_mejor=idx_best,
+        etiqueta_sin=etiqueta_sin,
     )
     pngs["resumen_semanas_agg"] = p1
     p2 = png_dir / "ranking_pct_agregado.png"
     _grafico_ranking_pct(
         etiquetas,
         pcts_agg,
-        "Rendimiento de ahorro agregado vs periodo sin WES 17–19 ago",
+        f"Rendimiento de ahorro agregado vs Sin WES {LUNES_SIN_WES:%d/%m}–{ahora:%d/%m}",
         p2,
     )
     pngs["ranking_agregado"] = p2
@@ -1158,42 +1370,68 @@ def main() -> int:
     _grafico_serie_diaria(diario_por_nodo, {n: nom for n, nom in PUNTOS}, d_ini, d_fin, p4)
     pngs["serie_diaria"] = p4
 
-    # Perfiles miércoles actual vs miércoles de la mejor semana de cada punto
+    series_con_op: Dict[str, List[float]] = {}
+    series_sin: Dict[str, float] = {}
+    for nid, _ in PUNTOS:
+        series_con_op[nid] = [ventanas[nid][i].m3_total for i in (idx_op or list(range(len(lunes_con))))]
+        series_sin[nid] = ventana_sin[nid].m3_total
+    p_panel = png_dir / "panel_4_puntos_pareado.png"
+    _grafico_panel_4_puntos_pareado(
+        etq_op or etiquetas,
+        series_con_op,
+        series_sin,
+        "Sin WES hasta ahora",
+        p_panel,
+    )
+    pngs["panel_4_puntos"] = p_panel
+
     for nid, nom in PUNTOS:
         vals = [v.m3_total for v in ventanas[nid]]
         pcts = [_rendimiento(ventana_sin[nid].m3_total, v.m3_total)[1] for v in ventanas[nid]]
-        idx_p_candidates = [
-            i for i, v in enumerate(ventanas[nid]) if v.nota == "operativa"
-        ]
+        idx_p_candidates = [i for i, v in enumerate(ventanas[nid]) if v.nota == "operativa"]
         idx_p = max(idx_p_candidates or range(len(pcts)), key=lambda i: pcts[i])
+        vals_op_p = [ventanas[nid][i].m3_total for i in (idx_op or list(range(len(lunes_con))))]
+        pp0 = png_dir / f"pareado_{nid}.png"
+        _grafico_pareado_sin_vs_semanas(
+            etq_op or etiquetas,
+            vals_op_p,
+            ventana_sin[nid].m3_total,
+            f"{nom} — Sin WES hasta ahora vs Con WES de cada semana calificada",
+            pp0,
+            etiqueta_sin=etiqueta_sin,
+        )
+        pngs[f"pareado_{nid}"] = pp0
         ps = png_dir / f"barras_{nid}.png"
         _grafico_barras_semanas(
             etiquetas,
             vals,
             ventana_sin[nid].m3_total,
-            f"{nom} — ventana lun–mié con WES vs sin WES actual",
+            f"{nom} — Con WES por semana vs línea Sin WES hasta ahora",
             "m³ ventana homóloga",
             ps,
             idx_mejor=idx_p,
+            etiqueta_sin=etiqueta_sin,
         )
         pngs[f"semanas_{nid}"] = ps
         pp = png_dir / f"pct_{nid}.png"
         _grafico_ranking_pct(
             etiquetas,
             pcts,
-            f"{nom} — rendimiento % vs sin WES 17–19 ago",
+            f"{nom} — rendimiento % vs Sin WES {LUNES_SIN_WES:%d/%m}–{ahora:%d/%m}",
             pp,
         )
         pngs[f"pct_{nid}"] = pp
 
         v_best = mejor_por_punto[nid][0]
-        vec_sin = vecs[(nid, mie_actual)]
-        vec_con = vecs[(nid, v_best.lunes + timedelta(days=2))]
-        ph = png_dir / f"perfil_mie_{nid}.png"
+        vec_sin = vecs[(nid, dia_parcial_actual)]
+        vec_con = vecs[(nid, v_best.lunes + timedelta(days=offset_parcial))]
+        ph = png_dir / f"perfil_parcial_{nid}.png"
         _grafico_perfil_24h(
             vec_sin,
             vec_con,
-            f"{nom} — perfil miércoles: {mie_actual:%d/%m} sin WES vs {v_best.lunes + timedelta(days=2):%d/%m} con WES",
+            f"{nom} — perfil {nomb_off[offset_parcial]}: "
+            f"{dia_parcial_actual:%d/%m} sin WES vs "
+            f"{v_best.lunes + timedelta(days=offset_parcial):%d/%m} con WES",
             ph,
             hora_corte=hora_corte,
         )
@@ -1252,7 +1490,7 @@ def main() -> int:
     print("=" * 72)
     print("RENCA — SIN WES 17-19 AGO vs SEMANAS CON WES (MAYO→16 AGO)")
     print("=" * 72)
-    print(f"Ventana: lun+mar + mié 00–{hora_corte:02d} h | {horas_eq} h equivalentes")
+    print(f"Ventana: lun–mié completos + {nomb_off[offset_parcial]} 00–{hora_corte:02d} | {horas_eq} h equivalentes")
     print(f"Sin WES conjunto: {m3_sin_total:.2f} m³")
     for nid, nom in PUNTOS:
         v, ahorro, pct = mejor_por_punto[nid]
