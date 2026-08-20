@@ -167,17 +167,11 @@ def _partir_dos_periodos(
     if len(fechas) != len(mats):
         raise ValueError("fechas y matrices no coinciden")
     n = len(fechas)
-    if n == 14:
-        mid = 7
-        return (
-            (LABEL_P1, list(mats[:mid])),
-            (LABEL_P2, list(mats[mid:])),
-        )
     if n % 2 == 0 and n >= 2:
         mid = n // 2
         return (
-            (f"Periodo A ({fechas[0]} … {fechas[mid - 1]})", list(mats[:mid])),
-            (f"Periodo B ({fechas[mid]} … {fechas[-1]})", list(mats[mid:])),
+            (LABEL_P1, list(mats[:mid])),
+            (LABEL_P2, list(mats[mid:])),
         )
     raise ValueError(
         f"Se esperaban 14 columnas (7+7) o un numero par de dias; hay {n}."

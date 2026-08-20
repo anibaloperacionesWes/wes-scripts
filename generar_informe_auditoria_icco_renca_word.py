@@ -1080,7 +1080,7 @@ def _datos_desde_excel_consolidado(
     Totales, barras y perfiles desde el Excel consolidado y ``graficos_comparativos/`` (sin API).
     """
     tr, ta, nper = totales_rejilla_desde_excel_consolidado(xlsx_c)
-    fechas_x, _ = leer_matriz_consolidado(xlsx_c)
+    fechas_x, mats_x = leer_matriz_consolidado(xlsx_c)
     periodo_con_txt: Optional[str] = None
     periodo_sin_txt: Optional[str] = None
     if len(fechas_x) >= 14:
@@ -1117,6 +1117,20 @@ def _datos_desde_excel_consolidado(
     if diarios_ok:
         png_perfiles_inf = diarios_ok + ([prom] if prom.is_file() else [])
         comps_inf = []
+        if len(fechas_x) >= 2 and len(fechas_x) % 2 == 0 and len(fechas_x) == len(mats_x):
+            from auditoria_cpa_icco_renca_grafico import _nombre_dia_semana_es
+
+            mid = len(fechas_x) // 2
+            for j in range(mid):
+                comps_inf.append(
+                    ComparacionDia24h(
+                        nombre_dia=_nombre_dia_semana_es(fechas_x[j]),
+                        fecha_con=fechas_x[j],
+                        fecha_sin=fechas_x[mid + j],
+                        total_con_m3=float(sum(mats_x[j])),
+                        total_sin_m3=float(sum(mats_x[mid + j])),
+                    )
+                )
     return (
         tr,
         ta,
