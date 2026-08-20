@@ -39,7 +39,7 @@ var PDF_SIGN_BG = '#F8FBFE';
 
 function doGet() {
   var tpl = HtmlService.createTemplateFromFile('Formulario');
-  tpl.CATALOGOS_JSON = HtmlService.createHtmlOutputFromFile('catalogos').getContent();
+  tpl.CATALOGOS_JSON = JSON.stringify(parseCatalogosEmbed_());
   // No tocar SpreadsheetApp acá: si falla el permiso, la página queda en blanco tras el login.
   var folioShow = FOLIO_INICIAL;
   try {
@@ -55,12 +55,23 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+
+function parseCatalogosEmbed_() {
+  var raw = HtmlService.createHtmlOutputFromFile('catalogos').getContent() || '';
+  var i = raw.indexOf('{');
+  var j = raw.lastIndexOf('}');
+  if (i < 0 || j < i) {
+    throw new Error('catalogos.html no tiene JSON válido');
+  }
+  return JSON.parse(raw.substring(i, j + 1));
+}
+
 function getCatalogos() {
   try {
     return buildCatalogosVivos_();
   } catch (e) {
     // Respaldo embebido si falla permiso/Sheet
-    return JSON.parse(HtmlService.createHtmlOutputFromFile('catalogos').getContent());
+    return parseCatalogosEmbed_();
   }
 }
 
@@ -69,7 +80,7 @@ function getCatalogos() {
  * (NO Base1 del Registro: ahí quedan nombres viejos, ej. RENCA).
  */
 function buildCatalogosVivos_() {
-  var base = JSON.parse(HtmlService.createHtmlOutputFromFile('catalogos').getContent());
+  var base = parseCatalogosEmbed_();
   var ss = SpreadsheetApp.openById(SHEET_CONTACTOS_ID);
   var sh = ss.getSheetByName('Clientes_catalogo');
   if (!sh) {

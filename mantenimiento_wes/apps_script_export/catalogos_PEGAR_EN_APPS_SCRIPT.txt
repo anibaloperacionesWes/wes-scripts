@@ -215,29 +215,14 @@
     ]
   },
   "tipos_falla": {
-    "Auditoría": [
-      "Toma de Lectura Inicial",
-      "Toma de Lectura Final",
-      "Validación Data"
-    ],
-    "Comunicación": [
-      "Max 232",
-      "Placa Conversor RS232 mala",
-      "Conector DB9",
-      "Router",
-      "Amplimax",
-      "Sim",
-      "Conector tx rx",
-      "ID Erróneo",
-      "Desconfiguracion",
+    "Eléctrica": [
+      "Cortocircuito",
+      "Empalme electrico",
+      "Fusible Cortado",
+      "Falla Fuente switching",
       "Intervencion de terceros",
-      "Revisión tecnica",
-      "Up grade",
-      "Cable de Red Dañado"
-    ],
-    "Construccion": [
-      "Reparación Camara",
-      "Canalización"
+      "Cargador Solar",
+      "Bateria Descargada"
     ],
     "Electrónica": [
       "Componente dañado",
@@ -254,14 +239,20 @@
       "Sensor de movimiento",
       "Up grade"
     ],
-    "Eléctrica": [
-      "Cortocircuito",
-      "Empalme electrico",
-      "Fusible Cortado",
-      "Falla Fuente switching",
+    "Comunicación": [
+      "Max 232",
+      "Placa Conversor RS232 mala",
+      "Conector DB9",
+      "Router",
+      "Amplimax",
+      "Sim",
+      "Conector tx rx",
+      "ID Erróneo",
+      "Desconfiguracion",
       "Intervencion de terceros",
-      "Cargador Solar",
-      "Bateria Descargada"
+      "Revisión tecnica",
+      "Up grade",
+      "Cable de Red Dañado"
     ],
     "Hídrica": [
       "Sensor de Pulso",
@@ -284,6 +275,11 @@
       "Desprogramacion",
       "Descalibracion Peso Pulso"
     ],
+    "Auditoría": [
+      "Toma de Lectura Inicial",
+      "Toma de Lectura Final",
+      "Validación Data"
+    ],
     "Ultrasonido": [
       "Renovación Silicona",
       "Transductor Defectuoso",
@@ -294,6 +290,10 @@
     ],
     "Up grade": [
       "Instalación"
+    ],
+    "Construccion": [
+      "Reparación Camara",
+      "Canalización"
     ]
   },
   "opciones": {
