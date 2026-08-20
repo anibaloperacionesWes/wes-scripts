@@ -16,5 +16,5 @@ ya están en este catálogo (ahí quedan nombres viejos, ej. RENCA).
 Fallas (tipo / específica): Registro de fallas · Base3
   https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
 
-Sync: 2026-08-17 20:20
+Sync: 2026-08-20 17:30
 Pares catálogo: 120 · extras historial (clientes nuevos): 35

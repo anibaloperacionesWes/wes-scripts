@@ -117,6 +117,12 @@ function buildCatalogosVivos_() {
   });
   base.clientes_maquinas = map;
   base.fuente_puntos = 'CONTACTOS_ENVIOS_ACTAS!' + sh.getName();
+  // Contactos vivos (general = David Campos; CC = encargado del punto)
+  try {
+    base.contactos = leerContactosDict_();
+  } catch (eContactos) {
+    base.contactos = base.contactos || {};
+  }
 
   // Fallas desde Registro Base3
   try {
@@ -783,21 +789,82 @@ function getContactosPara(cliente, maquina) {
   var maq = String(maquina || '').trim();
   var base = all[cli] || {};
   var punto = (base.puntos && base.puntos[maq]) || {};
+  // Si el nombre del catálogo no coincide exacto con Contactos, buscar parecido
+  if (maq && (!punto || !punto.email_cc) && base.puntos) {
+    var hit = buscarPuntoParecido_(base.puntos, maq);
+    if (hit) punto = hit;
+  }
   // Generales del cliente (máquina vacía) SIEMPRE — ej. David Campos en CORMUP
-  var generales = base.emails_general && base.emails_general.length
-    ? base.emails_general.slice()
-    : splitEmails_(base.email_general || '');
+  var generalesDetalle = (base.generales && base.generales.length)
+    ? base.generales.slice()
+    : [];
+  if (!generalesDetalle.length && base.email_general) {
+    var emailsFallback = splitEmails_(base.email_general || '');
+    for (var gi = 0; gi < emailsFallback.length; gi++) {
+      generalesDetalle.push({
+        nombre: gi === 0 ? (base.nombre_general || '') : '',
+        cargo: gi === 0 ? (base.cargo_general || '') : '',
+        email: emailsFallback[gi],
+      });
+    }
+  }
+  var emailsGen = generalesDetalle.map(function (g) { return g.email; }).filter(Boolean);
+  if (!emailsGen.length && base.emails_general) emailsGen = base.emails_general.slice();
   return {
     cliente: cli,
     maquina: maq,
-    email_general: generales.join(', '),
-    emails_general: generales,
-    nombre_general: base.nombre_general || '',
-    cargo_general: base.cargo_general || '',
-    email_cc: punto.email_cc || '',
-    nombre_punto: punto.nombre || '',
-    cargo_punto: punto.cargo || '',
+    email_general: emailsGen.join(', '),
+    emails_general: emailsGen,
+    nombre_general: (generalesDetalle[0] && generalesDetalle[0].nombre) || base.nombre_general || '',
+    cargo_general: (generalesDetalle[0] && generalesDetalle[0].cargo) || base.cargo_general || '',
+    // Misma forma que David Campos: lista de fichas TO + ficha CC del punto
+    generales: generalesDetalle,
+    punto: {
+      nombre: (punto && punto.nombre) || '',
+      cargo: (punto && punto.cargo) || '',
+      email: (punto && punto.email_cc) || '',
+    },
+    email_cc: (punto && punto.email_cc) || '',
+    nombre_punto: (punto && punto.nombre) || '',
+    cargo_punto: (punto && punto.cargo) || '',
   };
+}
+
+function normKey_(s) {
+  return String(s || '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .replace(/\b(ESCUELA|COLEGIO|CENTRO|EDUCACIONAL|LICEO|C E|CE)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buscarPuntoParecido_(puntos, maquina) {
+  var target = normKey_(maquina);
+  if (!target || !puntos) return null;
+  var keys = Object.keys(puntos);
+  var i;
+  // 1) exacto normalizado
+  for (i = 0; i < keys.length; i++) {
+    if (normKey_(keys[i]) === target) return puntos[keys[i]];
+  }
+  // 2) contiene (ej. CENTRO EDUCACIONAL VALLE HERMOSO ↔ C.E. VALLE HERMOSO)
+  var best = null;
+  var bestLen = 0;
+  for (i = 0; i < keys.length; i++) {
+    var k = normKey_(keys[i]);
+    if (!k) continue;
+    if (k.indexOf(target) >= 0 || target.indexOf(k) >= 0) {
+      var score = Math.min(k.length, target.length);
+      if (score > bestLen) {
+        bestLen = score;
+        best = puntos[keys[i]];
+      }
+    }
+  }
+  return best;
 }
 
 /**
@@ -907,19 +974,34 @@ function leerContactosDict_() {
           emails_general: [],
           nombre_general: '',
           cargo_general: '',
+          generales: [],
           puntos: {},
         };
       }
-      // Máquina vacía = siempre va (gerente / corporación / SLEP)
+      // Máquina vacía = siempre va (gerente / corporación / SLEP) — ej. David Campos
       if (!maq && (rol === 'general' || rol === 'to' || rol === 'cc' || !rol)) {
-        if (out[cli].emails_general.indexOf(email) < 0) {
+        var gIdx = -1;
+        for (var gi = 0; gi < out[cli].generales.length; gi++) {
+          if (String(out[cli].generales[gi].email || '') === email) {
+            gIdx = gi;
+            break;
+          }
+        }
+        if (gIdx < 0) {
           out[cli].emails_general.push(email);
+          out[cli].generales.push({ nombre: nombre, cargo: cargo, email: email });
+        } else {
+          var gPrev = out[cli].generales[gIdx] || { nombre: '', cargo: '', email: email };
+          if (nombre && !gPrev.nombre) gPrev.nombre = nombre;
+          if (cargo && !gPrev.cargo) gPrev.cargo = cargo;
+          out[cli].generales[gIdx] = gPrev;
+          if (out[cli].emails_general.indexOf(email) < 0) out[cli].emails_general.push(email);
         }
         out[cli].email_general = out[cli].emails_general.join(', ');
         if (nombre && !out[cli].nombre_general) out[cli].nombre_general = nombre;
         if (cargo && !out[cli].cargo_general) out[cli].cargo_general = cargo;
       } else if (maq) {
-        // Preferir fila con más datos; no pisar si ya hay email
+        // CC del punto: mismo detalle que el general (nombre + cargo + email)
         if (!out[cli].puntos[maq]) {
           out[cli].puntos[maq] = { email_cc: email, nombre: nombre, cargo: cargo };
         } else {

@@ -320,18 +320,21 @@
           </span>
         </label>
         <div id="bloqueCorreo">
+          <div id="contactosBox" class="note" style="margin-bottom:10px">
+            Elegí cliente y máquina: aparecen fichas iguales (nombre · cargo · correo) para el general (ej. David Campos) y el CC del punto desde la planilla.
+          </div>
           <div class="row">
             <div>
-              <label for="email_cliente">Correo encargado general (cliente)</label>
-              <input id="email_cliente" type="email" placeholder="encargado.cliente@… se autocompleta si ya está registrado" />
+              <label for="email_cliente">TO · encargados generales</label>
+              <input id="email_cliente" type="text" placeholder="se autocompleta desde planilla (máquina vacía = general)" />
             </div>
             <div>
-              <label for="email_cc">CC encargado del punto (colegio / sitio)</label>
-              <input id="email_cc" placeholder="inspector / director del punto — se guarda para la próxima" />
+              <label for="email_cc">CC · encargado del punto</label>
+              <input id="email_cc" type="text" placeholder="se autocompleta desde planilla (CC del colegio/sitio)" />
             </div>
           </div>
           <p class="note" id="contactosHint" style="margin-top:4px">
-            Si ya hay registro, se rellenan solos al elegir cliente y máquina. Lo que escriban Mauricio/Aníbal queda guardado para no tipearlo de nuevo.
+            Misma fuente: hoja Contactos. General sin máquina + CC de la máquina elegida (con nombre y cargo, igual que David Campos).
           </p>
         </div>
         <label>Firma en pantalla *</label>
@@ -378,47 +381,181 @@
       });
     }
 
+    function renderContactosBox(c, cli, maq) {
+      const box = document.getElementById("contactosBox");
+      if (!box) return;
+      if (!cli) {
+        box.className = "note";
+        box.textContent = "Elegí cliente y máquina: se muestran el general (ej. David Campos) y el CC del punto, igual desde la planilla.";
+        return;
+      }
+      const cards = [];
+      const generales =
+        c && Array.isArray(c.generales) && c.generales.length
+          ? c.generales
+          : c && c.email_general
+            ? String(c.email_general)
+                .split(/[,;]+/)
+                .map((e) => e.trim())
+                .filter(Boolean)
+                .map((email, i) => ({
+                  nombre: i === 0 ? c.nombre_general || "" : "",
+                  cargo: i === 0 ? c.cargo_general || "" : "",
+                  email,
+                }))
+            : [];
+      generales.forEach((g) => {
+        if (!g || !g.email) return;
+        cards.push({
+          titulo: "TO · General",
+          nombre: g.nombre || "Encargado general",
+          cargo: g.cargo || "",
+          email: g.email,
+        });
+      });
+      const ccEmail = (c && (c.email_cc || (c.punto && c.punto.email))) || "";
+      const ccNombre =
+        (c && (c.nombre_punto || (c.punto && c.punto.nombre))) || "";
+      const ccCargo = (c && (c.cargo_punto || (c.punto && c.punto.cargo))) || "";
+      if (maq && ccEmail) {
+        cards.push({
+          titulo: "CC · Punto" + (maq ? " · " + maq : ""),
+          nombre: ccNombre || "Encargado del punto",
+          cargo: ccCargo,
+          email: ccEmail,
+        });
+      }
+      if (!cards.length) {
+        box.className = "note";
+        box.innerHTML = maq
+          ? `Sin contactos en planilla para <b>${cli}</b> / <b>${maq}</b>. Completá TO/CC manualmente.`
+          : `Elegí la máquina para cargar el CC del punto (el general de <b>${cli}</b> ya puede aparecer).`;
+        return;
+      }
+      box.className = "";
+      box.style.marginBottom = "10px";
+      // Misma ficha visual para TO (David Campos) y CC (encargado del colegio)
+      box.innerHTML = cards
+        .map(
+          (x) =>
+            `<label class="chip on" style="display:flex;width:100%;margin:0 0 8px;gap:10px;align-items:flex-start">` +
+            `<input type="checkbox" checked disabled style="margin-top:3px" />` +
+            `<div style="min-width:0">` +
+            `<div style="font-size:0.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;opacity:.75">${x.titulo}</div>` +
+            `<div style="font-size:1.05rem;font-weight:800;line-height:1.25;margin-top:2px">${x.nombre}</div>` +
+            (x.cargo
+              ? `<div style="font-size:0.9rem;opacity:.85;margin-top:1px">${x.cargo}</div>`
+              : "") +
+            `<div style="font-size:0.88rem;color:#1f4e79;margin-top:4px;word-break:break-all">${x.email}</div>` +
+            `</div></label>`
+        )
+        .join("");
+    }
+
+    function normKeyLocal(s) {
+      return String(s || "")
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9]+/g, " ")
+        .replace(/\b(ESCUELA|COLEGIO|CENTRO|EDUCACIONAL|LICEO|C E|CE)\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function buscarPuntoLocal(puntos, maquina) {
+      if (!puntos || !maquina) return null;
+      if (puntos[maquina]) return puntos[maquina];
+      const target = normKeyLocal(maquina);
+      const keys = Object.keys(puntos);
+      let best = null;
+      let bestLen = 0;
+      for (const k0 of keys) {
+        const k = normKeyLocal(k0);
+        if (!k) continue;
+        if (k === target) return puntos[k0];
+        if (k.indexOf(target) >= 0 || target.indexOf(k) >= 0) {
+          const score = Math.min(k.length, target.length);
+          if (score > bestLen) {
+            bestLen = score;
+            best = puntos[k0];
+          }
+        }
+      }
+      return best;
+    }
+
     function aplicarContactosGuardados() {
       const cli = document.getElementById("cliente").value.trim();
       const maq = document.getElementById("maquina").value.trim();
       const emailCli = document.getElementById("email_cliente");
       const emailCc = document.getElementById("email_cc");
       const hint = document.getElementById("contactosHint");
+      const recibido = document.getElementById("recibido_por");
+      const cargo = document.getElementById("cargo");
       if (!cli) {
-        if (hint) hint.textContent = "Elegí cliente (y luego el punto) para autocompletar correos guardados.";
+        if (hint) hint.textContent = "Elegí cliente y máquina para autocompletar TO (general) y CC (punto).";
+        renderContactosBox(null, "", "");
         return;
       }
-      // Prioridad: Sheet vivo vía Apps Script; fallback catálogo embebido
       const applyLocal = () => {
         const base = (state.contactos && state.contactos[cli]) || {};
-        const punto = (base.puntos && base.puntos[maq]) || {};
+        let punto = (base.puntos && base.puntos[maq]) || {};
+        if (maq && (!punto || !punto.email_cc) && base.puntos) {
+          punto = buscarPuntoLocal(base.puntos, maq) || {};
+        }
         if (base.email_general) emailCli.value = base.email_general;
         if (maq && punto.email_cc) emailCc.value = punto.email_cc;
         else if (!maq) emailCc.value = "";
+        const payload = {
+          email_general: base.email_general || "",
+          nombre_general: base.nombre_general || "",
+          cargo_general: base.cargo_general || "",
+          generales: base.generales || [],
+          email_cc: (punto && punto.email_cc) || "",
+          nombre_punto: (punto && punto.nombre) || "",
+          cargo_punto: (punto && punto.cargo) || "",
+          punto: {
+            nombre: (punto && punto.nombre) || "",
+            cargo: (punto && punto.cargo) || "",
+            email: (punto && punto.email_cc) || "",
+          },
+        };
+        renderContactosBox(payload, cli, maq);
+        if (maq && punto.nombre && recibido && !recibido.value) recibido.value = punto.nombre;
+        if (maq && punto.cargo && cargo && !cargo.value) cargo.value = punto.cargo;
         if (hint) {
           const parts = [];
-          if (base.email_general) parts.push("general OK");
-          if (maq && punto.email_cc) parts.push("punto OK");
-          else if (maq) parts.push("punto sin registro aún (completar CC y se guarda)");
-          hint.textContent = parts.length
-            ? "Contactos: " + parts.join(" · ")
-            : "Sin correos guardados aún para este cliente. Completá To/CC y se registran al enviar.";
+          if (base.nombre_general || base.email_general) {
+            parts.push("TO: " + (base.nombre_general || "General"));
+          }
+          if (maq && punto.email_cc) {
+            parts.push("CC: " + (punto.nombre || "Punto") + " <" + punto.email_cc + ">");
+          } else if (maq) {
+            parts.push("CC punto no encontrado en planilla");
+          } else {
+            parts.push("elegí máquina para CC");
+          }
+          hint.textContent = parts.join(" · ");
         }
       };
       if (typeof google !== "undefined" && google.script && google.script.run) {
         google.script.run
           .withSuccessHandler((c) => {
             if (!c) return applyLocal();
-            // Generales del cliente (máquina vacía) → TO (ej. David Campos / SLEP+Corporación)
             if (c.email_general) emailCli.value = c.email_general;
-            // Encargado del punto / quien recepciona → CC
             if (c.email_cc) emailCc.value = c.email_cc;
-            else if (maq) {
-              /* keep typed CC if user already wrote */
+            else if (!maq) emailCc.value = "";
+            // CC del punto rellena recepción igual que se ve David Campos en TO
+            if (c.nombre_punto && recibido && !recibido.value) recibido.value = c.nombre_punto;
+            if (c.cargo_punto && cargo && !cargo.value) cargo.value = c.cargo_punto;
+            if (!state.contactos[cli]) state.contactos[cli] = { puntos: {}, generales: [] };
+            if (c.email_general) {
+              state.contactos[cli].email_general = c.email_general;
+              state.contactos[cli].nombre_general = c.nombre_general || "";
+              state.contactos[cli].cargo_general = c.cargo_general || "";
+              state.contactos[cli].generales = c.generales || [];
             }
-            // refrescar cache local
-            if (!state.contactos[cli]) state.contactos[cli] = { puntos: {} };
-            if (c.email_general) state.contactos[cli].email_general = c.email_general;
             if (maq && c.email_cc) {
               state.contactos[cli].puntos = state.contactos[cli].puntos || {};
               state.contactos[cli].puntos[maq] = {
@@ -427,12 +564,36 @@
                 cargo: c.cargo_punto || "",
               };
             }
+            renderContactosBox(c, cli, maq);
             if (hint) {
               const parts = [];
-              if (c.email_general) parts.push("general: " + c.email_general);
-              if (c.email_cc) parts.push("CC punto: " + c.email_cc);
-              else if (maq) parts.push("punto sin registro (completar CC)");
-              hint.textContent = parts.length ? "Contactos guardados → " + parts.join(" · ") : hint.textContent;
+              if (c.generales && c.generales.length) {
+                parts.push(
+                  "TO: " +
+                    c.generales
+                      .map((g) => (g.nombre || "General") + (g.email ? " <" + g.email + ">" : ""))
+                      .join(", ")
+                );
+              } else if (c.nombre_general || c.email_general) {
+                parts.push(
+                  "TO: " +
+                    (c.nombre_general || "General") +
+                    (c.email_general ? " <" + c.email_general + ">" : "")
+                );
+              }
+              if (c.email_cc) {
+                parts.push(
+                  "CC: " +
+                    (c.nombre_punto || "Punto") +
+                    (c.cargo_punto ? " (" + c.cargo_punto + ")" : "") +
+                    " <" +
+                    c.email_cc +
+                    ">"
+                );
+              } else if (maq) {
+                parts.push("CC punto no está en planilla");
+              }
+              hint.textContent = parts.join(" · ");
             }
           })
           .withFailureHandler(applyLocal)
