@@ -1,17 +1,21 @@
-Build 21L en Drive — solo refrescar el form
-==========================================
+Modalidad visita vs a distancia — build 21M
+===========================================
 
-El 21k ya funcionó (HTML desde Drive).
-Subí 21L con boot más resistente (chips/fecha).
+En el form (solo refrescar, sin pegar Formulario):
+  Modalidad / motivo *
+  • Visita física · Mantenimiento
+  • Visita física · Auditoría
+  • Visita física · Emergencia
+  • Soporte técnico a distancia
+  • Mantención a distancia
 
-NO hace falta pegar ni Nueva versión.
-Solo: cerrá el form, abrí de nuevo, Ctrl+Shift+R.
+Así en reportes podés filtrar "Visita física" vs "a distancia".
 
-Debe decir: Acta de visita técnica · 21L
-Y verse chips de Motivo + Tecnología.
+1) Cerrá el form → abrí de nuevo → Ctrl+Shift+R
+2) Debe decir: Acta de visita técnica · 21M
 
-Probar checklist:
-1) Marcar CIR → botón "Abrir checklist CIR"
-2) Tocarlo → se despliega
-3) Cerrar → se pliega
-4) Sin tecnología → sin botones ni checklist
+Opcional (PDF label Motivo/modalidad): pegar Codigo + Nueva versión
+https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
+
+Opcional (catálogo embebido alineado): pegar catalogos
+(archivo catalogos_PEGAR en la misma carpeta Drive apps_script_export)

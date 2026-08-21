@@ -489,7 +489,7 @@ function appendPdfMetaTable_(body, data) {
     ['Comuna', String(data.comuna || '—'), 'Fecha', String(data.fecha || '—')],
     ['Hora', String(data.hora || '—'), 'Técnico WES', String(data.tecnico || '—')],
     ['Lectura medidor', String(data.lectura_medidor || '—'), 'Tipo mtto', String(data.tipo_mtto || '—')],
-    ['Motivo', joinList_(data.motivos), 'Tecnología', joinList_(data.tecnologias)],
+    ['Motivo/modalidad', joinList_(data.motivos), 'Tecnología', joinList_(data.tecnologias)],
     ['Tipo falla', String(data.tipo_falla || '—'), 'Falla específica', String(data.falla_especifica || '—')],
   ];
   var table = body.appendTable(rows.map(function (r) {

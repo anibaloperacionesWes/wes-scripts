@@ -25,9 +25,11 @@
     "N/A"
   ],
   "motivos": [
-    "Mantenimiento",
-    "Auditoría",
-    "Emergencia"
+    "Visita física · Mantenimiento",
+    "Visita física · Auditoría",
+    "Visita física · Emergencia",
+    "Soporte técnico a distancia",
+    "Mantención a distancia"
   ],
   "tecnologias": [
     "CPA y CIR",
