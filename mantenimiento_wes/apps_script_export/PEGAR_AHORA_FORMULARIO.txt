@@ -1,61 +1,35 @@
-Perdón: el problema NO es iPhone — es deploy / URL
-====================================================
+CONFIRMADO: Formulario no se actualiza al pegar (Ctrl+F = no).
+Solución: Codigo lee el HTML desde Drive. Pegá SOLO Codigo.
+================================================================
 
-Estás en PC. Bien. Si no ves el build, hay que ubicar
-DÓNDE se corta la cadena. Contestá estas 2 preguntas:
+NO pegues Formulario. Da igual: no entra.
 
-────────────────────────────────────────
-PREGUNTA 1 — ¿Está en el editor Apps Script?
-────────────────────────────────────────
-1) Abrí el proyecto (este, no otro):
+Hacé ESTO (PC):
+
+1) Descargá Codigo (flecha ↓ → Bloc de notas):
+   https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
+
+   Parche mínimo (solo doGet), si preferís no pegar todo:
+   https://drive.google.com/file/d/1cz8dVD2QG0sOwuxQCwiLFekdPYOBoVHN/view?usp=drivesdk
+
+2) Apps Script → archivo "Codigo" (NO Formulario)
    https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
+   → Ctrl+A → Supr → Ctrl+V → Ctrl+S
 
-2) Izquierda: archivo exactamente llamado "Formulario"
-   (HTML). NO "Codigo", NO "catalogos".
+3) Ctrl+F en Codigo:  FORMULARIO_HTML_DRIVE_ID
+   Tiene que aparecer.
 
-3) Ctrl+F → buscá:  WES-build-21j
+4) Implementar → Administrar implementaciones
+   → lápiz de la URL que termina en AKfycbx5DTdd.../exec
+   → Versión: Nueva versión → Implementar
 
-   A) NO aparece → el pegado no quedó en Formulario.
-      Volvé a pegar así:
-      - Descargá el TXT (flecha ↓), abrilo en Bloc de notas
-      - NO copies desde la vista previa de Drive
-      - En Formulario: Ctrl+A → Supr → Ctrl+V → Ctrl+S
-      - Ctrl+F otra vez: tiene que encontrar WES-build-21j
-      - También el título del código debe decir:
-        "Acta de visita técnica · 21j"
+5) Abrí el FORMULARIO (NO el editor /edit):
+   https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+   Ctrl+Shift+R
 
-   B) SÍ aparece → el código nuevo ESTÁ guardado.
-      El problema es la implementación o la URL → PREGUNTA 2.
+Éxito = título:  Acta de visita técnica · 21k
 
-────────────────────────────────────────
-PREGUNTA 2 — ¿Es el /exec correcto?
-────────────────────────────────────────
-URL OFICIAL (única a usar / actualizar):
-https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+Si pide permiso de Drive: Aceptar.
 
-URL VIEJA (NO usar — catálogo embebido viejo):
-https://script.google.com/macros/s/AKfycbzr5Md52h7yHk4T_UhS1H5RsdIKox49EHB5IkFKPsAU2RA-aLTBIG1NWc50vxbTM601/exec
-
-En Apps Script:
-  Implementar → Administrar implementaciones
-  Buscá la fila cuyo enlace termine en:
-    ...AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
-  → lápiz → Versión: Nueva versión → Implementar
-
-NO pulses "Nueva implementación" (crea otro link).
-
-Después: cerrá la pestaña del form, abrí de nuevo la URL
-OFICIAL, Ctrl+Shift+R.
-
-En el encabezado debe decir:
-  "Acta de visita técnica · 21j"
-y debajo de Tecnología: WES-build-21j
-
-────────────────────────────────────────
-Archivo para pegar (DESCARGAR, no vista previa):
-────────────────────────────────────────
-https://drive.google.com/file/d/1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C/view?usp=drivesdk
-
-Decime solo esto:
-1) Ctrl+F en Formulario: ¿encuentra WES-build-21j? sí/no
-2) La URL que abrís en el navegador (copiá/pegá la barra)
+Después de esto ya no hace falta pegar Formulario:
+el agente actualiza el HTML en Drive y el /exec lo lee.

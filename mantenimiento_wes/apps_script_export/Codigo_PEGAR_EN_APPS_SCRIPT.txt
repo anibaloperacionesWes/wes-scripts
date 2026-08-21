@@ -25,6 +25,12 @@ var CARPETA_TECNICOS_ID = '1RCtWP1hK4fKzjgjyvzzSbttWJZiNhtKC';
 var CARPETA_ACTAS_HISTORICAS_ID = '1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ';
 /** Logo WES en Drive (Tecnicos_WES_Formulario). */
 var LOGO_WES_ID = '1t4XYXYibZu_dwLftjjMw7hCX9CcSc4tY';
+/**
+ * HTML del formulario en Drive (Formulario_PEGAR_EN_APPS_SCRIPT.txt).
+ * Así no hace falta pegar el Formulario gigante en el editor:
+ * el agente actualiza este archivo y el /exec lo lee en vivo.
+ */
+var FORMULARIO_HTML_DRIVE_ID = '1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C';
 var FOLIO_INICIAL = 2250;
 
 // Paleta acta PDF (alineada al formulario / reportes WES)
@@ -37,8 +43,23 @@ var PDF_MUTED = '#445566';
 var PDF_SOFT = '#F7FAFD';
 var PDF_SIGN_BG = '#F8FBFE';
 
+/**
+ * Carga el HTML del form desde Drive; si falla, usa el archivo local "Formulario".
+ */
+function loadFormularioTemplate_() {
+  try {
+    var raw = DriveApp.getFileById(FORMULARIO_HTML_DRIVE_ID).getBlob().getDataAsString('UTF-8');
+    if (raw && raw.indexOf('<html') >= 0) {
+      return HtmlService.createTemplate(raw);
+    }
+  } catch (e) {
+    // Sin acceso a Drive o archivo movido → fallback local
+  }
+  return HtmlService.createTemplateFromFile('Formulario');
+}
+
 function doGet() {
-  var tpl = HtmlService.createTemplateFromFile('Formulario');
+  var tpl = loadFormularioTemplate_();
   tpl.CATALOGOS_JSON = JSON.stringify(parseCatalogosEmbed_());
   // No tocar SpreadsheetApp acá: si falla el permiso, la página queda en blanco tras el login.
   var folioShow = FOLIO_INICIAL;
@@ -50,7 +71,7 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES')
+    .setTitle('Acta de visita WES · 21k')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
