@@ -270,6 +270,9 @@ def _preparar_icco(
     tot_noche_con = float(sum(f["noche_con"] for f in filas_wes))
     tot_noche_sin = float(sum(f["noche_sin"] for f in filas_wes))
     ahorro_t, pct_t = _rendimiento(tot_noche_sin, tot_noche_con)
+    vol_dias_wes = float(sum(f["m3_dia"] for f in filas_wes))
+    inc_pct = (ahorro_t / vol_dias_wes * 100.0) if vol_dias_wes > 1e-9 else 0.0
+    n_cero = sum(1 for f in filas_wes if f["noche_con"] < 1.0)
 
     png_dir.mkdir(parents=True, exist_ok=True)
     png_barras = png_dir / "icco_noche_00_06.png"
@@ -437,12 +440,13 @@ def _preparar_icco(
         f"Chequeo homólogo de día completo (ambos sin clases): dom 09 {m3_9:.1f} m³ vs dom 16 {m3_16_full:.1f} m³ "
         f"→ {pct_dom:.1f} % ({ahorro_dom:.1f} m³). Ese 5 % es la noche diluida en 24 h de fuga; no es el KPI."
     )
-    ws2["A3"] = "Qué no se hace"
-    ws2["A3"].font = XlFont(bold=True)
-    ws2["B3"] = (
-        "No se compara el domingo de 40 m³ contra el lunes de clases. "
-        "No se reconstruye un día sin WES sumando fuga + clases. "
-        "No se mezcla ICCO en el % de los 4 puntos (allá sí hay semana sin control)."
+    ws2["A4"] = "Dato a mostrar"
+    ws2["A4"].font = XlFont(bold=True)
+    ws2["B4"] = (
+        f"Rendimiento del control (00:01–06:00): {pct_t:.1f} % / {ahorro_t:.1f} m³. "
+        f"Incidencia en el volumen del colegio: {inc_pct:.1f} % "
+        f"(coincide con el domingo homólogo {pct_dom:.1f} %). "
+        "Se muestran los dos. No se mezcla con el % de los 4 puntos."
     )
     ws2.column_dimensions["A"].width = 28
     ws2.column_dimensions["B"].width = 110
@@ -464,6 +468,9 @@ def _preparar_icco(
         "ahorro_t": ahorro_t,
         "pct_t": pct_t,
         "n_noches": len(filas_wes),
+        "n_cero": n_cero,
+        "vol_dias_wes": vol_dias_wes,
+        "inc_pct": inc_pct,
         "png_barras": png_barras,
         "png_perfil": png_perfil,
         "xlsx": xlsx_path,
@@ -594,11 +601,11 @@ def _word_conjunto(
     extra_tot = ""
     if icco_info:
         extra_tot = (
-            f" ICCO no se suma a este porcentaje (sería mezclar dos auditorías distintas). "
-            f"Anexo: en {icco_info['n_noches']} noches con WES se ahorraron "
-            f"{format_number_chilean(icco_info['ahorro_t'], 1)} m³ de la fuga de 00:01–06:00 "
-            f"({format_number_chilean(icco_info['pct_t'], 1)} % de esa ventana; "
-            f"testigo domingo 16 = {format_number_chilean(icco_info['testigo_noche'], 1)} m³/noche)."
+            f" ICCO se demuestra aparte, con dos cifras (no se mezclan con este %): "
+            f"rendimiento del control 00:01–06:00 = {format_number_chilean(icco_info['pct_t'], 1)} % "
+            f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³); "
+            f"incidencia en el volumen del colegio = {format_number_chilean(icco_info['inc_pct'], 1)} % "
+            f"(domingo homólogo {format_number_chilean(icco_info['pct_dom'], 1)} %)."
         )
     doc.add_paragraph(
         f"4 puntos: Con WES {format_number_chilean(tot_con, 1)} m³; "
@@ -696,7 +703,61 @@ def _word_conjunto(
                     run.font.size = Pt(9)
 
     if icco_info:
-        doc.add_heading("2. Anexo: Colegio ICCO Renca — ventana 00:01–06:00", level=1)
+        doc.add_heading("2. Anexo: Colegio ICCO Renca — qué rendimiento se puede mostrar", level=1)
+        p = doc.add_paragraph()
+        p.add_run("Dato más real. ").bold = True
+        p.add_run(
+            "Hay que mostrar dos cifras, no una. El WES en ICCO solo corta de 00:01 a 06:00; "
+            "de día el colegio gasta 50–77 m³ y eso no lo controla. "
+            "Una sola cifra (5 % o 25 %) se malinterpreta. "
+            "La de volumen es la más conservadora y se defiende con un domingo medido. "
+            "La de control es la más real de que el equipo funciona."
+        )
+        t0 = doc.add_table(rows=4, cols=3)
+        t0.style = "Table Grid"
+        for j, hd in enumerate(["Qué preguntan", "Dato a mostrar", "Por qué es el más real"]):
+            cell = t0.rows[0].cells[j]
+            cell.text = hd
+            _set_cell_shading(cell, "1F4788")
+            for run in cell.paragraphs[0].runs:
+                run.bold = True
+                run.font.color.rgb = RGBColor(255, 255, 255)
+                run.font.size = Pt(9)
+        filas_dato = [
+            (
+                "¿Cuánto rinde el WES en lo que controla?",
+                f"{format_number_chilean(icco_info['pct_t'], 1)} % de la fuga 00:01–06:00 "
+                f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³ en "
+                f"{icco_info['n_noches']} noches)",
+                "Testigo medido (noche del domingo 16). Misma ocupación: colegio cerrado. "
+                "No se inventa el día de clases.",
+            ),
+            (
+                "¿Cuánto baja el consumo del colegio?",
+                f"{format_number_chilean(icco_info['inc_pct'], 1)} % del volumen de esos días "
+                f"(domingo homólogo {format_number_chilean(icco_info['pct_dom'], 1)} %, "
+                f"{format_number_chilean(icco_info['ahorro_dom'], 1)} m³)",
+                "Es la cifra de la boleta. El único par de día completo medido (dom 9 vs dom 16, "
+                "ambos sin clases) da el mismo orden: ~5 %. No se puede pedir el 37 % de los 4 puntos.",
+            ),
+            (
+                "¿Puede cerrar la fuga?",
+                (
+                    f"Sí: {icco_info['n_cero']} noche(s) en 0 m³ (100 % de la ventana). "
+                    if icco_info["n_cero"]
+                    else "En esta ventana no hubo una noche en 0; el corte fue parcial."
+                ),
+                "Capacidad demostrada. El jueves 13 y el viernes 14 la noche quedó en cero.",
+            ),
+        ]
+        for i, (q, dato, por_que) in enumerate(filas_dato, start=1):
+            for j, v in enumerate((q, dato, por_que)):
+                t0.rows[i].cells[j].text = v
+                for run in t0.rows[i].cells[j].paragraphs[0].runs:
+                    run.font.size = Pt(9)
+            _set_cell_shading(t0.rows[i].cells[1], "E2EFDA")
+            for run in t0.rows[i].cells[1].paragraphs[0].runs:
+                run.bold = True
         p = doc.add_paragraph()
         p.add_run("Por qué no hay auditoría de semana. ").bold = True
         p.add_run(TEXTO_SALA_BOMBAS)
@@ -794,12 +855,12 @@ def _word_conjunto(
     )
     if icco_info:
         doc.add_paragraph(
-            "Colegio ICCO Renca no admite la misma auditoría: no se puede dejar una semana sin WES "
-            "sin vaciar el estanque. La comparación válida es la ventana 00:01–06:00 contra la noche "
-            "medida del domingo 16 (colegio cerrado, fuga pareja). "
-            f"Ahí WES evitó {format_number_chilean(icco_info['pct_t'], 1)} % de esa fuga "
-            f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³ en {icco_info['n_noches']} noches). "
-            f"Ese dato no se mezcla con el {format_number_chilean(pct_t, 1)} % de los 4 puntos."
+            "Colegio ICCO Renca: el dato más real para demostrar rendimiento son dos cifras juntas. "
+            f"Sobre lo que el WES controla (00:01–06:00): {format_number_chilean(icco_info['pct_t'], 1)} % "
+            f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³). "
+            f"Sobre el volumen del colegio: {format_number_chilean(icco_info['inc_pct'], 1)} % "
+            f"(domingo homólogo {format_number_chilean(icco_info['pct_dom'], 1)} %). "
+            "No se usa un porcentaje mezclado con los 4 puntos."
         )
     out_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_docx)
@@ -887,6 +948,7 @@ def main() -> int:
         f"  ICCO noche 00–06: testigo {icco_info['testigo_noche']:.1f} m³ | "
         f"Con {icco_info['tot_noche_con']:.1f} | testigo×noches {icco_info['tot_noche_sin']:.1f} | "
         f"{icco_info['pct_t']:.1f}% ({icco_info['ahorro_t']:.1f} m³) | "
+        f"incidencia volumen {icco_info['inc_pct']:.1f}% | "
         f"dom 9 vs 16 {icco_info['pct_dom']:.1f}%"
     )
 
@@ -913,8 +975,8 @@ def main() -> int:
     print("=" * 64)
     print(f"4 puntos Con {tot_c:.1f} | Sin {tot_s:.1f} | {pct:.1f}% ({ahorro:.1f} m³)")
     print(
-        f"ICCO anexo noche: {icco_info['pct_t']:.1f}% de la fuga 00–06 "
-        f"({icco_info['ahorro_t']:.1f} m³ en {icco_info['n_noches']} noches)"
+        f"ICCO a mostrar: control {icco_info['pct_t']:.1f}% ({icco_info['ahorro_t']:.1f} m³) | "
+        f"volumen colegio {icco_info['inc_pct']:.1f}% | dom homólogo {icco_info['pct_dom']:.1f}%"
     )
     print(f"DOCX conjunto: {docx_path}")
     print(f"PDF  conjunto: {pdf_path or '(no convertido)'}")
