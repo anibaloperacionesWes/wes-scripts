@@ -5267,12 +5267,54 @@ def convertir_word_a_pdf(word_path: Path) -> Optional[Path]:
         except Exception as e:
             print(f"[DEBUG] comtypes falló: {e}")
         
+        # Fallback Linux/Cloud: LibreOffice headless (soffice)
+        try:
+            import shutil
+            import subprocess
+
+            soffice = shutil.which("soffice") or shutil.which("libreoffice")
+            if soffice:
+                pdf_path = word_path.with_suffix(".pdf")
+                out_dir = word_path.parent
+                cmd = [
+                    soffice,
+                    "--headless",
+                    "--nologo",
+                    "--nolockcheck",
+                    "--nodefault",
+                    "--nofirststartwizard",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    str(out_dir),
+                    str(word_path.absolute()),
+                ]
+                print(f"[INFO] Convirtiendo a PDF con LibreOffice: {word_path.name}")
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                )
+                if pdf_path.exists():
+                    return pdf_path
+                print(
+                    f"[DEBUG] LibreOffice no generó PDF "
+                    f"(code={result.returncode}). "
+                    f"stderr={result.stderr[:500] if result.stderr else ''}"
+                )
+            else:
+                print("[DEBUG] soffice/libreoffice no está en PATH")
+        except Exception as e:
+            print(f"[DEBUG] LibreOffice falló: {e}")
+
         # Si ninguna librería está disponible, retornar None
         print("[ADVERTENCIA] No se encontró ninguna librería para convertir Word a PDF.")
         print("[INFO] Instala una de estas opciones:")
         print("  - pip install docx2pdf (requiere Microsoft Word)")
         print("  - pip install pywin32 (para win32com)")
         print("  - pip install comtypes (alternativa)")
+        print("  - apt install libreoffice-writer-nogui (Cloud/Linux)")
         
         return None
         
