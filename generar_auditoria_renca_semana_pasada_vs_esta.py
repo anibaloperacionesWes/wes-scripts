@@ -3,8 +3,8 @@ Informe de auditoría Renca — semana pasada (con WES) vs esta semana (sin WES)
 
 Semana pasada: lun 10/08/2026 (última semana con control).
 Esta semana: lun 17/08/2026 (sin WES desde el 17 en ICCP, Lo Velásquez, gimnasio y piscina).
-Colegio ICCO (000017-08): fuga pareja del domingo 16/08 montada en 00:01–06:00
-sobre cada día con WES (estanque sala de bombas; no se puede dejar una semana sin control).
+Colegio ICCO (000017-08): no hay semana homóloga sin WES (estanque sala de bombas).
+Se audita solo la ventana 00:01–06:00 contra la noche medida del domingo 16/08.
 
 Uso:
   python generar_auditoria_renca_semana_pasada_vs_esta.py
@@ -67,16 +67,14 @@ LUNES_CON = date(2026, 8, 10)
 LUNES_SIN = date(2026, 8, 17)
 HORAS_CONTROL_ICCO = frozenset(range(0, 6))  # 00:01–06:00 → horas 00..05
 TEXTO_SALA_BOMBAS = (
-    "En Colegio ICCO Renca (000017-08) no se puede dejar el punto sin control WES "
-    "durante una semana completa. Si se elimina el control, el estanque de la sala "
-    "de bombas se vacía y no es capaz de recuperarse; eso afectaría el funcionamiento "
-    "normal del colegio. El único día sin control fue el domingo 16/08/2026 (00:00–23:59). "
-    "Ese domingo no hubo clases: el caudal quedó parejo (~1,7 m³/h, ~40 m³/día). Esa es la "
-    "fuga / caudal base fuera de control. El WES en ICCO corta de 00:01 a 06:00; esa fuga "
-    "no desaparece el lunes: el día de clases es la fuga (sin tope nocturno) más el consumo "
-    "normal del colegio. Por eso no se compara el domingo 16 contra el total del lunes "
-    "(queda ‘disparado’ por ocupación). Se monta la fuga pareja en 00:00–05:59 sobre cada "
-    "día con WES y de 06:00 en adelante se deja el caudal medido de ese día."
+    "En Colegio ICCO Renca no se puede apagar el WES una semana: el estanque de la sala "
+    "de bombas se vacía y no se recupera, y el colegio no podría funcionar. El único día "
+    "medido sin control es el domingo 16/08/2026. Ese día no hubo clases y el caudal quedó "
+    "parejo (~1,7 m³/h, ~40 m³/día): esa es la fuga. El WES en este punto solo corta de "
+    "00:01 a 06:00. A esa hora el colegio está cerrado todos los días (lunes o domingo), "
+    "así que la noche del domingo 16 es un testigo válido para cada noche. No se audita el "
+    "día completo: de 06:00 en adelante hay clases y el WES no opera. Tampoco se mezcla con "
+    "los 4 puntos (allá sí hay semana homóloga sin control)."
 )
 WD_CORTO = ("Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom")
 WD_LARGO = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
@@ -216,28 +214,14 @@ def _icco_dias_a_comparar(hoy: date) -> List[date]:
     return out
 
 
-def _reconstruir_sin_icco(
-    vec_dia: Sequence[float],
-    vec_fuga: Sequence[float],
-    hora_corte: int,
-) -> Tuple[List[float], List[float]]:
-    """Sin WES = fuga pareja (dom 16) en 00:00–05:59 + caudal medido de 06:00 en adelante."""
+def _horas_noche_icco(hora_corte: int) -> List[int]:
+    """Horas 00–05 que ya cerraron (si el corte es antes de las 06:00, la noche va incompleta)."""
     h1 = 23 if hora_corte >= 23 else hora_corte
-    sin: List[float] = []
-    con: List[float] = []
-    for h in range(24):
-        if h > h1:
-            sin.append(0.0)
-            con.append(0.0)
-            continue
-        med = float(vec_dia[h])
-        fuga = float(vec_fuga[h])
-        con.append(med)
-        if h in HORAS_CONTROL_ICCO:
-            sin.append(max(fuga, med))
-        else:
-            sin.append(med)
-    return sin, con
+    return [h for h in sorted(HORAS_CONTROL_ICCO) if h <= h1]
+
+
+def _suma_noche_icco(vec: Sequence[float], hora_corte: int = 23) -> float:
+    return float(sum(float(vec[h]) for h in _horas_noche_icco(hora_corte)))
 
 
 def _preparar_icco(
@@ -253,99 +237,126 @@ def _preparar_icco(
         vecs[d] = _vector_m3h_24_desde_api(NODO_ICCO, d)
     v16 = vecs[DOMINGO_SIN_ICCO]
     m3_16_full = float(sum(v16))
+    v9 = vecs[DOMINGO_CON_ICCO]
+    m3_9 = float(sum(v9))
+    ahorro_dom, pct_dom = _rendimiento(m3_16_full, m3_9)
+    testigo_noche_full = _suma_noche_icco(v16, 23)
 
     filas: List[dict] = []
     for d in dias:
         v = vecs[d]
-        incompleto = d == hoy and hora_corte < 23
-        hc = hora_corte if incompleto else 23
-        sin_h, con_h = _reconstruir_sin_icco(v, v16, hc)
-        m3_con = float(sum(con_h))
-        m3_sin = float(sum(sin_h))
-        ahorro, pct = _rendimiento(m3_sin, m3_con)
-        noche_con = float(sum(con_h[h] for h in HORAS_CONTROL_ICCO if h <= hc))
-        noche_sin = float(sum(sin_h[h] for h in HORAS_CONTROL_ICCO if h <= hc))
+        incompleto = d == hoy and hora_corte < 5
+        hc = hora_corte if (d == hoy and hora_corte < 23) else 23
+        noche_con = _suma_noche_icco(v, hc if incompleto else 23)
+        noche_sin = _suma_noche_icco(v16, hc if incompleto else 23)
+        ahorro, pct = _rendimiento(noche_sin, noche_con)
         filas.append(
             {
                 "fecha": d,
                 "wd": WD_LARGO[d.weekday()],
-                "control": "Sin WES (fuga)" if d == DOMINGO_SIN_ICCO else "Con WES",
-                "m3_con": m3_con,
-                "m3_sin": m3_sin,
-                "ahorro": ahorro,
-                "pct": pct,
+                "control": "Testigo sin WES" if d == DOMINGO_SIN_ICCO else "Con WES",
                 "noche_con": noche_con,
                 "noche_sin": noche_sin,
+                "ahorro": ahorro,
+                "pct": pct,
+                "m3_dia": float(sum(v)) if not (d == hoy and hora_corte < 23) else _suma_hasta(v, hora_corte),
                 "incompleto": incompleto,
                 "hora_corte": hc,
-                "sin_h": sin_h,
-                "con_h": con_h,
+                "vec": v,
             }
         )
 
-    tot_con = float(sum(f["m3_con"] for f in filas if f["fecha"] != DOMINGO_SIN_ICCO))
-    tot_sin = float(sum(f["m3_sin"] for f in filas if f["fecha"] != DOMINGO_SIN_ICCO))
-    ahorro_t, pct_t = _rendimiento(tot_sin, tot_con)
-    v9 = vecs[DOMINGO_CON_ICCO]
-    m3_9 = float(sum(v9))
+    filas_wes = [f for f in filas if f["fecha"] != DOMINGO_SIN_ICCO]
+    tot_noche_con = float(sum(f["noche_con"] for f in filas_wes))
+    tot_noche_sin = float(sum(f["noche_sin"] for f in filas_wes))
+    ahorro_t, pct_t = _rendimiento(tot_noche_sin, tot_noche_con)
 
     png_dir.mkdir(parents=True, exist_ok=True)
-    png_barras = png_dir / "icco_fuga_mas_clases_vs_wes.png"
+    png_barras = png_dir / "icco_noche_00_06.png"
     labels = []
     con_vals = []
-    sin_vals = []
     for f in filas:
-        suf = f"\nhasta {f['hora_corte']:02d}:59" if f["incompleto"] else ""
+        suf = "\nincompleta" if f["incompleto"] else ""
         labels.append(f"{WD_CORTO[f['fecha'].weekday()]}\n{f['fecha']:%d/%m}{suf}")
-        con_vals.append(f["m3_con"])
-        sin_vals.append(f["m3_sin"])
-    fig, ax = plt.subplots(figsize=(12.8, 5.4))
+        con_vals.append(f["noche_con"])
+    fig, ax = plt.subplots(figsize=(12.8, 5.2))
     x = np.arange(len(labels))
-    w = 0.36
-    b1 = ax.bar(x - w / 2, con_vals, width=w, color=COLOR_WES, label="Medido con WES", zorder=2)
-    b2 = ax.bar(
-        x + w / 2,
-        sin_vals,
-        width=w,
+    colors = [COLOR_SIN if f["fecha"] == DOMINGO_SIN_ICCO else COLOR_WES for f in filas]
+    bars = ax.bar(x, con_vals, color=colors, zorder=2)
+    ax.axhline(
+        testigo_noche_full,
         color=COLOR_SIN,
-        label="Sin WES reconstruido (fuga 00–06 + clases)",
-        zorder=2,
+        linestyle="--",
+        linewidth=1.4,
+        label=f"Testigo dom 16 sin WES ({format_number_chilean(testigo_noche_full, 1)} m³ en 00:01–06:00)",
     )
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels, fontsize=7)
-    ax.set_ylabel("m³")
+    ax.set_ylabel("m³ en 00:01–06:00")
     ax.set_title(
-        "ICCO — fuga pareja del dom 16 montada en 00:01–06:00 sobre cada día",
+        "ICCO — auditoría válida: cada noche vs la noche medida del domingo 16",
         fontweight="bold",
         fontsize=12,
         color="#1F4788",
     )
     ax.grid(axis="y", alpha=0.3, zorder=0)
-    ax.legend(fontsize=8, loc="upper left")
-    ymax = max(con_vals + sin_vals + [1.0]) * 1.18
+    ax.legend(fontsize=8, loc="upper right")
+    ymax = max(con_vals + [testigo_noche_full, 1.0]) * 1.22
     ax.set_ylim(0, ymax)
+    for bar, v in zip(bars, con_vals):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + ymax * 0.015,
+            format_number_chilean(float(v), 1),
+            ha="center",
+            va="bottom",
+            fontsize=7,
+        )
     fig.tight_layout()
     fig.savefig(png_barras, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    png_perfil = png_dir / "icco_lunes_fuga_montada.png"
-    f_lun = next((f for f in filas if f["fecha"] == LUNES_CON), filas[1])
+    png_perfil = png_dir / "icco_perfil_testigo_y_control.png"
+    f_lun = next((f for f in filas if f["fecha"] == LUNES_CON), filas[0])
+    f_cero = next(
+        (f for f in filas if f["fecha"] != DOMINGO_SIN_ICCO and f["noche_con"] < 1.0),
+        None,
+    )
     fig, ax = plt.subplots(figsize=(12.2, 5.0))
     horas = list(range(24))
-    ax.plot(horas, v16, color="#C0504D", linewidth=1.5, linestyle=":", label="Fuga pareja (dom 16 sin control)")
-    ax.plot(horas, f_lun["con_h"], color=COLOR_WES, linewidth=2.2, label=f"Lun {LUNES_CON:%d/%m} medido con WES")
     ax.plot(
         horas,
-        f_lun["sin_h"],
+        v16,
         color=COLOR_SIN,
         linewidth=2.2,
-        label="Lunes sin WES reconstruido (fuga 00–06 + clases)",
+        label=f"Dom 16/08 sin WES, testigo ({format_number_chilean(m3_16_full, 1)} m³/día)",
     )
-    ax.axvspan(-0.5, 5.5, color="#FFF2CC", alpha=0.45, zorder=0)
+    ax.plot(
+        horas,
+        f_lun["vec"],
+        color=COLOR_WES,
+        linewidth=2.0,
+        label=f"Lun {LUNES_CON:%d/%m} con WES (día de clases)",
+    )
+    if f_cero is not None:
+        ax.plot(
+            horas,
+            f_cero["vec"],
+            color="#548235",
+            linewidth=2.0,
+            linestyle="--",
+            label=f"{WD_CORTO[f_cero['fecha'].weekday()]} {f_cero['fecha']:%d/%m} con WES (noche en 0)",
+        )
+    ax.axvspan(-0.5, 5.5, color="#FFF2CC", alpha=0.5, zorder=0)
     ax.set_xticks(list(range(0, 24, 2)))
-    ax.set_xlabel("Hora Chile (sombreado = control WES 00:01–06:00)")
+    ax.set_xlabel("Hora Chile (sombreado = única ventana que se audita: 00:01–06:00)")
     ax.set_ylabel("m³/h")
-    ax.set_title("ICCO — el lunes no pierde la fuga: se monta sobre el consumo de clases", fontweight="bold", color="#1F4788")
+    ax.set_title(
+        "ICCO — de día hay clases (no se compara con el domingo). De noche el colegio está cerrado.",
+        fontweight="bold",
+        color="#1F4788",
+        fontsize=11,
+    )
     ax.grid(axis="y", alpha=0.3)
     ax.legend(fontsize=8, loc="upper left")
     ax.set_ylim(bottom=0)
@@ -361,17 +372,16 @@ def _preparar_icco(
     )
     wb = Workbook()
     ws = wb.active
-    ws.title = "ICCO_fuga_mas_clases"
+    ws.title = "ICCO_noche_0001_0600"
     headers = [
         "Fecha",
         "Día",
         "Control",
-        "Con WES (m³)",
-        "Sin WES reconstruido (m³)",
-        "Ahorro (m³)",
-        "Rendimiento %",
-        "Noche 00–06 con WES",
-        "Noche 00–06 sin WES (fuga)",
+        "Noche 00:01–06:00 medido (m³)",
+        "Noche testigo dom 16 (m³)",
+        "Ahorro noche (m³)",
+        "Rendimiento noche %",
+        "Día completo (m³, no se audita)",
         "Notas",
     ]
     head_font = XlFont(bold=True, color="FFFFFF", name="Calibri")
@@ -385,19 +395,23 @@ def _preparar_icco(
         c.alignment = Alignment(wrap_text=True, horizontal="center")
         c.border = thin
     for r, f in enumerate(filas, start=2):
-        nota = "Fuga pareja (sin clases)" if f["fecha"] == DOMINGO_SIN_ICCO else "Fuga 00:01–06:00 + consumo del día"
+        if f["fecha"] == DOMINGO_SIN_ICCO:
+            nota = "Testigo: colegio cerrado, sin WES, fuga pareja"
+        elif f["fecha"] == DOMINGO_CON_ICCO:
+            nota = "Domingo homólogo con WES (también sin clases)"
+        else:
+            nota = "Colegio cerrado 00:01–06:00; se compara solo esa ventana"
         if f["incompleto"]:
-            nota += f"; hasta {f['hora_corte']:02d}:59 Chile"
+            nota += f"; noche incompleta hasta {f['hora_corte']:02d}:59"
         vals = [
             f["fecha"].strftime("%d/%m/%Y"),
             f["wd"],
             f["control"],
-            round(f["m3_con"], 2),
-            round(f["m3_sin"], 2),
-            round(f["ahorro"], 2),
-            round(f["pct"], 1),
             round(f["noche_con"], 2),
             round(f["noche_sin"], 2),
+            round(f["ahorro"], 2),
+            round(f["pct"], 1),
+            round(f["m3_dia"], 2),
             nota,
         ]
         fill = fill_sin if f["fecha"] == DOMINGO_SIN_ICCO else fill_con
@@ -406,26 +420,35 @@ def _preparar_icco(
             c.border = thin
             c.fill = fill
     rr = 2 + len(filas)
-    ws.cell(rr, 1, "TOTAL (sin el dom 16)").font = XlFont(bold=True)
-    ws.cell(rr, 4, round(tot_con, 2)).font = XlFont(bold=True)
-    ws.cell(rr, 5, round(tot_sin, 2)).font = XlFont(bold=True)
+    ws.cell(rr, 1, "TOTAL noches con WES").font = XlFont(bold=True)
+    ws.cell(rr, 4, round(tot_noche_con, 2)).font = XlFont(bold=True)
+    ws.cell(rr, 5, round(tot_noche_sin, 2)).font = XlFont(bold=True)
     ws.cell(rr, 6, round(ahorro_t, 2)).font = XlFont(bold=True)
     ws.cell(rr, 7, round(pct_t, 1)).font = XlFont(bold=True)
     ws2 = wb.create_sheet("Criterio")
-    ws2["A1"] = "Sala de bombas"
+    ws2["A1"] = "Por qué no hay auditoría de semana"
     ws2["A1"].font = XlFont(bold=True)
     ws2["B1"] = TEXTO_SALA_BOMBAS
-    ws2["A2"] = "Método"
+    ws2["A2"] = "Qué sí es válido"
     ws2["A2"].font = XlFont(bold=True)
     ws2["B2"] = (
-        "Control WES 00:01–06:00. Sin WES reconstruido = max(fuga dom 16, medido) en horas 00–05 "
-        "y caudal medido de 06:00 a 23:59. El ahorro es la fuga nocturna que el lunes no desaparece."
+        "Comparar solo 00:01–06:00. Testigo = noche medida del domingo 16 (sin WES, colegio cerrado). "
+        "Cada otra noche se mide contra ese testigo. El % es sobre la fuga nocturna, no sobre el día de clases. "
+        f"Chequeo homólogo de día completo (ambos sin clases): dom 09 {m3_9:.1f} m³ vs dom 16 {m3_16_full:.1f} m³ "
+        f"→ {pct_dom:.1f} % ({ahorro_dom:.1f} m³). Ese 5 % es la noche diluida en 24 h de fuga; no es el KPI."
     )
-    ws2.column_dimensions["A"].width = 24
+    ws2["A3"] = "Qué no se hace"
+    ws2["A3"].font = XlFont(bold=True)
+    ws2["B3"] = (
+        "No se compara el domingo de 40 m³ contra el lunes de clases. "
+        "No se reconstruye un día sin WES sumando fuga + clases. "
+        "No se mezcla ICCO en el % de los 4 puntos (allá sí hay semana sin control)."
+    )
+    ws2.column_dimensions["A"].width = 28
     ws2.column_dimensions["B"].width = 110
-    for col in range(1, 11):
-        ws.column_dimensions[get_column_letter(col)].width = 16
-    ws.column_dimensions["J"].width = 48
+    for col in range(1, 10):
+        ws.column_dimensions[get_column_letter(col)].width = 18
+    ws.column_dimensions["I"].width = 52
     xlsx_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(xlsx_path)
 
@@ -433,10 +456,14 @@ def _preparar_icco(
         "filas": filas,
         "m3_16": m3_16_full,
         "m3_9": m3_9,
-        "tot_con": tot_con,
-        "tot_sin": tot_sin,
+        "ahorro_dom": ahorro_dom,
+        "pct_dom": pct_dom,
+        "testigo_noche": testigo_noche_full,
+        "tot_noche_con": tot_noche_con,
+        "tot_noche_sin": tot_noche_sin,
         "ahorro_t": ahorro_t,
         "pct_t": pct_t,
+        "n_noches": len(filas_wes),
         "png_barras": png_barras,
         "png_perfil": png_perfil,
         "xlsx": xlsx_path,
@@ -530,7 +557,7 @@ def _word_conjunto(
     except Exception:
         pass
 
-    h = doc.add_heading("Informe de Auditoría — Renca (5 puntos)", level=0)
+    h = doc.add_heading("Informe de Auditoría — Renca (4 puntos + anexo ICCO)", level=0)
     if h.runs:
         h.runs[0].font.color.rgb = COLOR_HEAD
     p = doc.add_paragraph()
@@ -553,8 +580,8 @@ def _word_conjunto(
         "(lun 17 vs lun 10, mar 18 vs mar 11, mié 19 vs mié 12, jue 20 vs jue 13, vie 21 vs vie 14). "
         "Ahorro = (Sin WES − Con WES) / Sin WES × 100. Tarifa de referencia 1.300 CLP/m³. "
         "Sin WES desde el lunes 17/08/2026 en ICCP, Lo Velásquez, gimnasio y piscina. "
-        "Colegio ICCO Renca se trata aparte: solo estuvo sin control el domingo 16/08 "
-        "(estanque de la sala de bombas)."
+        "Colegio ICCO Renca no entra en este total: no hay semana sin control "
+        "(estanque de la sala de bombas). Se audita aparte, solo 00:01–06:00."
     )
 
     doc.add_heading("1. ICCP, Lo Velásquez, gimnasio y piscina", level=1)
@@ -566,16 +593,12 @@ def _word_conjunto(
     ahorro_t, pct_t = _rendimiento(tot_sin, tot_con)
     extra_tot = ""
     if icco_info:
-        g_con = tot_con + icco_info["tot_con"]
-        g_sin = tot_sin + icco_info["tot_sin"]
-        g_ah, g_pct = _rendimiento(g_sin, g_con)
         extra_tot = (
-            f" ICCO no es el 5 % de un domingo: la fuga de 00:01–06:00 se monta sobre cada día "
-            f"con WES y suma {format_number_chilean(icco_info['ahorro_t'], 1)} m³ "
-            f"(~{format_number_chilean(max(0.0, icco_info['ahorro_t']) * TARIFA_CLP_M3, 0)} CLP). "
-            f"Ahorro conjunto 5 puntos: {format_number_chilean(g_ah, 1)} m³. "
-            f"El % conjunto ({format_number_chilean(g_pct, 1)} %) baja respecto de los 4 puntos "
-            f"porque ICCO aporta mucho volumen de clases; el WES ahí solo corta de noche."
+            f" ICCO no se suma a este porcentaje (sería mezclar dos auditorías distintas). "
+            f"Anexo: en {icco_info['n_noches']} noches con WES se ahorraron "
+            f"{format_number_chilean(icco_info['ahorro_t'], 1)} m³ de la fuga de 00:01–06:00 "
+            f"({format_number_chilean(icco_info['pct_t'], 1)} % de esa ventana; "
+            f"testigo domingo 16 = {format_number_chilean(icco_info['testigo_noche'], 1)} m³/noche)."
         )
     doc.add_paragraph(
         f"4 puntos: Con WES {format_number_chilean(tot_con, 1)} m³; "
@@ -586,7 +609,7 @@ def _word_conjunto(
         + extra_tot
     )
 
-    n_extra = 3 if icco_info else 1  # subtotal 4 + ICCO + total 5
+    n_extra = 1
     tbl = doc.add_table(rows=1 + len(PUNTOS) + n_extra, cols=6)
     tbl.style = "Table Grid"
     headers = ["Punto", "Con WES (m³)", "Sin WES (m³)", "Ahorro (m³)", "%", "Hallazgo"]
@@ -634,43 +657,6 @@ def _word_conjunto(
             run.bold = True
             run.font.size = Pt(9)
 
-    if icco_info:
-        row = tbl.rows[2 + len(PUNTOS)]
-        a_i, p_i = icco_info["ahorro_t"], icco_info["pct_t"]
-        vals = [
-            "ICCO (fuga 00–06 + clases)",
-            format_number_chilean(icco_info["tot_con"], 1),
-            format_number_chilean(icco_info["tot_sin"], 1),
-            format_number_chilean(a_i, 1),
-            format_number_chilean(p_i, 1) + " %",
-            "Estanque sala bombas",
-        ]
-        for j, v in enumerate(vals):
-            row.cells[j].text = v
-            _set_cell_shading(row.cells[j], "F8CBAD")
-            for run in row.cells[j].paragraphs[0].runs:
-                run.bold = True
-                run.font.size = Pt(9)
-        g_con = tot_con + icco_info["tot_con"]
-        g_sin = tot_sin + icco_info["tot_sin"]
-        g_ah, g_pct = _rendimiento(g_sin, g_con)
-        row = tbl.rows[3 + len(PUNTOS)]
-        vals = [
-            "Total 5 puntos",
-            format_number_chilean(g_con, 1),
-            format_number_chilean(g_sin, 1),
-            format_number_chilean(g_ah, 1),
-            format_number_chilean(g_pct, 1) + " %",
-            "",
-        ]
-        for j, v in enumerate(vals):
-            row.cells[j].text = v
-            _set_cell_shading(row.cells[j], "1F4788")
-            for run in row.cells[j].paragraphs[0].runs:
-                run.bold = True
-                run.font.color.rgb = RGBColor(255, 255, 255)
-                run.font.size = Pt(9)
-
     nomb_d: List[str] = []
     for i, (d1, d2) in enumerate(zip(dias_con, dias_sin)):
         extra = f" ({horas})" if i == len(dias_con) - 1 and hora_corte < 23 else ""
@@ -710,43 +696,52 @@ def _word_conjunto(
                     run.font.size = Pt(9)
 
     if icco_info:
-        doc.add_heading("2. Quinto punto: Colegio ICCO Renca (000017-08)", level=1)
+        doc.add_heading("2. Anexo: Colegio ICCO Renca — ventana 00:01–06:00", level=1)
         p = doc.add_paragraph()
-        p.add_run("Sala de bombas. ").bold = True
+        p.add_run("Por qué no hay auditoría de semana. ").bold = True
         p.add_run(TEXTO_SALA_BOMBAS)
+        p = doc.add_paragraph()
+        p.add_run("Qué sí es válido. ").bold = True
+        p.add_run(
+            "Misma ocupación (colegio cerrado), misma ventana que el WES controla, "
+            "y un testigo medido (noche del domingo 16, no reconstruido). "
+            "Ahorro = testigo nocturno − medido nocturno. "
+            "El porcentaje es sobre la fuga de esas 6 horas, no sobre el día de clases. "
+            "El domingo 9 vs domingo 16 (ambos sin clases) es el único par homólogo de día completo; "
+            "ese ~5 % es la noche diluida en 24 h de fuga, no el KPI."
+        )
         if icco_info.get("png_barras") and Path(icco_info["png_barras"]).is_file():
             doc.add_picture(str(icco_info["png_barras"]), width=Cm(16.2))
         if icco_info.get("png_perfil") and Path(icco_info["png_perfil"]).is_file():
             doc.add_paragraph("")
             doc.add_picture(str(icco_info["png_perfil"]), width=Cm(16.2))
         p = doc.add_paragraph()
-        p.add_run("Rendimiento totalizado (fuga montada en 00:01–06:00). ").bold = True
+        p.add_run("Resultado de la ventana de control. ").bold = True
         p.add_run(
-            f"En los días con WES (sin contar el domingo 16) el medido es "
-            f"{format_number_chilean(icco_info['tot_con'], 1)} m³ y el sin control reconstruido "
-            f"{format_number_chilean(icco_info['tot_sin'], 1)} m³ → "
-            f"{format_number_chilean(icco_info['pct_t'], 1)} % "
+            f"Testigo domingo 16: {format_number_chilean(icco_info['testigo_noche'], 1)} m³ entre 00:01 y 06:00 "
+            f"(fuga pareja; el día completo fue {format_number_chilean(icco_info['m3_16'], 1)} m³). "
+            f"En {icco_info['n_noches']} noches con WES se midieron "
+            f"{format_number_chilean(icco_info['tot_noche_con'], 1)} m³ contra "
+            f"{format_number_chilean(icco_info['tot_noche_sin'], 1)} m³ de testigo → "
+            f"{format_number_chilean(icco_info['pct_t'], 1)} % de la fuga nocturna "
             f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³; "
             f"~{format_number_chilean(max(0.0, icco_info['ahorro_t']) * TARIFA_CLP_M3, 0)} CLP). "
-            "Ese ahorro es la fuga nocturna: el lunes no deja de existir; se suma al consumo de clases. "
-            "Por eso los lunes a viernes ya no se ven ‘disparados’: la barra sin WES es el día de clases "
-            "más la fuga de 00:01–06:00, no los 40 m³ del domingo sin colegio. "
-            "El 5 % del domingo vs domingo solo ve un día sin clases (~2 m³); "
-            "montando la noche en todos los días con WES el volumen es mayor."
+            f"Chequeo homólogo domingo vs domingo: {format_number_chilean(icco_info['m3_9'], 1)} m³ "
+            f"con WES vs {format_number_chilean(icco_info['m3_16'], 1)} m³ sin WES → "
+            f"{format_number_chilean(icco_info['pct_dom'], 1)} % "
+            f"({format_number_chilean(icco_info['ahorro_dom'], 1)} m³)."
         )
         filas = icco_info["filas"]
-        t3 = doc.add_table(rows=1 + len(filas), cols=8)
+        t3 = doc.add_table(rows=1 + len(filas), cols=6)
         t3.style = "Table Grid"
         for j, hd in enumerate(
             [
-                "Día",
+                "Noche",
                 "Control",
-                "Con WES (m³)",
-                "Sin reconstruido (m³)",
+                "Medido 00:01–06:00 (m³)",
+                "Testigo dom 16 (m³)",
                 "Ahorro (m³)",
-                "%",
-                "Noche 00–06 con",
-                "Noche 00–06 sin (fuga)",
+                "% de la fuga nocturna",
             ]
         ):
             cell = t3.rows[0].cells[j]
@@ -757,16 +752,14 @@ def _word_conjunto(
                 run.font.color.rgb = RGBColor(255, 255, 255)
                 run.font.size = Pt(9)
         for i, f in enumerate(filas, start=1):
-            extra = f" hasta {f['hora_corte']:02d}:59" if f["incompleto"] else ""
+            extra = " (incompleta)" if f["incompleto"] else ""
             vals = [
                 f"{f['wd']} {f['fecha']:%d/%m}{extra}",
                 f["control"],
-                format_number_chilean(f["m3_con"], 1),
-                format_number_chilean(f["m3_sin"], 1),
-                format_number_chilean(f["ahorro"], 1),
-                format_number_chilean(f["pct"], 1) + " %",
                 format_number_chilean(f["noche_con"], 1),
                 format_number_chilean(f["noche_sin"], 1),
+                format_number_chilean(f["ahorro"], 1),
+                format_number_chilean(f["pct"], 1) + " %",
             ]
             for j, v in enumerate(vals):
                 t3.rows[i].cells[j].text = v
@@ -776,6 +769,9 @@ def _word_conjunto(
                 for c in t3.rows[i].cells:
                     _set_cell_shading(c, "F8CBAD")
             elif f["fecha"] == DOMINGO_CON_ICCO:
+                for c in t3.rows[i].cells:
+                    _set_cell_shading(c, "E2EFDA")
+            elif f["pct"] >= 50:
                 for c in t3.rows[i].cells:
                     _set_cell_shading(c, "E2EFDA")
 
@@ -798,15 +794,12 @@ def _word_conjunto(
     )
     if icco_info:
         doc.add_paragraph(
-            "En Colegio ICCO Renca el sin control no se puede repetir una semana: "
-            "el estanque de la sala de bombas se vacía y no se recupera. "
-            "El domingo 16 muestra la fuga pareja (~40 m³/día). Esa fuga no desaparece el lunes: "
-            "se monta en 00:01–06:00 sobre el consumo de clases. "
-            f"Rendimiento ICCO así reconstruido: {format_number_chilean(icco_info['pct_t'], 1)} % "
-            f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³), ya incluido en el total de 5 puntos. "
-            "El porcentaje de ICCO se parece al 5 % del domingo porque de día el colegio ya gasta "
-            "50–77 m³; lo que WES corta es la noche (~10 m³ de fuga). El volumen sí es mayor que "
-            "los ~2 m³ de un solo domingo."
+            "Colegio ICCO Renca no admite la misma auditoría: no se puede dejar una semana sin WES "
+            "sin vaciar el estanque. La comparación válida es la ventana 00:01–06:00 contra la noche "
+            "medida del domingo 16 (colegio cerrado, fuga pareja). "
+            f"Ahí WES evitó {format_number_chilean(icco_info['pct_t'], 1)} % de esa fuga "
+            f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³ en {icco_info['n_noches']} noches). "
+            f"Ese dato no se mezcla con el {format_number_chilean(pct_t, 1)} % de los 4 puntos."
         )
     out_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_docx)
@@ -834,7 +827,7 @@ def main() -> int:
         f"Auditoría Renca | {lab_con} vs {lab_sin} | "
         f"último día hasta {hora_corte:02d}:59 Chile | {ahora:%Y-%m-%d %H:%M}"
     )
-    print("Quinto punto: ICCO 000017-08 — único sin control: domingo 16/08 (sala de bombas)")
+    print("Anexo ICCO 000017-08 — solo ventana 00:01–06:00 vs domingo 16 (testigo medido)")
 
     gxlsx.LABEL_P1 = lab_con
     gxlsx.LABEL_P2 = lab_sin
@@ -888,12 +881,13 @@ def main() -> int:
         ahora.date(),
         hora_corte,
         png_dir,
-        icco_dir / "ICCO_fuga_mas_clases.xlsx",
+        icco_dir / "ICCO_ventana_0001_0600.xlsx",
     )
     print(
-        f"  ICCO reconstruido: Con {icco_info['tot_con']:.1f} m³ | "
-        f"Sin {icco_info['tot_sin']:.1f} m³ | {icco_info['pct_t']:.1f}% ({icco_info['ahorro_t']:.1f} m³) "
-        f"| fuga dom 16 {icco_info['m3_16']:.1f} m³"
+        f"  ICCO noche 00–06: testigo {icco_info['testigo_noche']:.1f} m³ | "
+        f"Con {icco_info['tot_noche_con']:.1f} | testigo×noches {icco_info['tot_noche_sin']:.1f} | "
+        f"{icco_info['pct_t']:.1f}% ({icco_info['ahorro_t']:.1f} m³) | "
+        f"dom 9 vs 16 {icco_info['pct_dom']:.1f}%"
     )
 
     docx_path = out_root / f"Informe_Auditoria_Renca_semana_pasada_vs_esta_{ts}.docx"
@@ -916,13 +910,11 @@ def main() -> int:
     tot_c = sum(m3_con.values())
     tot_s = sum(m3_sin.values())
     ahorro, pct = _rendimiento(tot_s, tot_c)
-    g_con = tot_c + icco_info["tot_con"]
-    g_sin = tot_s + icco_info["tot_sin"]
-    g_ah, g_pct = _rendimiento(g_sin, g_con)
     print("=" * 64)
     print(f"4 puntos Con {tot_c:.1f} | Sin {tot_s:.1f} | {pct:.1f}% ({ahorro:.1f} m³)")
     print(
-        f"5 puntos +ICCO Con {g_con:.1f} | Sin {g_sin:.1f} | {g_pct:.1f}% ({g_ah:.1f} m³)"
+        f"ICCO anexo noche: {icco_info['pct_t']:.1f}% de la fuga 00–06 "
+        f"({icco_info['ahorro_t']:.1f} m³ en {icco_info['n_noches']} noches)"
     )
     print(f"DOCX conjunto: {docx_path}")
     print(f"PDF  conjunto: {pdf_path or '(no convertido)'}")
