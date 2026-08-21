@@ -1,12 +1,9 @@
-FIX — abrir Y plegar checklist
-===============================
+Botón CERRAR visible (azul) dentro del checklist
+================================================
 
-Ahora podés CERRAR de 3 formas:
-1) Botón grande «✕ Cerrar checklist» (aparece al abrir)
-2) Botón «Cerrar» arriba a la derecha del panel
-3) En el menú: opción «✕ Cerrar checklist»
+Al abrir CIR/CPA/SAB vas a ver:
+- Botón azul arriba: «Cerrar checklist CIR»
+- Botón gris abajo: «Cerrar checklist CIR»
 
-TXT:
-https://drive.google.com/file/d/1Ihg4lOgmk83x70U-004PnTU8Wxba8yEP/view?usp=drivesdk
-
-Pegá en Formulario → Nueva versión → reabrí el link.
+TXT: https://drive.google.com/file/d/1rX6hdzGsP9CDeJQ0khOTtPCPbjorvlvy/view?usp=drivesdk
+Pegá Formulario completo → Nueva versión → reabrí el link.
