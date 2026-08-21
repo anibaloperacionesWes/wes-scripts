@@ -135,7 +135,39 @@
     .check-item:last-child { border-bottom: 0; }
     .check-item .name { font-size: 0.92rem; }
     .check-item select { background: var(--amber); }
-    /* Slot bajo Tecnologías: vacío = no ocupa espacio */
+    .build-tag {
+      display: inline-block;
+      margin: 6px 0 0;
+      padding: 2px 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #0b3a66;
+      background: #e8f1fb;
+      border: 1px solid #b7cce3;
+      border-radius: 6px;
+    }
+    #checklist_actions:empty { display: none !important; }
+    #checklist_actions:not(:empty) {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .chk-toggle {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .chk-toggle.open {
+      background: var(--sky);
+      border-color: var(--blue-2);
+    }
     #checklist_slot:empty { display: none !important; }
     #checklist_slot:not(:empty) {
       margin-top: 10px;
@@ -284,7 +316,9 @@
         <div class="chips" id="motivos"></div>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <p class="note" id="fold_status" style="margin:8px 0 0">Sin tecnología marcada → no hay checklist.</p>
+        <div class="build-tag" id="form_build">WES·build 21h</div>
+        <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
+        <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
       </section>
 
@@ -385,12 +419,16 @@
     const state = { catalogos: null, dirty: false, contactos: {} };
 
     /**
-     * Checklist: paneles viven en un DocumentFragment (NO en la página).
-     * Solo se insertan bajo Tecnologías si hay CIR/CPA/SAB/On-Off marcado.
-     * Así al abrir el link, sin tecnología, no se ve ningún checklist.
+     * Checklist desplegable (NO se abre solo):
+     * 1) Sin tecnología CIR/CPA/SAB/On-Off → sin botones ni paneles.
+     * 2) Con tecnología → aparecen botones cerrados.
+     * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
+     * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
+    var FORM_BUILD = "WES·build 21h";
     var checklistHold = document.createDocumentFragment();
     var checklistUI = { cir: null, cpa: null, sab: null };
+    var checklistOpen = { cir: false, cpa: false, sab: false };
 
     function buildChecklistUI() {
       if (checklistUI.cir) return;
@@ -410,7 +448,7 @@
         panel.appendChild(h3);
         panel.appendChild(list);
         checklistHold.appendChild(panel);
-        checklistUI[key] = { panel: panel, list: list, count: count };
+        checklistUI[key] = { panel: panel, list: list, count: count, label: label, filled: false };
       }
       one("cir", "CIR");
       one("cpa", "CPA");
@@ -423,51 +461,105 @@
       return ui ? ui.list : null;
     }
 
-    function syncChecklistsPorTecnologia() {
+    function ensureChecklistFilled(prefix) {
       buildChecklistUI();
+      var ui = checklistUI[prefix];
+      if (!ui || ui.filled) return;
+      var op = (state.catalogos && state.catalogos.opciones) || {};
+      checklist(ui.list, prefix, op[prefix] || [], op.estados_checklist);
+      ui.filled = true;
+    }
+
+    function parkAllChecklists() {
+      buildChecklistUI();
+      var slot = document.getElementById("checklist_slot");
+      checklistHold.appendChild(checklistUI.cir.panel);
+      checklistHold.appendChild(checklistUI.cpa.panel);
+      checklistHold.appendChild(checklistUI.sab.panel);
+      if (slot) {
+        // por si quedó basura: slot debe quedar vacío cuando nada está open
+        while (slot.firstChild) checklistHold.appendChild(slot.firstChild);
+      }
+    }
+
+    function mountOpenChecklists() {
+      var slot = document.getElementById("checklist_slot");
+      if (!slot) return;
+      parkAllChecklists();
+      ["cir", "cpa", "sab"].forEach(function (key) {
+        if (checklistOpen[key]) {
+          ensureChecklistFilled(key);
+          slot.appendChild(checklistUI[key].panel);
+        }
+      });
+    }
+
+    function setChecklistOpen(key, open) {
+      checklistOpen[key] = !!open;
+      mountOpenChecklists();
+      syncChecklistButtons();
+    }
+
+    function neededTechs() {
       var techs = selectedChips("tecnologia").map(function (t) {
         return String(t || "").toUpperCase();
       });
-      var needCir = false;
-      var needCpa = false;
-      var needSab = false;
+      var need = { cir: false, cpa: false, sab: false };
       var i;
       for (i = 0; i < techs.length; i++) {
         var t = techs[i];
         if (t.indexOf("ON/OFF") >= 0 || t.indexOf("ON / OFF") >= 0 || t === "ONOFF" || t.indexOf("ON-OFF") >= 0) {
-          needCir = true;
-          needCpa = true;
+          need.cir = true;
+          need.cpa = true;
           continue;
         }
-        if (t.indexOf("CIR") >= 0) needCir = true;
-        if (t.indexOf("CPA") >= 0) needCpa = true;
-        if (t.indexOf("SAB") >= 0) needSab = true;
+        if (t.indexOf("CIR") >= 0) need.cir = true;
+        if (t.indexOf("CPA") >= 0) need.cpa = true;
+        if (t.indexOf("SAB") >= 0) need.sab = true;
       }
+      return need;
+    }
 
-      var slot = document.getElementById("checklist_slot");
-      if (!slot) return;
-
-      // Fuera de la página (fragment = invisible)
-      checklistHold.appendChild(checklistUI.cir.panel);
-      checklistHold.appendChild(checklistUI.cpa.panel);
-      checklistHold.appendChild(checklistUI.sab.panel);
-
-      if (needCir) slot.appendChild(checklistUI.cir.panel);
-      if (needCpa) slot.appendChild(checklistUI.cpa.panel);
-      if (needSab) slot.appendChild(checklistUI.sab.panel);
-
+    function syncChecklistButtons() {
+      var actions = document.getElementById("checklist_actions");
       var st = document.getElementById("fold_status");
-      if (st) {
-        if (!(needCir || needCpa || needSab)) {
-          st.textContent = "Sin tecnología CIR/CPA/SAB/On-Off → sin checklist.";
-        } else {
-          var parts = [];
-          if (needCir) parts.push("CIR");
-          if (needCpa) parts.push("CPA");
-          if (needSab) parts.push("SAB");
-          st.textContent = "Checklist: " + parts.join(" + ") + ". Desmarcá la tecnología para ocultarlo.";
-        }
+      if (!actions) return;
+      var need = neededTechs();
+      // Si ya no aplica, forzar cerrado
+      ["cir", "cpa", "sab"].forEach(function (key) {
+        if (!need[key]) checklistOpen[key] = false;
+      });
+      actions.innerHTML = "";
+      var anyNeed = need.cir || need.cpa || need.sab;
+      if (!anyNeed) {
+        mountOpenChecklists();
+        if (st) st.textContent = "Sin CIR/CPA/SAB/On-Off → sin checklist.";
+        return;
       }
+      function addBtn(key) {
+        var ui = checklistUI[key];
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chk-toggle" + (checklistOpen[key] ? " open" : "");
+        btn.textContent = (checklistOpen[key] ? "▾ Cerrar " : "▸ Abrir ") + "checklist " + ui.label;
+        btn.addEventListener("click", function () {
+          setChecklistOpen(key, !checklistOpen[key]);
+        });
+        actions.appendChild(btn);
+      }
+      buildChecklistUI();
+      if (need.cir) addBtn("cir");
+      if (need.cpa) addBtn("cpa");
+      if (need.sab) addBtn("sab");
+      mountOpenChecklists();
+      if (st) {
+        st.textContent = "Tocá ▸ Abrir para desplegar el checklist (no se abre solo).";
+      }
+    }
+
+    function syncChecklistsPorTecnologia() {
+      // Al cambiar tecnología: botones sí/no; paneles SOLO si el usuario los abrió.
+      syncChecklistButtons();
     }
     window.syncChecklistsPorTecnologia = syncChecklistsPorTecnologia;
 
@@ -903,15 +995,16 @@
       chips(document.getElementById("motivos"), "motivo", c.opciones.motivos, true);
       chips(document.getElementById("tecnologias"), "tecnologia", c.opciones.tecnologias, true);
       try {
-        const op = (c && c.opciones) || {};
-        buildChecklistUI();
-        checklist(checklistUI.cir.list, "cir", op.cir || [], op.estados_checklist);
-        checklist(checklistUI.cpa.list, "cpa", op.cpa || [], op.estados_checklist);
-        checklist(checklistUI.sab.list, "sab", op.sab || [], op.estados_checklist);
-        syncChecklistsPorTecnologia(); // sin tech → slot vacío, paneles fuera del DOM
+        // No montar paneles al abrir: solo sync (botones si hay tech; cerrado por defecto).
+        checklistOpen.cir = false;
+        checklistOpen.cpa = false;
+        checklistOpen.sab = false;
+        syncChecklistsPorTecnologia();
+        var buildEl = document.getElementById("form_build");
+        if (buildEl) buildEl.textContent = FORM_BUILD;
       } catch (eCheck) {
         const st = document.getElementById("fold_status");
-        if (st) st.textContent = "Error cargando ítems: " + eCheck;
+        if (st) st.textContent = "Error checklist: " + eCheck;
       }
       document.getElementById("fecha").value = todayISO();
       const now = new Date();

@@ -1,21 +1,31 @@
-Sin checklist al abrir (arreglo)
-================================
+Checklist NO se abre solo — build 21h
+=====================================
 
-Problema: al abrir el link se veía el checklist aunque Tecnología no tuviera nada.
-Causa: los paneles seguían en la página (Apps Script no respeta ocultarlos).
+Cambio: al abrir el formulario NO hay checklist.
+Solo si marcás CIR / CPA / SAB / On-Off aparecen botones:
+  ▸ Abrir checklist CIR
+  ▸ Abrir checklist CPA
+Tocás → se despliega. Tocás de nuevo → se cierra.
 
-Ahora: los checklists NO existen en la página hasta que marques CIR / CPA / SAB / On-Off.
-Al abrir → Tecnología vacía → sin checklist.
+Cómo saber que pegaste bien:
+Debajo de Tecnologías debe verse la etiqueta:  WES·build 21h
+Si NO la ves → sigue la versión vieja (no se actualizó).
 
-TXT para pegar (completo):
+TXT completo para pegar:
 https://drive.google.com/file/d/1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C/view?usp=drivesdk
 
-Pasos OBLIGATORIOS (si no hacés Nueva versión, seguís viendo lo viejo):
-1) Abrí el TXT → Seleccionar todo → Copiar
-2) Apps Script → Formulario → borrar TODO → Pegar → Guardar
+IMPORTANTE: abrí el TXT en Bloc de notas / Visor de texto.
+NO lo abras con Google Docs (rompe el código).
+
+Pasos:
+1) Apps Script → Formulario → Ctrl+A → Supr
+2) Pegá TODO el TXT → Ctrl+S
 3) Implementar → Administrar implementaciones → el /exec oficial
    → lápiz → Versión: Nueva versión → Implementar
-4) Cerrá el formulario y abrí de nuevo el link (Ctrl+Shift+R)
+4) Cerrá el formulario y abrí de nuevo (Ctrl+Shift+R)
 
-Probar: abrir sin tocar nada → NO debe haber checklist.
-Marcá CIR → aparece bajo Tecnologías. Desmarcá → desaparece.
+Probar:
+- Abrir sin tocar → sin checklist, sí se ve WES·build 21h
+- Marcar CIR → botón ▸ Abrir (todavía cerrado)
+- Tocar el botón → se despliega
+- Tocar Cerrar → se pliega
