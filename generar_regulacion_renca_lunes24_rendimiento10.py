@@ -16,6 +16,7 @@ Uso:
 
 from __future__ import annotations
 
+import argparse
 import statistics
 import subprocess
 import shutil
@@ -56,11 +57,15 @@ COLOR_100 = "#548235"
 COLOR_60 = "#BF8F00"
 COLOR_30 = "#C0504D"
 
-PUNTOS: Tuple[Tuple[str, str], ...] = (
+PUNTOS_TODOS: Tuple[Tuple[str, str], ...] = (
     ("000017-07", "ICCP (Cumbre de Cóndores pte.)"),
     ("000017-04", "Esc. Lo Velásquez"),
     ("000017-05", "Gimnasio municipal"),
     ("000017-06", "Piscina municipal"),
+)
+PUNTOS_ESCUELA_GIMNASIO: Tuple[Tuple[str, str], ...] = (
+    ("000017-04", "Esc. Lo Velásquez"),
+    ("000017-05", "Gimnasio municipal"),
 )
 DIAS_SIN = (date(2026, 8, 17), date(2026, 8, 18), date(2026, 8, 19), date(2026, 8, 20))
 LUNES_CONTROL = date(2026, 8, 24)
@@ -196,7 +201,12 @@ def _plan_para_perfil(sin_h: List[float]) -> dict:
     }
 
 
-def _excel(path: Path, planes_lun: Dict[str, dict], planes_tipo: Dict[str, dict]) -> None:
+def _excel(
+    path: Path,
+    puntos: Sequence[Tuple[str, str]],
+    planes_lun: Dict[str, dict],
+    planes_tipo: Dict[str, dict],
+) -> None:
     wb = Workbook()
     thin = Border(
         left=Side(style="thin", color="B0B0B0"),
@@ -238,7 +248,7 @@ def _excel(path: Path, planes_lun: Dict[str, dict], planes_tipo: Dict[str, dict]
         ],
     )
     r = 2
-    for nid, nom in PUNTOS:
+    for nid, nom in puntos:
         for etiqueta, plan in (("Lunes 24 (base lun 17)", planes_lun[nid]), ("Día tipo lun–jue (mediana)", planes_tipo[nid])):
             n = plan["niveles"]
             ws.cell(r, 1, nom)
@@ -264,12 +274,12 @@ def _excel(path: Path, planes_lun: Dict[str, dict], planes_tipo: Dict[str, dict]
         ws2,
         1,
         ["Hora"]
-        + [f"{nom} % / m³/h / L·min" for _, nom in PUNTOS],
+        + [f"{nom} % / m³/h / L·min" for _, nom in puntos],
     )
     # Better: one block per point
     ws2.delete_rows(1)
     col = 1
-    for nid, nom in PUNTOS:
+    for nid, nom in puntos:
         plan = planes_lun[nid]
         ws2.cell(1, col, nom).font = head
         ws2.cell(1, col).fill = fill_h
@@ -292,7 +302,7 @@ def _excel(path: Path, planes_lun: Dict[str, dict], planes_tipo: Dict[str, dict]
 
     ws3 = wb.create_sheet("Horario_dia_tipo")
     col = 1
-    for nid, nom in PUNTOS:
+    for nid, nom in puntos:
         plan = planes_tipo[nid]
         ws3.cell(1, col, nom).font = head
         ws3.cell(1, col).fill = fill_h
@@ -318,7 +328,7 @@ def _excel(path: Path, planes_lun: Dict[str, dict], planes_tipo: Dict[str, dict]
         ("Objetivo", f"{OBJETIVO_PCT:.0f} % de rendimiento vs sin WES (consumo esperado = {FACTOR_OBJ:.0%} de la línea base)."),
         ("Inicio control", "Lunes 24/08/2026"),
         ("Línea base", "Sin WES 17–20/08/2026 (hora Chile). Lunes 24 usa el perfil del lunes 17."),
-        ("Día tipo", "Mediana hora a hora de lun–jue 17–20 (el miércoles anómalo de ICCP no arrastra el máximo)."),
+        ("Día tipo", "Mediana hora a hora de lun–jue 17–20 (sin WES)."),
         ("100 %", "Caudal máximo a programar (m³/h). Es el tope de las horas pico."),
         ("60 % / 30 %", "0,60 y 0,30 de ese mismo 100 %."),
         ("Semáforo", f"vs pico del perfil: ≥{RATIO_100:.0%} → 100 %; {RATIO_60:.0%}–{RATIO_100:.0%} → 60 %; <{RATIO_60:.0%} o ~0 → 30 %."),
@@ -340,6 +350,7 @@ def _excel(path: Path, planes_lun: Dict[str, dict], planes_tipo: Dict[str, dict]
 
 def _word(
     path: Path,
+    puntos: Sequence[Tuple[str, str]],
     hora_corte: int,
     pngs: Dict[str, Path],
     planes_lun: Dict[str, dict],
@@ -352,7 +363,10 @@ def _word(
         add_logo_to_header(doc)
     except Exception:
         pass
-    h = doc.add_heading("Renca — regulación para el lunes 24/08 (10 % de rendimiento)", level=0)
+    tit = "Renca — regulación lunes 24/08 (10 %)"
+    if len(puntos) == 2:
+        tit = "Lo Velásquez y Gimnasio — regulación lunes 24/08 (10 %)"
+    h = doc.add_heading(tit, level=0)
     if h.runs:
         h.runs[0].font.color.rgb = COLOR_HEAD
     p = doc.add_paragraph()
@@ -370,7 +384,7 @@ def _word(
         "3) El 60 % y el 30 % salen solos: son 0,60 y 0,30 del mismo 100 %."
     )
 
-    tbl = doc.add_table(rows=1 + len(PUNTOS), cols=7)
+    tbl = doc.add_table(rows=1 + len(puntos), cols=7)
     tbl.style = "Table Grid"
     headers = ["Punto", "100 % m³/h", "60 % m³/h", "30 % m³/h", "100 % L/min", "Σ día (m³)", "Rend. %"]
     for j, hd in enumerate(headers):
@@ -381,7 +395,7 @@ def _word(
             run.bold = True
             run.font.color.rgb = RGBColor(255, 255, 255)
             run.font.size = Pt(9)
-    for i, (nid, nom) in enumerate(PUNTOS, start=1):
+    for i, (nid, nom) in enumerate(puntos, start=1):
         pl = planes_lun[nid]
         vals = [
             nom,
@@ -405,7 +419,7 @@ def _word(
         "La hoja «día tipo» del Excel usa la mediana lun–jue por si el miércoles 19 de ICCP no se quiere repetir."
     )
 
-    for nid, nom in PUNTOS:
+    for nid, nom in puntos:
         pl = planes_lun[nid]
         doc.add_heading(nom, level=1)
         doc.add_paragraph(
@@ -445,27 +459,34 @@ def _word(
 
     doc.add_heading("Notas", level=1)
     doc.add_paragraph(
-        "La piscina en 17–19 ago estuvo casi plana (~56–58 m³/día). Si el perfil es plano, "
-        "casi todas las horas quedan en 100 % y el 10 % sale bajando el caudal máximo "
-        "(100 % ≈ 90 % del m³/h medido). ICCP no: el miércoles 19 duplicó; el lunes 24 "
-        "usa el lunes 17, no ese pico."
-    )
-    doc.add_paragraph(
-        "Escuela y gimnasio en 17–20 gastaron menos que la semana con WES. Ahí el 10 % "
-        "es un tope suave para no dispararlos al reactivar control, no un recorte agresivo."
+        "En 17–20 ago, escuela y gimnasio gastaron menos que la semana previa con WES. "
+        "El 10 % es un tope suave para no dispararlos al reactivar control, no un recorte agresivo. "
+        "El gimnasio venía bajando día a día: el lunes 24 usa el lunes 17 (el más alto de esos cuatro días)."
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(path)
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description="Regulación Renca lunes 24 — 10 % de rendimiento")
+    ap.add_argument(
+        "--solo-escuela-gimnasio",
+        action="store_true",
+        help="Solo Esc. Lo Velásquez y Gimnasio municipal.",
+    )
+    args = ap.parse_args()
+    puntos: Sequence[Tuple[str, str]] = (
+        PUNTOS_ESCUELA_GIMNASIO if args.solo_escuela_gimnasio else PUNTOS_TODOS
+    )
+
     ahora = datetime.now(TZ_CL)
     hora_corte = max(0, min(23, ahora.hour - 1)) if ahora.date() == date(2026, 8, 20) else 23
     if ahora.date() > date(2026, 8, 20):
         hora_corte = 23
     print(f"Chile {ahora:%Y-%m-%d %H:%M} | jueves 20 hasta {hora_corte:02d}:59")
+    print("Puntos:", ", ".join(n for _, n in puntos))
 
-    jobs = [(nid, d) for nid, _ in PUNTOS for d in DIAS_SIN]
+    jobs = [(nid, d) for nid, _ in puntos for d in DIAS_SIN]
     vecs: Dict[Tuple[str, date], List[float]] = {}
 
     def _job(item: Tuple[str, date]) -> Tuple[Tuple[str, date], List[float]]:
@@ -486,7 +507,7 @@ def main() -> int:
 
     planes_lun: Dict[str, dict] = {}
     planes_tipo: Dict[str, dict] = {}
-    for nid, nom in PUNTOS:
+    for nid, nom in puntos:
         lun = vecs[(nid, date(2026, 8, 17))]
         tipo_src = [vecs[(nid, d)] for d in DIAS_SIN]
         tipo = _vector_mediana(tipo_src)
@@ -501,11 +522,12 @@ def main() -> int:
         )
 
     ts = ahora.strftime("%Y%m%d_%H%M")
-    out_dir = ROOT / "reports" / "reporte de auditoria" / f"regulacion_renca_lunes24_rend10_{ts}"
+    suf = "escuela_gimnasio_" if args.solo_escuela_gimnasio else ""
+    out_dir = ROOT / "reports" / "reporte de auditoria" / f"regulacion_renca_{suf}lunes24_rend10_{ts}"
     png_dir = out_dir / "graficos"
     png_dir.mkdir(parents=True, exist_ok=True)
     pngs: Dict[str, Path] = {}
-    for nid, nom in PUNTOS:
+    for nid, nom in puntos:
         p = png_dir / f"lunes24_{nid}.png"
         pl = planes_lun[nid]
         _grafico_dia(
@@ -517,10 +539,11 @@ def main() -> int:
         )
         pngs[f"lun_{nid}"] = p
 
-    xlsx = out_dir / "Regulacion_Renca_lunes24_rendimiento10.xlsx"
-    _excel(xlsx, planes_lun, planes_tipo)
-    docx = out_dir / f"Regulacion_Renca_lunes24_rendimiento10_{ts}.docx"
-    _word(docx, hora_corte, pngs, planes_lun, planes_tipo)
+    stem = "Regulacion_LoVelasquez_Gimnasio_lunes24_rendimiento10" if args.solo_escuela_gimnasio else "Regulacion_Renca_lunes24_rendimiento10"
+    xlsx = out_dir / f"{stem}.xlsx"
+    _excel(xlsx, puntos, planes_lun, planes_tipo)
+    docx = out_dir / f"{stem}_{ts}.docx"
+    _word(docx, puntos, hora_corte, pngs, planes_lun, planes_tipo)
     pdf = _pdf(docx)
     print(f"XLSX {xlsx}")
     print(f"DOCX {docx}")
