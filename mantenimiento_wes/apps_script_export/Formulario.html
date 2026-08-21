@@ -135,30 +135,19 @@
     .check-item:last-child { border-bottom: 0; }
     .check-item .name { font-size: 0.92rem; }
     .check-item select { background: var(--amber); }
-    .acc-list { display: grid; gap: 8px; }
-    .acc {
+    .check-panel {
       border: 1px solid var(--line);
       border-radius: 14px;
-      background: #fbfcfe;
-      overflow: hidden;
-    }
-    .acc-toggle {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-align: left;
       background: #fff;
-      color: var(--blue);
-      border: 0;
-      border-radius: 0;
-      box-shadow: none;
-      font-weight: 750;
-      padding: 14px 14px;
+      padding: 12px;
+      margin-top: 10px;
     }
-    .acc.is-open { background: #fff; }
-    .acc.is-open .acc-toggle { background: #eef5fb; }
-    .acc-toggle .fold-count {
+    .check-panel h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      color: var(--blue);
+    }
+    .check-panel .fold-count {
       font-size: 0.75rem;
       font-weight: 700;
       color: #5b738a;
@@ -166,16 +155,7 @@
       border: 1px solid var(--line);
       border-radius: 999px;
       padding: 3px 8px;
-    }
-    .acc-chevron {
-      margin-left: auto;
-      font-size: 0.85rem;
-      color: var(--blue-2);
-      font-weight: 800;
-    }
-    .acc-body {
-      padding: 4px 12px 12px;
-      border-top: 1px dashed #d9e4ef;
+      margin-left: 6px;
     }
     @media (max-width: 640px) {
       .check-item { grid-template-columns: 1fr; gap: 6px; }
@@ -330,36 +310,23 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="bloqueChecklists" hidden style="display:none">
         <h2>Checklists</h2>
-        <p class="note" style="margin:0 0 10px">
-          Empiezan <b>cerrados</b>. Tocá el título para desplegar abajo; tocá de nuevo para plegar.
-          No se abren solos.
+        <p class="note" id="fold_status" style="margin:0 0 8px">
+          Se muestran solo según la tecnología elegida arriba (CIR / CPA / SAB).
         </p>
-        <div class="acc-list" id="acc_list">
-          <div class="acc" id="acc_cir">
-            <button type="button" class="acc-toggle" id="tog_cir" data-key="cir">
-              <span>Checklist CIR</span>
-              <span class="fold-count" id="cir_count">0 ítems</span>
-              <span class="acc-chevron" id="chev_cir">▸</span>
-            </button>
-          </div>
-          <div class="acc" id="acc_cpa">
-            <button type="button" class="acc-toggle" id="tog_cpa" data-key="cpa">
-              <span>Checklist CPA</span>
-              <span class="fold-count" id="cpa_count">0 ítems</span>
-              <span class="acc-chevron" id="chev_cpa">▸</span>
-            </button>
-          </div>
-          <div class="acc" id="acc_sab">
-            <button type="button" class="acc-toggle" id="tog_sab" data-key="sab">
-              <span>Checklist SAB</span>
-              <span class="fold-count" id="sab_count">0 ítems</span>
-              <span class="acc-chevron" id="chev_sab">▸</span>
-            </button>
-          </div>
+        <div class="check-panel" id="panel_cir" hidden style="display:none">
+          <h3>Checklist CIR <span class="fold-count" id="cir_count">0 ítems</span></h3>
+          <div id="cir_list"></div>
         </div>
-        <p class="note" id="fold_status" style="margin:10px 0 0">Los 3 están plegados.</p>
+        <div class="check-panel" id="panel_cpa" hidden style="display:none">
+          <h3>Checklist CPA <span class="fold-count" id="cpa_count">0 ítems</span></h3>
+          <div id="cpa_list"></div>
+        </div>
+        <div class="check-panel" id="panel_sab" hidden style="display:none">
+          <h3>Checklist SAB <span class="fold-count" id="sab_count">0 ítems</span></h3>
+          <div id="sab_list"></div>
+        </div>
       </section>
 
       <section class="card">
@@ -425,130 +392,56 @@
     const state = { catalogos: null, dirty: false, contactos: {} };
 
     /**
-     * Acordeón: solo títulos visibles.
-     * El contenido se saca del DOM al plegar → no puede "desplegarse solo".
-     * Tocá el título = abrir abajo; tocá de nuevo = plegar.
+     * Checklists solo cuando hacen falta:
+     * - Si marcás CIR / CPA / SAB (o "CPA y CIR") en Tecnologías → aparece esa lista
+     * - Si no (ej. solo On/Off) → el bloque entero queda oculto
      */
-    var checklistOpen = { cir: false, cpa: false, sab: false };
-    var checklistStash = { cir: null, cpa: null, sab: null };
-
-    function setAccChevron(key, open) {
-      var chev = document.getElementById("chev_" + key);
-      var acc = document.getElementById("acc_" + key);
-      var tog = document.getElementById("tog_" + key);
-      if (chev) chev.textContent = open ? "▾" : "▸";
-      if (acc) {
-        if (open) acc.classList.add("is-open");
-        else acc.classList.remove("is-open");
+    function setElVisible(el, show) {
+      if (!el) return;
+      if (show) {
+        el.removeAttribute("hidden");
+        el.style.display = "";
+      } else {
+        el.setAttribute("hidden", "hidden");
+        el.style.display = "none";
       }
-      if (tog) tog.setAttribute("aria-expanded", open ? "true" : "false");
     }
 
-    function updateFoldStatus() {
+    function syncChecklistsPorTecnologia() {
+      var techs = selectedChips("tecnologia").map(function (t) {
+        return String(t || "").toUpperCase();
+      });
+      var needCir = false;
+      var needCpa = false;
+      var needSab = false;
+      var i;
+      for (i = 0; i < techs.length; i++) {
+        var t = techs[i];
+        if (t.indexOf("CIR") >= 0) needCir = true;
+        if (t.indexOf("CPA") >= 0) needCpa = true;
+        if (t.indexOf("SAB") >= 0) needSab = true;
+      }
+      var needAny = needCir || needCpa || needSab;
+
+      setElVisible(document.getElementById("bloqueChecklists"), needAny);
+      setElVisible(document.getElementById("panel_cir"), needCir);
+      setElVisible(document.getElementById("panel_cpa"), needCpa);
+      setElVisible(document.getElementById("panel_sab"), needSab);
+
       var st = document.getElementById("fold_status");
-      if (!st) return;
-      var openOnes = [];
-      if (checklistOpen.cir) openOnes.push("CIR");
-      if (checklistOpen.cpa) openOnes.push("CPA");
-      if (checklistOpen.sab) openOnes.push("SAB");
-      st.textContent = openOnes.length
-        ? "Abierto: " + openOnes.join(", ") + ". Tocá el título otra vez para plegar."
-        : "Los 3 están plegados. Tocá un título para desplegar abajo.";
-    }
-
-    function plegarChecklist(key) {
-      var body = document.getElementById(key + "_body");
-      if (body && body.parentNode) {
-        checklistStash[key] = body;
-        body.parentNode.removeChild(body);
-      }
-      checklistOpen[key] = false;
-      setAccChevron(key, false);
-      updateFoldStatus();
-    }
-
-    function desplegarChecklist(key) {
-      var acc = document.getElementById("acc_" + key);
-      var body = checklistStash[key] || document.getElementById(key + "_body");
-      if (!acc || !body) return;
-      if (body.parentNode === acc) {
-        checklistOpen[key] = true;
-        setAccChevron(key, true);
-        updateFoldStatus();
-        return;
-      }
-      if (body.parentNode) body.parentNode.removeChild(body);
-      acc.appendChild(body);
-      checklistStash[key] = null;
-      checklistOpen[key] = true;
-      setAccChevron(key, true);
-      updateFoldStatus();
-    }
-
-    function toggleChecklist(key) {
-      key = String(key || "").toLowerCase();
-      if (key !== "cir" && key !== "cpa" && key !== "sab") return false;
-      if (checklistOpen[key]) plegarChecklist(key);
-      else desplegarChecklist(key);
-      return false;
-    }
-    window.toggleChecklist = toggleChecklist;
-
-    function ensureChecklistBodies() {
-      var keys = ["cir", "cpa", "sab"];
-      var i;
-      for (i = 0; i < keys.length; i++) {
-        var key = keys[i];
-        var body = document.getElementById(key + "_body");
-        if (!body) {
-          body = document.createElement("div");
-          body.className = "acc-body";
-          body.id = key + "_body";
-          var list = document.createElement("div");
-          list.id = key + "_list";
-          body.appendChild(list);
-        } else if (!document.getElementById(key + "_list")) {
-          var list2 = document.createElement("div");
-          list2.id = key + "_list";
-          body.appendChild(list2);
+      if (st) {
+        if (!needAny) {
+          st.textContent = "Sin checklist: no hay CIR/CPA/SAB en tecnologías.";
+        } else {
+          var parts = [];
+          if (needCir) parts.push("CIR");
+          if (needCpa) parts.push("CPA");
+          if (needSab) parts.push("SAB");
+          st.textContent = "Checklist activo: " + parts.join(" + ") + " (según tecnologías).";
         }
-        if (body.parentNode) body.parentNode.removeChild(body);
-        checklistStash[key] = body;
-        checklistOpen[key] = false;
-        setAccChevron(key, false);
       }
     }
-
-    function wireAccordionToggles() {
-      var keys = ["cir", "cpa", "sab"];
-      var i;
-      for (i = 0; i < keys.length; i++) {
-        (function (key) {
-          var btn = document.getElementById("tog_" + key);
-          if (!btn) return;
-          btn.onclick = function (ev) {
-            if (ev) {
-              ev.preventDefault();
-              ev.stopPropagation();
-            }
-            toggleChecklist(key);
-            return false;
-          };
-        })(keys[i]);
-      }
-      updateFoldStatus();
-    }
-
-    (function initAccordionEarly() {
-      function run() {
-        ensureChecklistBodies();
-        wireAccordionToggles();
-      }
-      run();
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", run);
-      }
-    })();
+    window.syncChecklistsPorTecnologia = syncChecklistsPorTecnologia;
 
     async function loadCatalogos() {
       // Respaldo embebido; luego refresca desde CONTACTOS_ENVIOS_ACTAS (vivo)
@@ -823,36 +716,17 @@
             container.querySelectorAll(".chip").forEach((c) => c.classList.remove("on"));
             if (inp.checked) lab.classList.add("on");
           }
+          if (name === "tecnologia") syncChecklistsPorTecnologia();
         });
         lab.appendChild(inp);
         lab.appendChild(document.createTextNode(" " + opt));
         container.appendChild(lab);
       }
+      if (name === "tecnologia") syncChecklistsPorTecnologia();
     }
 
     function checklist(container, prefix, items, estados) {
-      if (!container) {
-        var body = checklistStash[prefix] || document.getElementById(prefix + "_body");
-        if (body) {
-          container = body.querySelector("#" + prefix + "_list");
-          if (!container) {
-            var kids = body.children;
-            for (var ci = 0; ci < kids.length; ci++) {
-              if (kids[ci].id === prefix + "_list") {
-                container = kids[ci];
-                break;
-              }
-            }
-          }
-        }
-        if (!container) container = document.getElementById(prefix + "_list");
-        if (!container && body) {
-          container = document.createElement("div");
-          container.id = prefix + "_list";
-          body.appendChild(container);
-          checklistStash[prefix] = body;
-        }
-      }
+      if (!container) container = document.getElementById(prefix + "_list");
       if (!container) return;
       container.innerHTML = "";
       items = items || [];
@@ -861,9 +735,9 @@
         var item = items[i];
         var row = document.createElement("div");
         row.className = "check-item";
-        var name = document.createElement("div");
-        name.className = "name";
-        name.textContent = item;
+        var nameEl = document.createElement("div");
+        nameEl.className = "name";
+        nameEl.textContent = item;
         var sel = document.createElement("select");
         sel.setAttribute("data-key", item);
         sel.setAttribute("data-prefix", prefix);
@@ -879,7 +753,7 @@
         obs.placeholder = "Obs. / medición";
         obs.setAttribute("data-obs-for", item);
         obs.setAttribute("data-prefix", prefix);
-        row.appendChild(name);
+        row.appendChild(nameEl);
         row.appendChild(sel);
         row.appendChild(obs);
         container.appendChild(row);
@@ -889,14 +763,6 @@
         var n = items.length;
         countEl.textContent = n + (n === 1 ? " ítem" : " ítems");
       }
-      // Mantener plegado: el body sigue en stash, no en pantalla
-      var bodyKeep = container.parentNode;
-      if (bodyKeep && bodyKeep.id === prefix + "_body") {
-        if (bodyKeep.parentNode) bodyKeep.parentNode.removeChild(bodyKeep);
-        checklistStash[prefix] = bodyKeep;
-        checklistOpen[prefix] = false;
-        setAccChevron(prefix, false);
-      }
     }
 
     function selectedChips(name) {
@@ -905,10 +771,7 @@
 
     function collectChecklist(prefix) {
       const out = [];
-      let root = document.getElementById(prefix + "_list");
-      if (!root && checklistStash[prefix]) {
-        root = checklistStash[prefix].querySelector("#" + prefix + "_list") || checklistStash[prefix].firstChild;
-      }
+      const root = document.getElementById(prefix + "_list");
       if (!root) return out;
       root.querySelectorAll('select[data-prefix="' + prefix + '"]').forEach((sel) => {
         const key = sel.getAttribute("data-key") || "";
@@ -1011,17 +874,11 @@
       chips(document.getElementById("motivos"), "motivo", c.opciones.motivos, true);
       chips(document.getElementById("tecnologias"), "tecnologia", c.opciones.tecnologias, true);
       try {
-        ensureChecklistBodies();
         const op = (c && c.opciones) || {};
-        checklist(null, "cir", op.cir || [], op.estados_checklist);
-        checklist(null, "cpa", op.cpa || [], op.estados_checklist);
-        checklist(null, "sab", op.sab || [], op.estados_checklist);
-        // Forzar plegado: nada abierto al cargar
-        plegarChecklist("cir");
-        plegarChecklist("cpa");
-        plegarChecklist("sab");
-        wireAccordionToggles();
-        updateFoldStatus();
+        checklist(document.getElementById("cir_list"), "cir", op.cir || [], op.estados_checklist);
+        checklist(document.getElementById("cpa_list"), "cpa", op.cpa || [], op.estados_checklist);
+        checklist(document.getElementById("sab_list"), "sab", op.sab || [], op.estados_checklist);
+        syncChecklistsPorTecnologia();
       } catch (eCheck) {
         const st = document.getElementById("fold_status");
         if (st) st.textContent = "Error cargando ítems: " + eCheck;

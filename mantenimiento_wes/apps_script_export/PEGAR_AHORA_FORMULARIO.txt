@@ -1,13 +1,13 @@
-Acordeón checklist (lo que pedías)
-====================================
+Checklist solo cuando hace falta
+=================================
 
-Qué vas a ver:
-- Solo 3 títulos: Checklist CIR / CPA / SAB (cerrados, con ▸)
-- Tocás un título → se DESPLIEGA abajo
-- Tocás de nuevo → se PLIEGA
-- NO se abre solo al cargar
+Cambio de enfoque (sin acordeón):
 
-El contenido no está en pantalla hasta que tocás (por eso no «se despliega sola»).
+- Si en Tecnologías marcás CIR / CPA / SAB (o «CPA y CIR») → aparece ese checklist
+- Si no (ej. solo On/Off) → el bloque Checklists NO se muestra
 
-TXT: https://drive.google.com/file/d/1hoUnMze5f0RtJpQxOsdDBetsdY-iWVgS/view?usp=drivesdk
-Pegá Formulario completo → Nueva versión → reabrí el link.
+Así el checklist está solo cuando es necesario.
+
+TXT: https://drive.google.com/file/d/1hoVP4QfemQMAQTjHBz3B5HV_qnUtKuMT/view?usp=drivesdk
+Pegá Formulario → Nueva versión → reabrí el link.
+Probar: sin CIR/CPA/SAB no debe verse el bloque; marcá CIR y aparece solo CIR.
