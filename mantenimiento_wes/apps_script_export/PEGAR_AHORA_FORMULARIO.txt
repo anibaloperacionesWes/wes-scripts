@@ -1,16 +1,13 @@
-FIX checklists — menú + botones (sin confiar en display:none)
-=============================================================
+Menú DESPLEGABLE de checklists
+================================
 
-TXT (pegá desde acá):
-https://drive.google.com/file/d/1JxgQuYpgp6Eaq_dVfGKqIVCqfS40Lg4u/view?usp=drivesdk
+Cómo funciona:
+1) Tocás el menú grande «▾ Cerrado — tocá para elegir»
+2) Se abre el desplegable nativo del celular
+3) Elegís CIR / CPA / SAB → se muestra ese checklist
+4) Elegís «Cerrado» → se oculta
 
-1) Descargar TXT → Bloc de notas → Ctrl+A → Ctrl+C
-2) Apps Script → Formulario → borrar TODO → pegar → Guardar
-3) Nueva versión del /exec
-4) Recargar el formulario (cerrar pestaña y abrir de nuevo)
+Pegá este TXT en Formulario (bloc de notas):
+https://drive.google.com/file/d/10mHbPUjueN6CohISkGVy73Z07mpCoMcL/view?usp=drivesdk
 
-Debés ver:
-- Menú «Ver checklist»: ocultos / CIR / CPA / SAB
-- Botones Abrir CIR / Abrir CPA / Abrir SAB
-- Texto de estado debajo del menú
-- Al abrir uno, los otros se ocultan de verdad (salen del DOM)
+Guardar → Nueva versión del /exec → recargar pestaña.
