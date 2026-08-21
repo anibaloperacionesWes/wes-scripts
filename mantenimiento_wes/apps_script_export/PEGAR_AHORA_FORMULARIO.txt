@@ -1,31 +1,54 @@
-Checklist NO se abre solo — build 21h
-=====================================
+NO VES WES-build → el formulario NO se actualizó
+=================================================
 
-Cambio: al abrir el formulario NO hay checklist.
-Solo si marcás CIR / CPA / SAB / On-Off aparecen botones:
-  ▸ Abrir checklist CIR
-  ▸ Abrir checklist CPA
-Tocás → se despliega. Tocás de nuevo → se cierra.
+El TXT en Drive SÍ tiene el cambio.
+Si no ves la etiqueta debajo de Tecnología, Apps Script
+sigue con la versión vieja (el pegado no entró o no
+hiciste "Nueva versión").
 
-Cómo saber que pegaste bien:
-Debajo de Tecnologías debe verse la etiqueta:  WES·build 21h
-Si NO la ves → sigue la versión vieja (no se actualizó).
+En iPhone el pegado de 45.000 caracteres casi siempre falla.
+Hacelo desde un PC (3–5 min).
 
-TXT completo para pegar:
-https://drive.google.com/file/d/1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C/view?usp=drivesdk
+--------------------------------------------
+OPCIÓN A — Pegar desde PC (Bloc de notas)
+--------------------------------------------
+1) En el PC abrí este link y DESCARGÁ el archivo
+   (icono ↓ / Descargar; NO "Abrir con Google Docs"):
+   https://drive.google.com/file/d/1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C/view?usp=drivesdk
 
-IMPORTANTE: abrí el TXT en Bloc de notas / Visor de texto.
-NO lo abras con Google Docs (rompe el código).
+2) Abrí el .txt con Bloc de notas → Ctrl+A → Ctrl+C
 
-Pasos:
-1) Apps Script → Formulario → Ctrl+A → Supr
-2) Pegá TODO el TXT → Ctrl+S
-3) Implementar → Administrar implementaciones → el /exec oficial
-   → lápiz → Versión: Nueva versión → Implementar
-4) Cerrá el formulario y abrí de nuevo (Ctrl+Shift+R)
+3) Abrí el proyecto Apps Script:
+   https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
 
-Probar:
-- Abrir sin tocar → sin checklist, sí se ve WES·build 21h
-- Marcar CIR → botón ▸ Abrir (todavía cerrado)
-- Tocar el botón → se despliega
-- Tocar Cerrar → se pliega
+4) Izquierda: archivo "Formulario" (HTML)
+   → Ctrl+A → Supr → Ctrl+V → Ctrl+S (Guardar)
+   → Buscar (Ctrl+F): WES-build-21i
+   → Tiene que aparecer. Si no, el pegado falló: repetí.
+
+5) Arriba derecha: Implementar → Administrar implementaciones
+   → En la implementación del link /exec oficial → lápiz (editar)
+   → Versión: "Nueva versión"
+   → Implementar
+   (NO crees "Nueva implementación": eso cambia el link)
+
+6) Cerrá el formulario, abrí de nuevo:
+   https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+   Ctrl+Shift+R
+
+7) Debajo de "Tecnología instalada" debe verse: WES-build-21i
+
+--------------------------------------------
+OPCIÓN B — clasp (si tenés Node en el PC)
+--------------------------------------------
+En la carpeta del repo:
+  cd mantenimiento_wes/apps_script_export
+  npx @google/clasp login
+  npx @google/clasp push
+Luego en Apps Script: Administrar implementaciones →
+Nueva versión del /exec (igual que el paso 5).
+
+--------------------------------------------
+Si después de esto TODAVÍA no ves WES-build-21i,
+mandame captura de Apps Script → Formulario con la
+búsqueda WES-build-21i (si sale 0 resultados = no pegó).
