@@ -154,10 +154,7 @@
       border-radius: 14px;
       background: #fff;
       padding: 12px;
-      min-height: 0;
-    }
-    .checklist-panel.is-empty {
-      display: none;
+      margin-top: 10px;
     }
     .checklist-panel .fold-head {
       display: flex;
@@ -176,10 +173,6 @@
       border: 1px solid var(--line);
       border-radius: 999px;
       padding: 3px 8px;
-    }
-    .check-fold .fold-body,
-    .checklist-panel .fold-body {
-      margin-top: 0;
     }
     @media (max-width: 640px) {
       .check-item { grid-template-columns: 1fr; gap: 6px; }
@@ -337,18 +330,42 @@
       <section class="card">
         <h2>Checklists</h2>
         <div class="checklist-select-wrap">
-          <label for="checklist_picker">Menú desplegable · elegí qué checklist ver</label>
-          <select id="checklist_picker" class="checklist-select">
+          <label for="checklist_picker">Menú desplegable · elegí CIR, CPA o SAB</label>
+          <select
+            id="checklist_picker"
+            class="checklist-select"
+            onchange="mostrarChecklist(this.value)"
+          >
             <option value="">▾ Cerrado — tocá para elegir</option>
             <option value="cir">Checklist CIR</option>
             <option value="cpa">Checklist CPA</option>
             <option value="sab">Checklist SAB</option>
           </select>
         </div>
-        <p class="note" id="fold_status" style="margin:0 0 10px">Cerrado. Abrí el menú de arriba y elegí CIR, CPA o SAB.</p>
-        <div id="checklist_panel" class="checklist-panel is-empty"></div>
-        <!-- Contenedores ocultos: se llenan en JS y se muestran según el menú -->
-        <div id="check_folds_root" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true"></div>
+        <p class="note" id="fold_status" style="margin:0 0 4px">
+          Cerrado. Abrí el menú de arriba.
+        </p>
+        <div id="panel_cir" class="checklist-panel" style="display:none" hidden>
+          <div class="fold-head">
+            <span>Checklist CIR</span>
+            <span class="fold-count" id="cir_count">0 ítems</span>
+          </div>
+          <div id="cir_list"></div>
+        </div>
+        <div id="panel_cpa" class="checklist-panel" style="display:none" hidden>
+          <div class="fold-head">
+            <span>Checklist CPA</span>
+            <span class="fold-count" id="cpa_count">0 ítems</span>
+          </div>
+          <div id="cpa_list"></div>
+        </div>
+        <div id="panel_sab" class="checklist-panel" style="display:none" hidden>
+          <div class="fold-head">
+            <span>Checklist SAB</span>
+            <span class="fold-count" id="sab_count">0 ítems</span>
+          </div>
+          <div id="sab_list"></div>
+        </div>
       </section>
 
       <section class="card">
@@ -412,6 +429,48 @@
     <script>
     const CATALOGOS = <?!= CATALOGOS_JSON ?>;
     const state = { catalogos: null, dirty: false, contactos: {} };
+
+    /** Menú checklist: función GLOBAL (para onchange= del select). No depende de boot(). */
+    function mostrarChecklist(v) {
+      v = String(v || "");
+      var keys = ["cir", "cpa", "sab"];
+      var i;
+      for (i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var panel = document.getElementById("panel_" + k);
+        if (!panel) continue;
+        var show = v === k;
+        panel.style.setProperty("display", show ? "block" : "none", "important");
+        if (show) panel.removeAttribute("hidden");
+        else panel.setAttribute("hidden", "");
+      }
+      var st = document.getElementById("fold_status");
+      if (st) {
+        st.textContent = v
+          ? "Mostrando checklist " + v.toUpperCase() + ". Para cerrar: elegí «Cerrado» en el menú."
+          : "Cerrado. Abrí el menú desplegable y elegí CIR, CPA o SAB.";
+      }
+      var picker = document.getElementById("checklist_picker");
+      if (picker && picker.value !== v) picker.value = v;
+    }
+    window.mostrarChecklist = mostrarChecklist;
+
+    // Cablear el menú YA (no esperar a boot/catálogos). Apps Script a veces saca el onchange= del HTML.
+    (function wireChecklistMenuNow() {
+      function wire() {
+        var p = document.getElementById("checklist_picker");
+        if (!p) return;
+        p.onchange = function () {
+          mostrarChecklist(p.value || "");
+        };
+        // cerrar paneles al inicio
+        mostrarChecklist("");
+      }
+      wire();
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", wire);
+      }
+    })();
 
     async function loadCatalogos() {
       // Respaldo embebido; luego refresca desde CONTACTOS_ENVIOS_ACTAS (vivo)
@@ -693,155 +752,45 @@
       }
     }
 
-    const foldState = { cir: false, cpa: false, sab: false };
-    const foldStash = { cir: null, cpa: null, sab: null };
-    const foldTitles = { cir: "CIR", cpa: "CPA", sab: "SAB" };
-
-    function setFoldStatus(msg) {
-      const el = document.getElementById("fold_status");
-      if (el) el.textContent = msg;
-    }
-
-    function stashAllChecklists() {
-      const panel = document.getElementById("checklist_panel");
-      ["cir", "cpa", "sab"].forEach(function (k) {
-        foldState[k] = false;
-        let body = document.getElementById(k + "_list");
-        if (!body && foldStash[k]) body = foldStash[k];
-        if (body) {
-          foldStash[k] = body;
-          if (body.parentNode) body.parentNode.removeChild(body);
-        }
-      });
-      if (panel) {
-        panel.innerHTML = "";
-        panel.classList.add("is-empty");
-      }
-    }
-
-    function showOnlyChecklist(key) {
-      stashAllChecklists();
-      const picker = document.getElementById("checklist_picker");
-      if (picker && picker.value !== (key || "")) picker.value = key || "";
-
-      if (!key) {
-        setFoldStatus("Cerrado. Abrí el menú desplegable y elegí CIR, CPA o SAB.");
-        return;
-      }
-
-      const panel = document.getElementById("checklist_panel");
-      const body = foldStash[key];
-      if (!panel || !body) {
-        setFoldStatus("No hay ítems para " + String(key).toUpperCase() + ".");
-        return;
-      }
-
-      foldState[key] = true;
-      panel.classList.remove("is-empty");
-      panel.innerHTML = "";
-
-      const head = document.createElement("div");
-      head.className = "fold-head";
-      const title = document.createElement("span");
-      title.textContent = "Checklist " + (foldTitles[key] || key.toUpperCase());
-      const count = document.createElement("span");
-      count.className = "fold-count";
-      count.id = key + "_count_view";
-      const n = body.querySelectorAll(".check-item").length;
-      count.textContent = n + (n === 1 ? " ítem" : " ítems");
-      head.appendChild(title);
-      head.appendChild(count);
-      panel.appendChild(head);
-      panel.appendChild(body);
-      foldStash[key] = null;
-
-      setFoldStatus(
-        "Abierto: " +
-          (foldTitles[key] || key.toUpperCase()) +
-          ". Para cerrar, elegí «Cerrado» en el menú."
-      );
-    }
-
-    function refreshPickerCounts() {
-      const picker = document.getElementById("checklist_picker");
-      if (!picker) return;
-      ["cir", "cpa", "sab"].forEach(function (k) {
-        const opt = picker.querySelector('option[value="' + k + '"]');
-        if (!opt) return;
-        const root = document.getElementById(k + "_list") || foldStash[k];
-        const n = root ? root.querySelectorAll(".check-item").length : 0;
-        opt.textContent =
-          "Checklist " + foldTitles[k] + (n ? " (" + n + " ítems)" : "");
-      });
-    }
-
-    function buildChecklistFolds() {
-      const root = document.getElementById("check_folds_root");
-      if (!root) {
-        setFoldStatus("ERROR: falta check_folds_root — pegá el Formulario completo.");
-        return;
-      }
-      root.innerHTML = "";
-      foldStash.cir = foldStash.cpa = foldStash.sab = null;
-
-      ["cir", "cpa", "sab"].forEach(function (key) {
-        foldState[key] = false;
-        const body = document.createElement("div");
-        body.className = "fold-body";
-        body.id = key + "_list";
-        root.appendChild(body);
-      });
-
-      const picker = document.getElementById("checklist_picker");
-      if (picker) {
-        picker.onchange = function () {
-          showOnlyChecklist(picker.value || "");
-        };
-      }
-      setFoldStatus("Armando checklists…");
-    }
-
     function checklist(container, prefix, items, estados) {
-      if (!container && foldStash[prefix]) container = foldStash[prefix];
       if (!container) container = document.getElementById(prefix + "_list");
-      if (!container) {
-        container = document.createElement("div");
-        container.className = "fold-body";
-        container.id = prefix + "_list";
-      }
+      if (!container) return;
       container.innerHTML = "";
-      for (const item of items) {
-        const row = document.createElement("div");
+      items = items || [];
+      estados = estados || ["OK", "Observación", "Falla", "N/A"];
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var row = document.createElement("div");
         row.className = "check-item";
-        const name = document.createElement("div");
+        var name = document.createElement("div");
         name.className = "name";
         name.textContent = item;
-        const sel = document.createElement("select");
-        sel.dataset.key = item;
-        sel.dataset.prefix = prefix;
-        for (const e of estados) {
-          const o = document.createElement("option");
+        var sel = document.createElement("select");
+        sel.setAttribute("data-key", item);
+        sel.setAttribute("data-prefix", prefix);
+        for (var j = 0; j < estados.length; j++) {
+          var e = estados[j];
+          var o = document.createElement("option");
           o.value = e;
           o.textContent = e;
           if (e === "OK") o.selected = true;
           sel.appendChild(o);
         }
-        const obs = document.createElement("input");
+        var obs = document.createElement("input");
         obs.placeholder = "Obs. / medición";
-        obs.dataset.obsFor = item;
-        obs.dataset.prefix = prefix;
+        obs.setAttribute("data-obs-for", item);
+        obs.setAttribute("data-prefix", prefix);
         row.appendChild(name);
         row.appendChild(sel);
         row.appendChild(obs);
         container.appendChild(row);
       }
-      foldStash[prefix] = container;
-      if (container.parentNode) container.parentNode.removeChild(container);
-      foldState[prefix] = false;
-      refreshPickerCounts();
+      var countEl = document.getElementById(prefix + "_count");
+      if (countEl) {
+        var n = items.length;
+        countEl.textContent = n + (n === 1 ? " ítem" : " ítems");
+      }
     }
-
-    window.showOnlyChecklist = showOnlyChecklist;
 
     function selectedChips(name) {
       return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map((x) => x.value);
@@ -849,16 +798,13 @@
 
     function collectChecklist(prefix) {
       const out = [];
-      const root = document.getElementById(prefix + "_list") || foldStash[prefix];
+      const root = document.getElementById(prefix + "_list");
       if (!root) return out;
-      const selects = root.querySelectorAll('select[data-prefix="' + prefix + '"]');
-      selects.forEach((sel) => {
-        const key = sel.dataset.key || sel.getAttribute("data-key") || "";
+      root.querySelectorAll('select[data-prefix="' + prefix + '"]').forEach((sel) => {
+        const key = sel.getAttribute("data-key") || "";
         let obs = "";
         root.querySelectorAll('input[data-prefix="' + prefix + '"]').forEach((el) => {
-          if ((el.dataset.obsFor || el.getAttribute("data-obs-for")) === key) {
-            obs = String(el.value || "").trim();
-          }
+          if (el.getAttribute("data-obs-for") === key) obs = String(el.value || "").trim();
         });
         out.push({ elemento: key, estado: sel.value, obs: obs });
       });
@@ -954,13 +900,23 @@
       fillSelect(document.getElementById("tipo_falla"), Object.keys(c.tipos_falla).sort(), "— sin falla / N/A —");
       chips(document.getElementById("motivos"), "motivo", c.opciones.motivos, true);
       chips(document.getElementById("tecnologias"), "tecnologia", c.opciones.tecnologias, true);
-      buildChecklistFolds();
-      checklist(document.getElementById("cir_list") || foldStash.cir, "cir", c.opciones.cir, c.opciones.estados_checklist);
-      checklist(document.getElementById("cpa_list") || foldStash.cpa, "cpa", c.opciones.cpa, c.opciones.estados_checklist);
-      checklist(document.getElementById("sab_list") || foldStash.sab, "sab", c.opciones.sab, c.opciones.estados_checklist);
-      showOnlyChecklist("");
-      refreshPickerCounts();
-      setFoldStatus("Cerrado. Usá el menú desplegable para abrir CIR, CPA o SAB.");
+      try {
+        const op = (c && c.opciones) || {};
+        checklist(document.getElementById("cir_list"), "cir", op.cir || [], op.estados_checklist);
+        checklist(document.getElementById("cpa_list"), "cpa", op.cpa || [], op.estados_checklist);
+        checklist(document.getElementById("sab_list"), "sab", op.sab || [], op.estados_checklist);
+      } catch (eCheck) {
+        const st = document.getElementById("fold_status");
+        if (st) st.textContent = "Error cargando ítems: " + eCheck;
+      }
+      // Cablear menú otra vez (por si el onchange= del HTML se perdió al pegar)
+      const picker = document.getElementById("checklist_picker");
+      if (picker) {
+        picker.onchange = function () {
+          mostrarChecklist(picker.value || "");
+        };
+      }
+      mostrarChecklist("");
       document.getElementById("fecha").value = todayISO();
       const now = new Date();
       document.getElementById("hora").value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;

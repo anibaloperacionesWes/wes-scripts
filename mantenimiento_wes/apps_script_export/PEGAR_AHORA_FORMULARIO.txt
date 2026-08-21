@@ -1,13 +1,24 @@
-Menú DESPLEGABLE de checklists
-================================
+FIX v2 — menú desplegable checklist (PC y celular)
+====================================================
 
-Cómo funciona:
-1) Tocás el menú grande «▾ Cerrado — tocá para elegir»
-2) Se abre el desplegable nativo del celular
-3) Elegís CIR / CPA / SAB → se muestra ese checklist
-4) Elegís «Cerrado» → se oculta
+Qué cambió:
+- Paneles CIR/CPA/SAB fijos en el HTML (no se arman en JS)
+- función global mostrarChecklist()
+- el select se cablea al cargar, sin esperar catálogos
 
-Pegá este TXT en Formulario (bloc de notas):
-https://drive.google.com/file/d/10mHbPUjueN6CohISkGVy73Z07mpCoMcL/view?usp=drivesdk
+Pegá ESTE TXT completo en Apps Script → Formulario:
+https://drive.google.com/file/d/1w7hRrhAsa4a-qgmwv1tChRTWWj5nPKUb/view?usp=drivesdk
 
-Guardar → Nueva versión del /exec → recargar pestaña.
+Pasos exactos:
+1) Descargar el TXT
+2) Abrir con Bloc de notas / TextEdit
+3) Ctrl+A → Ctrl+C
+4) Apps Script → archivo Formulario → Ctrl+A → Suprimir → Ctrl+V
+5) Guardar (Ctrl+S)
+6) Implementar → Administrar implementaciones → lápiz del /exec oficial → Nueva versión → Implementar
+7) Cerrar la pestaña del formulario y abrir el link de nuevo (no solo refresh a medias)
+
+Prueba:
+- Abrí el menú «▾ Cerrado»
+- Elegí Checklist CIR → tiene que aparecer el panel con ítems
+- Elegí Cerrado → desaparece
