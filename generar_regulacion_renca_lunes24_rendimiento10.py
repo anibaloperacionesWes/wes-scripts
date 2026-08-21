@@ -60,8 +60,13 @@ COLOR_60 = "#BF8F00"
 COLOR_30 = "#C0504D"
 COLOR_0 = "#7F7F7F"
 NODO_ESCUELA = "000017-04"
+NODO_GIMNASIO = "000017-05"
 # Lo Velásquez: 00:01–06:00 a 0 L/min (el colegio se va a cero).
 HORAS_CERO_ESCUELA = frozenset(range(0, 6))
+# Gimnasio: 0,54 m³/h parejo (pico lun 17) se queda corto con evento.
+# Picos reales: jue 13/08 = 0,80; sáb 15/08 = 1,50; 25/06 = 1,70 m³/h.
+PICO_OBS_GIMNASIO_M3H = 1.70
+HORAS_OCUPACION_GIMNASIO = frozenset(range(8, 22))  # 08:00–21:59
 
 PUNTOS_TODOS: Tuple[Tuple[str, str], ...] = (
     ("000017-07", "ICCP (Cumbre de Cóndores pte.)"),
@@ -285,11 +290,21 @@ def _pdf(docx: Path) -> Optional[Path]:
     return p if p.is_file() else None
 
 
-def _plan_para_perfil(sin_h: List[float], horas_cero: Optional[Sequence[int]] = None) -> dict:
+def _plan_para_perfil(
+    sin_h: List[float],
+    horas_cero: Optional[Sequence[int]] = None,
+    q100_lmin_fijo: Optional[float] = None,
+    horas_100: Optional[Sequence[int]] = None,
+    suavizar: bool = True,
+) -> dict:
     """100 % = pico × margen (L/min). 30/60 solo si el caudal medido ya cabe: no falla el abastecimiento."""
     cero = {int(h) for h in (horas_cero or ())}
+    h100 = {int(h) for h in (horas_100 or ())}
     pico = max(sin_h) if sin_h else 0.0
-    q100_lmin = _ceil_lmin(_m3_a_lmin(pico) * MARGEN_ABAST)
+    if q100_lmin_fijo is not None:
+        q100_lmin = _ceil_lmin(float(q100_lmin_fijo))
+    else:
+        q100_lmin = _ceil_lmin(_m3_a_lmin(pico) * MARGEN_ABAST)
     q60_lmin = _ceil_lmin(q100_lmin * 0.60)
     q30_lmin = _ceil_lmin(q100_lmin * 0.30)
     q100 = _lmin_a_m3(q100_lmin)
@@ -299,14 +314,31 @@ def _plan_para_perfil(sin_h: List[float], horas_cero: Optional[Sequence[int]] = 
         if h in cero:
             niveles.append(0)
             continue
+        if h in h100:
+            niveles.append(100)
+            continue
+        if h100:
+            # Noche gimnasio: el menor % que cubre demanda × holgura (no semáforo vs pico del lun 17).
+            dem_m = _m3_a_lmin(sin_h[h]) * MARGEN_ABAST
+            if dem_m <= lmin_de[30] + 1e-9:
+                n = 30
+            elif dem_m <= lmin_de[60] + 1e-9:
+                n = 60
+            else:
+                n = 100
+            niveles.append(n)
+            continue
         n = _nivel(sin_h[h], pico)
         dem = _m3_a_lmin(sin_h[h])
         while n < 100 and dem > lmin_de[n] + 1e-9:
             n = 60 if n == 30 else 100
         niveles.append(n)
-    niveles = _suavizar_niveles(niveles, sin_h, lmin_de)
+    if suavizar:
+        niveles = _suavizar_niveles(niveles, sin_h, lmin_de)
     for h in cero:
         niveles[h] = 0
+    for h in h100:
+        niveles[h] = 100
     cap = [_lmin_a_m3(lmin_de[n]) for n in niveles]
     fracs = [n / 100.0 for n in niveles]
     esperado = float(sum(min(float(sin_h[h]), cap[h]) for h in range(24)))
@@ -477,7 +509,7 @@ def _excel(
         ("Línea base", "Sin WES 17–20/08/2026 (hora Chile). Lunes 24 usa el perfil del lunes 17."),
         ("100 %", "Pico medido del lunes 17 × 1,10, redondeado a 0,5 L/min. El abastecimiento del pico no falla."),
         ("60 % / 30 %", "0,60 y 0,30 de ese 100 %. Solo en tramos donde el lunes 17 ya cabía, con 10 % de holgura."),
-        ("Lo Velásquez noche", "00:01–06:00 se carga en 0 L/min: el colegio se va a cero y queda programado en cero."),
+        ("Gimnasio", "No usar 0,54 m³/h parejo: ese tope es el pico del lun 17 (0,49) + 10 %. Un día con evento ya superó 0,80 (jue 13) y 1,50 (sáb 15); el máximo mayo–ago es 1,70 m³/h. El 100 % del gimnasio cubre ese pico × 1,10. 08:00–21:59 a 100 %; noche a 30 % si el caudal cabe."),
         ("Rendimiento 10 %", "No se recorta el caudal del lunes 17. El 10 % aparece si el lunes 24 se pasa de estos topes (fuga o uso extra)."),
     ]
     for i, (a, b) in enumerate(lines, 1):
@@ -565,6 +597,13 @@ def _word(
                 if nid == NODO_ESCUELA
                 else ""
             )
+            + (
+                " No usar 0,54 m³/h parejo: se queda corto con evento "
+                "(jue 13/08 = 0,80 m³/h; sáb 15/08 = 1,50; máx. 25/06 = 1,70). "
+                "El 100 % cubre 1,70 × 1,10. De 08:00 a 21:59 va 100 %; de noche 30 %."
+                if nid == NODO_GIMNASIO
+                else ""
+            )
         )
         if f"lun_{nid}" in pngs:
             doc.add_picture(str(pngs[f"lun_{nid}"]), width=Cm(16.0))
@@ -593,8 +632,8 @@ def _word(
     doc.add_heading("Notas", level=1)
     doc.add_paragraph(
         "En Lo Velásquez, 00:01–06:00 se programa en 0 L/min porque el colegio se va a cero. "
-        "En el resto de tramos el L/min cubre el caudal medido del lunes 17 más 10 % de holgura. "
-        "El 10 % de rendimiento no sale recortando el pico. Sale si el lunes 24 se pasa de estos L/min (fuga o uso extra). "
+        "En el gimnasio no cargar 0,54 m³/h parejo: ese caudal es solo el pico del lun 17 y deja corto un día con evento. "
+        "En el resto de tramos el L/min cubre el caudal de referencia más 10 % de holgura. "
         "Si un tramo 30 o 60 se queda corto en el día, subir ese tramo a 100 %."
     )
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -646,8 +685,15 @@ def main() -> int:
         tipo_src = [vecs[(nid, d)] for d in DIAS_SIN]
         tipo = _vector_mediana(tipo_src)
         cero = HORAS_CERO_ESCUELA if nid == NODO_ESCUELA else None
-        planes_lun[nid] = _plan_para_perfil(lun, horas_cero=cero)
-        planes_tipo[nid] = _plan_para_perfil(tipo, horas_cero=cero)
+        extra = {}
+        if nid == NODO_GIMNASIO:
+            extra = {
+                "q100_lmin_fijo": _ceil_lmin(_m3_a_lmin(PICO_OBS_GIMNASIO_M3H) * MARGEN_ABAST),
+                "horas_100": HORAS_OCUPACION_GIMNASIO,
+                "suavizar": False,
+            }
+        planes_lun[nid] = _plan_para_perfil(lun, horas_cero=cero, **extra)
+        planes_tipo[nid] = _plan_para_perfil(tipo, horas_cero=cero, **extra)
         pl = planes_lun[nid]
         print(
             f"  {nom}: 100%={pl['q100_lmin']:.1f} L/min | 60%={pl['q60_lmin']:.1f} | "
