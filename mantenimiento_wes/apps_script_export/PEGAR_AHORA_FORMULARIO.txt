@@ -1,24 +1,12 @@
-FIX v2 — menú desplegable checklist (PC y celular)
-====================================================
+FIX — abrir Y plegar checklist
+===============================
 
-Qué cambió:
-- Paneles CIR/CPA/SAB fijos en el HTML (no se arman en JS)
-- función global mostrarChecklist()
-- el select se cablea al cargar, sin esperar catálogos
+Ahora podés CERRAR de 3 formas:
+1) Botón grande «✕ Cerrar checklist» (aparece al abrir)
+2) Botón «Cerrar» arriba a la derecha del panel
+3) En el menú: opción «✕ Cerrar checklist»
 
-Pegá ESTE TXT completo en Apps Script → Formulario:
-https://drive.google.com/file/d/1w7hRrhAsa4a-qgmwv1tChRTWWj5nPKUb/view?usp=drivesdk
+TXT:
+https://drive.google.com/file/d/1Ihg4lOgmk83x70U-004PnTU8Wxba8yEP/view?usp=drivesdk
 
-Pasos exactos:
-1) Descargar el TXT
-2) Abrir con Bloc de notas / TextEdit
-3) Ctrl+A → Ctrl+C
-4) Apps Script → archivo Formulario → Ctrl+A → Suprimir → Ctrl+V
-5) Guardar (Ctrl+S)
-6) Implementar → Administrar implementaciones → lápiz del /exec oficial → Nueva versión → Implementar
-7) Cerrar la pestaña del formulario y abrir el link de nuevo (no solo refresh a medias)
-
-Prueba:
-- Abrí el menú «▾ Cerrado»
-- Elegí Checklist CIR → tiene que aparecer el panel con ítems
-- Elegí Cerrado → desaparece
+Pegá en Formulario → Nueva versión → reabrí el link.

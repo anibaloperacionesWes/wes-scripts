@@ -149,6 +149,15 @@
       padding: 14px 12px;
       min-height: 52px;
     }
+    .btn-cerrar-check {
+      width: 100%;
+      margin: 8px 0 0;
+      background: #eef2f7;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      box-shadow: none;
+      display: none;
+    }
     .checklist-panel {
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -173,6 +182,16 @@
       border: 1px solid var(--line);
       border-radius: 999px;
       padding: 3px 8px;
+    }
+    .checklist-panel .btn-cerrar-mini {
+      margin-left: auto;
+      width: auto;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      background: #eef2f7;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      box-shadow: none;
     }
     @media (max-width: 640px) {
       .check-item { grid-template-columns: 1fr; gap: 6px; }
@@ -330,25 +349,35 @@
       <section class="card">
         <h2>Checklists</h2>
         <div class="checklist-select-wrap">
-          <label for="checklist_picker">Menú desplegable · elegí CIR, CPA o SAB</label>
+          <label for="checklist_picker">Menú · abrí CIR, CPA o SAB</label>
           <select
             id="checklist_picker"
             class="checklist-select"
             onchange="mostrarChecklist(this.value)"
           >
-            <option value="">▾ Cerrado — tocá para elegir</option>
-            <option value="cir">Checklist CIR</option>
-            <option value="cpa">Checklist CPA</option>
-            <option value="sab">Checklist SAB</option>
+            <option value="off">▾ Cerrado</option>
+            <option value="cir">Abrir checklist CIR</option>
+            <option value="cpa">Abrir checklist CPA</option>
+            <option value="sab">Abrir checklist SAB</option>
+            <option value="off">✕ Cerrar checklist</option>
           </select>
+          <button
+            type="button"
+            id="btn_cerrar_checklist"
+            class="btn-cerrar-check"
+            onclick="cerrarChecklist(); return false;"
+          >
+            ✕ Cerrar checklist
+          </button>
         </div>
-        <p class="note" id="fold_status" style="margin:0 0 4px">
-          Cerrado. Abrí el menú de arriba.
+        <p class="note" id="fold_status" style="margin:8px 0 4px">
+          Cerrado. Elegí uno en el menú; para plegar usá «Cerrar checklist».
         </p>
         <div id="panel_cir" class="checklist-panel" style="display:none" hidden>
           <div class="fold-head">
             <span>Checklist CIR</span>
             <span class="fold-count" id="cir_count">0 ítems</span>
+            <button type="button" class="btn-cerrar-mini" onclick="cerrarChecklist(); return false;">Cerrar</button>
           </div>
           <div id="cir_list"></div>
         </div>
@@ -356,6 +385,7 @@
           <div class="fold-head">
             <span>Checklist CPA</span>
             <span class="fold-count" id="cpa_count">0 ítems</span>
+            <button type="button" class="btn-cerrar-mini" onclick="cerrarChecklist(); return false;">Cerrar</button>
           </div>
           <div id="cpa_list"></div>
         </div>
@@ -363,6 +393,7 @@
           <div class="fold-head">
             <span>Checklist SAB</span>
             <span class="fold-count" id="sab_count">0 ítems</span>
+            <button type="button" class="btn-cerrar-mini" onclick="cerrarChecklist(); return false;">Cerrar</button>
           </div>
           <div id="sab_list"></div>
         </div>
@@ -430,41 +461,79 @@
     const CATALOGOS = <?!= CATALOGOS_JSON ?>;
     const state = { catalogos: null, dirty: false, contactos: {} };
 
-    /** Menú checklist: función GLOBAL (para onchange= del select). No depende de boot(). */
+    /** Menú checklist: abrir y CERRAR (plegar) de forma explícita. */
+    function cerrarChecklist() {
+      mostrarChecklist("off");
+      return false;
+    }
+    window.cerrarChecklist = cerrarChecklist;
+
     function mostrarChecklist(v) {
-      v = String(v || "");
+      v = String(v == null ? "off" : v);
+      if (!v || v === "cerrar" || v === "closed" || v === "cerrar checklist") v = "off";
+
       var keys = ["cir", "cpa", "sab"];
+      var openKey = keys.indexOf(v) >= 0 ? v : "";
       var i;
       for (i = 0; i < keys.length; i++) {
         var k = keys[i];
         var panel = document.getElementById("panel_" + k);
         if (!panel) continue;
-        var show = v === k;
+        var show = openKey === k;
+        // Forzar show/hide (Apps Script a veces ignora display normal)
         panel.style.setProperty("display", show ? "block" : "none", "important");
+        panel.style.setProperty("visibility", show ? "visible" : "hidden", "important");
+        panel.style.setProperty("height", show ? "auto" : "0", "important");
+        panel.style.setProperty("overflow", show ? "visible" : "hidden", "important");
+        panel.style.setProperty("margin-top", show ? "10px" : "0", "important");
+        panel.style.setProperty("padding", show ? "12px" : "0", "important");
+        panel.style.setProperty("border-width", show ? "1px" : "0", "important");
         if (show) panel.removeAttribute("hidden");
-        else panel.setAttribute("hidden", "");
+        else panel.setAttribute("hidden", "hidden");
       }
+
+      var btn = document.getElementById("btn_cerrar_checklist");
+      if (btn) {
+        btn.style.setProperty("display", openKey ? "block" : "none", "important");
+      }
+
       var st = document.getElementById("fold_status");
       if (st) {
-        st.textContent = v
-          ? "Mostrando checklist " + v.toUpperCase() + ". Para cerrar: elegí «Cerrado» en el menú."
-          : "Cerrado. Abrí el menú desplegable y elegí CIR, CPA o SAB.";
+        st.textContent = openKey
+          ? "Abierto: " + openKey.toUpperCase() + ". Tocá «Cerrar checklist» para plegar."
+          : "Cerrado. Elegí CIR, CPA o SAB en el menú.";
       }
+
       var picker = document.getElementById("checklist_picker");
-      if (picker && picker.value !== v) picker.value = v;
+      if (picker) {
+        // Dejar el menú en "off" si cerramos; si abrimos, dejar la opción elegida
+        picker.value = openKey ? openKey : "off";
+      }
     }
     window.mostrarChecklist = mostrarChecklist;
 
-    // Cablear el menú YA (no esperar a boot/catálogos). Apps Script a veces saca el onchange= del HTML.
+    // Cablear el menú YA (no esperar a boot/catálogos).
     (function wireChecklistMenuNow() {
       function wire() {
         var p = document.getElementById("checklist_picker");
         if (!p) return;
         p.onchange = function () {
-          mostrarChecklist(p.value || "");
+          var val = p.value || "off";
+          if (val === "off") cerrarChecklist();
+          else mostrarChecklist(val);
         };
-        // cerrar paneles al inicio
-        mostrarChecklist("");
+        var b = document.getElementById("btn_cerrar_checklist");
+        if (b) {
+          b.onclick = function (ev) {
+            if (ev) {
+              ev.preventDefault();
+              ev.stopPropagation();
+            }
+            cerrarChecklist();
+            return false;
+          };
+        }
+        cerrarChecklist();
       }
       wire();
       if (document.readyState === "loading") {
@@ -913,10 +982,12 @@
       const picker = document.getElementById("checklist_picker");
       if (picker) {
         picker.onchange = function () {
-          mostrarChecklist(picker.value || "");
+          var val = picker.value || "off";
+          if (val === "off") cerrarChecklist();
+          else mostrarChecklist(val);
         };
       }
-      mostrarChecklist("");
+      cerrarChecklist();
       document.getElementById("fecha").value = todayISO();
       const now = new Date();
       document.getElementById("hora").value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
