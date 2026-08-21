@@ -302,9 +302,9 @@ def generar_pngs(
     plt.close(fig)
     guardados.append(p3)
 
-    # 4–10) Un gráfico por día homólogo: col j vs col (mitad+j) — 7+7 o 4+4 (ICCO CPA).
+    # Un gráfico por día homólogo: col j vs col (mitad+j) — 4+4, 5+5, 7+7, etc.
     n_all = len(fechas)
-    if n_all == len(mats) and n_all in (8, 14) and n_all % 2 == 0:
+    if n_all == len(mats) and n_all >= 2 and n_all % 2 == 0:
         mitad = n_all // 2
         for j in range(mitad):
             d_con = fechas[j]
