@@ -1,8 +1,7 @@
-Modalidad simple — build 21N
-=============================
+Sin EYES — build 21O
+====================
 
-Solo 2 opciones:
-  • Visita física
-  • Soporte técnico a distancia
+Tecnología instalada: CPA y CIR · SAB · CPA · CIR · On/Off
+(EYES eliminado)
 
-Refrescá el form (Ctrl+Shift+R). Debe decir · 21N.
+Solo refrescar el form (Ctrl+Shift+R). Debe decir · 21O.
