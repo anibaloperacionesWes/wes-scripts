@@ -1,35 +1,17 @@
-CONFIRMADO: Formulario no se actualiza al pegar (Ctrl+F = no).
-Solución: Codigo lee el HTML desde Drive. Pegá SOLO Codigo.
-================================================================
+Build 21L en Drive — solo refrescar el form
+==========================================
 
-NO pegues Formulario. Da igual: no entra.
+El 21k ya funcionó (HTML desde Drive).
+Subí 21L con boot más resistente (chips/fecha).
 
-Hacé ESTO (PC):
+NO hace falta pegar ni Nueva versión.
+Solo: cerrá el form, abrí de nuevo, Ctrl+Shift+R.
 
-1) Descargá Codigo (flecha ↓ → Bloc de notas):
-   https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
+Debe decir: Acta de visita técnica · 21L
+Y verse chips de Motivo + Tecnología.
 
-   Parche mínimo (solo doGet), si preferís no pegar todo:
-   https://drive.google.com/file/d/1cz8dVD2QG0sOwuxQCwiLFekdPYOBoVHN/view?usp=drivesdk
-
-2) Apps Script → archivo "Codigo" (NO Formulario)
-   https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
-   → Ctrl+A → Supr → Ctrl+V → Ctrl+S
-
-3) Ctrl+F en Codigo:  FORMULARIO_HTML_DRIVE_ID
-   Tiene que aparecer.
-
-4) Implementar → Administrar implementaciones
-   → lápiz de la URL que termina en AKfycbx5DTdd.../exec
-   → Versión: Nueva versión → Implementar
-
-5) Abrí el FORMULARIO (NO el editor /edit):
-   https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
-   Ctrl+Shift+R
-
-Éxito = título:  Acta de visita técnica · 21k
-
-Si pide permiso de Drive: Aceptar.
-
-Después de esto ya no hace falta pegar Formulario:
-el agente actualiza el HTML en Drive y el /exec lo lee.
+Probar checklist:
+1) Marcar CIR → botón "Abrir checklist CIR"
+2) Tocarlo → se despliega
+3) Cerrar → se pliega
+4) Sin tecnología → sin botones ni checklist

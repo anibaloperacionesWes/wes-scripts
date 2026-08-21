@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21k</title>
+  <title>Acta de visita WES · 21L</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -269,8 +269,8 @@
 <body>
   <div class="wrap">
     <header class="hero">
-      <div class="brand">WES · Water Efficiency System · build 21k</div>
-      <h1>Acta de visita técnica · 21k</h1>
+      <div class="brand">WES · Water Efficiency System · build 21L</div>
+      <h1>Acta de visita técnica · 21L</h1>
       <p>Link permanente para técnicos WES. Completá en terreno, firmá y enviá el PDF al cliente (acusar recibo). Queda registrado en el Excel de fallas.</p>
     </header>
 
@@ -316,7 +316,7 @@
         <div class="chips" id="motivos"></div>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21k</div>
+        <div class="build-tag" id="form_build">WES-build-21L</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -425,7 +425,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21k";
+    var FORM_BUILD = "WES-build-21L";
     var checklistHold = document.createDocumentFragment();
     var checklistUI = { cir: null, cpa: null, sab: null };
     var checklistOpen = { cir: false, cpa: false, sab: false };
@@ -836,13 +836,17 @@
             container.querySelectorAll(".chip").forEach((c) => c.classList.remove("on"));
             if (inp.checked) lab.classList.add("on");
           }
-          if (name === "tecnologia") syncChecklistsPorTecnologia();
+          if (name === "tecnologia" && typeof syncChecklistsPorTecnologia === "function") {
+            try { syncChecklistsPorTecnologia(); } catch (eSync1) {}
+          }
         });
         lab.appendChild(inp);
         lab.appendChild(document.createTextNode(" " + opt));
         container.appendChild(lab);
       }
-      if (name === "tecnologia") syncChecklistsPorTecnologia();
+      if (name === "tecnologia" && typeof syncChecklistsPorTecnologia === "function") {
+        try { syncChecklistsPorTecnologia(); } catch (eSync2) {}
+      }
     }
 
     function checklist(container, prefix, items, estados) {
@@ -887,7 +891,10 @@
     }
 
     function selectedChips(name) {
-      return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map((x) => x.value);
+      var out = [];
+      var nodes = document.querySelectorAll('input[name="' + name + '"]:checked');
+      for (var i = 0; i < nodes.length; i++) out.push(nodes[i].value);
+      return out;
     }
 
     function collectChecklist(prefix) {
@@ -985,15 +992,38 @@
     }
 
     async function boot() {
+      // Fecha/hora primero: si algo falla después, el form igual queda usable.
+      try {
+        document.getElementById("fecha").value = todayISO();
+        var now0 = new Date();
+        document.getElementById("hora").value =
+          String(now0.getHours()).padStart(2, "0") + ":" + String(now0.getMinutes()).padStart(2, "0");
+      } catch (eFecha) {}
+
       await loadCatalogos();
-      const c = state.catalogos;
-      const clientes = Object.keys(c.clientes_maquinas).sort();
+      const c = state.catalogos || {};
+      const op = (c && c.opciones) || {};
+      const clientes = Object.keys(c.clientes_maquinas || {}).sort();
       fillSelect(document.getElementById("cliente"), clientes);
-      fillSelect(document.getElementById("tecnico"), c.opciones.tecnicos);
-      fillSelect(document.getElementById("tipo_mtto"), c.opciones.tipos_mtto);
-      fillSelect(document.getElementById("tipo_falla"), Object.keys(c.tipos_falla).sort(), "— sin falla / N/A —");
-      chips(document.getElementById("motivos"), "motivo", c.opciones.motivos, true);
-      chips(document.getElementById("tecnologias"), "tecnologia", c.opciones.tecnologias, true);
+      fillSelect(document.getElementById("tecnico"), op.tecnicos || []);
+      fillSelect(document.getElementById("tipo_mtto"), op.tipos_mtto || []);
+      fillSelect(
+        document.getElementById("tipo_falla"),
+        Object.keys(c.tipos_falla || {}).sort(),
+        "— sin falla / N/A —"
+      );
+      try {
+        chips(document.getElementById("motivos"), "motivo", op.motivos || ["Mantenimiento", "Auditoría", "Emergencia"], true);
+        chips(
+          document.getElementById("tecnologias"),
+          "tecnologia",
+          op.tecnologias || ["CPA y CIR", "SAB", "CPA", "CIR", "On/Off"],
+          true
+        );
+      } catch (eChips) {
+        var st0 = document.getElementById("fold_status");
+        if (st0) st0.textContent = "Error chips: " + eChips;
+      }
       try {
         // No montar paneles al abrir: solo sync (botones si hay tech; cerrado por defecto).
         checklistOpen.cir = false;
@@ -1006,11 +1036,10 @@
         const st = document.getElementById("fold_status");
         if (st) st.textContent = "Error checklist: " + eCheck;
       }
-      document.getElementById("fecha").value = todayISO();
-      const now = new Date();
-      document.getElementById("hora").value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      resizeCanvas();
-      window.addEventListener("resize", resizeCanvas);
+      try {
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+      } catch (ePad) {}
 
       document.getElementById("cliente").onchange = () => {
         const cli = document.getElementById("cliente").value;
