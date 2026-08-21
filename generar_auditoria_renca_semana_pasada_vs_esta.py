@@ -3,7 +3,8 @@ Informe de auditoría Renca — semana pasada (con WES) vs esta semana (sin WES)
 
 Semana pasada: lun 10/08/2026 (última semana con control).
 Esta semana: lun 17/08/2026 (sin WES desde el 17 en ICCP, Lo Velásquez, gimnasio y piscina).
-Colegio ICCO (000017-08): solo sin control el domingo 16/08 (estanque sala de bombas).
+Colegio ICCO (000017-08): fuga pareja del domingo 16/08 montada en 00:01–06:00
+sobre cada día con WES (estanque sala de bombas; no se puede dejar una semana sin control).
 
 Uso:
   python generar_auditoria_renca_semana_pasada_vs_esta.py
@@ -64,15 +65,18 @@ DOMINGO_SIN_ICCO = date(2026, 8, 16)
 DOMINGO_CON_ICCO = date(2026, 8, 9)
 LUNES_CON = date(2026, 8, 10)
 LUNES_SIN = date(2026, 8, 17)
+HORAS_CONTROL_ICCO = frozenset(range(0, 6))  # 00:01–06:00 → horas 00..05
 TEXTO_SALA_BOMBAS = (
     "En Colegio ICCO Renca (000017-08) no se puede dejar el punto sin control WES "
     "durante una semana completa. Si se elimina el control, el estanque de la sala "
     "de bombas se vacía y no es capaz de recuperarse; eso afectaría el funcionamiento "
-    "normal del colegio. Por esa razón el único día sin control fue el domingo 16/08/2026, "
-    "de 00:00 a 23:59. El resto de los días permaneció con WES. El rendimiento se mide "
-    "comparando ese domingo sin control con cada día con control y, en particular, con el "
-    "domingo homólogo anterior (09/08). No existe una semana homóloga lun–vie sin WES "
-    "en este punto: no se puede construir sin vaciar el estanque."
+    "normal del colegio. El único día sin control fue el domingo 16/08/2026 (00:00–23:59). "
+    "Ese domingo no hubo clases: el caudal quedó parejo (~1,7 m³/h, ~40 m³/día). Esa es la "
+    "fuga / caudal base fuera de control. El WES en ICCO corta de 00:01 a 06:00; esa fuga "
+    "no desaparece el lunes: el día de clases es la fuga (sin tope nocturno) más el consumo "
+    "normal del colegio. Por eso no se compara el domingo 16 contra el total del lunes "
+    "(queda ‘disparado’ por ocupación). Se monta la fuga pareja en 00:00–05:59 sobre cada "
+    "día con WES y de 06:00 en adelante se deja el caudal medido de ese día."
 )
 WD_CORTO = ("Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom")
 WD_LARGO = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
@@ -197,31 +201,6 @@ def _grafico_4_puntos(
     plt.close(fig)
 
 
-def _grafico_dias_homologos(
-    nombres_dia: List[str],
-    series_con: Dict[str, List[float]],
-    series_sin: Dict[str, List[float]],
-    titulo: str,
-    out_png: Path,
-) -> None:
-    fig, axes = plt.subplots(2, 2, figsize=(13.2, 7.8))
-    for ax, (nid, nom) in zip(axes.ravel(), PUNTOS):
-        x = np.arange(len(nombres_dia))
-        w = 0.36
-        ax.bar(x - w / 2, series_con[nid], width=w, color=COLOR_WES, label="Con WES", zorder=2)
-        ax.bar(x + w / 2, series_sin[nid], width=w, color=COLOR_SIN, label="Sin WES", zorder=2)
-        ax.set_xticks(list(x))
-        ax.set_xticklabels(nombres_dia, fontsize=7)
-        ax.set_ylabel("m³")
-        ax.set_title(nom, fontsize=10, fontweight="bold", color="#1F4788")
-        ax.grid(axis="y", alpha=0.3, zorder=0)
-        ax.legend(fontsize=7, loc="upper left")
-    fig.suptitle(titulo, fontsize=13, fontweight="bold", color="#1F4788")
-    fig.tight_layout()
-    fig.savefig(out_png, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-
-
 def _suma_hasta(vec: Sequence[float], hora_corte: int) -> float:
     h1 = 23 if hora_corte >= 23 else hora_corte
     return float(sum(float(vec[h]) for h in range(h1 + 1)))
@@ -235,6 +214,30 @@ def _icco_dias_a_comparar(hoy: date) -> List[date]:
         out.append(d)
         d += timedelta(days=1)
     return out
+
+
+def _reconstruir_sin_icco(
+    vec_dia: Sequence[float],
+    vec_fuga: Sequence[float],
+    hora_corte: int,
+) -> Tuple[List[float], List[float]]:
+    """Sin WES = fuga pareja (dom 16) en 00:00–05:59 + caudal medido de 06:00 en adelante."""
+    h1 = 23 if hora_corte >= 23 else hora_corte
+    sin: List[float] = []
+    con: List[float] = []
+    for h in range(24):
+        if h > h1:
+            sin.append(0.0)
+            con.append(0.0)
+            continue
+        med = float(vec_dia[h])
+        fuga = float(vec_fuga[h])
+        con.append(med)
+        if h in HORAS_CONTROL_ICCO:
+            sin.append(max(fuga, med))
+        else:
+            sin.append(med)
+    return sin, con
 
 
 def _preparar_icco(
@@ -256,92 +259,93 @@ def _preparar_icco(
         v = vecs[d]
         incompleto = d == hoy and hora_corte < 23
         hc = hora_corte if incompleto else 23
-        m3 = _suma_hasta(v, hc)
-        ref = _suma_hasta(v16, hc)
-        ahorro, pct = _rendimiento(ref, m3)
+        sin_h, con_h = _reconstruir_sin_icco(v, v16, hc)
+        m3_con = float(sum(con_h))
+        m3_sin = float(sum(sin_h))
+        ahorro, pct = _rendimiento(m3_sin, m3_con)
+        noche_con = float(sum(con_h[h] for h in HORAS_CONTROL_ICCO if h <= hc))
+        noche_sin = float(sum(sin_h[h] for h in HORAS_CONTROL_ICCO if h <= hc))
         filas.append(
             {
                 "fecha": d,
                 "wd": WD_LARGO[d.weekday()],
-                "control": "Sin WES" if d == DOMINGO_SIN_ICCO else "Con WES",
-                "m3": m3,
-                "ref": ref,
+                "control": "Sin WES (fuga)" if d == DOMINGO_SIN_ICCO else "Con WES",
+                "m3_con": m3_con,
+                "m3_sin": m3_sin,
                 "ahorro": ahorro,
                 "pct": pct,
+                "noche_con": noche_con,
+                "noche_sin": noche_sin,
                 "incompleto": incompleto,
                 "hora_corte": hc,
+                "sin_h": sin_h,
+                "con_h": con_h,
             }
         )
 
+    tot_con = float(sum(f["m3_con"] for f in filas if f["fecha"] != DOMINGO_SIN_ICCO))
+    tot_sin = float(sum(f["m3_sin"] for f in filas if f["fecha"] != DOMINGO_SIN_ICCO))
+    ahorro_t, pct_t = _rendimiento(tot_sin, tot_con)
     v9 = vecs[DOMINGO_CON_ICCO]
     m3_9 = float(sum(v9))
-    ahorro_dom, pct_dom = _rendimiento(m3_16_full, m3_9)
 
     png_dir.mkdir(parents=True, exist_ok=True)
-    png_barras = png_dir / "icco_dom16_vs_cada_dia.png"
+    png_barras = png_dir / "icco_fuga_mas_clases_vs_wes.png"
     labels = []
-    vals = []
-    colors = []
+    con_vals = []
+    sin_vals = []
     for f in filas:
         suf = f"\nhasta {f['hora_corte']:02d}:59" if f["incompleto"] else ""
         labels.append(f"{WD_CORTO[f['fecha'].weekday()]}\n{f['fecha']:%d/%m}{suf}")
-        vals.append(f["m3"])
-        colors.append(COLOR_SIN if f["fecha"] == DOMINGO_SIN_ICCO else COLOR_WES)
+        con_vals.append(f["m3_con"])
+        sin_vals.append(f["m3_sin"])
     fig, ax = plt.subplots(figsize=(12.8, 5.4))
-    x = np.arange(len(vals))
-    bars = ax.bar(x, vals, color=colors, zorder=2)
-    ax.axhline(m3_16_full, color=COLOR_SIN, linestyle="--", linewidth=1.2, label="Dom 16 sin WES (día completo)")
+    x = np.arange(len(labels))
+    w = 0.36
+    b1 = ax.bar(x - w / 2, con_vals, width=w, color=COLOR_WES, label="Medido con WES", zorder=2)
+    b2 = ax.bar(
+        x + w / 2,
+        sin_vals,
+        width=w,
+        color=COLOR_SIN,
+        label="Sin WES reconstruido (fuga 00–06 + clases)",
+        zorder=2,
+    )
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels, fontsize=7)
     ax.set_ylabel("m³")
     ax.set_title(
-        "ICCO — cada día vs domingo 16/08 sin control",
+        "ICCO — fuga pareja del dom 16 montada en 00:01–06:00 sobre cada día",
         fontweight="bold",
         fontsize=12,
         color="#1F4788",
     )
     ax.grid(axis="y", alpha=0.3, zorder=0)
     ax.legend(fontsize=8, loc="upper left")
-    ymax = max(vals + [m3_16_full, 1.0]) * 1.18
+    ymax = max(con_vals + sin_vals + [1.0]) * 1.18
     ax.set_ylim(0, ymax)
-    for bar, v in zip(bars, vals):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + ymax * 0.012,
-            format_number_chilean(float(v), 1),
-            ha="center",
-            va="bottom",
-            fontsize=7,
-        )
     fig.tight_layout()
     fig.savefig(png_barras, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    png_perfil = png_dir / "icco_perfil_dom9_dom16_mar11.png"
+    png_perfil = png_dir / "icco_lunes_fuga_montada.png"
+    f_lun = next((f for f in filas if f["fecha"] == LUNES_CON), filas[1])
     fig, ax = plt.subplots(figsize=(12.2, 5.0))
     horas = list(range(24))
-    ax.plot(horas, v9, color=COLOR_WES, linewidth=2.2, label=f"Dom 09/08 con WES ({format_number_chilean(m3_9, 1)} m³)")
+    ax.plot(horas, v16, color="#C0504D", linewidth=1.5, linestyle=":", label="Fuga pareja (dom 16 sin control)")
+    ax.plot(horas, f_lun["con_h"], color=COLOR_WES, linewidth=2.2, label=f"Lun {LUNES_CON:%d/%m} medido con WES")
     ax.plot(
         horas,
-        v16,
+        f_lun["sin_h"],
         color=COLOR_SIN,
         linewidth=2.2,
-        label=f"Dom 16/08 sin WES ({format_number_chilean(m3_16_full, 1)} m³)",
+        label="Lunes sin WES reconstruido (fuga 00–06 + clases)",
     )
-    v11 = vecs.get(date(2026, 8, 11))
-    if v11:
-        ax.plot(
-            horas,
-            v11,
-            color="#7B7B7B",
-            linewidth=1.6,
-            linestyle="--",
-            label=f"Mar 11/08 con WES, día de clases ({format_number_chilean(sum(v11), 1)} m³)",
-        )
+    ax.axvspan(-0.5, 5.5, color="#FFF2CC", alpha=0.45, zorder=0)
     ax.set_xticks(list(range(0, 24, 2)))
-    ax.set_xlabel("Hora Chile")
+    ax.set_xlabel("Hora Chile (sombreado = control WES 00:01–06:00)")
     ax.set_ylabel("m³/h")
-    ax.set_title("ICCO — perfil 24 h: domingo sin control vs domingo y martes con WES", fontweight="bold", color="#1F4788")
+    ax.set_title("ICCO — el lunes no pierde la fuga: se monta sobre el consumo de clases", fontweight="bold", color="#1F4788")
     ax.grid(axis="y", alpha=0.3)
     ax.legend(fontsize=8, loc="upper left")
     ax.set_ylim(bottom=0)
@@ -357,15 +361,17 @@ def _preparar_icco(
     )
     wb = Workbook()
     ws = wb.active
-    ws.title = "ICCO_dom16_vs_cada_dia"
+    ws.title = "ICCO_fuga_mas_clases"
     headers = [
         "Fecha",
         "Día",
         "Control",
-        "m³ del día",
-        "m³ dom 16 (misma ventana)",
-        "Ahorro m³ (dom16 − día)",
+        "Con WES (m³)",
+        "Sin WES reconstruido (m³)",
+        "Ahorro (m³)",
         "Rendimiento %",
+        "Noche 00–06 con WES",
+        "Noche 00–06 sin WES (fuga)",
         "Notas",
     ]
     head_font = XlFont(bold=True, color="FFFFFF", name="Calibri")
@@ -379,19 +385,19 @@ def _preparar_icco(
         c.alignment = Alignment(wrap_text=True, horizontal="center")
         c.border = thin
     for r, f in enumerate(filas, start=2):
-        nota = "Único día sin control (00:00–23:59)" if f["fecha"] == DOMINGO_SIN_ICCO else "Con WES"
+        nota = "Fuga pareja (sin clases)" if f["fecha"] == DOMINGO_SIN_ICCO else "Fuga 00:01–06:00 + consumo del día"
         if f["incompleto"]:
             nota += f"; hasta {f['hora_corte']:02d}:59 Chile"
-        if f["fecha"] == DOMINGO_CON_ICCO:
-            nota += "; domingo homólogo"
         vals = [
             f["fecha"].strftime("%d/%m/%Y"),
             f["wd"],
             f["control"],
-            round(f["m3"], 2),
-            round(f["ref"], 2),
+            round(f["m3_con"], 2),
+            round(f["m3_sin"], 2),
             round(f["ahorro"], 2),
             round(f["pct"], 1),
+            round(f["noche_con"], 2),
+            round(f["noche_sin"], 2),
             nota,
         ]
         fill = fill_sin if f["fecha"] == DOMINGO_SIN_ICCO else fill_con
@@ -399,21 +405,27 @@ def _preparar_icco(
             c = ws.cell(r, i, v)
             c.border = thin
             c.fill = fill
+    rr = 2 + len(filas)
+    ws.cell(rr, 1, "TOTAL (sin el dom 16)").font = XlFont(bold=True)
+    ws.cell(rr, 4, round(tot_con, 2)).font = XlFont(bold=True)
+    ws.cell(rr, 5, round(tot_sin, 2)).font = XlFont(bold=True)
+    ws.cell(rr, 6, round(ahorro_t, 2)).font = XlFont(bold=True)
+    ws.cell(rr, 7, round(pct_t, 1)).font = XlFont(bold=True)
     ws2 = wb.create_sheet("Criterio")
     ws2["A1"] = "Sala de bombas"
     ws2["A1"].font = XlFont(bold=True)
     ws2["B1"] = TEXTO_SALA_BOMBAS
-    ws2["A2"] = "Rendimiento homólogo"
+    ws2["A2"] = "Método"
     ws2["A2"].font = XlFont(bold=True)
     ws2["B2"] = (
-        f"Domingo 09/08 con WES {m3_9:.2f} m³ vs domingo 16/08 sin WES {m3_16_full:.2f} m³ → "
-        f"{pct_dom:.1f} % ({ahorro_dom:.2f} m³). Ahorro = (sin − con) / sin × 100."
+        "Control WES 00:01–06:00. Sin WES reconstruido = max(fuga dom 16, medido) en horas 00–05 "
+        "y caudal medido de 06:00 a 23:59. El ahorro es la fuga nocturna que el lunes no desaparece."
     )
     ws2.column_dimensions["A"].width = 24
     ws2.column_dimensions["B"].width = 110
-    for col in range(1, 9):
-        ws.column_dimensions[get_column_letter(col)].width = 18
-    ws.column_dimensions["H"].width = 42
+    for col in range(1, 11):
+        ws.column_dimensions[get_column_letter(col)].width = 16
+    ws.column_dimensions["J"].width = 48
     xlsx_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(xlsx_path)
 
@@ -421,8 +433,10 @@ def _preparar_icco(
         "filas": filas,
         "m3_16": m3_16_full,
         "m3_9": m3_9,
-        "ahorro_dom": ahorro_dom,
-        "pct_dom": pct_dom,
+        "tot_con": tot_con,
+        "tot_sin": tot_sin,
+        "ahorro_t": ahorro_t,
+        "pct_t": pct_t,
         "png_barras": png_barras,
         "png_perfil": png_perfil,
         "xlsx": xlsx_path,
@@ -485,42 +499,13 @@ def _auditoria_un_punto(
         csv_dir=cliente_dir / "csv_descarga_api",
     )
     _aplicar_corte_ultimo_dia(xlsx_out, len(dias_con), hora_corte)
-
-    gdir = cliente_dir / "graficos_comparativos"
-    _limpiar_pngs_carpeta_graficos(gdir)
     fechas, mats = leer_matriz_consolidado(xlsx_out)
-    generar_pngs(fechas, mats, gdir)
-
     mid = len(fechas) // 2
     m3_con = float(sum(sum(col) for col in mats[:mid]))
     m3_sin = float(sum(sum(col) for col in mats[mid:]))
     dias_c = [float(sum(col)) for col in mats[:mid]]
     dias_s = [float(sum(col)) for col in mats[mid:]]
-
-    stem = f"Auditoria_{nombre.replace(' ', '_')}_{node_id}"
-    docx_path = cliente_dir / f"{stem}.docx"
-    graf.NOMBRE_PUNTO = nombre
-    icco.NOMBRE_PUNTO = nombre
-    icco.PORTADA_TITULO = "Informe de Auditoría"
-    icco.PORTADA_REFERENCIA_BORRADOR = stem
-    icco.PORTADA_ESTABLECIMIENTO_LINEA1 = nombre
-    icco.PORTADA_ESTABLECIMIENTO_LINEA2 = node_id
-    icco.CLP_POR_M3_REF = TARIFA_CLP_M3
-    icco._ETIQUETA_COLEGIO_CUADRO_RESUMEN = nombre.upper()[:22]
-
-    print(f"  Word {node_id}…")
-    p = icco.generar_informe_word(
-        node_id=node_id,
-        out_dir=cliente_dir,
-        output_docx=docx_path,
-        mantener_borrador_manual=False,
-        solo_consolidado=False,
-        periodo_ref=per_con,
-        periodo_aud=per_sin,
-        figuras_desde_xlsx=xlsx_out,
-    )
-    pdf = _convertir_pdf(p)
-    return p, pdf, m3_con, m3_sin, dias_c, dias_s
+    return xlsx_out, None, m3_con, m3_sin, dias_c, dias_s
 
 
 def _word_conjunto(
@@ -575,22 +560,33 @@ def _word_conjunto(
     doc.add_heading("1. ICCP, Lo Velásquez, gimnasio y piscina", level=1)
     if "todos" in pngs:
         doc.add_picture(str(pngs["todos"]), width=Cm(16.2))
-    if "dias4" in pngs:
-        doc.add_paragraph("")
-        doc.add_picture(str(pngs["dias4"]), width=Cm(16.2))
 
     tot_con = sum(m3_con.values())
     tot_sin = sum(m3_sin.values())
     ahorro_t, pct_t = _rendimiento(tot_sin, tot_con)
+    extra_tot = ""
+    if icco_info:
+        g_con = tot_con + icco_info["tot_con"]
+        g_sin = tot_sin + icco_info["tot_sin"]
+        g_ah, g_pct = _rendimiento(g_sin, g_con)
+        extra_tot = (
+            f" Con ICCO (fuga 00:01–06:00 montada sobre cada día): "
+            f"Con WES {format_number_chilean(g_con, 1)} m³; "
+            f"Sin WES {format_number_chilean(g_sin, 1)} m³; "
+            f"{format_number_chilean(g_pct, 1)} % "
+            f"({format_number_chilean(g_ah, 1)} m³)."
+        )
     doc.add_paragraph(
-        f"Conjunto: Con WES {format_number_chilean(tot_con, 1)} m³; "
+        f"4 puntos: Con WES {format_number_chilean(tot_con, 1)} m³; "
         f"Sin WES {format_number_chilean(tot_sin, 1)} m³; "
         f"diferencia {format_number_chilean(ahorro_t, 1)} m³ "
-        f"({format_number_chilean(pct_t, 1)} % sobre el periodo sin control; "
+        f"({format_number_chilean(pct_t, 1)} %; "
         f"~{format_number_chilean(max(0.0, ahorro_t) * TARIFA_CLP_M3, 0)} CLP)."
+        + extra_tot
     )
 
-    tbl = doc.add_table(rows=1 + len(PUNTOS) + 1, cols=6)
+    n_extra = 3 if icco_info else 1  # subtotal 4 + ICCO + total 5
+    tbl = doc.add_table(rows=1 + len(PUNTOS) + n_extra, cols=6)
     tbl.style = "Table Grid"
     headers = ["Punto", "Con WES (m³)", "Sin WES (m³)", "Ahorro (m³)", "%", "Hallazgo"]
     for j, hd in enumerate(headers):
@@ -637,12 +633,48 @@ def _word_conjunto(
             run.bold = True
             run.font.size = Pt(9)
 
+    if icco_info:
+        row = tbl.rows[2 + len(PUNTOS)]
+        a_i, p_i = icco_info["ahorro_t"], icco_info["pct_t"]
+        vals = [
+            "ICCO (fuga 00–06 + clases)",
+            format_number_chilean(icco_info["tot_con"], 1),
+            format_number_chilean(icco_info["tot_sin"], 1),
+            format_number_chilean(a_i, 1),
+            format_number_chilean(p_i, 1) + " %",
+            "Estanque sala bombas",
+        ]
+        for j, v in enumerate(vals):
+            row.cells[j].text = v
+            _set_cell_shading(row.cells[j], "F8CBAD")
+            for run in row.cells[j].paragraphs[0].runs:
+                run.bold = True
+                run.font.size = Pt(9)
+        g_con = tot_con + icco_info["tot_con"]
+        g_sin = tot_sin + icco_info["tot_sin"]
+        g_ah, g_pct = _rendimiento(g_sin, g_con)
+        row = tbl.rows[3 + len(PUNTOS)]
+        vals = [
+            "Total 5 puntos",
+            format_number_chilean(g_con, 1),
+            format_number_chilean(g_sin, 1),
+            format_number_chilean(g_ah, 1),
+            format_number_chilean(g_pct, 1) + " %",
+            "",
+        ]
+        for j, v in enumerate(vals):
+            row.cells[j].text = v
+            _set_cell_shading(row.cells[j], "1F4788")
+            for run in row.cells[j].paragraphs[0].runs:
+                run.bold = True
+                run.font.color.rgb = RGBColor(255, 255, 255)
+                run.font.size = Pt(9)
+
     nomb_d: List[str] = []
     for i, (d1, d2) in enumerate(zip(dias_con, dias_sin)):
         extra = f" ({horas})" if i == len(dias_con) - 1 and hora_corte < 23 else ""
         nomb_d.append(f"{WD_CORTO[d1.weekday()]} {d1:%d} vs {d2:%d}{extra}")
 
-    slugs = ("Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo")
     for nid, nom in PUNTOS:
         doc.add_heading(nom, level=1)
         ahorro, pct = _rendimiento(m3_sin[nid], m3_con[nid])
@@ -652,19 +684,6 @@ def _word_conjunto(
             f"{format_number_chilean(pct, 1)} % "
             f"({format_number_chilean(ahorro, 1)} m³)."
         )
-        gdir = dirs[nid] / "graficos_comparativos"
-        barras = gdir / "02_barras_total_rejilla_por_periodo.png"
-        if barras.is_file():
-            doc.add_picture(str(barras), width=Cm(12.5))
-        for j, d1 in enumerate(dias_con):
-            fname = f"{4 + j:02d}_area_{slugs[d1.weekday()]}.png"
-            pth = gdir / fname
-            if pth.is_file():
-                doc.add_picture(str(pth), width=Cm(16.0))
-        prom = gdir / "03_area_promedio_24h.png"
-        if prom.is_file():
-            doc.add_picture(str(prom), width=Cm(16.0))
-
         t2 = doc.add_table(rows=1 + len(nomb_d), cols=5)
         t2.style = "Table Grid"
         for j, hd in enumerate(["Día homólogo", "Con WES (m³)", "Sin WES (m³)", "Ahorro (m³)", "%"]):
@@ -700,20 +719,32 @@ def _word_conjunto(
             doc.add_paragraph("")
             doc.add_picture(str(icco_info["png_perfil"]), width=Cm(16.2))
         p = doc.add_paragraph()
-        p.add_run("Rendimiento totalizado (único par homólogo justo). ").bold = True
+        p.add_run("Rendimiento totalizado (fuga montada en 00:01–06:00). ").bold = True
         p.add_run(
-            f"Domingo 09/08 con WES {format_number_chilean(icco_info['m3_9'], 1)} m³ vs "
-            f"domingo 16/08 sin WES {format_number_chilean(icco_info['m3_16'], 1)} m³ → "
-            f"{format_number_chilean(icco_info['pct_dom'], 1)} % "
-            f"({format_number_chilean(icco_info['ahorro_dom'], 1)} m³; "
-            f"~{format_number_chilean(max(0.0, icco_info['ahorro_dom']) * TARIFA_CLP_M3, 0)} CLP). "
-            "No se puede extrapolar ese 40,1 m³/día a lun–vie: un día de clases con WES ya supera "
-            "50–77 m³ por ocupación, y sin control el estanque de la sala de bombas se vaciaría."
+            f"En los días con WES (sin contar el domingo 16) el medido es "
+            f"{format_number_chilean(icco_info['tot_con'], 1)} m³ y el sin control reconstruido "
+            f"{format_number_chilean(icco_info['tot_sin'], 1)} m³ → "
+            f"{format_number_chilean(icco_info['pct_t'], 1)} % "
+            f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³; "
+            f"~{format_number_chilean(max(0.0, icco_info['ahorro_t']) * TARIFA_CLP_M3, 0)} CLP). "
+            "Ese ahorro es la fuga nocturna: el lunes no deja de existir; se suma al consumo de clases. "
+            "El 5 % del domingo vs domingo solo ve el día sin colegio; el rendimiento real es mayor."
         )
         filas = icco_info["filas"]
-        t3 = doc.add_table(rows=1 + len(filas), cols=6)
+        t3 = doc.add_table(rows=1 + len(filas), cols=8)
         t3.style = "Table Grid"
-        for j, hd in enumerate(["Día", "Control", "m³ del día", "m³ dom 16", "Ahorro (m³)", "%"]):
+        for j, hd in enumerate(
+            [
+                "Día",
+                "Control",
+                "Con WES (m³)",
+                "Sin reconstruido (m³)",
+                "Ahorro (m³)",
+                "%",
+                "Noche 00–06 con",
+                "Noche 00–06 sin (fuga)",
+            ]
+        ):
             cell = t3.rows[0].cells[j]
             cell.text = hd
             _set_cell_shading(cell, "1F4788")
@@ -726,10 +757,12 @@ def _word_conjunto(
             vals = [
                 f"{f['wd']} {f['fecha']:%d/%m}{extra}",
                 f["control"],
-                format_number_chilean(f["m3"], 1),
-                format_number_chilean(f["ref"], 1),
+                format_number_chilean(f["m3_con"], 1),
+                format_number_chilean(f["m3_sin"], 1),
                 format_number_chilean(f["ahorro"], 1),
                 format_number_chilean(f["pct"], 1) + " %",
+                format_number_chilean(f["noche_con"], 1),
+                format_number_chilean(f["noche_sin"], 1),
             ]
             for j, v in enumerate(vals):
                 t3.rows[i].cells[j].text = v
@@ -761,14 +794,12 @@ def _word_conjunto(
     )
     if icco_info:
         doc.add_paragraph(
-            "En Colegio ICCO Renca el sin control no se puede repetir una semana completa: "
-            "el estanque de la sala de bombas se vacía y no se recupera, y eso afectaría el "
-            "funcionamiento normal del colegio. El único día sin WES fue el domingo 16/08 "
-            f"({format_number_chilean(icco_info['m3_16'], 1)} m³). El rendimiento totalizado "
-            f"frente al domingo homólogo 09/08 es {format_number_chilean(icco_info['pct_dom'], 1)} % "
-            f"({format_number_chilean(icco_info['ahorro_dom'], 1)} m³). "
-            "Los días de clases con WES gastan más que ese domingo por ocupación, no porque "
-            "el control suba el consumo."
+            "En Colegio ICCO Renca el sin control no se puede repetir una semana: "
+            "el estanque de la sala de bombas se vacía y no se recupera. "
+            "El domingo 16 muestra la fuga pareja (~40 m³/día). Esa fuga no desaparece el lunes: "
+            "se monta en 00:01–06:00 sobre el consumo de clases. "
+            f"Rendimiento ICCO así reconstruido: {format_number_chilean(icco_info['pct_t'], 1)} % "
+            f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³), ya incluido en el total de 5 puntos."
         )
     out_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_docx)
@@ -828,9 +859,7 @@ def main() -> int:
         m3_sin[nid] = s
         dias_m3_con[nid] = dc
         dias_m3_sin[nid] = ds
-        print(f"  Con {c:.1f} m³ | Sin {s:.1f} m³ | Word {_docx}")
-        if _pdf:
-            print(f"  PDF {_pdf}")
+        print(f"  Con {c:.1f} m³ | Sin {s:.1f} m³")
 
     png_dir = out_root / "graficos"
     png_dir.mkdir(exist_ok=True)
@@ -844,21 +873,6 @@ def main() -> int:
         lab_sin,
         p_all,
     )
-    nombres_d = []
-    for i, d1 in enumerate(dias_con):
-        if i == len(dias_con) - 1 and hora_corte < 23:
-            nombres_d.append(f"{WD_LARGO[d1.weekday()]}\nhasta {hora_corte:02d}:59")
-        else:
-            nombres_d.append(WD_LARGO[d1.weekday()])
-    p_dias = png_dir / "dias_homologos_4_puntos.png"
-    _grafico_dias_homologos(
-        nombres_d,
-        dias_m3_con,
-        dias_m3_sin,
-        f"Días homólogos: {lab_con} vs {lab_sin}",
-        p_dias,
-    )
-
     print("=" * 64)
     print(f"{NODO_ICCO} {NOMBRE_ICCO}")
     icco_dir = out_root / "Auditoria_Colegio_ICCO_Renca_000017-08"
@@ -867,11 +881,12 @@ def main() -> int:
         ahora.date(),
         hora_corte,
         png_dir,
-        icco_dir / "ICCO_domingo16_sinWES_vs_cada_dia.xlsx",
+        icco_dir / "ICCO_fuga_mas_clases.xlsx",
     )
     print(
-        f"  Dom 16 sin WES {icco_info['m3_16']:.1f} m³ | Dom 09 con WES {icco_info['m3_9']:.1f} m³ | "
-        f"{icco_info['pct_dom']:.1f}% ({icco_info['ahorro_dom']:.1f} m³)"
+        f"  ICCO reconstruido: Con {icco_info['tot_con']:.1f} m³ | "
+        f"Sin {icco_info['tot_sin']:.1f} m³ | {icco_info['pct_t']:.1f}% ({icco_info['ahorro_t']:.1f} m³) "
+        f"| fuga dom 16 {icco_info['m3_16']:.1f} m³"
     )
 
     docx_path = out_root / f"Informe_Auditoria_Renca_semana_pasada_vs_esta_{ts}.docx"
@@ -881,7 +896,7 @@ def main() -> int:
         ahora,
         dias_con,
         dias_sin,
-        {"todos": p_all, "dias4": p_dias, "icco": icco_info["png_barras"]},
+        {"todos": p_all, "icco": icco_info["png_barras"]},
         m3_con,
         m3_sin,
         dias_m3_con,
@@ -894,8 +909,14 @@ def main() -> int:
     tot_c = sum(m3_con.values())
     tot_s = sum(m3_sin.values())
     ahorro, pct = _rendimiento(tot_s, tot_c)
+    g_con = tot_c + icco_info["tot_con"]
+    g_sin = tot_s + icco_info["tot_sin"]
+    g_ah, g_pct = _rendimiento(g_sin, g_con)
     print("=" * 64)
-    print(f"TOTAL Con WES {tot_c:.1f} m³ | Sin WES {tot_s:.1f} m³ | {pct:.1f}% ({ahorro:.1f} m³)")
+    print(f"4 puntos Con {tot_c:.1f} | Sin {tot_s:.1f} | {pct:.1f}% ({ahorro:.1f} m³)")
+    print(
+        f"5 puntos +ICCO Con {g_con:.1f} | Sin {g_sin:.1f} | {g_pct:.1f}% ({g_ah:.1f} m³)"
+    )
     print(f"DOCX conjunto: {docx_path}")
     print(f"PDF  conjunto: {pdf_path or '(no convertido)'}")
     print(f"DIR: {out_root}")
