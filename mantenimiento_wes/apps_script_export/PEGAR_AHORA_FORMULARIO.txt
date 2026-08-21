@@ -1,21 +1,8 @@
-Modalidad visita vs a distancia — build 21M
-===========================================
+Modalidad simple — build 21N
+=============================
 
-En el form (solo refrescar, sin pegar Formulario):
-  Modalidad / motivo *
-  • Visita física · Mantenimiento
-  • Visita física · Auditoría
-  • Visita física · Emergencia
+Solo 2 opciones:
+  • Visita física
   • Soporte técnico a distancia
-  • Mantención a distancia
 
-Así en reportes podés filtrar "Visita física" vs "a distancia".
-
-1) Cerrá el form → abrí de nuevo → Ctrl+Shift+R
-2) Debe decir: Acta de visita técnica · 21M
-
-Opcional (PDF label Motivo/modalidad): pegar Codigo + Nueva versión
-https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
-
-Opcional (catálogo embebido alineado): pegar catalogos
-(archivo catalogos_PEGAR en la misma carpeta Drive apps_script_export)
+Refrescá el form (Ctrl+Shift+R). Debe decir · 21N.
