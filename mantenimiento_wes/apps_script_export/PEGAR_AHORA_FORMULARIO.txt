@@ -1,9 +1,12 @@
-Botón CERRAR visible (azul) dentro del checklist
-================================================
+FIX — CIR / CPA / SAB ya no van al mismo lado
+==============================================
 
-Al abrir CIR/CPA/SAB vas a ver:
-- Botón azul arriba: «Cerrar checklist CIR»
-- Botón gris abajo: «Cerrar checklist CIR»
+El menú select estaba mal (valores repetidos / Apps Script).
+Ahora hay 4 botones separados:
+  [Abrir CIR] [Abrir CPA]
+  [Abrir SAB] [Cerrar checklist]
 
-TXT: https://drive.google.com/file/d/1rX6hdzGsP9CDeJQ0khOTtPCPbjorvlvy/view?usp=drivesdk
+Cada uno abre SU panel. El estado dice «Mostrando SOLO CIR/CPA/SAB».
+
+TXT: https://drive.google.com/file/d/1__7RVExtBV0sGSqWMlwigKaD45JPpEWg/view?usp=drivesdk
 Pegá Formulario completo → Nueva versión → reabrí el link.

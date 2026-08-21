@@ -135,19 +135,27 @@
     .check-item:last-child { border-bottom: 0; }
     .check-item .name { font-size: 0.92rem; }
     .check-item select { background: var(--amber); }
-    .checklist-select-wrap { margin: 0 0 10px; }
-    .checklist-select {
-      width: 100%;
-      appearance: auto;
-      -webkit-appearance: menulist;
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--ink);
+    .checklist-btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 0 0 10px;
+    }
+    .checklist-btns button {
       background: #fff;
-      border: 2px solid var(--blue-2);
-      border-radius: 14px;
-      padding: 14px 12px;
-      min-height: 52px;
+      color: var(--ink);
+      border: 2px solid var(--line);
+      box-shadow: none;
+      font-weight: 750;
+    }
+    .checklist-btns button.is-on {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+    .checklist-btns button.btn-off {
+      grid-column: 1 / -1;
+      background: #eef2f7;
     }
     .checklist-panel {
       border: 1px solid var(--line);
@@ -175,28 +183,26 @@
       border-radius: 999px;
       padding: 3px 8px;
     }
-    .btn-cerrar-panel {
+    .btn-cerrar-panel,
+    .btn-cerrar-panel-bottom {
       width: 100%;
       margin: 0 0 10px;
       padding: 14px 12px;
       font-size: 1rem;
       font-weight: 800;
-      background: #1f4e79;
-      color: #fff !important;
       border: 0;
       border-radius: 12px;
+    }
+    .btn-cerrar-panel {
+      background: #1f4e79;
+      color: #fff !important;
       box-shadow: 0 6px 14px rgba(31, 78, 121, 0.25);
     }
     .btn-cerrar-panel-bottom {
-      width: 100%;
       margin: 12px 0 0;
-      padding: 14px 12px;
-      font-size: 1rem;
-      font-weight: 800;
       background: #eef2f7;
       color: #0f2f4d;
       border: 1px solid var(--line);
-      border-radius: 12px;
       box-shadow: none;
     }
     @media (max-width: 640px) {
@@ -354,23 +360,15 @@
 
       <section class="card">
         <h2>Checklists</h2>
-        <div class="checklist-select-wrap">
-          <label for="checklist_picker">Menú · abrí CIR, CPA o SAB</label>
-          <select
-            id="checklist_picker"
-            class="checklist-select"
-            onchange="mostrarChecklist(this.value)"
-          >
-            <option value="off">Cerrado</option>
-            <option value="cir">Abrir CIR</option>
-            <option value="cpa">Abrir CPA</option>
-            <option value="sab">Abrir SAB</option>
-            <option value="off">Cerrar checklist</option>
-          </select>
+        <p class="note" style="margin:0 0 8px">Cada botón abre su lista. CIR, CPA y SAB son distintos.</p>
+        <div class="checklist-btns" id="checklist_btns">
+          <button type="button" id="btn_open_cir" data-open="cir">Abrir CIR</button>
+          <button type="button" id="btn_open_cpa" data-open="cpa">Abrir CPA</button>
+          <button type="button" id="btn_open_sab" data-open="sab">Abrir SAB</button>
+          <button type="button" id="btn_open_off" class="btn-off" data-open="off">Cerrar checklist</button>
         </div>
-        <p class="note" id="fold_status" style="margin:8px 0 4px">
-          Cerrado. Al abrir un checklist vas a ver un botón azul «Cerrar checklist».
-        </p>
+        <p class="note" id="fold_status" style="margin:0 0 8px">Cerrado.</p>
+
         <div id="panel_cir" class="checklist-panel" style="display:none" hidden>
           <button type="button" class="btn-cerrar-panel" data-cerrar="1">Cerrar checklist CIR</button>
           <div class="fold-head">
@@ -380,6 +378,7 @@
           <div id="cir_list"></div>
           <button type="button" class="btn-cerrar-panel-bottom" data-cerrar="1">Cerrar checklist CIR</button>
         </div>
+
         <div id="panel_cpa" class="checklist-panel" style="display:none" hidden>
           <button type="button" class="btn-cerrar-panel" data-cerrar="1">Cerrar checklist CPA</button>
           <div class="fold-head">
@@ -389,6 +388,7 @@
           <div id="cpa_list"></div>
           <button type="button" class="btn-cerrar-panel-bottom" data-cerrar="1">Cerrar checklist CPA</button>
         </div>
+
         <div id="panel_sab" class="checklist-panel" style="display:none" hidden>
           <button type="button" class="btn-cerrar-panel" data-cerrar="1">Cerrar checklist SAB</button>
           <div class="fold-head">
@@ -462,7 +462,25 @@
     const CATALOGOS = <?!= CATALOGOS_JSON ?>;
     const state = { catalogos: null, dirty: false, contactos: {} };
 
-    /** Menú checklist: abrir y CERRAR (plegar). */
+    /** Checklists: botones distintos → paneles distintos (CIR / CPA / SAB). */
+    var checklistAbierto = "off";
+
+    function setPanelVisible(panel, show) {
+      if (!panel) return;
+      if (show) {
+        panel.removeAttribute("hidden");
+        panel.style.cssText =
+          "display:block !important;visibility:visible !important;height:auto !important;" +
+          "overflow:visible !important;margin-top:10px !important;padding:12px !important;" +
+          "border:1px solid #c5d5e6 !important;border-radius:14px;background:#fff;";
+      } else {
+        panel.setAttribute("hidden", "hidden");
+        panel.style.cssText =
+          "display:none !important;visibility:hidden !important;height:0 !important;" +
+          "overflow:hidden !important;margin:0 !important;padding:0 !important;border:0 !important;";
+      }
+    }
+
     function cerrarChecklist() {
       mostrarChecklist("off");
       return false;
@@ -470,43 +488,76 @@
     window.cerrarChecklist = cerrarChecklist;
 
     function mostrarChecklist(v) {
-      v = String(v == null ? "off" : v);
-      if (!v || v === "cerrar" || v === "closed") v = "off";
+      v = String(v == null ? "off" : v).toLowerCase().trim();
+      if (v !== "cir" && v !== "cpa" && v !== "sab") v = "off";
+      checklistAbierto = v;
 
       var keys = ["cir", "cpa", "sab"];
-      var openKey = keys.indexOf(v) >= 0 ? v : "";
       var i;
       for (i = 0; i < keys.length; i++) {
         var k = keys[i];
-        var panel = document.getElementById("panel_" + k);
-        if (!panel) continue;
-        var show = openKey === k;
-        panel.style.setProperty("display", show ? "block" : "none", "important");
-        panel.style.setProperty("visibility", show ? "visible" : "hidden", "important");
-        panel.style.setProperty("height", show ? "auto" : "0", "important");
-        panel.style.setProperty("overflow", show ? "visible" : "hidden", "important");
-        panel.style.setProperty("margin-top", show ? "10px" : "0", "important");
-        panel.style.setProperty("padding", show ? "12px" : "0", "important");
-        panel.style.setProperty("border-width", show ? "1px" : "0", "important");
-        if (show) panel.removeAttribute("hidden");
-        else panel.setAttribute("hidden", "hidden");
+        setPanelVisible(document.getElementById("panel_" + k), v === k);
+        var openBtn = document.getElementById("btn_open_" + k);
+        if (openBtn) {
+          if (v === k) openBtn.classList.add("is-on");
+          else openBtn.classList.remove("is-on");
+        }
       }
+
+      var nCir = (document.getElementById("cir_list") || {}).children
+        ? document.getElementById("cir_list").children.length
+        : 0;
+      var nCpa = document.getElementById("cpa_list")
+        ? document.getElementById("cpa_list").children.length
+        : 0;
+      var nSab = document.getElementById("sab_list")
+        ? document.getElementById("sab_list").children.length
+        : 0;
 
       var st = document.getElementById("fold_status");
       if (st) {
-        st.textContent = openKey
-          ? "Abierto: " + openKey.toUpperCase() + ". Usá el botón azul «Cerrar checklist» (arriba o abajo del listado)."
-          : "Cerrado. Elegí CIR, CPA o SAB en el menú.";
+        if (v === "off") {
+          st.textContent =
+            "Cerrado. CIR=" + nCir + " ítems · CPA=" + nCpa + " · SAB=" + nSab + ".";
+        } else {
+          var n =
+            v === "cir" ? nCir : v === "cpa" ? nCpa : nSab;
+          st.textContent =
+            "Mostrando SOLO " + v.toUpperCase() + " (" + n + " ítems). Los otros están ocultos.";
+        }
       }
-
-      var picker = document.getElementById("checklist_picker");
-      if (picker) picker.value = openKey ? openKey : "off";
     }
     window.mostrarChecklist = mostrarChecklist;
 
-    function wireCerrarButtons() {
-      var nodes = document.querySelectorAll("[data-cerrar='1']");
-      for (var i = 0; i < nodes.length; i++) {
+    function wireChecklistButtons() {
+      var ids = [
+        ["btn_open_cir", "cir"],
+        ["btn_open_cpa", "cpa"],
+        ["btn_open_sab", "sab"],
+        ["btn_open_off", "off"],
+      ];
+      var i;
+      for (i = 0; i < ids.length; i++) {
+        (function (id, key) {
+          var btn = document.getElementById(id);
+          if (!btn) return;
+          btn.onclick = function (ev) {
+            if (ev) {
+              ev.preventDefault();
+              ev.stopPropagation();
+            }
+            // Si tocás el mismo que ya está abierto → cerrar
+            if (key !== "off" && checklistAbierto === key) {
+              cerrarChecklist();
+            } else {
+              mostrarChecklist(key);
+            }
+            return false;
+          };
+        })(ids[i][0], ids[i][1]);
+      }
+      var cerrarBtns = document.querySelectorAll("[data-cerrar='1']");
+      for (i = 0; i < cerrarBtns.length; i++) {
         (function (btn) {
           btn.onclick = function (ev) {
             if (ev) {
@@ -516,22 +567,14 @@
             cerrarChecklist();
             return false;
           };
-        })(nodes[i]);
+        })(cerrarBtns[i]);
       }
+      cerrarChecklist();
     }
 
     (function wireChecklistMenuNow() {
       function wire() {
-        var p = document.getElementById("checklist_picker");
-        if (p) {
-          p.onchange = function () {
-            var val = p.value || "off";
-            if (val === "off") cerrarChecklist();
-            else mostrarChecklist(val);
-          };
-        }
-        wireCerrarButtons();
-        cerrarChecklist();
+        wireChecklistButtons();
       }
       wire();
       if (document.readyState === "loading") {
@@ -972,20 +1015,11 @@
         checklist(document.getElementById("cir_list"), "cir", op.cir || [], op.estados_checklist);
         checklist(document.getElementById("cpa_list"), "cpa", op.cpa || [], op.estados_checklist);
         checklist(document.getElementById("sab_list"), "sab", op.sab || [], op.estados_checklist);
+        wireChecklistButtons();
       } catch (eCheck) {
         const st = document.getElementById("fold_status");
         if (st) st.textContent = "Error cargando ítems: " + eCheck;
       }
-      // Cablear menú otra vez (por si el onchange= del HTML se perdió al pegar)
-      const picker = document.getElementById("checklist_picker");
-      if (picker) {
-        picker.onchange = function () {
-          var val = picker.value || "off";
-          if (val === "off") cerrarChecklist();
-          else mostrarChecklist(val);
-        };
-      }
-      cerrarChecklist();
       document.getElementById("fecha").value = todayISO();
       const now = new Date();
       document.getElementById("hora").value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
