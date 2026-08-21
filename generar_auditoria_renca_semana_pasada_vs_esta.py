@@ -570,11 +570,12 @@ def _word_conjunto(
         g_sin = tot_sin + icco_info["tot_sin"]
         g_ah, g_pct = _rendimiento(g_sin, g_con)
         extra_tot = (
-            f" Con ICCO (fuga 00:01–06:00 montada sobre cada día): "
-            f"Con WES {format_number_chilean(g_con, 1)} m³; "
-            f"Sin WES {format_number_chilean(g_sin, 1)} m³; "
-            f"{format_number_chilean(g_pct, 1)} % "
-            f"({format_number_chilean(g_ah, 1)} m³)."
+            f" ICCO no es el 5 % de un domingo: la fuga de 00:01–06:00 se monta sobre cada día "
+            f"con WES y suma {format_number_chilean(icco_info['ahorro_t'], 1)} m³ "
+            f"(~{format_number_chilean(max(0.0, icco_info['ahorro_t']) * TARIFA_CLP_M3, 0)} CLP). "
+            f"Ahorro conjunto 5 puntos: {format_number_chilean(g_ah, 1)} m³. "
+            f"El % conjunto ({format_number_chilean(g_pct, 1)} %) baja respecto de los 4 puntos "
+            f"porque ICCO aporta mucho volumen de clases; el WES ahí solo corta de noche."
         )
     doc.add_paragraph(
         f"4 puntos: Con WES {format_number_chilean(tot_con, 1)} m³; "
@@ -728,7 +729,10 @@ def _word_conjunto(
             f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³; "
             f"~{format_number_chilean(max(0.0, icco_info['ahorro_t']) * TARIFA_CLP_M3, 0)} CLP). "
             "Ese ahorro es la fuga nocturna: el lunes no deja de existir; se suma al consumo de clases. "
-            "El 5 % del domingo vs domingo solo ve el día sin colegio; el rendimiento real es mayor."
+            "Por eso los lunes a viernes ya no se ven ‘disparados’: la barra sin WES es el día de clases "
+            "más la fuga de 00:01–06:00, no los 40 m³ del domingo sin colegio. "
+            "El 5 % del domingo vs domingo solo ve un día sin clases (~2 m³); "
+            "montando la noche en todos los días con WES el volumen es mayor."
         )
         filas = icco_info["filas"]
         t3 = doc.add_table(rows=1 + len(filas), cols=8)
@@ -799,7 +803,10 @@ def _word_conjunto(
             "El domingo 16 muestra la fuga pareja (~40 m³/día). Esa fuga no desaparece el lunes: "
             "se monta en 00:01–06:00 sobre el consumo de clases. "
             f"Rendimiento ICCO así reconstruido: {format_number_chilean(icco_info['pct_t'], 1)} % "
-            f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³), ya incluido en el total de 5 puntos."
+            f"({format_number_chilean(icco_info['ahorro_t'], 1)} m³), ya incluido en el total de 5 puntos. "
+            "El porcentaje de ICCO se parece al 5 % del domingo porque de día el colegio ya gasta "
+            "50–77 m³; lo que WES corta es la noche (~10 m³ de fuga). El volumen sí es mayor que "
+            "los ~2 m³ de un solo domingo."
         )
     out_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_docx)
