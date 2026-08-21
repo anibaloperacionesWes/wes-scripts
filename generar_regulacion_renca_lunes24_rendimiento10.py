@@ -17,6 +17,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import math
 import statistics
 import subprocess
 import shutil
@@ -71,8 +72,72 @@ DIAS_SIN = (date(2026, 8, 17), date(2026, 8, 18), date(2026, 8, 19), date(2026, 
 LUNES_CONTROL = date(2026, 8, 24)
 
 
+MARGEN_ABAST = 1.10  # 100 % = pico medido × 1,10 para que el abastecimiento no falle
+
+
 def _m3_a_lmin(m3h: float) -> float:
     return float(m3h) * 1000.0 / 60.0
+
+
+def _lmin_a_m3(lmin: float) -> float:
+    return float(lmin) * 60.0 / 1000.0
+
+
+def _ceil_lmin(x: float) -> float:
+    """Redondeo operativo a 0,5 L/min hacia arriba."""
+    if x <= 0:
+        return 0.0
+    return math.ceil(x * 2.0 - 1e-9) / 2.0
+
+
+def _fmt_rango(h0: int, h1: int) -> str:
+    return f"{h0:02d}:00–{h1:02d}:59"
+
+
+def _rangos_nivel(niveles: Sequence[int]) -> List[Tuple[int, int, int]]:
+    """Bloques consecutivos (hora_ini, hora_fin inclusive, % )."""
+    out: List[Tuple[int, int, int]] = []
+    i = 0
+    while i < len(niveles):
+        j = i
+        while j + 1 < len(niveles) and niveles[j + 1] == niveles[i]:
+            j += 1
+        out.append((i, j, int(niveles[i])))
+        i = j + 1
+    return out
+
+
+def _suavizar_niveles(niveles: Sequence[int], sin_h: Sequence[float], lmin_de: Dict[int, float]) -> List[int]:
+    """Bloques operativos: no dejar un agujero de 30/60 entre horas 100 %, ni un tope justo al caudal medido."""
+    n = [int(x) for x in niveles]
+    for h in range(24):
+        dem = _m3_a_lmin(sin_h[h])
+        while n[h] < 100 and dem * MARGEN_ABAST > lmin_de[n[h]] + 1e-9:
+            n[h] = 60 if n[h] == 30 else 100
+    # Valles de 1–2 h entre niveles más altos → subir (p. ej. 10 h a 100, 11 h a 30, 12 h a 100).
+    changed = True
+    while changed:
+        changed = False
+        i = 0
+        while i < 24:
+            j = i
+            while j + 1 < 24 and n[j + 1] == n[i]:
+                j += 1
+            if i > 0 and j < 23 and n[i] < n[i - 1] and n[i] < n[j + 1] and (j - i + 1) <= 2:
+                nuevo = min(n[i - 1], n[j + 1])
+                if nuevo > n[i]:
+                    for k in range(i, j + 1):
+                        n[k] = nuevo
+                    changed = True
+            i = j + 1
+    # Entre dos tramos 100 % separados por ≤ 3 h en 60 %, unificar a 100 % (programable).
+    picos = [h for h, v in enumerate(n) if v == 100]
+    for a, b in zip(picos, picos[1:]):
+        gap = list(range(a + 1, b))
+        if 0 < len(gap) <= 3 and all(n[k] >= 60 for k in gap):
+            for k in range(a, b + 1):
+                n[k] = 100
+    return n
 
 
 def _nivel(v: float, pico: float) -> int:
@@ -140,11 +205,25 @@ def _grafico_dia(
     x = list(range(24))
     colors = [{100: COLOR_100, 60: COLOR_60, 30: COLOR_30}[n] for n in niveles]
     fig, ax = plt.subplots(figsize=(12.2, 4.8))
-    ax.bar([i - 0.18 for i in x], list(sin_h), width=0.36, color="#C0504D", label="Sin WES (línea base)", zorder=2)
-    ax.bar([i + 0.18 for i in x], list(cap_h), width=0.36, color=colors, label="Tope 30/60/100 %", zorder=2)
+    ax.bar(
+        [i - 0.18 for i in x],
+        [_m3_a_lmin(v) for v in sin_h],
+        width=0.36,
+        color="#C0504D",
+        label="Sin WES (L/min medido)",
+        zorder=2,
+    )
+    ax.bar(
+        [i + 0.18 for i in x],
+        [_m3_a_lmin(v) for v in cap_h],
+        width=0.36,
+        color=colors,
+        label="Tope 30 / 60 / 100 % (L/min)",
+        zorder=2,
+    )
     ax.set_xticks(x)
     ax.set_xticklabels([f"{h:02d}" for h in x], fontsize=7)
-    ax.set_ylabel("m³/h")
+    ax.set_ylabel("L/min")
     ax.set_title(titulo, fontweight="bold", fontsize=11, color="#1F4788")
     ax.grid(axis="y", alpha=0.3, zorder=0)
     ax.legend(fontsize=8, loc="upper right")
@@ -179,25 +258,42 @@ def _pdf(docx: Path) -> Optional[Path]:
 
 
 def _plan_para_perfil(sin_h: List[float]) -> dict:
+    """100 % = pico × margen (L/min). 30/60 solo si el caudal medido ya cabe: no falla el abastecimiento."""
     pico = max(sin_h) if sin_h else 0.0
-    niveles = [_nivel(sin_h[h], pico) for h in range(24)]
+    q100_lmin = _ceil_lmin(_m3_a_lmin(pico) * MARGEN_ABAST)
+    q60_lmin = _ceil_lmin(q100_lmin * 0.60)
+    q30_lmin = _ceil_lmin(q100_lmin * 0.30)
+    q100 = _lmin_a_m3(q100_lmin)
+    lmin_de = {100: q100_lmin, 60: q60_lmin, 30: q30_lmin}
+    niveles: List[int] = []
+    for h in range(24):
+        n = _nivel(sin_h[h], pico)
+        dem = _m3_a_lmin(sin_h[h])
+        while n < 100 and dem > lmin_de[n] + 1e-9:
+            n = 60 if n == 30 else 100
+        niveles.append(n)
+    niveles = _suavizar_niveles(niveles, sin_h, lmin_de)
+    cap = [_lmin_a_m3(lmin_de[n]) for n in niveles]
     fracs = [n / 100.0 for n in niveles]
-    q100 = _q100_para_objetivo(sin_h, fracs, FACTOR_OBJ)
-    cap = [q100 * f for f in fracs]
-    esperado = _consumo_esperado(q100, sin_h, fracs)
+    esperado = float(sum(min(float(sin_h[h]), cap[h]) for h in range(24)))
     base = float(sum(sin_h))
     rend = ((base - esperado) / base * 100.0) if base > 1e-9 else 0.0
+    rangos = _rangos_nivel(niveles)
     return {
         "sin": sin_h,
         "pico": pico,
         "niveles": niveles,
         "q100": q100,
-        "q60": q100 * 0.60,
-        "q30": q100 * 0.30,
+        "q60": _lmin_a_m3(q60_lmin),
+        "q30": _lmin_a_m3(q30_lmin),
+        "q100_lmin": q100_lmin,
+        "q60_lmin": q60_lmin,
+        "q30_lmin": q30_lmin,
         "cap": cap,
         "base": base,
         "esperado": esperado,
         "rend": rend,
+        "rangos": rangos,
     }
 
 
@@ -234,7 +330,7 @@ def _excel(
             "Punto",
             "Perfil",
             "Σ sin WES (m³)",
-            "Σ con tope 10% (m³)",
+            "Σ con tope (m³)",
             "Rendimiento %",
             "100 % (m³/h)",
             "60 % (m³/h)",
@@ -259,9 +355,9 @@ def _excel(
             ws.cell(r, 6, round(plan["q100"], 3))
             ws.cell(r, 7, round(plan["q60"], 3))
             ws.cell(r, 8, round(plan["q30"], 3))
-            ws.cell(r, 9, round(_m3_a_lmin(plan["q100"]), 2))
-            ws.cell(r, 10, round(_m3_a_lmin(plan["q60"]), 2))
-            ws.cell(r, 11, round(_m3_a_lmin(plan["q30"]), 2))
+            ws.cell(r, 9, plan["q100_lmin"])
+            ws.cell(r, 10, plan["q60_lmin"])
+            ws.cell(r, 11, plan["q30_lmin"])
             ws.cell(r, 12, n.count(100))
             ws.cell(r, 13, n.count(60))
             ws.cell(r, 14, n.count(30))
@@ -323,16 +419,32 @@ def _excel(
                 c.fill = fill
         col += 5
 
+    ws_r = wb.create_sheet("Rangos_Lmin")
+    _hdr(ws_r, 1, ["Punto", "Horario", "% WES", "L/min a cargar", "Cubre el pico del bloque"])
+    rr = 2
+    for nid, nom in puntos:
+        plan = planes_lun[nid]
+        lmap = {100: plan["q100_lmin"], 60: plan["q60_lmin"], 30: plan["q30_lmin"]}
+        for h0, h1, niv in plan["rangos"]:
+            pico_b = max(_m3_a_lmin(plan["sin"][h]) for h in range(h0, h1 + 1))
+            cubre = "sí" if lmap[niv] + 1e-9 >= pico_b else "revisar"
+            fill = {100: FILL_100, 60: FILL_60, 30: FILL_30}[niv]
+            vals = [nom, _fmt_rango(h0, h1), niv, lmap[niv], cubre]
+            for i, v in enumerate(vals, 1):
+                c = ws_r.cell(rr, i, v)
+                c.border = thin
+                c.fill = fill
+            rr += 1
+
     ws4 = wb.create_sheet("Criterio")
     lines = [
-        ("Objetivo", f"{OBJETIVO_PCT:.0f} % de rendimiento vs sin WES (consumo esperado = {FACTOR_OBJ:.0%} de la línea base)."),
+        ("Cifras", "Todo el plan se carga en L/min (no m³/h)."),
         ("Inicio control", "Lunes 24/08/2026"),
         ("Línea base", "Sin WES 17–20/08/2026 (hora Chile). Lunes 24 usa el perfil del lunes 17."),
-        ("Día tipo", "Mediana hora a hora de lun–jue 17–20 (sin WES)."),
-        ("100 %", "Caudal máximo a programar (m³/h). Es el tope de las horas pico."),
-        ("60 % / 30 %", "0,60 y 0,30 de ese mismo 100 %."),
-        ("Semáforo", f"vs pico del perfil: ≥{RATIO_100:.0%} → 100 %; {RATIO_60:.0%}–{RATIO_100:.0%} → 60 %; <{RATIO_60:.0%} o ~0 → 30 %."),
-        ("Tope", "La válvula limita; no fuerza consumo. El 10 % se cumple si la demanda se parece a la línea base."),
+        ("100 %", "Pico medido del lunes 17 × 1,10, redondeado a 0,5 L/min. El abastecimiento del pico no falla."),
+        ("60 % / 30 %", "0,60 y 0,30 de ese 100 %. Solo en tramos donde el lunes 17 ya cabía, con 10 % de holgura."),
+        ("Rangos", "Horas consecutivas del mismo L/min. Valles cortos entre picos se suben para no cortar el servicio."),
+        ("Rendimiento 10 %", "No se recorta el caudal del lunes 17. El 10 % aparece si el lunes 24 se pasa de estos topes (fuga o uso extra)."),
     ]
     for i, (a, b) in enumerate(lines, 1):
         ws4.cell(i, 1, a).font = Font(bold=True)
@@ -363,30 +475,24 @@ def _word(
         add_logo_to_header(doc)
     except Exception:
         pass
-    tit = "Renca — regulación lunes 24/08 (10 %)"
-    if len(puntos) == 2:
-        tit = "Lo Velásquez y Gimnasio — regulación lunes 24/08 (10 %)"
+    tit = "Lo Velásquez y Gimnasio — L/min por horario (lunes 24)"
+    if len(puntos) != 2:
+        tit = "Renca — L/min por horario (lunes 24)"
     h = doc.add_heading(tit, level=0)
     if h.runs:
         h.runs[0].font.color.rgb = COLOR_HEAD
     p = doc.add_paragraph()
-    p.add_run("Vuelve el periodo con control. ").bold = True
+    p.add_run("Cifras en litros por minuto. ").bold = True
     p.add_run(
-        "Línea base = sin WES 17–20/08. Objetivo = gastar ~90 % de esa línea "
-        f"(10 % de rendimiento). Jueves 20 incluido hasta {hora_corte:02d}:59 Chile. "
-        "En WES se carga un caudal máximo (100 %) y el horario usa solo 30 %, 60 % o 100 % de ese máximo."
+        "El 100 % es el pico del lunes 17 sin WES con 10 % de holgura, para que no falle el abastecimiento. "
+        "60 % y 30 % solo en tramos donde ese día el caudal ya era menor. "
+        f"Jueves 20 de la línea base hasta {hora_corte:02d}:59 Chile."
     )
 
-    doc.add_heading("Cómo programar", level=1)
-    doc.add_paragraph(
-        "1) Cargar el 100 % = m³/h (o L/min) de la tabla. "
-        "2) Pintar el día: verde 100 % en horas pico, amarillo 60 %, rojo 30 %. "
-        "3) El 60 % y el 30 % salen solos: son 0,60 y 0,30 del mismo 100 %."
-    )
-
-    tbl = doc.add_table(rows=1 + len(puntos), cols=7)
+    doc.add_heading("Caudales a cargar en WES", level=1)
+    tbl = doc.add_table(rows=1 + len(puntos), cols=4)
     tbl.style = "Table Grid"
-    headers = ["Punto", "100 % m³/h", "60 % m³/h", "30 % m³/h", "100 % L/min", "Σ día (m³)", "Rend. %"]
+    headers = ["Punto", "100 % (L/min)", "60 % (L/min)", "30 % (L/min)"]
     for j, hd in enumerate(headers):
         cell = tbl.rows[0].cells[j]
         cell.text = hd
@@ -394,74 +500,61 @@ def _word(
         for run in cell.paragraphs[0].runs:
             run.bold = True
             run.font.color.rgb = RGBColor(255, 255, 255)
-            run.font.size = Pt(9)
+            run.font.size = Pt(10)
     for i, (nid, nom) in enumerate(puntos, start=1):
         pl = planes_lun[nid]
         vals = [
             nom,
-            format_number_chilean(pl["q100"], 2),
-            format_number_chilean(pl["q60"], 2),
-            format_number_chilean(pl["q30"], 2),
-            format_number_chilean(_m3_a_lmin(pl["q100"]), 1),
-            format_number_chilean(pl["esperado"], 1),
-            format_number_chilean(pl["rend"], 1) + " %",
+            format_number_chilean(pl["q100_lmin"], 1),
+            format_number_chilean(pl["q60_lmin"], 1),
+            format_number_chilean(pl["q30_lmin"], 1),
         ]
         for j, v in enumerate(vals):
             tbl.rows[i].cells[j].text = v
             for run in tbl.rows[i].cells[j].paragraphs[0].runs:
-                run.font.size = Pt(9)
+                run.bold = True
+                run.font.size = Pt(12)
         _set_shading(tbl.rows[i].cells[1], "C6EFCE")
         _set_shading(tbl.rows[i].cells[2], "FFF2CC")
         _set_shading(tbl.rows[i].cells[3], "FFC7CE")
-
-    doc.add_paragraph(
-        "Números de la tabla = perfil del lunes 17 (el homólogo del lunes 24). "
-        "La hoja «día tipo» del Excel usa la mediana lun–jue por si el miércoles 19 de ICCP no se quiere repetir."
-    )
 
     for nid, nom in puntos:
         pl = planes_lun[nid]
         doc.add_heading(nom, level=1)
         doc.add_paragraph(
-            f"Línea base lun 17: {format_number_chilean(pl['base'], 1)} m³. "
-            f"Con este horario: {format_number_chilean(pl['esperado'], 1)} m³ "
-            f"({format_number_chilean(pl['rend'], 1)} %). "
-            f"Pico medido: {format_number_chilean(pl['pico'], 2)} m³/h. "
-            f"100 % a programar: {format_number_chilean(pl['q100'], 2)} m³/h "
-            f"({format_number_chilean(_m3_a_lmin(pl['q100']), 1)} L/min)."
+            f"Pico lun 17: {format_number_chilean(_m3_a_lmin(pl['pico']), 1)} L/min. "
+            f"Cargar estos L/min por tramo. El lunes 17 cabe entero en estos topes "
+            f"(recorte vs ese día: {format_number_chilean(pl['rend'], 1)} %)."
         )
         if f"lun_{nid}" in pngs:
             doc.add_picture(str(pngs[f"lun_{nid}"]), width=Cm(16.0))
-        t = doc.add_table(rows=25, cols=4)
+        rangos = pl["rangos"]
+        t = doc.add_table(rows=1 + len(rangos), cols=3)
         t.style = "Table Grid"
-        for j, hd in enumerate(["Hora", "%", "Tope m³/h", "Tope L/min"]):
+        for j, hd in enumerate(["Horario", "L/min", "% WES"]):
             cell = t.rows[0].cells[j]
             cell.text = hd
             _set_shading(cell, "1F4788")
             for run in cell.paragraphs[0].runs:
                 run.bold = True
                 run.font.color.rgb = RGBColor(255, 255, 255)
-                run.font.size = Pt(8)
-        for h in range(24):
-            n = pl["niveles"][h]
-            hexf = {100: "C6EFCE", 60: "FFF2CC", 30: "FFC7CE"}[n]
-            vals = [
-                f"{h:02d}:00",
-                str(n),
-                format_number_chilean(pl["cap"][h], 2),
-                format_number_chilean(_m3_a_lmin(pl["cap"][h]), 1),
-            ]
+                run.font.size = Pt(10)
+        lmap = {100: pl["q100_lmin"], 60: pl["q60_lmin"], 30: pl["q30_lmin"]}
+        hexf = {100: "C6EFCE", 60: "FFF2CC", 30: "FFC7CE"}
+        for i, (h0, h1, niv) in enumerate(rangos, start=1):
+            vals = [_fmt_rango(h0, h1), format_number_chilean(lmap[niv], 1), str(niv)]
             for j, v in enumerate(vals):
-                t.rows[h + 1].cells[j].text = v
-                _set_shading(t.rows[h + 1].cells[j], hexf)
-                for run in t.rows[h + 1].cells[j].paragraphs[0].runs:
-                    run.font.size = Pt(8)
+                t.rows[i].cells[j].text = v
+                _set_shading(t.rows[i].cells[j], hexf[niv])
+                for run in t.rows[i].cells[j].paragraphs[0].runs:
+                    run.bold = True
+                    run.font.size = Pt(12)
 
     doc.add_heading("Notas", level=1)
     doc.add_paragraph(
-        "En 17–20 ago, escuela y gimnasio gastaron menos que la semana previa con WES. "
-        "El 10 % es un tope suave para no dispararlos al reactivar control, no un recorte agresivo. "
-        "El gimnasio venía bajando día a día: el lunes 24 usa el lunes 17 (el más alto de esos cuatro días)."
+        "En cada tramo el L/min cubre el caudal medido del lunes 17 más 10 % de holgura: no se corta el servicio de ese día. "
+        "El 10 % de rendimiento no sale recortando el pico. Sale si el lunes 24 se pasa de estos L/min (fuga o uso extra). "
+        "Si un tramo 30 o 60 se queda corto en el día, subir ese tramo a 100 %."
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     doc.save(path)
@@ -515,11 +608,12 @@ def main() -> int:
         planes_tipo[nid] = _plan_para_perfil(tipo)
         pl = planes_lun[nid]
         print(
-            f"  {nom}: lun17 {pl['base']:.1f} m³ | 100%={pl['q100']:.2f} m³/h "
-            f"({_m3_a_lmin(pl['q100']):.1f} L/min) | esperado {pl['esperado']:.1f} m³ "
-            f"({pl['rend']:.1f} %) | h100={pl['niveles'].count(100)} "
-            f"h60={pl['niveles'].count(60)} h30={pl['niveles'].count(30)}"
+            f"  {nom}: 100%={pl['q100_lmin']:.1f} L/min | 60%={pl['q60_lmin']:.1f} | "
+            f"30%={pl['q30_lmin']:.1f} | pico lun17={_m3_a_lmin(pl['pico']):.1f} L/min"
         )
+        for h0, h1, niv in pl["rangos"]:
+            lmin = {100: pl["q100_lmin"], 60: pl["q60_lmin"], 30: pl["q30_lmin"]}[niv]
+            print(f"     {_fmt_rango(h0, h1)}  →  {lmin:.1f} L/min  ({niv} %)")
 
     ts = ahora.strftime("%Y%m%d_%H%M")
     suf = "escuela_gimnasio_" if args.solo_escuela_gimnasio else ""
@@ -534,7 +628,7 @@ def main() -> int:
             pl["sin"],
             pl["cap"],
             pl["niveles"],
-            f"{nom} — lunes 24: sin WES lun 17 vs tope 30/60/100 (10 %)",
+            f"{nom} — lunes 24: L/min medido lun 17 vs tope 30/60/100",
             p,
         )
         pngs[f"lun_{nid}"] = p
