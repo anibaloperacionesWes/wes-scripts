@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES</title>
+  <title>Acta de visita WES · 21j</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -269,8 +269,8 @@
 <body>
   <div class="wrap">
     <header class="hero">
-      <div class="brand">WES · Water Efficiency System</div>
-      <h1>Acta de visita técnica</h1>
+      <div class="brand">WES · Water Efficiency System · build 21j</div>
+      <h1>Acta de visita técnica · 21j</h1>
       <p>Link permanente para técnicos WES. Completá en terreno, firmá y enviá el PDF al cliente (acusar recibo). Queda registrado en el Excel de fallas.</p>
     </header>
 
@@ -316,7 +316,7 @@
         <div class="chips" id="motivos"></div>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21i</div>
+        <div class="build-tag" id="form_build">WES-build-21j</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -425,7 +425,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21i";
+    var FORM_BUILD = "WES-build-21j";
     var checklistHold = document.createDocumentFragment();
     var checklistUI = { cir: null, cpa: null, sab: null };
     var checklistOpen = { cir: false, cpa: false, sab: false };

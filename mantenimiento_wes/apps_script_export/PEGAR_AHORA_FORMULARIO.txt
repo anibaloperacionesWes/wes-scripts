@@ -1,54 +1,61 @@
-NO VES WES-build → el formulario NO se actualizó
-=================================================
+Perdón: el problema NO es iPhone — es deploy / URL
+====================================================
 
-El TXT en Drive SÍ tiene el cambio.
-Si no ves la etiqueta debajo de Tecnología, Apps Script
-sigue con la versión vieja (el pegado no entró o no
-hiciste "Nueva versión").
+Estás en PC. Bien. Si no ves el build, hay que ubicar
+DÓNDE se corta la cadena. Contestá estas 2 preguntas:
 
-En iPhone el pegado de 45.000 caracteres casi siempre falla.
-Hacelo desde un PC (3–5 min).
-
---------------------------------------------
-OPCIÓN A — Pegar desde PC (Bloc de notas)
---------------------------------------------
-1) En el PC abrí este link y DESCARGÁ el archivo
-   (icono ↓ / Descargar; NO "Abrir con Google Docs"):
-   https://drive.google.com/file/d/1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C/view?usp=drivesdk
-
-2) Abrí el .txt con Bloc de notas → Ctrl+A → Ctrl+C
-
-3) Abrí el proyecto Apps Script:
+────────────────────────────────────────
+PREGUNTA 1 — ¿Está en el editor Apps Script?
+────────────────────────────────────────
+1) Abrí el proyecto (este, no otro):
    https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
 
-4) Izquierda: archivo "Formulario" (HTML)
-   → Ctrl+A → Supr → Ctrl+V → Ctrl+S (Guardar)
-   → Buscar (Ctrl+F): WES-build-21i
-   → Tiene que aparecer. Si no, el pegado falló: repetí.
+2) Izquierda: archivo exactamente llamado "Formulario"
+   (HTML). NO "Codigo", NO "catalogos".
 
-5) Arriba derecha: Implementar → Administrar implementaciones
-   → En la implementación del link /exec oficial → lápiz (editar)
-   → Versión: "Nueva versión"
-   → Implementar
-   (NO crees "Nueva implementación": eso cambia el link)
+3) Ctrl+F → buscá:  WES-build-21j
 
-6) Cerrá el formulario, abrí de nuevo:
-   https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
-   Ctrl+Shift+R
+   A) NO aparece → el pegado no quedó en Formulario.
+      Volvé a pegar así:
+      - Descargá el TXT (flecha ↓), abrilo en Bloc de notas
+      - NO copies desde la vista previa de Drive
+      - En Formulario: Ctrl+A → Supr → Ctrl+V → Ctrl+S
+      - Ctrl+F otra vez: tiene que encontrar WES-build-21j
+      - También el título del código debe decir:
+        "Acta de visita técnica · 21j"
 
-7) Debajo de "Tecnología instalada" debe verse: WES-build-21i
+   B) SÍ aparece → el código nuevo ESTÁ guardado.
+      El problema es la implementación o la URL → PREGUNTA 2.
 
---------------------------------------------
-OPCIÓN B — clasp (si tenés Node en el PC)
---------------------------------------------
-En la carpeta del repo:
-  cd mantenimiento_wes/apps_script_export
-  npx @google/clasp login
-  npx @google/clasp push
-Luego en Apps Script: Administrar implementaciones →
-Nueva versión del /exec (igual que el paso 5).
+────────────────────────────────────────
+PREGUNTA 2 — ¿Es el /exec correcto?
+────────────────────────────────────────
+URL OFICIAL (única a usar / actualizar):
+https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
 
---------------------------------------------
-Si después de esto TODAVÍA no ves WES-build-21i,
-mandame captura de Apps Script → Formulario con la
-búsqueda WES-build-21i (si sale 0 resultados = no pegó).
+URL VIEJA (NO usar — catálogo embebido viejo):
+https://script.google.com/macros/s/AKfycbzr5Md52h7yHk4T_UhS1H5RsdIKox49EHB5IkFKPsAU2RA-aLTBIG1NWc50vxbTM601/exec
+
+En Apps Script:
+  Implementar → Administrar implementaciones
+  Buscá la fila cuyo enlace termine en:
+    ...AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+  → lápiz → Versión: Nueva versión → Implementar
+
+NO pulses "Nueva implementación" (crea otro link).
+
+Después: cerrá la pestaña del form, abrí de nuevo la URL
+OFICIAL, Ctrl+Shift+R.
+
+En el encabezado debe decir:
+  "Acta de visita técnica · 21j"
+y debajo de Tecnología: WES-build-21j
+
+────────────────────────────────────────
+Archivo para pegar (DESCARGAR, no vista previa):
+────────────────────────────────────────
+https://drive.google.com/file/d/1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C/view?usp=drivesdk
+
+Decime solo esto:
+1) Ctrl+F en Formulario: ¿encuentra WES-build-21j? sí/no
+2) La URL que abrís en el navegador (copiá/pegá la barra)
