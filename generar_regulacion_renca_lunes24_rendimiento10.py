@@ -54,9 +54,14 @@ COLOR_HEAD = RGBColor(31, 71, 136)
 FILL_100 = PatternFill("solid", fgColor="C6EFCE")
 FILL_60 = PatternFill("solid", fgColor="FFF2CC")
 FILL_30 = PatternFill("solid", fgColor="FFC7CE")
+FILL_0 = PatternFill("solid", fgColor="D9D9D9")
 COLOR_100 = "#548235"
 COLOR_60 = "#BF8F00"
 COLOR_30 = "#C0504D"
+COLOR_0 = "#7F7F7F"
+NODO_ESCUELA = "000017-04"
+# Lo Velásquez: 00:01–06:00 a 0 L/min (el colegio se va a cero).
+HORAS_CERO_ESCUELA = frozenset(range(0, 6))
 
 PUNTOS_TODOS: Tuple[Tuple[str, str], ...] = (
     ("000017-07", "ICCP (Cumbre de Cóndores pte.)"),
@@ -90,8 +95,26 @@ def _ceil_lmin(x: float) -> float:
     return math.ceil(x * 2.0 - 1e-9) / 2.0
 
 
-def _fmt_rango(h0: int, h1: int) -> str:
+def _fmt_rango(h0: int, h1: int, niv: Optional[int] = None) -> str:
+    if niv == 0 and h0 == 0 and h1 == 5:
+        return "00:01–06:00"
     return f"{h0:02d}:00–{h1:02d}:59"
+
+
+def _fill_nivel(n: int) -> PatternFill:
+    return {100: FILL_100, 60: FILL_60, 30: FILL_30, 0: FILL_0}[int(n)]
+
+
+def _color_nivel(n: int) -> str:
+    return {100: COLOR_100, 60: COLOR_60, 30: COLOR_30, 0: COLOR_0}[int(n)]
+
+
+def _hex_nivel(n: int) -> str:
+    return {100: "C6EFCE", 60: "FFF2CC", 30: "FFC7CE", 0: "D9D9D9"}[int(n)]
+
+
+def _lmap(plan: dict) -> Dict[int, float]:
+    return {100: plan["q100_lmin"], 60: plan["q60_lmin"], 30: plan["q30_lmin"], 0: 0.0}
 
 
 def _rangos_nivel(niveles: Sequence[int]) -> List[Tuple[int, int, int]]:
@@ -111,6 +134,8 @@ def _suavizar_niveles(niveles: Sequence[int], sin_h: Sequence[float], lmin_de: D
     """Bloques operativos: no dejar un agujero de 30/60 entre horas 100 %, ni un tope justo al caudal medido."""
     n = [int(x) for x in niveles]
     for h in range(24):
+        if n[h] <= 0:
+            continue
         dem = _m3_a_lmin(sin_h[h])
         while n[h] < 100 and dem * MARGEN_ABAST > lmin_de[n[h]] + 1e-9:
             n[h] = 60 if n[h] == 30 else 100
@@ -123,6 +148,9 @@ def _suavizar_niveles(niveles: Sequence[int], sin_h: Sequence[float], lmin_de: D
             j = i
             while j + 1 < 24 and n[j + 1] == n[i]:
                 j += 1
+            if n[i] <= 0:
+                i = j + 1
+                continue
             if i > 0 and j < 23 and n[i] < n[i - 1] and n[i] < n[j + 1] and (j - i + 1) <= 2:
                 nuevo = min(n[i - 1], n[j + 1])
                 if nuevo > n[i]:
@@ -203,7 +231,7 @@ def _grafico_dia(
     out_png: Path,
 ) -> None:
     x = list(range(24))
-    colors = [{100: COLOR_100, 60: COLOR_60, 30: COLOR_30}[n] for n in niveles]
+    colors = [_color_nivel(n) for n in niveles]
     fig, ax = plt.subplots(figsize=(12.2, 4.8))
     ax.bar(
         [i - 0.18 for i in x],
@@ -218,7 +246,7 @@ def _grafico_dia(
         [_m3_a_lmin(v) for v in cap_h],
         width=0.36,
         color=colors,
-        label="Tope 30 / 60 / 100 % (L/min)",
+        label="Tope 0 / 30 / 60 / 100 % (L/min)",
         zorder=2,
     )
     ax.set_xticks(x)
@@ -257,22 +285,28 @@ def _pdf(docx: Path) -> Optional[Path]:
     return p if p.is_file() else None
 
 
-def _plan_para_perfil(sin_h: List[float]) -> dict:
+def _plan_para_perfil(sin_h: List[float], horas_cero: Optional[Sequence[int]] = None) -> dict:
     """100 % = pico × margen (L/min). 30/60 solo si el caudal medido ya cabe: no falla el abastecimiento."""
+    cero = {int(h) for h in (horas_cero or ())}
     pico = max(sin_h) if sin_h else 0.0
     q100_lmin = _ceil_lmin(_m3_a_lmin(pico) * MARGEN_ABAST)
     q60_lmin = _ceil_lmin(q100_lmin * 0.60)
     q30_lmin = _ceil_lmin(q100_lmin * 0.30)
     q100 = _lmin_a_m3(q100_lmin)
-    lmin_de = {100: q100_lmin, 60: q60_lmin, 30: q30_lmin}
+    lmin_de = {100: q100_lmin, 60: q60_lmin, 30: q30_lmin, 0: 0.0}
     niveles: List[int] = []
     for h in range(24):
+        if h in cero:
+            niveles.append(0)
+            continue
         n = _nivel(sin_h[h], pico)
         dem = _m3_a_lmin(sin_h[h])
         while n < 100 and dem > lmin_de[n] + 1e-9:
             n = 60 if n == 30 else 100
         niveles.append(n)
     niveles = _suavizar_niveles(niveles, sin_h, lmin_de)
+    for h in cero:
+        niveles[h] = 0
     cap = [_lmin_a_m3(lmin_de[n]) for n in niveles]
     fracs = [n / 100.0 for n in niveles]
     esperado = float(sum(min(float(sin_h[h]), cap[h]) for h in range(24)))
@@ -388,7 +422,7 @@ def _excel(
         for h in range(24):
             rr = 3 + h
             n = plan["niveles"][h]
-            fill = {100: FILL_100, 60: FILL_60, 30: FILL_30}[n]
+            fill = _fill_nivel(n)
             vals = [f"{h:02d}:00–{h:02d}:59", n, round(plan["cap"][h], 3), round(_m3_a_lmin(plan["cap"][h]), 2)]
             for i, v in enumerate(vals):
                 c = ws2.cell(rr, col + i, v)
@@ -411,7 +445,7 @@ def _excel(
         for h in range(24):
             rr = 3 + h
             n = plan["niveles"][h]
-            fill = {100: FILL_100, 60: FILL_60, 30: FILL_30}[n]
+            fill = _fill_nivel(n)
             vals = [f"{h:02d}:00–{h:02d}:59", n, round(plan["cap"][h], 3), round(_m3_a_lmin(plan["cap"][h]), 2)]
             for i, v in enumerate(vals):
                 c = ws3.cell(rr, col + i, v)
@@ -424,12 +458,12 @@ def _excel(
     rr = 2
     for nid, nom in puntos:
         plan = planes_lun[nid]
-        lmap = {100: plan["q100_lmin"], 60: plan["q60_lmin"], 30: plan["q30_lmin"]}
+        lmap = _lmap(plan)
         for h0, h1, niv in plan["rangos"]:
             pico_b = max(_m3_a_lmin(plan["sin"][h]) for h in range(h0, h1 + 1))
-            cubre = "sí" if lmap[niv] + 1e-9 >= pico_b else "revisar"
-            fill = {100: FILL_100, 60: FILL_60, 30: FILL_30}[niv]
-            vals = [nom, _fmt_rango(h0, h1), niv, lmap[niv], cubre]
+            cubre = "sí (cierre noche)" if niv == 0 else ("sí" if lmap[niv] + 1e-9 >= pico_b else "revisar")
+            fill = _fill_nivel(niv)
+            vals = [nom, _fmt_rango(h0, h1, niv), niv, lmap[niv], cubre]
             for i, v in enumerate(vals, 1):
                 c = ws_r.cell(rr, i, v)
                 c.border = thin
@@ -443,7 +477,7 @@ def _excel(
         ("Línea base", "Sin WES 17–20/08/2026 (hora Chile). Lunes 24 usa el perfil del lunes 17."),
         ("100 %", "Pico medido del lunes 17 × 1,10, redondeado a 0,5 L/min. El abastecimiento del pico no falla."),
         ("60 % / 30 %", "0,60 y 0,30 de ese 100 %. Solo en tramos donde el lunes 17 ya cabía, con 10 % de holgura."),
-        ("Rangos", "Horas consecutivas del mismo L/min. Valles cortos entre picos se suben para no cortar el servicio."),
+        ("Lo Velásquez noche", "00:01–06:00 se carga en 0 L/min: el colegio se va a cero y queda programado en cero."),
         ("Rendimiento 10 %", "No se recorta el caudal del lunes 17. El 10 % aparece si el lunes 24 se pasa de estos topes (fuga o uso extra)."),
     ]
     for i, (a, b) in enumerate(lines, 1):
@@ -486,6 +520,7 @@ def _word(
     p.add_run(
         "El 100 % es el pico del lunes 17 sin WES con 10 % de holgura, para que no falle el abastecimiento. "
         "60 % y 30 % solo en tramos donde ese día el caudal ya era menor. "
+        "En Lo Velásquez, 00:01–06:00 va a 0 L/min (el colegio se va a cero). "
         f"Jueves 20 de la línea base hasta {hora_corte:02d}:59 Chile."
     )
 
@@ -525,6 +560,11 @@ def _word(
             f"Pico lun 17: {format_number_chilean(_m3_a_lmin(pl['pico']), 1)} L/min. "
             f"Cargar estos L/min por tramo. El lunes 17 cabe entero en estos topes "
             f"(recorte vs ese día: {format_number_chilean(pl['rend'], 1)} %)."
+            + (
+                " Noche 00:01–06:00 en 0 L/min: el colegio se va a cero."
+                if nid == NODO_ESCUELA
+                else ""
+            )
         )
         if f"lun_{nid}" in pngs:
             doc.add_picture(str(pngs[f"lun_{nid}"]), width=Cm(16.0))
@@ -539,10 +579,10 @@ def _word(
                 run.bold = True
                 run.font.color.rgb = RGBColor(255, 255, 255)
                 run.font.size = Pt(10)
-        lmap = {100: pl["q100_lmin"], 60: pl["q60_lmin"], 30: pl["q30_lmin"]}
-        hexf = {100: "C6EFCE", 60: "FFF2CC", 30: "FFC7CE"}
+        lmap = _lmap(pl)
+        hexf = {100: "C6EFCE", 60: "FFF2CC", 30: "FFC7CE", 0: "D9D9D9"}
         for i, (h0, h1, niv) in enumerate(rangos, start=1):
-            vals = [_fmt_rango(h0, h1), format_number_chilean(lmap[niv], 1), str(niv)]
+            vals = [_fmt_rango(h0, h1, niv), format_number_chilean(lmap[niv], 1), "0" if niv == 0 else str(niv)]
             for j, v in enumerate(vals):
                 t.rows[i].cells[j].text = v
                 _set_shading(t.rows[i].cells[j], hexf[niv])
@@ -552,7 +592,8 @@ def _word(
 
     doc.add_heading("Notas", level=1)
     doc.add_paragraph(
-        "En cada tramo el L/min cubre el caudal medido del lunes 17 más 10 % de holgura: no se corta el servicio de ese día. "
+        "En Lo Velásquez, 00:01–06:00 se programa en 0 L/min porque el colegio se va a cero. "
+        "En el resto de tramos el L/min cubre el caudal medido del lunes 17 más 10 % de holgura. "
         "El 10 % de rendimiento no sale recortando el pico. Sale si el lunes 24 se pasa de estos L/min (fuga o uso extra). "
         "Si un tramo 30 o 60 se queda corto en el día, subir ese tramo a 100 %."
     )
@@ -604,16 +645,17 @@ def main() -> int:
         lun = vecs[(nid, date(2026, 8, 17))]
         tipo_src = [vecs[(nid, d)] for d in DIAS_SIN]
         tipo = _vector_mediana(tipo_src)
-        planes_lun[nid] = _plan_para_perfil(lun)
-        planes_tipo[nid] = _plan_para_perfil(tipo)
+        cero = HORAS_CERO_ESCUELA if nid == NODO_ESCUELA else None
+        planes_lun[nid] = _plan_para_perfil(lun, horas_cero=cero)
+        planes_tipo[nid] = _plan_para_perfil(tipo, horas_cero=cero)
         pl = planes_lun[nid]
         print(
             f"  {nom}: 100%={pl['q100_lmin']:.1f} L/min | 60%={pl['q60_lmin']:.1f} | "
             f"30%={pl['q30_lmin']:.1f} | pico lun17={_m3_a_lmin(pl['pico']):.1f} L/min"
         )
         for h0, h1, niv in pl["rangos"]:
-            lmin = {100: pl["q100_lmin"], 60: pl["q60_lmin"], 30: pl["q30_lmin"]}[niv]
-            print(f"     {_fmt_rango(h0, h1)}  →  {lmin:.1f} L/min  ({niv} %)")
+            lmin = _lmap(pl)[niv]
+            print(f"     {_fmt_rango(h0, h1, niv)}  →  {lmin:.1f} L/min  ({niv} %)")
 
     ts = ahora.strftime("%Y%m%d_%H%M")
     suf = "escuela_gimnasio_" if args.solo_escuela_gimnasio else ""
