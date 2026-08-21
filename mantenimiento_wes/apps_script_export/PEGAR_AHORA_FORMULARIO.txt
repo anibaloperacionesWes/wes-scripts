@@ -1,29 +1,21 @@
-Checklist bajo Tecnologías (DOM mount)
-======================================
+Sin checklist al abrir (arreglo)
+================================
 
-Cambio importante: el checklist YA NO usa display:none (Apps Script lo ignora).
-Ahora se MONTA debajo de «Tecnología instalada» solo si marcás:
-  - CIR → checklist CIR
-  - CPA → checklist CPA
-  - SAB → checklist SAB
-  - On/Off → CIR + CPA
-  - CPA y CIR → CIR + CPA
-Sin tecnología de esas → no aparece checklist.
+Problema: al abrir el link se veía el checklist aunque Tecnología no tuviera nada.
+Causa: los paneles seguían en la página (Apps Script no respeta ocultarlos).
 
-TXT para pegar (completo, actualizado):
+Ahora: los checklists NO existen en la página hasta que marques CIR / CPA / SAB / On-Off.
+Al abrir → Tecnología vacía → sin checklist.
+
+TXT para pegar (completo):
 https://drive.google.com/file/d/1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C/view?usp=drivesdk
 
-Pasos (imprescindible):
-1) Abrí el TXT de Drive → Seleccionar todo → Copiar
-2) Apps Script → archivo Formulario → Borrar TODO → Pegar
-3) Guardar (Ctrl+S)
-4) Implementar → Administrar implementaciones → el /exec oficial →
-   Editar (lápiz) → Versión: Nueva versión → Implementar
-5) Cerrar pestaña del formulario y reabrir el link /exec
-   (si queda viejo: Ctrl+Shift+R)
+Pasos OBLIGATORIOS (si no hacés Nueva versión, seguís viendo lo viejo):
+1) Abrí el TXT → Seleccionar todo → Copiar
+2) Apps Script → Formulario → borrar TODO → Pegar → Guardar
+3) Implementar → Administrar implementaciones → el /exec oficial
+   → lápiz → Versión: Nueva versión → Implementar
+4) Cerrá el formulario y abrí de nuevo el link (Ctrl+Shift+R)
 
-Probar:
-- Sin tecnología → no hay checklist bajo tecnologías
-- Tocá CIR → aparece Checklist CIR abajo de los chips
-- Desmarcá CIR → desaparece
-- Tocá On/Off → aparecen CIR + CPA
+Probar: abrir sin tocar nada → NO debe haber checklist.
+Marcá CIR → aparece bajo Tecnologías. Desmarcá → desaparece.
