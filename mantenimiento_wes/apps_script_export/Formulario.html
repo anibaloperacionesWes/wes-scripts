@@ -313,7 +313,7 @@
       <section class="card" id="bloqueChecklists" hidden style="display:none">
         <h2>Checklists</h2>
         <p class="note" id="fold_status" style="margin:0 0 8px">
-          Se muestran solo según la tecnología elegida arriba (CIR / CPA / SAB).
+          Se muestran según la tecnología: CIR, CPA, SAB o On/Off (= CIR + CPA).
         </p>
         <div class="check-panel" id="panel_cir" hidden style="display:none">
           <h3>Checklist CIR <span class="fold-count" id="cir_count">0 ítems</span></h3>
@@ -417,6 +417,12 @@
       var i;
       for (i = 0; i < techs.length; i++) {
         var t = techs[i];
+        // On/Off = mismo checklist que CIR + CPA
+        if (t.indexOf("ON/OFF") >= 0 || t.indexOf("ON / OFF") >= 0 || t === "ONOFF" || t.indexOf("ON-OFF") >= 0) {
+          needCir = true;
+          needCpa = true;
+          continue;
+        }
         if (t.indexOf("CIR") >= 0) needCir = true;
         if (t.indexOf("CPA") >= 0) needCpa = true;
         if (t.indexOf("SAB") >= 0) needSab = true;
@@ -431,7 +437,7 @@
       var st = document.getElementById("fold_status");
       if (st) {
         if (!needAny) {
-          st.textContent = "Sin checklist: no hay CIR/CPA/SAB en tecnologías.";
+          st.textContent = "Sin checklist: no hay CIR/CPA/SAB/On-Off en tecnologías.";
         } else {
           var parts = [];
           if (needCir) parts.push("CIR");

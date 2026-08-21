@@ -1,13 +1,7 @@
-Checklist solo cuando hace falta
-=================================
+On/Off = CIR + CPA
+===================
 
-Cambio de enfoque (sin acordeón):
+Al marcar On/Off en tecnologías aparecen checklists CIR y CPA (igual que «CPA y CIR»).
 
-- Si en Tecnologías marcás CIR / CPA / SAB (o «CPA y CIR») → aparece ese checklist
-- Si no (ej. solo On/Off) → el bloque Checklists NO se muestra
-
-Así el checklist está solo cuando es necesario.
-
-TXT: https://drive.google.com/file/d/1hoVP4QfemQMAQTjHBz3B5HV_qnUtKuMT/view?usp=drivesdk
+TXT actualizado: https://drive.google.com/file/d/1hoVP4QfemQMAQTjHBz3B5HV_qnUtKuMT/view?usp=drivesdk
 Pegá Formulario → Nueva versión → reabrí el link.
-Probar: sin CIR/CPA/SAB no debe verse el bloque; marcá CIR y aparece solo CIR.
