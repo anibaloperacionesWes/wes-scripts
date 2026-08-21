@@ -1,7 +1,29 @@
-On/Off = CIR + CPA
-===================
+Checklist bajo Tecnologías (DOM mount)
+======================================
 
-Al marcar On/Off en tecnologías aparecen checklists CIR y CPA (igual que «CPA y CIR»).
+Cambio importante: el checklist YA NO usa display:none (Apps Script lo ignora).
+Ahora se MONTA debajo de «Tecnología instalada» solo si marcás:
+  - CIR → checklist CIR
+  - CPA → checklist CPA
+  - SAB → checklist SAB
+  - On/Off → CIR + CPA
+  - CPA y CIR → CIR + CPA
+Sin tecnología de esas → no aparece checklist.
 
-TXT actualizado: https://drive.google.com/file/d/1hoVP4QfemQMAQTjHBz3B5HV_qnUtKuMT/view?usp=drivesdk
-Pegá Formulario → Nueva versión → reabrí el link.
+TXT para pegar (completo, actualizado):
+https://drive.google.com/file/d/1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C/view?usp=drivesdk
+
+Pasos (imprescindible):
+1) Abrí el TXT de Drive → Seleccionar todo → Copiar
+2) Apps Script → archivo Formulario → Borrar TODO → Pegar
+3) Guardar (Ctrl+S)
+4) Implementar → Administrar implementaciones → el /exec oficial →
+   Editar (lápiz) → Versión: Nueva versión → Implementar
+5) Cerrar pestaña del formulario y reabrir el link /exec
+   (si queda viejo: Ctrl+Shift+R)
+
+Probar:
+- Sin tecnología → no hay checklist bajo tecnologías
+- Tocá CIR → aparece Checklist CIR abajo de los chips
+- Desmarcá CIR → desaparece
+- Tocá On/Off → aparecen CIR + CPA

@@ -135,6 +135,15 @@
     .check-item:last-child { border-bottom: 0; }
     .check-item .name { font-size: 0.92rem; }
     .check-item select { background: var(--amber); }
+    /* Slot bajo Tecnologías: vacío = no ocupa espacio */
+    #checklist_slot:empty { display: none !important; }
+    #checklist_slot:not(:empty) {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #f3f8fc;
+    }
     .check-panel {
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -142,6 +151,7 @@
       padding: 12px;
       margin-top: 10px;
     }
+    #checklist_slot > .check-panel:first-child { margin-top: 0; }
     .check-panel h3 {
       margin: 0 0 8px;
       font-size: 1rem;
@@ -274,6 +284,8 @@
         <div class="chips" id="motivos"></div>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
+        <p class="note" id="fold_status" style="margin:8px 0 0">Elegí CIR, CPA, SAB u On/Off para ver el checklist acá abajo.</p>
+        <div id="checklist_slot" aria-live="polite"></div>
       </section>
 
       <section class="card">
@@ -310,24 +322,21 @@
         </div>
       </section>
 
-      <section class="card" id="bloqueChecklists" hidden style="display:none">
-        <h2>Checklists</h2>
-        <p class="note" id="fold_status" style="margin:0 0 8px">
-          Se muestran solo según la tecnología elegida arriba (CIR / CPA / SAB).
-        </p>
-        <div class="check-panel" id="panel_cir" hidden style="display:none">
+      <!-- Paneles checklist: se montan bajo Tecnologías solo si hace falta (no usar display:none). -->
+      <div id="checklist_warehouse" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
+        <div class="check-panel" id="panel_cir" data-tech="CIR">
           <h3>Checklist CIR <span class="fold-count" id="cir_count">0 ítems</span></h3>
           <div id="cir_list"></div>
         </div>
-        <div class="check-panel" id="panel_cpa" hidden style="display:none">
+        <div class="check-panel" id="panel_cpa" data-tech="CPA">
           <h3>Checklist CPA <span class="fold-count" id="cpa_count">0 ítems</span></h3>
           <div id="cpa_list"></div>
         </div>
-        <div class="check-panel" id="panel_sab" hidden style="display:none">
+        <div class="check-panel" id="panel_sab" data-tech="SAB">
           <h3>Checklist SAB <span class="fold-count" id="sab_count">0 ítems</span></h3>
           <div id="sab_list"></div>
         </div>
-      </section>
+      </div>
 
       <section class="card">
         <h2>Cliente · firma · envío PDF</h2>
@@ -392,21 +401,10 @@
     const state = { catalogos: null, dirty: false, contactos: {} };
 
     /**
-     * Checklists solo cuando hacen falta:
-     * - Si marcás CIR / CPA / SAB (o "CPA y CIR") en Tecnologías → aparece esa lista
-     * - Si no (ej. solo On/Off) → el bloque entero queda oculto
+     * Checklist bajo Tecnologías: se MONTA en el DOM solo si hace falta.
+     * Apps Script ignora display:none a veces; mover nodos es fiable.
+     * On/Off → CIR + CPA. "CPA y CIR" → ambos.
      */
-    function setElVisible(el, show) {
-      if (!el) return;
-      if (show) {
-        el.removeAttribute("hidden");
-        el.style.display = "";
-      } else {
-        el.setAttribute("hidden", "hidden");
-        el.style.display = "none";
-      }
-    }
-
     function syncChecklistsPorTecnologia() {
       var techs = selectedChips("tecnologia").map(function (t) {
         return String(t || "").toUpperCase();
@@ -417,27 +415,43 @@
       var i;
       for (i = 0; i < techs.length; i++) {
         var t = techs[i];
+        if (t.indexOf("ON/OFF") >= 0 || t.indexOf("ON / OFF") >= 0 || t === "ONOFF" || t.indexOf("ON-OFF") >= 0) {
+          needCir = true;
+          needCpa = true;
+          continue;
+        }
         if (t.indexOf("CIR") >= 0) needCir = true;
         if (t.indexOf("CPA") >= 0) needCpa = true;
         if (t.indexOf("SAB") >= 0) needSab = true;
       }
-      var needAny = needCir || needCpa || needSab;
 
-      setElVisible(document.getElementById("bloqueChecklists"), needAny);
-      setElVisible(document.getElementById("panel_cir"), needCir);
-      setElVisible(document.getElementById("panel_cpa"), needCpa);
-      setElVisible(document.getElementById("panel_sab"), needSab);
+      var slot = document.getElementById("checklist_slot");
+      var warehouse = document.getElementById("checklist_warehouse");
+      var panelCir = document.getElementById("panel_cir");
+      var panelCpa = document.getElementById("panel_cpa");
+      var panelSab = document.getElementById("panel_sab");
+      if (!slot || !warehouse || !panelCir || !panelCpa || !panelSab) return;
+
+      // Guardar todos fuera del slot
+      if (panelCir.parentNode !== warehouse) warehouse.appendChild(panelCir);
+      if (panelCpa.parentNode !== warehouse) warehouse.appendChild(panelCpa);
+      if (panelSab.parentNode !== warehouse) warehouse.appendChild(panelSab);
+
+      // Montar solo los necesarios (orden CIR → CPA → SAB)
+      if (needCir) slot.appendChild(panelCir);
+      if (needCpa) slot.appendChild(panelCpa);
+      if (needSab) slot.appendChild(panelSab);
 
       var st = document.getElementById("fold_status");
       if (st) {
-        if (!needAny) {
-          st.textContent = "Sin checklist: no hay CIR/CPA/SAB en tecnologías.";
+        if (!(needCir || needCpa || needSab)) {
+          st.textContent = "Elegí CIR, CPA, SAB u On/Off para ver el checklist acá abajo.";
         } else {
           var parts = [];
           if (needCir) parts.push("CIR");
           if (needCpa) parts.push("CPA");
           if (needSab) parts.push("SAB");
-          st.textContent = "Checklist activo: " + parts.join(" + ") + " (según tecnologías).";
+          st.textContent = "Checklist: " + parts.join(" + ") + ". Desmarcá la tecnología para ocultarlo.";
         }
       }
     }
