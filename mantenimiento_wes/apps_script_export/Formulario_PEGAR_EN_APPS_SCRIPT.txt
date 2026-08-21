@@ -135,46 +135,30 @@
     .check-item:last-child { border-bottom: 0; }
     .check-item .name { font-size: 0.92rem; }
     .check-item select { background: var(--amber); }
-    .checklist-btns {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin: 0 0 10px;
-    }
-    .checklist-btns button {
-      background: #fff;
-      color: var(--ink);
-      border: 2px solid var(--line);
-      box-shadow: none;
-      font-weight: 750;
-    }
-    .checklist-btns button.is-on {
-      background: var(--blue);
-      color: #fff;
-      border-color: var(--blue);
-    }
-    .checklist-btns button.btn-off {
-      grid-column: 1 / -1;
-      background: #eef2f7;
-    }
-    .checklist-panel {
+    .acc-list { display: grid; gap: 8px; }
+    .acc {
       border: 1px solid var(--line);
       border-radius: 14px;
-      background: #fff;
-      padding: 12px;
-      margin-top: 10px;
+      background: #fbfcfe;
+      overflow: hidden;
     }
-    .checklist-panel .fold-head {
+    .acc-toggle {
+      width: 100%;
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
-      font-weight: 750;
+      gap: 10px;
+      text-align: left;
+      background: #fff;
       color: var(--blue);
-      font-size: 1.05rem;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      font-weight: 750;
+      padding: 14px 14px;
     }
-    .checklist-panel .fold-count {
+    .acc.is-open { background: #fff; }
+    .acc.is-open .acc-toggle { background: #eef5fb; }
+    .acc-toggle .fold-count {
       font-size: 0.75rem;
       font-weight: 700;
       color: #5b738a;
@@ -183,27 +167,15 @@
       border-radius: 999px;
       padding: 3px 8px;
     }
-    .btn-cerrar-panel,
-    .btn-cerrar-panel-bottom {
-      width: 100%;
-      margin: 0 0 10px;
-      padding: 14px 12px;
-      font-size: 1rem;
+    .acc-chevron {
+      margin-left: auto;
+      font-size: 0.85rem;
+      color: var(--blue-2);
       font-weight: 800;
-      border: 0;
-      border-radius: 12px;
     }
-    .btn-cerrar-panel {
-      background: #1f4e79;
-      color: #fff !important;
-      box-shadow: 0 6px 14px rgba(31, 78, 121, 0.25);
-    }
-    .btn-cerrar-panel-bottom {
-      margin: 12px 0 0;
-      background: #eef2f7;
-      color: #0f2f4d;
-      border: 1px solid var(--line);
-      box-shadow: none;
+    .acc-body {
+      padding: 4px 12px 12px;
+      border-top: 1px dashed #d9e4ef;
     }
     @media (max-width: 640px) {
       .check-item { grid-template-columns: 1fr; gap: 6px; }
@@ -360,44 +332,34 @@
 
       <section class="card">
         <h2>Checklists</h2>
-        <p class="note" style="margin:0 0 8px">Cada botón abre su lista. CIR, CPA y SAB son distintos.</p>
-        <div class="checklist-btns" id="checklist_btns">
-          <button type="button" id="btn_open_cir" data-open="cir">Abrir CIR</button>
-          <button type="button" id="btn_open_cpa" data-open="cpa">Abrir CPA</button>
-          <button type="button" id="btn_open_sab" data-open="sab">Abrir SAB</button>
-          <button type="button" id="btn_open_off" class="btn-off" data-open="off">Cerrar checklist</button>
-        </div>
-        <p class="note" id="fold_status" style="margin:0 0 8px">Cerrado.</p>
-
-        <div id="panel_cir" class="checklist-panel" style="display:none" hidden>
-          <button type="button" class="btn-cerrar-panel" data-cerrar="1">Cerrar checklist CIR</button>
-          <div class="fold-head">
-            <span>Checklist CIR</span>
-            <span class="fold-count" id="cir_count">0 ítems</span>
+        <p class="note" style="margin:0 0 10px">
+          Empiezan <b>cerrados</b>. Tocá el título para desplegar abajo; tocá de nuevo para plegar.
+          No se abren solos.
+        </p>
+        <div class="acc-list" id="acc_list">
+          <div class="acc" id="acc_cir">
+            <button type="button" class="acc-toggle" id="tog_cir" data-key="cir">
+              <span>Checklist CIR</span>
+              <span class="fold-count" id="cir_count">0 ítems</span>
+              <span class="acc-chevron" id="chev_cir">▸</span>
+            </button>
           </div>
-          <div id="cir_list"></div>
-          <button type="button" class="btn-cerrar-panel-bottom" data-cerrar="1">Cerrar checklist CIR</button>
-        </div>
-
-        <div id="panel_cpa" class="checklist-panel" style="display:none" hidden>
-          <button type="button" class="btn-cerrar-panel" data-cerrar="1">Cerrar checklist CPA</button>
-          <div class="fold-head">
-            <span>Checklist CPA</span>
-            <span class="fold-count" id="cpa_count">0 ítems</span>
+          <div class="acc" id="acc_cpa">
+            <button type="button" class="acc-toggle" id="tog_cpa" data-key="cpa">
+              <span>Checklist CPA</span>
+              <span class="fold-count" id="cpa_count">0 ítems</span>
+              <span class="acc-chevron" id="chev_cpa">▸</span>
+            </button>
           </div>
-          <div id="cpa_list"></div>
-          <button type="button" class="btn-cerrar-panel-bottom" data-cerrar="1">Cerrar checklist CPA</button>
-        </div>
-
-        <div id="panel_sab" class="checklist-panel" style="display:none" hidden>
-          <button type="button" class="btn-cerrar-panel" data-cerrar="1">Cerrar checklist SAB</button>
-          <div class="fold-head">
-            <span>Checklist SAB</span>
-            <span class="fold-count" id="sab_count">0 ítems</span>
+          <div class="acc" id="acc_sab">
+            <button type="button" class="acc-toggle" id="tog_sab" data-key="sab">
+              <span>Checklist SAB</span>
+              <span class="fold-count" id="sab_count">0 ítems</span>
+              <span class="acc-chevron" id="chev_sab">▸</span>
+            </button>
           </div>
-          <div id="sab_list"></div>
-          <button type="button" class="btn-cerrar-panel-bottom" data-cerrar="1">Cerrar checklist SAB</button>
         </div>
+        <p class="note" id="fold_status" style="margin:10px 0 0">Los 3 están plegados.</p>
       </section>
 
       <section class="card">
@@ -462,123 +424,129 @@
     const CATALOGOS = <?!= CATALOGOS_JSON ?>;
     const state = { catalogos: null, dirty: false, contactos: {} };
 
-    /** Checklists: botones distintos → paneles distintos (CIR / CPA / SAB). */
-    var checklistAbierto = "off";
+    /**
+     * Acordeón: solo títulos visibles.
+     * El contenido se saca del DOM al plegar → no puede "desplegarse solo".
+     * Tocá el título = abrir abajo; tocá de nuevo = plegar.
+     */
+    var checklistOpen = { cir: false, cpa: false, sab: false };
+    var checklistStash = { cir: null, cpa: null, sab: null };
 
-    function setPanelVisible(panel, show) {
-      if (!panel) return;
-      if (show) {
-        panel.removeAttribute("hidden");
-        panel.style.cssText =
-          "display:block !important;visibility:visible !important;height:auto !important;" +
-          "overflow:visible !important;margin-top:10px !important;padding:12px !important;" +
-          "border:1px solid #c5d5e6 !important;border-radius:14px;background:#fff;";
-      } else {
-        panel.setAttribute("hidden", "hidden");
-        panel.style.cssText =
-          "display:none !important;visibility:hidden !important;height:0 !important;" +
-          "overflow:hidden !important;margin:0 !important;padding:0 !important;border:0 !important;";
+    function setAccChevron(key, open) {
+      var chev = document.getElementById("chev_" + key);
+      var acc = document.getElementById("acc_" + key);
+      var tog = document.getElementById("tog_" + key);
+      if (chev) chev.textContent = open ? "▾" : "▸";
+      if (acc) {
+        if (open) acc.classList.add("is-open");
+        else acc.classList.remove("is-open");
       }
+      if (tog) tog.setAttribute("aria-expanded", open ? "true" : "false");
     }
 
-    function cerrarChecklist() {
-      mostrarChecklist("off");
+    function updateFoldStatus() {
+      var st = document.getElementById("fold_status");
+      if (!st) return;
+      var openOnes = [];
+      if (checklistOpen.cir) openOnes.push("CIR");
+      if (checklistOpen.cpa) openOnes.push("CPA");
+      if (checklistOpen.sab) openOnes.push("SAB");
+      st.textContent = openOnes.length
+        ? "Abierto: " + openOnes.join(", ") + ". Tocá el título otra vez para plegar."
+        : "Los 3 están plegados. Tocá un título para desplegar abajo.";
+    }
+
+    function plegarChecklist(key) {
+      var body = document.getElementById(key + "_body");
+      if (body && body.parentNode) {
+        checklistStash[key] = body;
+        body.parentNode.removeChild(body);
+      }
+      checklistOpen[key] = false;
+      setAccChevron(key, false);
+      updateFoldStatus();
+    }
+
+    function desplegarChecklist(key) {
+      var acc = document.getElementById("acc_" + key);
+      var body = checklistStash[key] || document.getElementById(key + "_body");
+      if (!acc || !body) return;
+      if (body.parentNode === acc) {
+        checklistOpen[key] = true;
+        setAccChevron(key, true);
+        updateFoldStatus();
+        return;
+      }
+      if (body.parentNode) body.parentNode.removeChild(body);
+      acc.appendChild(body);
+      checklistStash[key] = null;
+      checklistOpen[key] = true;
+      setAccChevron(key, true);
+      updateFoldStatus();
+    }
+
+    function toggleChecklist(key) {
+      key = String(key || "").toLowerCase();
+      if (key !== "cir" && key !== "cpa" && key !== "sab") return false;
+      if (checklistOpen[key]) plegarChecklist(key);
+      else desplegarChecklist(key);
       return false;
     }
-    window.cerrarChecklist = cerrarChecklist;
+    window.toggleChecklist = toggleChecklist;
 
-    function mostrarChecklist(v) {
-      v = String(v == null ? "off" : v).toLowerCase().trim();
-      if (v !== "cir" && v !== "cpa" && v !== "sab") v = "off";
-      checklistAbierto = v;
-
+    function ensureChecklistBodies() {
       var keys = ["cir", "cpa", "sab"];
       var i;
       for (i = 0; i < keys.length; i++) {
-        var k = keys[i];
-        setPanelVisible(document.getElementById("panel_" + k), v === k);
-        var openBtn = document.getElementById("btn_open_" + k);
-        if (openBtn) {
-          if (v === k) openBtn.classList.add("is-on");
-          else openBtn.classList.remove("is-on");
+        var key = keys[i];
+        var body = document.getElementById(key + "_body");
+        if (!body) {
+          body = document.createElement("div");
+          body.className = "acc-body";
+          body.id = key + "_body";
+          var list = document.createElement("div");
+          list.id = key + "_list";
+          body.appendChild(list);
+        } else if (!document.getElementById(key + "_list")) {
+          var list2 = document.createElement("div");
+          list2.id = key + "_list";
+          body.appendChild(list2);
         }
-      }
-
-      var nCir = (document.getElementById("cir_list") || {}).children
-        ? document.getElementById("cir_list").children.length
-        : 0;
-      var nCpa = document.getElementById("cpa_list")
-        ? document.getElementById("cpa_list").children.length
-        : 0;
-      var nSab = document.getElementById("sab_list")
-        ? document.getElementById("sab_list").children.length
-        : 0;
-
-      var st = document.getElementById("fold_status");
-      if (st) {
-        if (v === "off") {
-          st.textContent =
-            "Cerrado. CIR=" + nCir + " ítems · CPA=" + nCpa + " · SAB=" + nSab + ".";
-        } else {
-          var n =
-            v === "cir" ? nCir : v === "cpa" ? nCpa : nSab;
-          st.textContent =
-            "Mostrando SOLO " + v.toUpperCase() + " (" + n + " ítems). Los otros están ocultos.";
-        }
+        if (body.parentNode) body.parentNode.removeChild(body);
+        checklistStash[key] = body;
+        checklistOpen[key] = false;
+        setAccChevron(key, false);
       }
     }
-    window.mostrarChecklist = mostrarChecklist;
 
-    function wireChecklistButtons() {
-      var ids = [
-        ["btn_open_cir", "cir"],
-        ["btn_open_cpa", "cpa"],
-        ["btn_open_sab", "sab"],
-        ["btn_open_off", "off"],
-      ];
+    function wireAccordionToggles() {
+      var keys = ["cir", "cpa", "sab"];
       var i;
-      for (i = 0; i < ids.length; i++) {
-        (function (id, key) {
-          var btn = document.getElementById(id);
+      for (i = 0; i < keys.length; i++) {
+        (function (key) {
+          var btn = document.getElementById("tog_" + key);
           if (!btn) return;
           btn.onclick = function (ev) {
             if (ev) {
               ev.preventDefault();
               ev.stopPropagation();
             }
-            // Si tocás el mismo que ya está abierto → cerrar
-            if (key !== "off" && checklistAbierto === key) {
-              cerrarChecklist();
-            } else {
-              mostrarChecklist(key);
-            }
+            toggleChecklist(key);
             return false;
           };
-        })(ids[i][0], ids[i][1]);
+        })(keys[i]);
       }
-      var cerrarBtns = document.querySelectorAll("[data-cerrar='1']");
-      for (i = 0; i < cerrarBtns.length; i++) {
-        (function (btn) {
-          btn.onclick = function (ev) {
-            if (ev) {
-              ev.preventDefault();
-              ev.stopPropagation();
-            }
-            cerrarChecklist();
-            return false;
-          };
-        })(cerrarBtns[i]);
-      }
-      cerrarChecklist();
+      updateFoldStatus();
     }
 
-    (function wireChecklistMenuNow() {
-      function wire() {
-        wireChecklistButtons();
+    (function initAccordionEarly() {
+      function run() {
+        ensureChecklistBodies();
+        wireAccordionToggles();
       }
-      wire();
+      run();
       if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", wire);
+        document.addEventListener("DOMContentLoaded", run);
       }
     })();
 
@@ -863,7 +831,28 @@
     }
 
     function checklist(container, prefix, items, estados) {
-      if (!container) container = document.getElementById(prefix + "_list");
+      if (!container) {
+        var body = checklistStash[prefix] || document.getElementById(prefix + "_body");
+        if (body) {
+          container = body.querySelector("#" + prefix + "_list");
+          if (!container) {
+            var kids = body.children;
+            for (var ci = 0; ci < kids.length; ci++) {
+              if (kids[ci].id === prefix + "_list") {
+                container = kids[ci];
+                break;
+              }
+            }
+          }
+        }
+        if (!container) container = document.getElementById(prefix + "_list");
+        if (!container && body) {
+          container = document.createElement("div");
+          container.id = prefix + "_list";
+          body.appendChild(container);
+          checklistStash[prefix] = body;
+        }
+      }
       if (!container) return;
       container.innerHTML = "";
       items = items || [];
@@ -900,6 +889,14 @@
         var n = items.length;
         countEl.textContent = n + (n === 1 ? " ítem" : " ítems");
       }
+      // Mantener plegado: el body sigue en stash, no en pantalla
+      var bodyKeep = container.parentNode;
+      if (bodyKeep && bodyKeep.id === prefix + "_body") {
+        if (bodyKeep.parentNode) bodyKeep.parentNode.removeChild(bodyKeep);
+        checklistStash[prefix] = bodyKeep;
+        checklistOpen[prefix] = false;
+        setAccChevron(prefix, false);
+      }
     }
 
     function selectedChips(name) {
@@ -908,7 +905,10 @@
 
     function collectChecklist(prefix) {
       const out = [];
-      const root = document.getElementById(prefix + "_list");
+      let root = document.getElementById(prefix + "_list");
+      if (!root && checklistStash[prefix]) {
+        root = checklistStash[prefix].querySelector("#" + prefix + "_list") || checklistStash[prefix].firstChild;
+      }
       if (!root) return out;
       root.querySelectorAll('select[data-prefix="' + prefix + '"]').forEach((sel) => {
         const key = sel.getAttribute("data-key") || "";
@@ -1011,11 +1011,17 @@
       chips(document.getElementById("motivos"), "motivo", c.opciones.motivos, true);
       chips(document.getElementById("tecnologias"), "tecnologia", c.opciones.tecnologias, true);
       try {
+        ensureChecklistBodies();
         const op = (c && c.opciones) || {};
-        checklist(document.getElementById("cir_list"), "cir", op.cir || [], op.estados_checklist);
-        checklist(document.getElementById("cpa_list"), "cpa", op.cpa || [], op.estados_checklist);
-        checklist(document.getElementById("sab_list"), "sab", op.sab || [], op.estados_checklist);
-        wireChecklistButtons();
+        checklist(null, "cir", op.cir || [], op.estados_checklist);
+        checklist(null, "cpa", op.cpa || [], op.estados_checklist);
+        checklist(null, "sab", op.sab || [], op.estados_checklist);
+        // Forzar plegado: nada abierto al cargar
+        plegarChecklist("cir");
+        plegarChecklist("cpa");
+        plegarChecklist("sab");
+        wireAccordionToggles();
+        updateFoldStatus();
       } catch (eCheck) {
         const st = document.getElementById("fold_status");
         if (st) st.textContent = "Error cargando ítems: " + eCheck;

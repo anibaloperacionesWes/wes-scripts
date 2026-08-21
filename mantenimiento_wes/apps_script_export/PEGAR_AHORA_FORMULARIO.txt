@@ -1,12 +1,13 @@
-FIX — CIR / CPA / SAB ya no van al mismo lado
-==============================================
+Acordeón checklist (lo que pedías)
+====================================
 
-El menú select estaba mal (valores repetidos / Apps Script).
-Ahora hay 4 botones separados:
-  [Abrir CIR] [Abrir CPA]
-  [Abrir SAB] [Cerrar checklist]
+Qué vas a ver:
+- Solo 3 títulos: Checklist CIR / CPA / SAB (cerrados, con ▸)
+- Tocás un título → se DESPLIEGA abajo
+- Tocás de nuevo → se PLIEGA
+- NO se abre solo al cargar
 
-Cada uno abre SU panel. El estado dice «Mostrando SOLO CIR/CPA/SAB».
+El contenido no está en pantalla hasta que tocás (por eso no «se despliega sola»).
 
-TXT: https://drive.google.com/file/d/1__7RVExtBV0sGSqWMlwigKaD45JPpEWg/view?usp=drivesdk
+TXT: https://drive.google.com/file/d/1hoUnMze5f0RtJpQxOsdDBetsdY-iWVgS/view?usp=drivesdk
 Pegá Formulario completo → Nueva versión → reabrí el link.
