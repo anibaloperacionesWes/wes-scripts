@@ -1,7 +1,20 @@
-Sin EYES — build 21O
-====================
+OT abiertas / en curso — build 21P
+==================================
 
-Tecnología instalada: CPA y CIR · SAB · CPA · CIR · On/Off
-(EYES eliminado)
+Panel arriba del form: lista OT en abierta o en_curso.
+• Continuar / cerrar → carga la OT (mismo folio) para completar y firmar
+• Marcar cerrada → solo cambia el estado (sin PDF nuevo)
 
-Solo refrescar el form (Ctrl+Shift+R). Debe decir · 21O.
+IMPORTANTE: hace falta pegar CODIGO (funciones nuevas) + Nueva versión.
+El HTML se actualiza solo desde Drive, pero sin Codigo nuevo el listado falla.
+
+1) Descargá Codigo:
+   https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
+2) Apps Script → Codigo → borrar todo → pegar → Guardar
+3) Ctrl+F: listarOTsPendientes  (debe aparecer)
+4) Administrar implementaciones → lápiz AKfycbx5DTdd... → Nueva versión → Implementar
+5) Refrescá el form: debe decir · 21P y verse el panel OT
+
+Registro (respaldo):
+https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
+Filtrar columna "Estado visita" = en_curso o abierta.

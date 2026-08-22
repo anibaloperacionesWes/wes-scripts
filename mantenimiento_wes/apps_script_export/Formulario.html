@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21O</title>
+  <title>Acta de visita WES · 21P</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -147,6 +147,39 @@
       border: 1px solid #b7cce3;
       border-radius: 6px;
     }
+    .ot-panel { margin-top: 0; }
+    .ot-panel .ot-toolbar {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      margin: 0 0 10px;
+    }
+    .ot-panel .ot-count { font-size: 0.88rem; color: #5b6b7c; }
+    .btn-ot {
+      border: 1px solid var(--line); background: #fff; color: var(--ink);
+      border-radius: 10px; padding: 8px 10px; font-size: 0.85rem;
+      font-weight: 700; cursor: pointer;
+    }
+    .btn-ot.primary { background: var(--sky); border-color: var(--blue-2); }
+    .btn-ot.danger { color: #8a2b2b; border-color: #e2b4b4; background: #fff5f5; }
+    .ot-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .ot-table th, .ot-table td {
+      text-align: left; padding: 8px 6px; border-bottom: 1px solid #e2ebf3;
+      vertical-align: middle;
+    }
+    .ot-table th { color: #5b6b7c; font-weight: 700; font-size: 0.78rem; }
+    .ot-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 0.75rem; font-weight: 700; background: #fff3d6; color: #8a6a00;
+      border: 1px solid #ead7a0;
+    }
+    .ot-badge.abierta { background: #e8f7ef; color: #145c38; border-color: #9fd5b5; }
+    .ot-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .cierre-banner {
+      display: none; margin: 0 0 12px; padding: 12px 14px;
+      border-radius: 12px; background: #fff8e8; border: 1px solid #ead7a0;
+      color: #6a5200; font-size: 0.92rem;
+    }
+    .cierre-banner.show { display: block; }
+
     #checklist_actions:empty { display: none !important; }
     #checklist_actions:not(:empty) {
       display: flex;
@@ -269,10 +302,25 @@
 <body>
   <div class="wrap">
     <header class="hero">
-      <div class="brand">WES · Water Efficiency System · build 21O</div>
-      <h1>Acta de visita técnica · 21O</h1>
+      <div class="brand">WES · Water Efficiency System · build 21P</div>
+      <h1>Acta de visita técnica · 21P</h1>
       <p>Link permanente para técnicos WES. Completá en terreno, firmá y enviá el PDF al cliente (acusar recibo). Queda registrado en el Excel de fallas.</p>
     </header>
+
+    <section class="card ot-panel" id="panelOTs">
+      <h2>OT abiertas / en curso</h2>
+      <p class="note" style="margin:0 0 10px">Auditorías o trabajos iniciados que aún no cerraste. Continuá para generar el cierre (mismo folio) o marcá cerrada.</p>
+      <div class="ot-toolbar">
+        <button type="button" class="btn-ot primary" id="btnRefreshOTs">Actualizar listado</button>
+        <span class="ot-count" id="otCount">Cargando…</span>
+      </div>
+      <div id="otListWrap"><div class="note">Cargando OT pendientes…</div></div>
+    </section>
+
+    <div class="cierre-banner" id="cierreBanner">
+      Cerrando <b id="cierreFolioTxt">OT</b> — se reutiliza el mismo folio. Completá el trabajo, firmá y enviá.
+      <button type="button" class="btn-ot" id="btnCancelCierre" style="margin-left:8px">Cancelar cierre</button>
+    </div>
 
     <form id="form">
       <section class="card">
@@ -281,7 +329,7 @@
           <div>
             <label for="folio">N° Folio / OT</label>
             <input id="folio" value="<?!= PROXIMO_FOLIO ?>" readonly />
-            <div class="note">Un solo número automático desde 2250 (folio = OT).</div>
+            <div class="note" id="folioNote">Un solo número automático desde 2250 (folio = OT). Si continuás una OT abierta, se reutiliza.</div>
           </div>
           <div>
             <label for="tecnico">Técnico WES *</label>
@@ -317,7 +365,7 @@
         <p class="note" style="margin:6px 0 0">Visita física = en terreno. Soporte técnico a distancia = desde oficina (ej. cambio de horario por evento).</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21O</div>
+        <div class="build-tag" id="form_build">WES-build-21P</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -417,7 +465,7 @@
 
     <script>
     const CATALOGOS = <?!= CATALOGOS_JSON ?>;
-    const state = { catalogos: null, dirty: false, contactos: {} };
+    const state = { catalogos: null, dirty: false, contactos: {}, folioReusar: null };
 
     /**
      * Checklist desplegable (NO se abre solo):
@@ -426,7 +474,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21O";
+    var FORM_BUILD = "WES-build-21P";
     var checklistHold = document.createDocumentFragment();
     var checklistUI = { cir: null, cpa: null, sab: null };
     var checklistOpen = { cir: false, cpa: false, sab: false };
@@ -992,6 +1040,164 @@
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
 
+
+    function renderOTsPendientes(list) {
+      var wrap = document.getElementById("otListWrap");
+      var count = document.getElementById("otCount");
+      if (!wrap) return;
+      list = list || [];
+      if (count) count.textContent = list.length ? (list.length + " pendiente" + (list.length === 1 ? "" : "s")) : "Ninguna pendiente";
+      if (!list.length) {
+        wrap.innerHTML = '<div class="note">No hay OT en <b>abierta</b> o <b>en_curso</b>.</div>';
+        return;
+      }
+      var html = '<table class="ot-table"><thead><tr>' +
+        '<th>OT</th><th>Cliente</th><th>Sitio</th><th>Fecha</th><th>Estado</th><th></th>' +
+        '</tr></thead><tbody>';
+      for (var i = 0; i < list.length; i++) {
+        var o = list[i];
+        var badgeCls = o.estado === "abierta" ? "ot-badge abierta" : "ot-badge";
+        html += '<tr>' +
+          '<td><b>' + o.folio + '</b></td>' +
+          '<td>' + escapeHtmlUi(o.cliente) + '</td>' +
+          '<td>' + escapeHtmlUi(o.maquina) + '</td>' +
+          '<td>' + escapeHtmlUi(o.fecha) + '</td>' +
+          '<td><span class="' + badgeCls + '">' + escapeHtmlUi(o.estado) + '</span></td>' +
+          '<td><div class="ot-actions">' +
+          '<button type="button" class="btn-ot primary" data-act="continuar" data-folio="' + o.folio + '">Continuar / cerrar</button>' +
+          '<button type="button" class="btn-ot danger" data-act="marcar" data-folio="' + o.folio + '">Marcar cerrada</button>' +
+          '</div></td></tr>';
+      }
+      html += '</tbody></table>';
+      wrap.innerHTML = html;
+      wrap.querySelectorAll("button[data-act]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var folio = btn.getAttribute("data-folio");
+          var act = btn.getAttribute("data-act");
+          if (act === "continuar") continuarOT(folio);
+          else if (act === "marcar") marcarCerradaRapido(folio);
+        });
+      });
+    }
+
+    function escapeHtmlUi(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function cargarOTsPendientes() {
+      var wrap = document.getElementById("otListWrap");
+      var count = document.getElementById("otCount");
+      if (count) count.textContent = "Cargando…";
+      if (typeof google === "undefined" || !google.script || !google.script.run) {
+        if (wrap) wrap.innerHTML = '<div class="note">Listado solo disponible en el formulario publicado (/exec).</div>';
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(renderOTsPendientes)
+        .withFailureHandler(function (err) {
+          if (wrap) wrap.innerHTML = '<div class="note" style="color:#a11">No pude cargar OT: ' + escapeHtmlUi(err && err.message ? err.message : err) + "</div>";
+          if (count) count.textContent = "Error";
+        })
+        .listarOTsPendientes();
+    }
+
+    function setModoCierre(folio, on) {
+      state.folioReusar = on ? Number(folio) : null;
+      var ban = document.getElementById("cierreBanner");
+      var txt = document.getElementById("cierreFolioTxt");
+      var note = document.getElementById("folioNote");
+      if (txt) txt.textContent = "OT " + folio;
+      if (ban) ban.classList.toggle("show", !!on);
+      if (note) {
+        note.textContent = on
+          ? ("Cierre de OT " + folio + " — no se crea folio nuevo.")
+          : "Un solo número automático desde 2250 (folio = OT). Si continuás una OT abierta, se reutiliza.";
+      }
+      var folioEl = document.getElementById("folio");
+      if (folioEl && on) folioEl.value = String(folio);
+    }
+
+    function setSelectValue(id, value) {
+      var sel = document.getElementById(id);
+      if (!sel || value == null || value === "") return;
+      var v = String(value);
+      var found = false;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === v) { found = true; break; }
+      }
+      if (!found && v) {
+        var o = document.createElement("option");
+        o.value = v;
+        o.textContent = v;
+        sel.appendChild(o);
+      }
+      sel.value = v;
+    }
+
+    async function continuarOT(folio) {
+      if (typeof google === "undefined" || !google.script || !google.script.run) return;
+      var status = document.getElementById("status");
+      if (status) { status.className = "status"; status.textContent = "Cargando OT " + folio + "…"; }
+      try {
+        var v = await new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(function (err) { reject(new Error(err && err.message ? err.message : String(err))); })
+            .obtenerVisitaPorFolio(Number(folio));
+        });
+        setModoCierre(v.folio, true);
+        setSelectValue("cliente", v.cliente);
+        // disparar máquinas del cliente
+        var cli = document.getElementById("cliente");
+        if (cli && cli.onchange) cli.onchange();
+        await new Promise(function (r) { setTimeout(r, 50); });
+        setSelectValue("maquina", v.maquina);
+        if (document.getElementById("maquina") && document.getElementById("maquina").onchange) {
+          document.getElementById("maquina").onchange();
+        }
+        setSelectValue("tecnico", v.tecnico);
+        setSelectValue("tipo_mtto", v.tipo_mtto);
+        setSelectValue("tipo_falla", v.tipo_falla);
+        if (document.getElementById("tipo_falla") && document.getElementById("tipo_falla").onchange) {
+          document.getElementById("tipo_falla").onchange();
+        }
+        await new Promise(function (r) { setTimeout(r, 50); });
+        setSelectValue("falla_especifica", v.falla_especifica);
+        if (v.fecha) document.getElementById("fecha").value = v.fecha;
+        if (v.comuna) document.getElementById("comuna").value = v.comuna;
+        if (v.solucion) document.getElementById("solucion").value = v.solucion;
+        if (v.observaciones) document.getElementById("observaciones").value = v.observaciones;
+        if (v.email_cliente) document.getElementById("email_cliente").value = v.email_cliente;
+        if (v.recibido_por) document.getElementById("recibido_por").value = v.recibido_por;
+        if (v.cargo) document.getElementById("cargo").value = v.cargo;
+        document.getElementById("estado_visita").value = "cerrada";
+        setModoCierre(v.folio, true);
+        if (status) { status.className = "status"; status.textContent = "OT " + v.folio + " cargada. Completá el cierre y firmá."; }
+        document.getElementById("solucion").scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (e) {
+        if (status) { status.className = "status err"; status.textContent = "No pude cargar OT: " + e.message; }
+      }
+    }
+
+    function marcarCerradaRapido(folio) {
+      if (!confirm("¿Marcar OT " + folio + " como cerrada sin generar PDF nuevo?")) return;
+      google.script.run
+        .withSuccessHandler(function () {
+          cargarOTsPendientes();
+          var status = document.getElementById("status");
+          if (status) { status.className = "status"; status.textContent = "OT " + folio + " marcada cerrada."; }
+        })
+        .withFailureHandler(function (err) {
+          alert("Error: " + (err && err.message ? err.message : err));
+        })
+        .marcarOTCerrada(Number(folio));
+    }
+
+
     async function boot() {
       // Fecha/hora primero: si algo falla después, el form igual queda usable.
       try {
@@ -1068,6 +1274,18 @@
           })
           .getContactos();
       }
+
+      var btnOt = document.getElementById("btnRefreshOTs");
+      if (btnOt) btnOt.onclick = cargarOTsPendientes;
+      var btnCancel = document.getElementById("btnCancelCierre");
+      if (btnCancel) {
+        btnCancel.onclick = function () {
+          setModoCierre(null, false);
+          var status = document.getElementById("status");
+          if (status) { status.className = "status"; status.textContent = "Cierre cancelado. El próximo envío crea folio nuevo."; }
+        };
+      }
+      cargarOTsPendientes();
     }
 
     document.getElementById("form").onsubmit = async (ev) => {
@@ -1089,6 +1307,7 @@
         hora: document.getElementById("hora").value,
         tecnico: document.getElementById("tecnico").value,
         ot: "", // se iguala al folio en el servidor
+        folio_reusar: state.folioReusar || "",
         motivos: selectedChips("motivo"),
         tecnologias: selectedChips("tecnologia"),
         tipo_mtto: document.getElementById("tipo_mtto").value,
@@ -1152,6 +1371,8 @@
         if (info.folio) {
           document.getElementById("folio").value = String(info.folio);
         }
+        setModoCierre(null, false);
+        cargarOTsPendientes();
         okLinks.innerHTML = "";
         if (info.pdf_url) {
           const a = document.createElement("a");

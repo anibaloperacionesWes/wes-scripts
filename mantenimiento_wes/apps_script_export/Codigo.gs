@@ -71,7 +71,7 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES · 21L')
+    .setTitle('Acta de visita WES · 21P')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -203,7 +203,19 @@ function procesarVisita(data) {
     }
   }
 
-  var folio = asignarFolio_();
+  var folioReusar = Number(data.folio_reusar || data.folio_existente || 0);
+  var folio;
+  var esCierre = false;
+  if (!isNaN(folioReusar) && folioReusar >= FOLIO_INICIAL) {
+    var filaExistente = encontrarFilaPorFolio_(folioReusar);
+    if (!filaExistente) {
+      throw new Error('No encontré la OT ' + folioReusar + ' en el Registro');
+    }
+    folio = folioReusar;
+    esCierre = true;
+  } else {
+    folio = asignarFolio_();
+  }
   data = Object.assign({}, data, { folio: folio, ot: String(folio) });
 
   var stamp = Utilities.formatDate(new Date(), 'America/Santiago', 'yyyyMMdd_HHmmss');
@@ -215,7 +227,9 @@ function procesarVisita(data) {
   // Firma solo en memoria → va dentro del PDF; no se guarda PNG suelto en Drive.
   var firmaBlob = firmaBlobDesdeDataUrl_(data.firma_png);
   var pdfFile = generarYGuardarPdf_(carpeta, stem, data, firmaBlob);
-  var row = appendSheet_(data, pdfFile.getUrl());
+  var row = esCierre
+    ? updateSheetByFolio_(folio, data, pdfFile.getUrl())
+    : appendSheet_(data, pdfFile.getUrl());
   try {
     if (data.enviar_correo_cliente) {
       guardarContactosDesdeVisita_(data);
@@ -237,12 +251,158 @@ function procesarVisita(data) {
     email_to: emailInfo.to,
     email_skip: emailInfo.skip || '',
     trabajo_interno: !!data.trabajo_interno,
+    cierre_ot: esCierre,
     message: emailInfo.ok
       ? 'Folio ' + folio + ' · PDF generado y correo enviado a ' + emailInfo.to.join(', ')
       : data.trabajo_interno
         ? 'Folio ' + folio + ' · PDF interno (sin correo al cliente)'
         : 'Folio ' + folio + ' · PDF generado. Correo: ' + (emailInfo.skip || 'pendiente'),
   };
+}
+
+/**
+ * OT con estado abierta o en_curso (para panel de cierre).
+ */
+function listarOTsPendientes() {
+  var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
+  var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  var vals = sh.getRange(2, 1, last, 13).getValues(); // A..M
+  var out = [];
+  for (var i = 0; i < vals.length; i++) {
+    var folio = Number(vals[i][0]);
+    var estado = String(vals[i][12] || '').trim().toLowerCase();
+    if (isNaN(folio) || folio < FOLIO_INICIAL) continue;
+    if (estado !== 'abierta' && estado !== 'en_curso') continue;
+    out.push({
+      folio: folio,
+      cliente: String(vals[i][1] || ''),
+      maquina: String(vals[i][2] || ''),
+      tecnico: String(vals[i][3] || ''),
+      fecha: formatFechaSheet_(vals[i][4]),
+      tipo_mtto: String(vals[i][5] || ''),
+      estado: estado,
+      row: i + 2,
+    });
+  }
+  // más recientes primero
+  out.sort(function (a, b) {
+    return b.folio - a.folio;
+  });
+  return out;
+}
+
+/** Datos de una OT para continuar / cerrar en el formulario. */
+function obtenerVisitaPorFolio(folio) {
+  folio = Number(folio);
+  if (isNaN(folio) || folio < FOLIO_INICIAL) {
+    throw new Error('Folio inválido');
+  }
+  var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
+  var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
+  var last = sh.getLastRow();
+  if (last < 2) throw new Error('Sin datos en Registro');
+  var vals = sh.getRange(2, 1, last, 19).getValues(); // A..S
+  for (var i = 0; i < vals.length; i++) {
+    if (Number(vals[i][0]) !== folio) continue;
+    return {
+      ok: true,
+      folio: folio,
+      cliente: String(vals[i][1] || ''),
+      maquina: String(vals[i][2] || ''),
+      tecnico: String(vals[i][3] || ''),
+      fecha: formatFechaSheet_(vals[i][4]),
+      tipo_mtto: String(vals[i][5] || ''),
+      tipo_falla: String(vals[i][6] || ''),
+      falla_especifica: String(vals[i][7] || ''),
+      solucion: String(vals[i][8] || ''),
+      observaciones: String(vals[i][9] || ''),
+      estado_visita: String(vals[i][12] || 'en_curso'),
+      email_cliente: String(vals[i][14] || ''),
+      recibido_por: String(vals[i][15] || ''),
+      cargo: String(vals[i][16] || ''),
+      comuna: String(vals[i][17] || ''),
+      pdf_url: String(vals[i][18] || ''),
+      row: i + 2,
+    };
+  }
+  throw new Error('No encontré folio ' + folio);
+}
+
+/** Cierre rápido: solo cambia Estado visita → cerrada (sin nuevo PDF). */
+function marcarOTCerrada(folio) {
+  folio = Number(folio);
+  var found = encontrarFilaPorFolio_(folio);
+  if (!found) throw new Error('No encontré OT ' + folio);
+  var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
+  var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
+  sh.getRange(found.row, 13).setValue('cerrada'); // col M
+  return { ok: true, folio: folio, row: found.row, estado: 'cerrada' };
+}
+
+function formatFechaSheet_(v) {
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    return Utilities.formatDate(v, 'America/Santiago', 'yyyy-MM-dd');
+  }
+  var s = String(v || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+  return s;
+}
+
+function encontrarFilaPorFolio_(folio) {
+  folio = Number(folio);
+  if (isNaN(folio)) return null;
+  var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
+  var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
+  var last = sh.getLastRow();
+  if (last < 2) return null;
+  var vals = sh.getRange(2, 1, last, 1).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (Number(vals[i][0]) === folio) return { row: i + 2, sheet: sh };
+  }
+  return null;
+}
+
+function updateSheetByFolio_(folio, data, pdfLink) {
+  var found = encontrarFilaPorFolio_(folio);
+  if (!found) throw new Error('No encontré fila para folio ' + folio);
+  var sh = found.sheet;
+  var fecha = data.fecha || Utilities.formatDate(new Date(), 'America/Santiago', 'yyyy-MM-dd');
+  var anio = '';
+  var mes = '';
+  try {
+    var d = new Date(fecha);
+    if (!isNaN(d.getTime())) {
+      anio = d.getFullYear();
+      mes = d.getMonth() + 1;
+    }
+  } catch (e) {}
+  var row = [
+    data.folio || folio,
+    data.cliente || '',
+    data.maquina || '',
+    data.tecnico || '',
+    fecha,
+    data.tipo_mtto || '',
+    data.tipo_falla || '',
+    data.falla_especifica || '',
+    data.solucion || '',
+    data.observaciones || '',
+    data.recibido_por ? 'Sí - ' + data.recibido_por : 'Sí - firmada',
+    data.folio || data.ot || folio,
+    data.estado_visita || 'cerrada',
+    'Cierre web ' + Utilities.formatDate(new Date(), 'America/Santiago', 'yyyy-MM-dd HH:mm'),
+    data.email_cliente || '',
+    data.recibido_por || '',
+    data.cargo || '',
+    data.comuna || '',
+    pdfLink || '',
+    anio,
+    mes,
+  ];
+  sh.getRange(found.row, 1, found.row, row.length).setValues([row]);
+  return found.row;
 }
 
 /** Mira el próximo folio sin consumirlo (para mostrar en pantalla). */
