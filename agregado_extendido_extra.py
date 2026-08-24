@@ -263,6 +263,8 @@ OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS = frozenset({
     "000012",  # Inchcape (ex DERCO)
     "000002",  # Lo Valledor
     "000026",  # UDD
+    "000031",  # Club Providencia
+    "000020",  # AGUNSA (Lampa e Intermodal)
 })
 
 
