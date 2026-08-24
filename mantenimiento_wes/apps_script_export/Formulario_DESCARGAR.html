@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21Q</title>
+  <title>Acta de visita WES · 21R</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -302,8 +302,8 @@
 <body>
   <div class="wrap">
     <header class="hero">
-      <div class="brand">WES · Water Efficiency System · build 21Q</div>
-      <h1>Acta de visita técnica · 21Q</h1>
+      <div class="brand">WES · Water Efficiency System · build 21R</div>
+      <h1>Acta de visita técnica · 21R</h1>
       <p>Link permanente para técnicos WES. Completá en terreno, firmá y enviá el PDF al cliente (acusar recibo). Queda registrado en el Excel de fallas.</p>
     </header>
 
@@ -365,7 +365,7 @@
         <p class="note" style="margin:6px 0 0">Visita física = en terreno. Soporte técnico a distancia = desde oficina (ej. cambio de horario por evento).</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21Q</div>
+        <div class="build-tag" id="form_build">WES-build-21R</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -474,7 +474,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21Q";
+    var FORM_BUILD = "WES-build-21R";
     var checklistHold = document.createDocumentFragment();
     var checklistUI = { cir: null, cpa: null, sab: null };
     var checklistOpen = { cir: false, cpa: false, sab: false };
@@ -1106,7 +1106,18 @@
       google.script.run
         .withSuccessHandler(renderOTsPendientes)
         .withFailureHandler(function (err) {
-          if (wrap) wrap.innerHTML = '<div class="note" style="color:#a11">No pude cargar OT: ' + escapeHtmlUi(err && err.message ? err.message : err) + "</div>";
+          var msg = String(err && err.message ? err.message : err);
+          // Codigo viejo sin listarOTsPendientes: no asustar ni bloquear el envío
+          if (/listarOTsPendientes|not a function|is undefined/i.test(msg)) {
+            if (wrap) {
+              wrap.innerHTML =
+                '<div class="note">Para ver OT abiertas hay que actualizar <b>Codigo</b> en Apps Script ' +
+                '(pegar Codigo + Nueva versión). El formulario igual se puede enviar.</div>';
+            }
+            if (count) count.textContent = "Requiere Codigo nuevo";
+            return;
+          }
+          if (wrap) wrap.innerHTML = '<div class="note">No pude cargar OT: ' + escapeHtmlUi(msg).slice(0, 180) + "</div>";
           if (count) count.textContent = "Error";
         })
         .listarOTsPendientes();
@@ -1440,8 +1451,8 @@
         status.className = mailOk || interno ? "status" : "status warn";
       } catch (err) {
         var msg = String(err && err.message ? err.message : err);
-        if (/listarOTsPendientes|obtenerVisitaPorFolio|marcarOTCerrada/i.test(msg)) {
-          msg = "Falta actualizar Codigo en Apps Script (Nueva versión). " + msg;
+        if (/listarOTsPendientes|not a function/i.test(msg)) {
+          msg = "Falta pegar Codigo nuevo + Nueva versión (listarOTsPendientes). El envío normal usa procesarVisita.";
         }
         status.textContent = "No se pudo enviar: " + msg;
         status.className = "status err";
@@ -1450,11 +1461,6 @@
         btn.disabled = false;
       }
     };
-
-    // Backup: clic directo al botón por si el submit nativo falla
-    document.getElementById("btnSend").addEventListener("click", function (ev) {
-      // dejar que el submit del form maneje; solo asegura foco de error
-    });
 
     function syncEnvioCorreoUI() {
       const on = document.getElementById("enviar_correo_cliente").checked;

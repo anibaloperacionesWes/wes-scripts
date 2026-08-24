@@ -1,15 +1,26 @@
-Fix envío formulario — build 21Q
-================================
+ERROR listarOTsPendientes — pegar CODIGO
+========================================
 
-Si no podías enviar al final:
-- Ahora el form muestra el error en rojo (firma, correo, campos faltantes)
-- Firma también con lápiz/pointer
-- Ya no bloquea en silencio el popup del navegador
+El Formulario (21R) ya está. El error es porque CODIGO en Apps Script
+está viejo: no tiene listarOTsPendientes.
 
-Solo refrescar (Ctrl+Shift+R). Debe decir · 21Q
+Hacé ESTO (PC):
 
-Si al enviar dice error de listarOTs / Codigo:
-pegá Codigo + Nueva versión:
-https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
+1) Descargá (↓, Bloc de notas — no Google Docs):
+   https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
 
-Al fallar el envío, mirá el mensaje rojo bajo el botón y decime qué dice.
+2) Apps Script → archivo "Codigo" (NO Formulario)
+   https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
+   → Ctrl+A → Supr → Ctrl+V → Ctrl+S
+
+3) Ctrl+F: listarOTsPendientes
+   Debe aparecer. Si no → el pegado falló.
+
+4) Implementar → Administrar implementaciones
+   → lápiz del /exec AKfycbx5DTdd... → Versión: Nueva versión → Implementar
+
+5) Refrescá el form (Ctrl+Shift+R)
+   · 21R + panel OT sin error rojo
+
+Mientras tanto el acta se puede enviar igual (Completar · PDF · Enviar).
+El error solo afecta el listado de OT abiertas.
