@@ -267,7 +267,7 @@ function procesarVisita(data) {
 function getWesApiVersion() {
   return {
     ok: true,
-    version: '21S',
+    version: '21T',
     has_listar_ots: true,
     has_procesar: true,
     formulario_drive_id: FORMULARIO_HTML_DRIVE_ID
@@ -412,7 +412,8 @@ function updateSheetByFolio_(folio, data, pdfLink) {
     anio,
     mes,
   ];
-  sh.getRange(found.row, 1, found.row, row.length).setValues([row]);
+  // getRange(row, col, numRows, numColumns) — NO usar found.row como numRows.
+  sh.getRange(found.row, 1, 1, row.length).setValues([row]);
   return found.row;
 }
 

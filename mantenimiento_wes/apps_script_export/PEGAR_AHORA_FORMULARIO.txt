@@ -1,30 +1,13 @@
-URGENTE: pegar Codigo (el Formulario solo no alcanza)
-====================================================
+FIX cierre OT — pegar Codigo 21T
+=================================
 
-La captura: el HTML es 21Q/21S, pero Codigo del /exec está viejo
-o mal pegado → procesarVisita / listarOTs fallan.
+Error: "Los datos tienen 1, y el rango, 1775"
+Causa: bug al actualizar la fila de la OT.
 
-1) DESCARGÁ este archivo (flecha ↓ → Bloc de notas):
+1) Descargá Codigo:
    https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
-
-2) Abrí Apps Script:
-   https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
-
-3) Izquierda: archivo exactamente "Codigo"
-   Ctrl+A → Supr → Ctrl+V → Ctrl+S
-
-4) Verificá con Ctrl+F que EXISTAN estas 3:
-   - procesarVisita
-   - listarOTsPendientes
-   - getWesApiVersion
-
-5) Implementar → Administrar implementaciones
-   → lápiz URL ...AKfycbx5DTdd.../exec
-   → Versión: Nueva versión
-   → Implementar
-
-6) Cerrá el form, abrí de nuevo, Ctrl+Shift+R
-   Título · 21S y envío debe funcionar.
-
-NO pegues el Formulario en Codigo.
-NO crees "Nueva implementación".
+2) Apps Script → Codigo → borrar todo → pegar → Guardar
+3) Ctrl+F: getRange(found.row, 1, 1, row.length)
+   Debe aparecer (el fix).
+4) Administrar → lápiz AKfycbx5DTdd... → Nueva versión → Implementar
+5) Refrescá el form y cerrá la OT de nuevo (Continuar / cerrar → Completar).
