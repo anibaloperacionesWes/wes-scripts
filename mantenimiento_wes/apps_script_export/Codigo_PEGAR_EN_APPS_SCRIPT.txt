@@ -71,7 +71,7 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES · 21S')
+    .setTitle('Acta de visita WES · 21T')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -267,7 +267,7 @@ function procesarVisita(data) {
 function getWesApiVersion() {
   return {
     ok: true,
-    version: '21S',
+    version: '21T',
     has_listar_ots: true,
     has_procesar: true,
     formulario_drive_id: FORMULARIO_HTML_DRIVE_ID
@@ -279,7 +279,7 @@ function listarOTsPendientes() {
   var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
   var last = sh.getLastRow();
   if (last < 2) return [];
-  var vals = sh.getRange(2, 1, last, 13).getValues(); // A..M
+  var vals = sh.getRange(2, 1, last - 1, 13).getValues(); // A..M
   var out = [];
   for (var i = 0; i < vals.length; i++) {
     var folio = Number(vals[i][0]);
@@ -314,7 +314,7 @@ function obtenerVisitaPorFolio(folio) {
   var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
   var last = sh.getLastRow();
   if (last < 2) throw new Error('Sin datos en Registro');
-  var vals = sh.getRange(2, 1, last, 19).getValues(); // A..S
+  var vals = sh.getRange(2, 1, last - 1, 19).getValues(); // A..S
   for (var i = 0; i < vals.length; i++) {
     if (Number(vals[i][0]) !== folio) continue;
     return {
@@ -368,7 +368,7 @@ function encontrarFilaPorFolio_(folio) {
   var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
   var last = sh.getLastRow();
   if (last < 2) return null;
-  var vals = sh.getRange(2, 1, last, 1).getValues();
+  var vals = sh.getRange(2, 1, last - 1, 1).getValues();
   for (var i = 0; i < vals.length; i++) {
     if (Number(vals[i][0]) === folio) return { row: i + 2, sheet: sh };
   }
@@ -412,7 +412,8 @@ function updateSheetByFolio_(folio, data, pdfLink) {
     anio,
     mes,
   ];
-  sh.getRange(found.row, 1, found.row, row.length).setValues([row]);
+  // getRange(row, col, numRows, numColumns) — NO usar found.row como numRows.
+  sh.getRange(found.row, 1, 1, row.length).setValues([row]);
   return found.row;
 }
 
@@ -444,7 +445,7 @@ function maxFolioEnSheet_() {
   var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];
   var last = sh.getLastRow();
   if (last < 2) return FOLIO_INICIAL - 1;
-  var vals = sh.getRange(2, 1, last, 1).getValues();
+  var vals = sh.getRange(2, 1, last - 1, 1).getValues();
   var max = FOLIO_INICIAL - 1;
   for (var i = 0; i < vals.length; i++) {
     var n = Number(vals[i][0]);
