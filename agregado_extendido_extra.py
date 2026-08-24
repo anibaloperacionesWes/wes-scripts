@@ -273,6 +273,9 @@ def _omitir_grafico_dia_mayor(company_id: str, data: dict) -> bool:
         return True
     if company_id == "000007" and data.get("node_id") == AGUILAS_NODE_PISCINA:
         return True
+    # Elementary con consumo residual (turbina pendiente): no tiene sentido el pico diario.
+    if company_id == "000007" and data.get("node_id") == AGUILAS_NODE_ELEMENTARY and total < 1.0:
+        return True
     max_m = summary.get("max")
     if max_m and float(max_m.total_m3 or 0) <= 0:
         return True
