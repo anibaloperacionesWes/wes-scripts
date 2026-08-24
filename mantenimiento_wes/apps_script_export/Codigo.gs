@@ -71,7 +71,7 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES · 21P')
+    .setTitle('Acta de visita WES · 21S')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -263,6 +263,17 @@ function procesarVisita(data) {
 /**
  * OT con estado abierta o en_curso (para panel de cierre).
  */
+/** Versión API del servidor (para diagnosticar deploy). */
+function getWesApiVersion() {
+  return {
+    ok: true,
+    version: '21S',
+    has_listar_ots: true,
+    has_procesar: true,
+    formulario_drive_id: FORMULARIO_HTML_DRIVE_ID
+  };
+}
+
 function listarOTsPendientes() {
   var ss = SpreadsheetApp.openById(SHEET_REGISTRO_ID);
   var sh = ss.getSheetByName(SHEET_DATOS) || ss.getSheets()[0];

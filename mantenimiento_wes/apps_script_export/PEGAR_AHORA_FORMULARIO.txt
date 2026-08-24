@@ -1,26 +1,30 @@
-ERROR listarOTsPendientes — pegar CODIGO
-========================================
+URGENTE: pegar Codigo (el Formulario solo no alcanza)
+====================================================
 
-El Formulario (21R) ya está. El error es porque CODIGO en Apps Script
-está viejo: no tiene listarOTsPendientes.
+La captura: el HTML es 21Q/21S, pero Codigo del /exec está viejo
+o mal pegado → procesarVisita / listarOTs fallan.
 
-Hacé ESTO (PC):
-
-1) Descargá (↓, Bloc de notas — no Google Docs):
+1) DESCARGÁ este archivo (flecha ↓ → Bloc de notas):
    https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
 
-2) Apps Script → archivo "Codigo" (NO Formulario)
+2) Abrí Apps Script:
    https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
-   → Ctrl+A → Supr → Ctrl+V → Ctrl+S
 
-3) Ctrl+F: listarOTsPendientes
-   Debe aparecer. Si no → el pegado falló.
+3) Izquierda: archivo exactamente "Codigo"
+   Ctrl+A → Supr → Ctrl+V → Ctrl+S
 
-4) Implementar → Administrar implementaciones
-   → lápiz del /exec AKfycbx5DTdd... → Versión: Nueva versión → Implementar
+4) Verificá con Ctrl+F que EXISTAN estas 3:
+   - procesarVisita
+   - listarOTsPendientes
+   - getWesApiVersion
 
-5) Refrescá el form (Ctrl+Shift+R)
-   · 21R + panel OT sin error rojo
+5) Implementar → Administrar implementaciones
+   → lápiz URL ...AKfycbx5DTdd.../exec
+   → Versión: Nueva versión
+   → Implementar
 
-Mientras tanto el acta se puede enviar igual (Completar · PDF · Enviar).
-El error solo afecta el listado de OT abiertas.
+6) Cerrá el form, abrí de nuevo, Ctrl+Shift+R
+   Título · 21S y envío debe funcionar.
+
+NO pegues el Formulario en Codigo.
+NO crees "Nueva implementación".
