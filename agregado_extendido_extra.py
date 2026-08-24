@@ -261,6 +261,8 @@ INCHCAPE_NODE_MATRIZ_PRINCIPAL = "000012-06"
 OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS = frozenset({
     "000027",  # Fundo Zapallar
     "000012",  # Inchcape (ex DERCO)
+    "000002",  # Lo Valledor
+    "000026",  # UDD
 })
 
 
