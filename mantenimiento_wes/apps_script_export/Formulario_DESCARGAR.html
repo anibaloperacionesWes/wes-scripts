@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21P</title>
+  <title>Acta de visita WES · 21Q</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -302,8 +302,8 @@
 <body>
   <div class="wrap">
     <header class="hero">
-      <div class="brand">WES · Water Efficiency System · build 21P</div>
-      <h1>Acta de visita técnica · 21P</h1>
+      <div class="brand">WES · Water Efficiency System · build 21Q</div>
+      <h1>Acta de visita técnica · 21Q</h1>
       <p>Link permanente para técnicos WES. Completá en terreno, firmá y enviá el PDF al cliente (acusar recibo). Queda registrado en el Excel de fallas.</p>
     </header>
 
@@ -322,7 +322,7 @@
       <button type="button" class="btn-ot" id="btnCancelCierre" style="margin-left:8px">Cancelar cierre</button>
     </div>
 
-    <form id="form">
+    <form id="form" novalidate>
       <section class="card">
         <h2>Datos de la instalación</h2>
         <div class="row">
@@ -365,7 +365,7 @@
         <p class="note" style="margin:6px 0 0">Visita física = en terreno. Soporte técnico a distancia = desde oficina (ej. cambio de horario por evento).</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21P</div>
+        <div class="build-tag" id="form_build">WES-build-21Q</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -474,7 +474,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21P";
+    var FORM_BUILD = "WES-build-21Q";
     var checklistHold = document.createDocumentFragment();
     var checklistUI = { cir: null, cpa: null, sab: null };
     var checklistOpen = { cir: false, cpa: false, sab: false };
@@ -1027,6 +1027,13 @@
     canvas.addEventListener("touchstart", start, { passive: false });
     canvas.addEventListener("touchmove", move, { passive: false });
     canvas.addEventListener("touchend", end, { passive: false });
+    // Lápiz / pointer (Windows / tablets)
+    if (window.PointerEvent) {
+      canvas.addEventListener("pointerdown", start);
+      canvas.addEventListener("pointermove", move);
+      canvas.addEventListener("pointerup", end);
+      canvas.addEventListener("pointercancel", end);
+    }
 
     document.getElementById("btnClear").onclick = () => {
       ctx.fillStyle = "#ffffff";
@@ -1288,17 +1295,55 @@
       cargarOTsPendientes();
     }
 
+    function showSubmitError(msg, focusId) {
+      const status = document.getElementById("status");
+      if (status) {
+        status.className = "status err";
+        status.textContent = msg;
+        status.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      if (focusId) {
+        var el = document.getElementById(focusId);
+        if (el && el.focus) try { el.focus(); } catch (eF) {}
+      }
+    }
+
     document.getElementById("form").onsubmit = async (ev) => {
       ev.preventDefault();
       const status = document.getElementById("status");
       const btn = document.getElementById("btnSend");
-      status.className = "status";
-      status.textContent = "Procesando…";
-      if (!state.dirty) {
-        status.textContent = "Falta la firma en pantalla.";
-        status.className = "status err";
-        return;
+      if (!btn) return;
+
+      // Validación manual (novalidate): mensaje claro, no el popup del navegador
+      if (!document.getElementById("tecnico").value) {
+        return showSubmitError("Elegí el técnico WES.", "tecnico");
       }
+      if (!document.getElementById("cliente").value) {
+        return showSubmitError("Elegí el cliente.", "cliente");
+      }
+      if (!document.getElementById("maquina").value) {
+        return showSubmitError("Elegí la máquina / sitio.", "maquina");
+      }
+      if (!document.getElementById("fecha").value) {
+        return showSubmitError("Completá la fecha.", "fecha");
+      }
+      if (!document.getElementById("tipo_mtto").value) {
+        return showSubmitError("Elegí el tipo de mantenimiento.", "tipo_mtto");
+      }
+      if (!document.getElementById("solucion").value.trim()) {
+        return showSubmitError("Completá solución / diagnóstico.", "solucion");
+      }
+      if (!state.dirty) {
+        return showSubmitError("Falta la firma en pantalla (firmá con mouse o dedo en el recuadro).", "pad");
+      }
+      var enviarMail = !!document.getElementById("enviar_correo_cliente").checked;
+      var emailCli = document.getElementById("email_cliente").value.trim();
+      if (enviarMail && !emailCli) {
+        return showSubmitError("Completá el correo del cliente o desmarcá «Enviar PDF por correo».", "email_cliente");
+      }
+
+      status.className = "status";
+      status.textContent = "Procesando… enviando acta (puede tardar unos segundos).";
       const payload = {
         cliente: document.getElementById("cliente").value.trim(),
         maquina: document.getElementById("maquina").value.trim(),
@@ -1328,11 +1373,6 @@
         checklist_cpa: collectChecklist("cpa"),
         checklist_sab: collectChecklist("sab"),
       };
-      if (payload.enviar_correo_cliente && !payload.email_cliente) {
-        status.textContent = "Completá el correo del cliente o desmarcá el envío (trabajo interno).";
-        status.className = "status err";
-        return;
-      }
       if (!payload.enviar_correo_cliente && !payload.recibido_por) {
         payload.recibido_por = "WES interno / oficina";
         document.getElementById("recibido_por").value = payload.recibido_por;
@@ -1399,12 +1439,22 @@
             : `PDF listo. Correo: ${info.email_skip || "no enviado"}`;
         status.className = mailOk || interno ? "status" : "status warn";
       } catch (err) {
-        status.textContent = String(err.message || err);
+        var msg = String(err && err.message ? err.message : err);
+        if (/listarOTsPendientes|obtenerVisitaPorFolio|marcarOTCerrada/i.test(msg)) {
+          msg = "Falta actualizar Codigo en Apps Script (Nueva versión). " + msg;
+        }
+        status.textContent = "No se pudo enviar: " + msg;
         status.className = "status err";
+        status.scrollIntoView({ behavior: "smooth", block: "center" });
       } finally {
         btn.disabled = false;
       }
     };
+
+    // Backup: clic directo al botón por si el submit nativo falla
+    document.getElementById("btnSend").addEventListener("click", function (ev) {
+      // dejar que el submit del form maneje; solo asegura foco de error
+    });
 
     function syncEnvioCorreoUI() {
       const on = document.getElementById("enviar_correo_cliente").checked;

@@ -1,20 +1,15 @@
-OT abiertas / en curso — build 21P
-==================================
+Fix envío formulario — build 21Q
+================================
 
-Panel arriba del form: lista OT en abierta o en_curso.
-• Continuar / cerrar → carga la OT (mismo folio) para completar y firmar
-• Marcar cerrada → solo cambia el estado (sin PDF nuevo)
+Si no podías enviar al final:
+- Ahora el form muestra el error en rojo (firma, correo, campos faltantes)
+- Firma también con lápiz/pointer
+- Ya no bloquea en silencio el popup del navegador
 
-IMPORTANTE: hace falta pegar CODIGO (funciones nuevas) + Nueva versión.
-El HTML se actualiza solo desde Drive, pero sin Codigo nuevo el listado falla.
+Solo refrescar (Ctrl+Shift+R). Debe decir · 21Q
 
-1) Descargá Codigo:
-   https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
-2) Apps Script → Codigo → borrar todo → pegar → Guardar
-3) Ctrl+F: listarOTsPendientes  (debe aparecer)
-4) Administrar implementaciones → lápiz AKfycbx5DTdd... → Nueva versión → Implementar
-5) Refrescá el form: debe decir · 21P y verse el panel OT
+Si al enviar dice error de listarOTs / Codigo:
+pegá Codigo + Nueva versión:
+https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
 
-Registro (respaldo):
-https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
-Filtrar columna "Estado visita" = en_curso o abierta.
+Al fallar el envío, mirá el mensaje rojo bajo el botón y decime qué dice.
