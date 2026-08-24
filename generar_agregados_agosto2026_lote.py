@@ -1,7 +1,7 @@
 """
 Agregados agosto 2026 — mismo lote de fin de mes que julio:
 
-  Fundo Zapallar, DERCO, Nido de Águilas, Lo Valledor,
+  Fundo Zapallar, Inchcape (ex DERCO), Nido de Águilas, Lo Valledor,
   UDD, Club Providencia, AGUNSA (Lampa + Intermodal).
 
 Formato: generate_aggregated_report, sin PPT, fetch paralelo.
@@ -93,10 +93,10 @@ def main() -> None:
             dict(apply_exclusions=False, fuente_agua_id="000027-01"),
         ),
         (
-            "DERCO",
+            "Inchcape (ex DERCO)",
             "000012",
-            _nodos_api("000012", "DERCO", apply_exclusions=False),
-            dict(apply_exclusions=True),
+            _nodos_api("000012", "Inchcape", apply_exclusions=False),
+            dict(apply_exclusions=True, company_folder_override="Inchcape"),
         ),
         (
             "Nido de Aguilas",

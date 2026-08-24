@@ -54,11 +54,11 @@ ENVIOS = [
         f"Adjunto el reporte agregado (PDF) de Fundo Zapallar para el periodo {PERIODO_TXT}.\n",
     ),
     (
-        ROOT / "reports" / "DERCO" / "ABREGADO",
+        ROOT / "reports" / "Inchcape" / "ABREGADO",
         f"Reporte_Agregado_*_{SUFIJO}.docx",
-        "DERCO/ABREGADO",
-        "DERCO — Reporte agregado PDF — Agosto 2026",
-        f"Adjunto el reporte agregado (PDF) de DERCO para el periodo {PERIODO_TXT}.\n",
+        "Inchcape/ABREGADO",
+        "Inchcape — Reporte agregado PDF — Agosto 2026",
+        f"Adjunto el reporte agregado (PDF) de Inchcape (ex DERCO) para el periodo {PERIODO_TXT}.\n",
     ),
     (
         ROOT / "reports" / "Nido_de_Aguilas" / "ABREGADO",
