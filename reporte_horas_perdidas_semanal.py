@@ -798,7 +798,8 @@ def crear_reporte_word(
     doc.add_heading("3. Rankings separados (mayor a menor)", 1)
     doc.add_paragraph(
         "Primero los puntos que están desconectados ahora; después los que están "
-        "conectados pero acumulan horas sin dato. S35 solo incluye lunes 24 y martes 25 (parcial)."
+        "conectados pero acumulan horas sin dato. El detalle por semana va en gráficos "
+        "aparte (secciones 4 y 5), sin tablas de cantidades."
     )
 
     doc.add_heading("3.1 Ranking — horas perdidas por desconexión", 2)
@@ -807,15 +808,6 @@ def crear_reporte_word(
         f"(o sin lastUpdate). Total {_fmt_int(h_desc)} h. Prioridad de visita / reconexión."
     )
     _add_picture(doc, charts["ranking_desconexion"], 6.3)
-    _add_picture(doc, charts["apilado_desconexion"], 6.3)
-    _agregar_tabla_ranking(doc, desc, header_fill="C0392B")
-    if desc:
-        nota_d = doc.add_paragraph(
-            "* S35 = 24 y 25 ago. Celdas naranja ≥24 h; rojo ≥100 h en el total. "
-            f"Umbral de desconexión: lastUpdate de la app ≥ {HORAS_UMBRAL_CONEXION_APP:.0f} h."
-        )
-        nota_d.runs[0].font.size = Pt(8)
-        nota_d.runs[0].italic = True
 
     doc.add_heading("3.2 Ranking — conectados con huecos (no es desconexión actual)", 2)
     doc.add_paragraph(
@@ -824,53 +816,25 @@ def crear_reporte_word(
         "y huecos de semanas previas."
     )
     _add_picture(doc, charts["ranking_huecos"], 6.3)
-    _add_picture(doc, charts["apilado_huecos"], 6.3)
-    _agregar_tabla_ranking(doc, huec, header_fill="2E86AB")
-    if huec:
-        nota_h = doc.add_paragraph(
-            "* S35 = 24 y 25 ago. Estos puntos NO están desconectados ahora; "
-            "no mezclarlos con el ranking de desconexión."
-        )
-        nota_h.runs[0].font.size = Pt(8)
-        nota_h.runs[0].italic = True
 
     for num, ini, fin, label in SEMANA_DEFS[:3]:
         doc.add_page_break()
         doc.add_heading(f"4.{num - 31} {label}", 1)
         orden = sorted(resultados, key=lambda r: r.perdidas_semana(num), reverse=True)
         con = [r for r in orden if r.perdidas_semana(num) > 0]
+        n_desc = sum(1 for r in con if r.desconectado)
+        n_huec = sum(1 for r in con if not r.desconectado)
         doc.add_paragraph(
             f"Puntos con horas perdidas: {len(con)} de {n_total} "
-            f"({sum(1 for r in con if r.desconectado)} por desconexión, "
-            f"{sum(1 for r in con if not r.desconectado)} conectados con huecos). "
+            f"({n_desc} por desconexión, {n_huec} conectados con huecos). "
             f"Total flota: {_fmt_int(tot_sem[num])} h "
-            f"({_fmt_pct(tot_sem[num], esp_sem[num])} de las esperadas)."
+            f"({_fmt_pct(tot_sem[num], esp_sem[num])} de las esperadas). "
+            "Un gráfico por grupo; sin tablas de cantidades."
         )
-        _add_picture(doc, charts[f"s{num}"], 6.3)
-        for titulo_g, grupo, fill in (
-            ("Por desconexión", [r for r in con if r.desconectado], "C0392B"),
-            ("Conectados con huecos", [r for r in con if not r.desconectado], "2E86AB"),
-        ):
-            doc.add_heading(titulo_g, 2)
-            if not grupo:
-                doc.add_paragraph("Ningún punto de este grupo en la semana.")
-                continue
-            rows = [("#", "Punto", "Empresa", "Horas perdidas", "% de la semana", "Estado", "Última conexión")]
-            for i, r in enumerate(grupo, start=1):
-                rows.append(
-                    (
-                        str(i),
-                        f"{r.node_name}\n{r.node_id}",
-                        r.company_name,
-                        _fmt_int(r.perdidas_semana(num)),
-                        _fmt_pct(r.perdidas_semana(num), r.esperadas_semana(num)),
-                        r.etiqueta_estado(),
-                        r.last_update or "—",
-                    )
-                )
-            t = doc.add_table(rows=len(rows), cols=7)
-            t.style = "Table Grid"
-            _fill_table(t, rows, header_fill=fill, highlight_col=3)
+        doc.add_heading("Desconexión", 2)
+        _add_picture(doc, charts[f"s{num}_desc"], 6.3)
+        doc.add_heading("Conectados con huecos", 2)
+        _add_picture(doc, charts[f"s{num}_huecos"], 6.3)
 
     # Semana 35
     doc.add_page_break()
@@ -881,77 +845,40 @@ def crear_reporte_word(
         f"(día en curso, {esp_25 // max(n_total, 1)} h exigidas por punto). "
         "No se debe comparar el total de S35 con 168 h de una semana cerrada."
     )
-    s35_rows = [
-        ("Día", "Horas perdidas flota", "% de las esperadas", "Lectura"),
-        (
-            "Lun 24 ago (completo)",
-            _fmt_int(tot_24),
-            _fmt_pct(tot_24, esp_24),
-            "Primer día de S35",
-        ),
-        (
-            f"Mar 25 ago (hasta {ahora_chile.strftime('%H:%M')})",
-            _fmt_int(tot_25),
-            _fmt_pct(tot_25, esp_25),
-            "Segundo día, parcial",
-        ),
-    ]
-    t = doc.add_table(rows=len(s35_rows), cols=4)
-    t.style = "Table Grid"
-    _fill_table(t, s35_rows, header_fill="C0392B")
-
-    # Ritmo diario vs semanas completas
-    daily_32_34 = (tot_sem[32] + tot_sem[33] + tot_sem[34]) / 21.0 if n_total else 0
-    doc.add_paragraph("")
-    ritmo = doc.add_paragraph()
-    ritmo.add_run("Ritmo diario de la flota. ").bold = True
-    ritmo.add_run(
-        f"Promedio de horas perdidas/día en S32–S34: {_fmt_int(daily_32_34)} h. "
-        f"Lunes 24: {_fmt_int(tot_24)} h "
-        f"({((tot_24 / daily_32_34) - 1) * 100:+.0f}% vs ese promedio). " if daily_32_34 else ""
+    doc.add_paragraph(
+        f"Lunes 24: {_fmt_int(tot_24)} h de flota ({_fmt_pct(tot_24, esp_24)}). "
+        f"Martes 25 (hasta {ahora_chile.strftime('%H:%M')}): {_fmt_int(tot_25)} h "
+        f"({_fmt_pct(tot_25, esp_25)})."
     )
+    daily_32_34 = (tot_sem[32] + tot_sem[33] + tot_sem[34]) / 21.0 if n_total else 0
     if daily_32_34:
-        # Escalar el martes parcial a 24 h para una lectura de ritmo, con nota.
         factor = 24.0 / max(esp_25 / max(n_total, 1), 1)
         proy_25 = tot_25 * factor
+        ritmo = doc.add_paragraph()
+        ritmo.add_run("Ritmo diario. ").bold = True
         ritmo.add_run(
-            f"Martes 25 (parcial {_fmt_int(tot_25)} h; proyección a 24 h ≈ {_fmt_int(proy_25)} h, "
-            "solo referencial)."
+            f"Promedio S32–S34: {_fmt_int(daily_32_34)} h/día. "
+            f"Lunes 24: {_fmt_int(tot_24)} h "
+            f"({((tot_24 / daily_32_34) - 1) * 100:+.0f}% vs ese promedio). "
+            f"Martes 25 parcial {_fmt_int(tot_25)} h (proyección a 24 h ≈ {_fmt_int(proy_25)} h, referencial)."
         )
 
-    _add_picture(doc, charts["s35"], 6.3)
+    doc.add_heading("Desconexión", 2)
+    _add_picture(doc, charts["s35_desc"], 6.3)
+    doc.add_heading("Conectados con huecos", 2)
+    _add_picture(doc, charts["s35_huecos"], 6.3)
+    doc.add_heading("Lunes 24 vs martes 25", 2)
     _add_picture(doc, charts["s35_dias"], 6.3)
 
-    doc.add_heading("5.1 Ranking 24 y 25 de agosto", 2)
     orden35 = sorted(resultados, key=lambda r: r.perdidas_semana(35), reverse=True)
     con35 = [r for r in orden35 if r.perdidas_semana(35) > 0]
-    rows = [("#", "Punto", "Empresa", "24 ago", "25 ago", "S35", "Estado", "Última conexión")]
-    for i, r in enumerate(con35, start=1):
-        rows.append(
-            (
-                str(i),
-                f"{r.node_name}\n{r.node_id}",
-                r.company_name,
-                _fmt_int(r.perdidas_dia(DIA_24)),
-                _fmt_int(r.perdidas_dia(DIA_25)),
-                _fmt_int(r.perdidas_semana(35)),
-                r.etiqueta_estado(),
-                r.last_update or "—",
-            )
-        )
-    if len(rows) == 1:
-        doc.add_paragraph("Ningún punto perdió horas el 24–25 de agosto.")
-    else:
-        t = doc.add_table(rows=len(rows), cols=8)
-        t.style = "Table Grid"
-        _fill_table(t, rows, header_fill="C0392B", highlight_col=5)
-        n35_desc = sum(1 for r in con35 if r.desconectado)
-        doc.add_paragraph(
-            f"De estos {len(con35)} puntos, {n35_desc} están desconectados ahora "
-            f"y {len(con35) - n35_desc} están conectados con huecos."
-        )
+    n35_desc = sum(1 for r in con35 if r.desconectado)
+    doc.add_paragraph(
+        f"{len(con35)} puntos con horas perdidas el 24–25: "
+        f"{n35_desc} desconectados ahora y {len(con35) - n35_desc} conectados con huecos."
+    )
 
-    doc.add_heading("5.2 Continuidad respecto de S32–S34", 2)
+    doc.add_heading("Continuidad respecto de S32–S34", 2)
     doc.add_paragraph(
         f"De los 12 puntos con más horas perdidas en las tres semanas cerradas, "
         f"{len(siguen_s35)} siguen perdiendo horas el 24–25 ago y "
@@ -960,54 +887,31 @@ def crear_reporte_word(
         f"Puntos nuevos (0 h perdidas en S32–S34 y sí en S35): {len(nuevos_s35)}."
     )
     if siguen_s35:
-        doc.add_paragraph("Siguen mal (top S32–S34 con pérdidas en S35):")
-        rows = [("#", "Punto", "Empresa", "S32–34", "24 ago", "25 ago")]
-        for i, r in enumerate(siguen_s35, start=1):
-            s3234 = r.perdidas_semana(32) + r.perdidas_semana(33) + r.perdidas_semana(34)
-            rows.append(
-                (
-                    str(i),
-                    f"{r.node_name}\n{r.node_id}",
-                    r.company_name,
-                    _fmt_int(s3234),
-                    _fmt_int(r.perdidas_dia(DIA_24)),
-                    _fmt_int(r.perdidas_dia(DIA_25)),
-                )
-            )
-        t = doc.add_table(rows=len(rows), cols=6)
-        t.style = "Table Grid"
-        _fill_table(t, rows, header_fill="C0392B")
-
+        nombres_siguen = ", ".join(f"{r.node_name} ({r.node_id})" for r in siguen_s35)
+        p = doc.add_paragraph()
+        p.add_run("Siguen mal (desconexión o huecos el 24–25): ").bold = True
+        p.add_run(nombres_siguen + ".")
     if mejoran_s35:
         nombres = ", ".join(f"{r.node_name} ({r.node_id})" for r in mejoran_s35)
-        doc.add_paragraph(
-            "Top S32–S34 sin horas perdidas el 24–25 ago (corte actual): " + nombres + "."
-        )
+        p = doc.add_paragraph()
+        p.add_run("Top S32–S34 sin horas perdidas el 24–25: ").bold = True
+        p.add_run(nombres + ".")
     if nuevos_s35:
-        doc.add_paragraph("Incidentes nuevos en S35 (no venían con huecos en S32–S34):")
-        rows = [("#", "Punto", "Empresa", "24 ago", "25 ago", "Última conexión")]
-        for i, r in enumerate(nuevos_s35, start=1):
-            rows.append(
-                (
-                    str(i),
-                    f"{r.node_name}\n{r.node_id}",
-                    r.company_name,
-                    _fmt_int(r.perdidas_dia(DIA_24)),
-                    _fmt_int(r.perdidas_dia(DIA_25)),
-                    r.last_update or "—",
-                )
-            )
-        t = doc.add_table(rows=len(rows), cols=6)
-        t.style = "Table Grid"
-        _fill_table(t, rows, header_fill="C0392B")
+        nombres_n = ", ".join(
+            f"{r.node_name} ({r.node_id}, 24={_fmt_int(r.perdidas_dia(DIA_24))} h, "
+            f"25={_fmt_int(r.perdidas_dia(DIA_25))} h)"
+            for r in nuevos_s35
+        )
+        p = doc.add_paragraph()
+        p.add_run("Incidentes nuevos en S35: ").bold = True
+        p.add_run(nombres_n + ".")
     else:
         doc.add_paragraph(
             "No aparecen puntos nuevos: quienes pierden horas el 24–25 ya venían "
             "con huecos en S32, S33 o S34."
         )
 
-    # Día vs día para la flota
-    doc.add_heading("5.3 24 vs 25 a nivel flota", 2)
+    doc.add_heading("24 vs 25 a nivel flota", 2)
     if tot_24 == 0 and tot_25 == 0:
         doc.add_paragraph("La flota no registra horas perdidas en ninguno de los dos días.")
     elif tot_25 == 0 and tot_24 > 0:
@@ -1123,7 +1027,7 @@ def main() -> int:
         default=None,
         help="Carpeta de salida (default: reports/Puntos_En_Cero)",
     )
-    parser.add_argument("--top", type=int, default=18, help="Puntos en gráficos de ranking")
+    parser.add_argument("--top", type=int, default=25, help="Puntos en gráficos de ranking")
     parser.add_argument("--max-nodos", type=int, default=0, help="Limitar nodos (prueba)")
     parser.add_argument("--workers", type=int, default=MAX_WORKERS)
     parser.add_argument(
@@ -1192,14 +1096,11 @@ def main() -> int:
         "totales": charts_dir / "totales_por_semana.png",
         "ranking_desconexion": charts_dir / "ranking_desconexion.png",
         "ranking_huecos": charts_dir / "ranking_huecos.png",
-        "apilado_desconexion": charts_dir / "apilado_desconexion.png",
-        "apilado_huecos": charts_dir / "apilado_huecos.png",
-        "s32": charts_dir / "ranking_s32.png",
-        "s33": charts_dir / "ranking_s33.png",
-        "s34": charts_dir / "ranking_s34.png",
-        "s35": charts_dir / "ranking_s35.png",
         "s35_dias": charts_dir / "s35_24_vs_25.png",
     }
+    for num in (32, 33, 34, 35):
+        charts[f"s{num}_desc"] = charts_dir / f"ranking_s{num}_desconexion.png"
+        charts[f"s{num}_huecos"] = charts_dir / f"ranking_s{num}_huecos.png"
     esp_sem = {n: sum(r.esperadas_semana(n) for r in resultados) for n, *_ in SEMANA_DEFS}
     grafico_totales_semana(resultados, esp_sem, charts["totales"])
     grafico_ranking(
@@ -1220,27 +1121,31 @@ def main() -> int:
         top,
         leyenda_estado=False,
     )
-    grafico_apilado_top(
-        desc,
-        charts["apilado_desconexion"],
-        min(top, 15),
-        "Desconexión — horas apiladas por semana",
-    )
-    grafico_apilado_top(
-        huec,
-        charts["apilado_huecos"],
-        min(top, 15),
-        "Conectados con huecos — horas apiladas por semana",
-    )
+    labels_sem = {
+        32: "Semana 32 (03–09 ago)",
+        33: "Semana 33 (10–16 ago)",
+        34: "Semana 34 (17–23 ago)",
+        35: "Semana 35 (24–25 ago, 2 días)",
+    }
     for num in (32, 33, 34, 35):
         orden = sorted(resultados, key=lambda r: r.perdidas_semana(num), reverse=True)
         grafico_ranking(
-            orden,
+            [r for r in orden if r.desconectado],
             lambda r, n=num: r.perdidas_semana(n),
-            f"Semana {num} — rojo desconectado / azul huecos",
-            charts[f"s{num}"],
-            None,
+            f"{labels_sem[num]} — desconexión",
+            charts[f"s{num}_desc"],
+            COLOR_DESC,
             top,
+            leyenda_estado=False,
+        )
+        grafico_ranking(
+            [r for r in orden if not r.desconectado],
+            lambda r, n=num: r.perdidas_semana(n),
+            f"{labels_sem[num]} — conectados con huecos",
+            charts[f"s{num}_huecos"],
+            COLOR_HUECOS,
+            top,
+            leyenda_estado=False,
         )
     grafico_semana35_dias(
         sorted(resultados, key=lambda r: r.perdidas_semana(35), reverse=True),
