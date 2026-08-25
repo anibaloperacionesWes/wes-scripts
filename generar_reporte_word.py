@@ -4398,9 +4398,13 @@ def generate_aggregated_report(
     # Si hay fuente de agua especificada, excluirla de ciertos cálculos
     # Detectar automáticamente si es Fundo Zapallar (compatibilidad hacia atrás)
     es_fundo_zapallar = company_id == "000027"
-    from agregado_extendido_extra import es_agregado_extendido
+    from agregado_extendido_extra import (
+        OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS,
+        es_agregado_extendido,
+    )
 
     es_agregado_fmt = es_agregado_extendido(company_id)
+    omitir_dia_mayor = company_id in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS
     nodo_estanque_inferior = "000027-02" if es_fundo_zapallar else None
     
     # Si no se especificó fuente_agua_id pero es Fundo Zapallar, usar ESVAL como fuente
@@ -4908,7 +4912,7 @@ def generate_aggregated_report(
     
     # Estadísticas de alertas agregadas
     nodos_graficados_horario: set = set()
-    if total_alerts > 0 and not es_agregado_fmt:
+    if total_alerts > 0 and not es_agregado_fmt and not omitir_dia_mayor:
         # Sección "Análisis de alertas agregado" y tabla "Métricas agregadas de consumos nocturnos" eliminadas según solicitud del usuario
         
         # Tabla de eventos registrados eliminada según solicitud del usuario

@@ -63,11 +63,12 @@ ENVIOS = [
     ),
     (
         ROOT / "reports" / "La_Reina" / "ABREGADO",
-        f"Reporte_Agregado_*_{SUFIJO}.docx",
+        "Reporte_Agregado_*_20260805_20260824.docx",
         "La_Reina/ABREGADO",
         "La Reina — Reporte agregado PDF — Agosto 2026",
         "Adjunto el reporte agregado (PDF) de La Reina (Eugenio María De Hostos) "
-        f"para el periodo {PERIODO_TXT}.\n",
+        "para el periodo 05/08/2026 al 24/08/2026 "
+        "(consumo válido desde el 05/08; se excluyen el 01 al 04 de agosto).\n",
     ),
     (
         ROOT / "reports" / "CORMUP" / "ABREGADO",
