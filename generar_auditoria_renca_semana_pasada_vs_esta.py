@@ -1,9 +1,9 @@
 """
-Informe de auditoría Renca — esta semana con WES (desde lun 24/08) vs la semana sin WES (lun 17/08).
+Informe de auditoría Renca — lun 24 y mar 25 con WES contra lun 17 y mar 18 sin WES.
 
 Desde el lunes 24/08/2026 los 5 puntos vuelven con control.
-Se compara día a día contra el mismo día de la semana del 17 (sin WES).
-Hoy 24/08, 11:00–13:30: regulación de Lo Velásquez y gimnasio (mejoras de horario).
+Pares homólogos: 24 vs 17 (día completo) y 25 vs 18 (misma hora de corte).
+El lunes 24, 11:00–13:30: regulación de Lo Velásquez y gimnasio (mejoras de horario).
 
 Uso:
   python generar_auditoria_renca_semana_pasada_vs_esta.py
@@ -72,9 +72,9 @@ NOMBRE_ICCO = "Colegio ICCO Renca"
 TEXTO_SALA_BOMBAS = ""  # texto viejo; el informe usa TEXTO_CONTROL
 TEXTO_CONTROL = (
     "Desde el lunes 24/08/2026 los 5 puntos de Renca vuelven con control WES. "
-    "Cada día de esta semana se compara con el mismo día de la semana del 17/08, "
-    "que estuvo sin WES. Ahorro = (Sin WES − Con WES) / Sin WES × 100. "
-    "Hoy 24/08, entre 11:00 y 13:30 Chile, se reguló Escuela Lo Velásquez y el "
+    "Este caso compara lun 24 y mar 25 (con WES) contra lun 17 y mar 18 (sin WES). "
+    "Ahorro = (Sin WES − Con WES) / Sin WES × 100. "
+    "El lunes 24/08, entre 11:00 y 13:30 Chile, se reguló Escuela Lo Velásquez y el "
     "gimnasio municipal con las mejoras de horario (el gimnasio ya no va con el "
     "tope parejo de 0,54 m³/h que se quedaba corto en un evento)."
 )
@@ -110,8 +110,21 @@ def _ventana_homologa(ahora: datetime) -> Tuple[Tuple[date, ...], Tuple[date, ..
 
 
 def _fmt_rango_dias(dias: Sequence[date]) -> str:
+    if len(dias) == 1:
+        return f"{dias[0]:%d/%m/%Y}"
+    if len(dias) == 2:
+        return f"{dias[0]:%d/%m} y {dias[1]:%d/%m/%Y}"
     a, b = dias[0], dias[-1]
     return f"{a:%d/%m} al {b:%d/%m/%Y}"
+
+
+def _hora_corte_de_dia(i: int, n_dias: int, hora_corte: int) -> int:
+    return hora_corte if i == n_dias - 1 else 23
+
+
+def _etiqueta_par(d_con: date, d_sin: date, hora_corte_dia: int) -> str:
+    extra = f" ({_etiqueta_horas(hora_corte_dia)})" if hora_corte_dia < 23 else ""
+    return f"{WD_CORTO[d_con.weekday()]} {d_con:%d} vs {d_sin:%d}{extra}"
 
 
 def _etiqueta_horas(hora_corte: int) -> str:
@@ -237,6 +250,57 @@ def _grafico_perfil_24h(
     ax.grid(axis="y", alpha=0.3)
     ax.legend(fontsize=8, loc="upper left")
     ax.set_ylim(bottom=0)
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _grafico_perfil_pares(
+    pares: Sequence[Tuple[str, Sequence[float], Sequence[float], int, Sequence[int]]],
+    titulo: str,
+    lab_con: str,
+    lab_sin: str,
+    out_png: Path,
+) -> None:
+    """Un panel por par homólogo (lun 24 vs 17, mar 25 vs 18, …)."""
+    n = len(pares)
+    fig, axes = plt.subplots(1, n, figsize=(6.0 * max(n, 1), 4.8), sharey=True)
+    if n == 1:
+        axes = [axes]
+    for ax, (subtitulo, vc, vs, hc, sombrear) in zip(axes, pares):
+        h1 = 23 if hc >= 23 else hc
+        horas = list(range(h1 + 1))
+        ax.plot(
+            horas,
+            [float(vc[h]) for h in horas],
+            color=COLOR_WES,
+            linewidth=2.2,
+            marker="o",
+            markersize=4,
+            label=lab_con,
+            zorder=3,
+        )
+        ax.plot(
+            horas,
+            [float(vs[h]) for h in horas],
+            color=COLOR_SIN,
+            linewidth=2.2,
+            marker="o",
+            markersize=4,
+            label=lab_sin,
+            zorder=3,
+        )
+        for h in sombrear:
+            if h <= h1:
+                ax.axvspan(h - 0.5, h + 0.5, color="#FFF2CC", alpha=0.55, zorder=0)
+        ax.set_xticks(list(range(0, h1 + 1, 1 if h1 <= 16 else 2)))
+        ax.set_title(subtitulo, fontsize=10, fontweight="bold", color="#1F4788")
+        ax.set_xlabel("Hora Chile")
+        ax.set_ylabel("m³/h")
+        ax.grid(axis="y", alpha=0.3)
+        ax.legend(fontsize=7, loc="upper left")
+        ax.set_ylim(bottom=0)
+    fig.suptitle(titulo, fontweight="bold", color="#1F4788", y=1.02)
     fig.tight_layout()
     fig.savefig(out_png, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -571,7 +635,7 @@ def _word_conjunto(
     dias_m3_sin: Dict[str, List[float]],
     dirs: Dict[str, Path],
     icco_info: Optional[dict] = None,
-    horas_ultimo: Optional[Dict[str, Tuple[List[float], List[float]]]] = None,
+    horas_por_dia: Optional[Dict[str, List[Tuple[List[float], List[float]]]]] = None,
 ) -> None:
     doc = Document()
     doc.styles["Normal"].font.name = "Calibri"
@@ -587,34 +651,40 @@ def _word_conjunto(
     p = doc.add_paragraph()
     p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
     r = p.add_run(
-        f"Esta semana CON WES ({_fmt_rango_dias(dias_con)})  vs  "
-        f"semana pasada SIN WES ({_fmt_rango_dias(dias_sin)})"
+        f"CON WES {_fmt_rango_dias(dias_con)}  contra  "
+        f"SIN WES {_fmt_rango_dias(dias_sin)}"
     )
     r.bold = True
     r.font.color.rgb = COLOR_HEAD
 
     horas = _etiqueta_horas(hora_corte)
-    ultimo = WD_LARGO[dias_con[-1].weekday()]
+    n_dias = len(dias_con)
+    pares_txt = ", ".join(
+        _etiqueta_par(d1, d2, _hora_corte_de_dia(i, n_dias, hora_corte))
+        for i, (d1, d2) in enumerate(zip(dias_con, dias_sin))
+    )
     p = doc.add_paragraph()
-    p.add_run("Comparación día a día. ").bold = True
+    p.add_run("Comparación del caso. ").bold = True
     p.add_run(
-        f"{WD_LARGO[dias_con[0].weekday()]} a {ultimo} "
-        f"({horas} Chile el último día; corte {ahora:%d/%m/%Y %H:%M} Chile). "
-        "Cada día con control se compara con el mismo día de la semana del 17/08 sin WES "
-        "(lun 24 vs lun 17, mar 25 vs mar 18, …). "
+        f"{pares_txt}. "
+        f"El martes se corta a la misma hora en las dos semanas "
+        f"({horas} Chile; corte {ahora:%d/%m/%Y %H:%M} Chile) para no mezclar un martes "
+        "completo sin WES con un martes a media mañana. "
         "Ahorro = (Sin WES − Con WES) / Sin WES × 100. Tarifa de referencia 1.300 CLP/m³. "
         + TEXTO_CONTROL
     )
 
-    doc.add_heading("1. Los 5 puntos", level=1)
+    doc.add_heading("1. Los 5 puntos — 24 y 25 vs 17 y 18", level=1)
     if "todos" in pngs:
         doc.add_picture(str(pngs["todos"]), width=Cm(16.2))
+    if "pares" in pngs:
+        doc.add_picture(str(pngs["pares"]), width=Cm(16.2))
 
     tot_con = sum(m3_con.values())
     tot_sin = sum(m3_sin.values())
     ahorro_t, pct_t = _rendimiento(tot_sin, tot_con)
     doc.add_paragraph(
-        f"5 puntos: Con WES {format_number_chilean(tot_con, 1)} m³; "
+        f"5 puntos (24+25 contra 17+18): Con WES {format_number_chilean(tot_con, 1)} m³; "
         f"Sin WES {format_number_chilean(tot_sin, 1)} m³; "
         f"diferencia {format_number_chilean(ahorro_t, 1)} m³ "
         f"({format_number_chilean(pct_t, 1)} %; "
@@ -669,10 +739,37 @@ def _word_conjunto(
             run.bold = True
             run.font.size = Pt(9)
 
-    nomb_d: List[str] = []
-    for i, (d1, d2) in enumerate(zip(dias_con, dias_sin)):
-        extra = f" ({horas})" if i == len(dias_con) - 1 and hora_corte < 23 else ""
-        nomb_d.append(f"{WD_CORTO[d1.weekday()]} {d1:%d} vs {d2:%d}{extra}")
+    nomb_d: List[str] = [
+        _etiqueta_par(d1, d2, _hora_corte_de_dia(i, n_dias, hora_corte))
+        for i, (d1, d2) in enumerate(zip(dias_con, dias_sin))
+    ]
+
+    tot_con_dia = [sum(dias_m3_con[nid][i] for nid, _ in PUNTOS) for i in range(n_dias)]
+    tot_sin_dia = [sum(dias_m3_sin[nid][i] for nid, _ in PUNTOS) for i in range(n_dias)]
+    doc.add_paragraph("Suma de los 5 puntos en cada par (lun 24 vs 17; mar 25 vs 18).")
+    tpar = doc.add_table(rows=1 + n_dias, cols=5)
+    tpar.style = "Table Grid"
+    for j, hd in enumerate(["Par", "Con WES (m³)", "Sin WES (m³)", "Ahorro (m³)", "%"]):
+        cell = tpar.rows[0].cells[j]
+        cell.text = hd
+        _set_cell_shading(cell, "1F4788")
+        for run in cell.paragraphs[0].runs:
+            run.bold = True
+            run.font.color.rgb = RGBColor(255, 255, 255)
+            run.font.size = Pt(9)
+    for i, lab in enumerate(nomb_d):
+        a, pc = _rendimiento(tot_sin_dia[i], tot_con_dia[i])
+        vals = [
+            lab,
+            format_number_chilean(tot_con_dia[i], 1),
+            format_number_chilean(tot_sin_dia[i], 1),
+            format_number_chilean(a, 1),
+            format_number_chilean(pc, 1) + " %",
+        ]
+        for j, v in enumerate(vals):
+            tpar.rows[i + 1].cells[j].text = v
+            for run in tpar.rows[i + 1].cells[j].paragraphs[0].runs:
+                run.font.size = Pt(9)
 
     for nid, nom in PUNTOS:
         doc.add_heading(nom, level=1)
@@ -707,70 +804,99 @@ def _word_conjunto(
                 for run in t2.rows[i + 1].cells[j].paragraphs[0].runs:
                     run.font.size = Pt(9)
 
-    if horas_ultimo:
-        doc.add_heading("2. Regulación de hoy 11:00–13:30 (Lo Velásquez y gimnasio)", level=1)
+    idx_lun24 = next((i for i, d in enumerate(dias_con) if d == LUNES_PROX), None)
+    if horas_por_dia:
+        doc.add_heading("2. Perfiles 24 vs 17 y 25 vs 18", level=1)
         p = doc.add_paragraph()
-        p.add_run("Qué se hizo. ").bold = True
+        p.add_run("Lectura. ").bold = True
         p.add_run(
-            "Hoy 24/08 entre 11:00 y 13:30 se cargaron las mejoras de horario. "
-            "En el gimnasio el 100 % cubre el pico real (no el 0,54 m³/h parejo). "
+            "Izquierda: lun 24 (con WES, día completo) contra lun 17 (sin WES). "
+            "Derecha: mar 25 contra mar 18, cortados a la misma hora. "
+            "El sombreado amarillo es 11:00–13:59 (regulación cargada el lunes 24). "
             "En Lo Velásquez la noche sigue en 0 L/min; de día el tope deja pasar el uso del colegio. "
-            "El sombreado amarillo en los perfiles es 11:00–13:59 (cubre ese tramo)."
+            "En el gimnasio el 100 % cubre el pico real (no el 0,54 m³/h parejo)."
         )
-        for nid, nom, key in (
-            (NODO_ESCUELA, "Esc. Lo Velásquez", "escuela"),
-            (NODO_GIMNASIO, "Gimnasio municipal", "gimnasio"),
+        for key, nom in (
+            ("escuela", "Esc. Lo Velásquez"),
+            ("gimnasio", "Gimnasio municipal"),
+            ("icco", "Colegio ICCO Renca"),
         ):
             if key in pngs and Path(pngs[key]).is_file():
                 doc.add_paragraph(nom).runs[0].bold = True
                 doc.add_picture(str(pngs[key]), width=Cm(16.2))
-            vc, vs = horas_ultimo.get(nid, ([], []))
-            if not vc:
-                continue
-            t3 = doc.add_table(rows=1 + len(HORAS_REGULADAS), cols=4)
-            t3.style = "Table Grid"
-            for j, hd in enumerate(["Hora", "Con WES hoy (m³/h)", "Sin WES lun 17 (m³/h)", "Δ"]):
-                cell = t3.rows[0].cells[j]
-                cell.text = hd
-                _set_cell_shading(cell, "1F4788")
-                for run in cell.paragraphs[0].runs:
-                    run.bold = True
-                    run.font.color.rgb = RGBColor(255, 255, 255)
-                    run.font.size = Pt(9)
-            for i, h in enumerate(HORAS_REGULADAS):
-                a = float(vc[h]) if h < len(vc) else 0.0
-                b = float(vs[h]) if h < len(vs) else 0.0
-                vals = [
-                    f"{h:02d}:00–{h:02d}:59",
-                    format_number_chilean(a, 2),
-                    format_number_chilean(b, 2),
-                    format_number_chilean(b - a, 2),
-                ]
-                for j, v in enumerate(vals):
-                    t3.rows[i + 1].cells[j].text = v
-                    for run in t3.rows[i + 1].cells[j].paragraphs[0].runs:
+
+        if idx_lun24 is not None:
+            doc.add_heading("3. Regulación lun 24, 11:00–13:30 (vs lun 17)", level=1)
+            p = doc.add_paragraph()
+            p.add_run("Qué se hizo. ").bold = True
+            p.add_run(
+                "El lunes 24/08 entre 11:00 y 13:30 se cargaron las mejoras de horario. "
+                "La tabla usa ese lunes contra el lunes 17, no el martes (el tramo 11–13 "
+                "del martes 25 aún no cierra si el corte es antes de las 13:59)."
+            )
+            for nid, nom in (
+                (NODO_ESCUELA, "Esc. Lo Velásquez"),
+                (NODO_GIMNASIO, "Gimnasio municipal"),
+            ):
+                pares_h = horas_por_dia.get(nid) or []
+                if idx_lun24 >= len(pares_h):
+                    continue
+                vc, vs = pares_h[idx_lun24]
+                if not vc:
+                    continue
+                doc.add_paragraph(nom).runs[0].bold = True
+                t3 = doc.add_table(rows=1 + len(HORAS_REGULADAS), cols=4)
+                t3.style = "Table Grid"
+                for j, hd in enumerate(
+                    ["Hora", "Con WES lun 24 (m³/h)", "Sin WES lun 17 (m³/h)", "Δ"]
+                ):
+                    cell = t3.rows[0].cells[j]
+                    cell.text = hd
+                    _set_cell_shading(cell, "1F4788")
+                    for run in cell.paragraphs[0].runs:
+                        run.bold = True
+                        run.font.color.rgb = RGBColor(255, 255, 255)
                         run.font.size = Pt(9)
-            doc.add_paragraph("")
+                for i, hr in enumerate(HORAS_REGULADAS):
+                    a = float(vc[hr]) if hr < len(vc) else 0.0
+                    b = float(vs[hr]) if hr < len(vs) else 0.0
+                    vals = [
+                        f"{hr:02d}:00–{hr:02d}:59",
+                        format_number_chilean(a, 2),
+                        format_number_chilean(b, 2),
+                        format_number_chilean(b - a, 2),
+                    ]
+                    for j, v in enumerate(vals):
+                        t3.rows[i + 1].cells[j].text = v
+                        for run in t3.rows[i + 1].cells[j].paragraphs[0].runs:
+                            run.font.size = Pt(9)
+                doc.add_paragraph("")
 
     suben = [nom for nid, nom in PUNTOS if _rendimiento(m3_sin[nid], m3_con[nid])[1] >= 15]
     no_suben = [nom for nid, nom in PUNTOS if _rendimiento(m3_sin[nid], m3_con[nid])[1] <= 0]
     doc.add_heading("Conclusiones", level=1)
+    extra_escuela = ""
+    if any(nid == NODO_ESCUELA for nid, nom in PUNTOS if nom in no_suben):
+        extra_escuela = (
+            "En Lo Velásquez las noches ya van en 0 los cuatro días; "
+            "si el martes 25 gasta más que el 18 entre 07:00 y 10:59 es ocupación al abrir, no fuga. "
+        )
     doc.add_paragraph(
-        "Los 5 puntos ya están con control desde el lunes 24. La comparación es día a día "
-        "contra la semana del 17 sin WES. "
+        "El caso es lun 24 + mar 25 (con WES) contra lun 17 + mar 18 (sin WES), "
+        "con el martes recortado a la misma hora en las dos semanas. "
         + (
-            f"Hoy el ahorro se concentra en {', '.join(suben)}. "
+            f"El ahorro de los dos días se concentra en {', '.join(suben)}. "
             if suben
-            else "Hoy ningún punto muestra un ahorro claro todavía. "
+            else "En estos dos días ningún punto muestra un ahorro claro todavía. "
         )
         + (
-            f"En {', '.join(no_suben)} el día con WES no gasta menos que el lunes sin control. "
+            f"En {', '.join(no_suben)} el bloque con WES no gasta menos que el del 17–18. "
             if no_suben
             else ""
         )
-        + "Lo Velásquez y el gimnasio se regularon a las 11:00–13:30: el gimnasio a las 12:00 "
-        "tuvo más caudal que el lunes 17 (evento); el tope nuevo lo deja pasar. "
-        "Se sigue el resto de la semana con el mismo corte horario."
+        + extra_escuela
+        + "El gimnasio el lunes 24 a las 12:00 tuvo más caudal que el lunes 17 (evento); "
+        "el tope nuevo lo deja pasar. Se sigue el resto de la semana con el mismo criterio de pares."
     )
     out_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_docx)
@@ -798,7 +924,7 @@ def main() -> int:
         f"Auditoría Renca | {lab_con} vs {lab_sin} | "
         f"último día hasta {hora_corte:02d}:59 Chile | {ahora:%Y-%m-%d %H:%M}"
     )
-    print("5 puntos con control desde lun 24 vs semana del 17 sin WES")
+    print("Caso: lun 24 y mar 25 con WES contra lun 17 y mar 18 sin WES")
 
     gxlsx.LABEL_P1 = lab_con
     gxlsx.LABEL_P2 = lab_sin
@@ -808,7 +934,7 @@ def main() -> int:
     dias_m3_con: Dict[str, List[float]] = {}
     dias_m3_sin: Dict[str, List[float]] = {}
     dirs: Dict[str, Path] = {}
-    horas_ultimo: Dict[str, Tuple[List[float], List[float]]] = {}
+    horas_por_dia: Dict[str, List[Tuple[List[float], List[float]]]] = {}
 
     for nid, nom in PUNTOS:
         print("=" * 64)
@@ -833,7 +959,7 @@ def main() -> int:
         dias_m3_sin[nid] = ds
         _fechas, mats = leer_matriz_consolidado(xlsx)
         n = len(dias_con)
-        horas_ultimo[nid] = (list(mats[n - 1]), list(mats[2 * n - 1]))
+        horas_por_dia[nid] = [(list(mats[i]), list(mats[n + i])) for i in range(n)]
         print(f"  Con {c:.1f} m³ | Sin {s:.1f} m³")
 
     png_dir = out_root / "graficos"
@@ -843,29 +969,58 @@ def main() -> int:
         ["ICCP", "Lo Velásquez", "Gimnasio", "Piscina", "ICCO"],
         [m3_con[n] for n, _ in PUNTOS],
         [m3_sin[n] for n, _ in PUNTOS],
-        f"Renca — {lab_con} vs {lab_sin}",
+        f"Renca — {lab_con} contra {lab_sin}",
         lab_con,
         lab_sin,
         p_all,
     )
     pngs: Dict[str, Path] = {"todos": p_all}
-    d1, d2 = dias_con[-1], dias_sin[-1]
+
+    n = len(dias_con)
+    labels_pares = [
+        _etiqueta_par(d1, d2, _hora_corte_de_dia(i, n, hora_corte))
+        for i, (d1, d2) in enumerate(zip(dias_con, dias_sin))
+    ]
+    tot_con_dia = [sum(dias_m3_con[nid][i] for nid, _ in PUNTOS) for i in range(n)]
+    tot_sin_dia = [sum(dias_m3_sin[nid][i] for nid, _ in PUNTOS) for i in range(n)]
+    p_pares = png_dir / "pares_24y25_vs_17y18.png"
+    _grafico_4_puntos(
+        labels_pares,
+        tot_con_dia,
+        tot_sin_dia,
+        "5 puntos — lun 24 vs 17 y mar 25 vs 18",
+        lab_con,
+        lab_sin,
+        p_pares,
+    )
+    pngs["pares"] = p_pares
+
     for nid, key, nom in (
         (NODO_ESCUELA, "escuela", "Lo Velásquez"),
         (NODO_GIMNASIO, "gimnasio", "Gimnasio"),
         (NODO_ICCO, "icco", "ICCO"),
     ):
-        png = png_dir / f"perfil_{key}_{d1:%d%m}_vs_{d2:%d%m}.png"
-        vc, vs = horas_ultimo[nid]
-        _grafico_perfil_24h(
-            vc,
-            vs,
-            hora_corte,
-            f"{nom} — {WD_CORTO[d1.weekday()]} {d1:%d/%m} con WES vs {d2:%d/%m} sin WES",
+        pares_plot: List[Tuple[str, Sequence[float], Sequence[float], int, Sequence[int]]] = []
+        for i, (d1, d2) in enumerate(zip(dias_con, dias_sin)):
+            hc = _hora_corte_de_dia(i, n, hora_corte)
+            vc, vs = horas_por_dia[nid][i]
+            sombrear = HORAS_REGULADAS if nid != NODO_ICCO else ()
+            pares_plot.append(
+                (
+                    f"{WD_CORTO[d1.weekday()]} {d1:%d/%m} vs {d2:%d/%m}",
+                    vc,
+                    vs,
+                    hc,
+                    sombrear,
+                )
+            )
+        png = png_dir / f"perfil_{key}_24y25_vs_17y18.png"
+        _grafico_perfil_pares(
+            pares_plot,
+            f"{nom} — 24 y 25 (con WES) contra 17 y 18 (sin WES)",
             lab_con,
             lab_sin,
             png,
-            HORAS_REGULADAS if nid != NODO_ICCO else (),
         )
         pngs[key] = png
 
@@ -883,7 +1038,7 @@ def main() -> int:
         dias_m3_sin,
         dirs,
         None,
-        horas_ultimo,
+        horas_por_dia,
     )
     pdf_path = _convertir_pdf(docx_path)
 
@@ -892,6 +1047,12 @@ def main() -> int:
     ahorro, pct = _rendimiento(tot_s, tot_c)
     print("=" * 64)
     print(f"5 puntos Con {tot_c:.1f} | Sin {tot_s:.1f} | {pct:.1f}% ({ahorro:.1f} m³)")
+    for i, lab in enumerate(labels_pares):
+        a_d, p_d = _rendimiento(tot_sin_dia[i], tot_con_dia[i])
+        print(
+            f"  {lab}: Con {tot_con_dia[i]:.1f} | Sin {tot_sin_dia[i]:.1f} | "
+            f"{p_d:.1f}% ({a_d:.1f} m³)"
+        )
     for nid, nom in PUNTOS:
         a, p = _rendimiento(m3_sin[nid], m3_con[nid])
         print(f"  {nom}: {p:.1f}% ({a:.1f} m³)")
