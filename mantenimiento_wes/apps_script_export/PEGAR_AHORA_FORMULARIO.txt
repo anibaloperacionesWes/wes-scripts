@@ -1,13 +1,16 @@
-FIX cierre OT — pegar Codigo 21T
-=================================
+Formulario visitas técnicas — estado 21T
+========================================
 
-Error: "Los datos tienen 1, y el rango, 1775"
-Causa: bug al actualizar la fila de la OT.
+Formulario (HTML) se actualiza solo desde Drive (build 21S).
+Codigo (servidor) en Drive está en 21T — hay que tenerlo pegado + Nueva versión.
 
-1) Descargá Codigo:
-   https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
-2) Apps Script → Codigo → borrar todo → pegar → Guardar
-3) Ctrl+F: getRange(found.row, 1, 1, row.length)
-   Debe aparecer (el fix).
-4) Administrar → lápiz AKfycbx5DTdd... → Nueva versión → Implementar
-5) Refrescá el form y cerrá la OT de nuevo (Continuar / cerrar → Completar).
+Formulario oficial:
+https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+
+Si falla cierre OT ("rango 1775 filas"):
+1) Pegá Codigo: https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
+2) Ctrl+F: getRange(found.row, 1, 1, row.length)
+3) Nueva versión del /exec AKfycbx5DTdd...
+4) Refrescá el form
+
+Doc completo: mantenimiento_wes/FORMULARIO_VISITAS_TECNICAS.md
