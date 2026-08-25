@@ -33,6 +33,8 @@ AGREGADO_EXTENDIDO_COMPANY_IDS = frozenset({
     "000012",  # DERCO
     "000024",  # La Reina
     "000002",  # Lo Valledor
+    "000008",  # CORMUP
+    "000017",  # Renca
 })
 
 _CLIENTE: Dict[str, dict] = {
@@ -107,6 +109,18 @@ _CLIENTE: Dict[str, dict] = {
         "sujeto": "Lo Valledor",
         "sujeto_min": "Lo Valledor",
         "total_label": "Total Lo Valledor (periodo):",
+    },
+    "000008": {
+        "prefijo": "cormup",
+        "sujeto": "CORMUP",
+        "sujeto_min": "CORMUP",
+        "total_label": "Total CORMUP (periodo):",
+    },
+    "000017": {
+        "prefijo": "renca",
+        "sujeto": "Renca",
+        "sujeto_min": "Renca",
+        "total_label": "Total Renca (periodo):",
     },
 }
 
@@ -255,8 +269,19 @@ def narrativa_consumo_total_extendido(company_id: str, nodes_data: List[dict]) -
 COPEC_NODE_ESTANQUE_REUTILIZACION = "000009-02"
 AGUILAS_NODE_PISCINA = "000007-05"
 
+# Sin sección «Día de mayor consumo» ni marcadores/tabla de alertas en rojo.
+OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS = frozenset({
+    "000027",  # Fundo Zapallar
+    "000008",  # CORMUP
+    "000017",  # Renca
+    "000024",  # La Reina
+    "000028",  # La Florida
+})
+
 
 def _omitir_grafico_dia_mayor(company_id: str, data: dict) -> bool:
+    if company_id in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS:
+        return True
     summary = data.get("summary") or {}
     total = float(summary.get("total") or 0.0)
     if total <= 0:
@@ -326,9 +351,8 @@ def agregar_secciones_consumo_diario_y_max_dia(
             continue
         chart_path = output_dir / f"{pref}_diario_{node_id.replace('-', '_')}.png"
         alerts = filtrar_alertas_informativas(data.get("alerts"))
-        # Fundo Zapallar: gráficos diarios sin marcadores ni tabla de alertas
-        # (el cliente pide solo la curva de consumo).
-        alerts_para_grafico = None if company_id == "000027" else alerts
+        # Solo curva de consumo (sin marcadores ni tabla de alertas en rojo).
+        alerts_para_grafico = None if company_id in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS else alerts
         built = build_consumption_chart(
             measures, chart_path, start_dt, end_dt, alerts_para_grafico
         )
@@ -337,7 +361,10 @@ def agregar_secciones_consumo_diario_y_max_dia(
         doc.add_paragraph("")
         add_formatted_title(doc, node_name.upper())
         add_picture_with_pagination(doc, str(chart_path), Inches(6), keep_with_next=True)
-        if es_agregado_extendido(company_id) and company_id != "000027":
+        if (
+            es_agregado_extendido(company_id)
+            and company_id not in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS
+        ):
             alerts_marcadas = alertas_marcadas_grafico_diario(alerts, measures, start_dt, end_dt)
             if alerts_marcadas:
                 agregar_tabla_alertas_grafico_diario(doc, alerts_marcadas, wes_style=True)
@@ -345,6 +372,9 @@ def agregar_secciones_consumo_diario_y_max_dia(
             total_periodo = float((data.get("summary") or {}).get("total") or 0.0)
             if total_periodo <= 0:
                 _agregar_nota_estanque_reutilizacion_copec(doc)
+
+    if company_id in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS:
+        return
 
     add_formatted_heading(doc, "Día de mayor consumo diario por punto", level=1)
     intro2 = doc.add_paragraph(
