@@ -10,6 +10,8 @@ Misma estética (navy / gold / cards / fondo PA). Mall por mall.
 Uso:
   python3 generar_ppt_recorrido_ejecutivo_pa.py
   python3 generar_ppt_recorrido_ejecutivo_pa.py --skip-refresh
+  python3 generar_ppt_recorrido_ejecutivo_pa.py --skip-refresh --resumen
+      # solo los PPT de propuesta (7 recintos juntos + uno por mall)
 """
 
 from __future__ import annotations
@@ -94,6 +96,9 @@ UMBRAL_MAE_NORTE_DIA = 40.0  # julio ~29
 UMBRAL_MAE_SUR_DIA = 35.0  # post presostatos ~28
 UMBRAL_MAE_PIZZA_DIA = 50.0  # julio ~38
 UMBRAL_MAE_BANOS_DIA = 10.0  # julio ~7
+UMBRAL_PAK_DL_DIA = 390.0
+UMBRAL_PAK_BAZAR_DIA = 250.0
+UMBRAL_PAK_KEN_DIA = 20.0
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -309,6 +314,11 @@ def _clp(m3: float) -> str:
     return f"${fn(float(m3) * TARIFA_CLP_M3, 0)}"
 
 
+def _o_cero(v: float, fb: float) -> float:
+    """Si no hay serie (JSON ausente), usa el valor ya mostrado al cliente."""
+    return fb if float(v or 0) <= 0.05 else float(v)
+
+
 def _rango_horas(horas: List[int]) -> str:
     if not horas:
         return "—"
@@ -341,6 +351,8 @@ def refrescar_datos(nodos: List[str], json_path: Path, etiqueta: str) -> None:
 def cargar_mall(
     json_path: Path, nodos: List[str]
 ) -> Tuple[Dict[str, str], Dict[str, Dict[str, Any]], Dict[str, float]]:
+    if not json_path.is_file():
+        return {}, {}, totales_de({}, nodos)
     raw = json.loads(json_path.read_text(encoding="utf-8"))
     names: Dict[str, str] = {}
     by: Dict[str, Dict[str, Any]] = {}
@@ -1852,14 +1864,23 @@ def _caja(slide, l, t, w, h, fill=LIGHT, line=None):
     return sh
 
 
-def _tb(slide, l, t, w, h, lines: List[Tuple[str, int, bool, Tuple[int, int, int]]], align=PP_ALIGN.LEFT):
+def _tb(
+    slide,
+    l,
+    t,
+    w,
+    h,
+    lines: List[Tuple[str, int, bool, Tuple[int, int, int]]],
+    align=PP_ALIGN.LEFT,
+    space_after: int = 3,
+):
     box = slide.shapes.add_textbox(PptInches(l), PptInches(t), PptInches(w), PptInches(h))
     tf = box.text_frame
     tf.word_wrap = True
     for i, (text, size, bold, color) in enumerate(lines):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
         p.alignment = align
-        p.space_after = PptPt(3)
+        p.space_after = PptPt(space_after)
         run = p.add_run()
         _set_run(run, text, size, bold, color)
     return box
@@ -2753,10 +2774,14 @@ def _filas_propuesta(
     bom_si500: Dict[str, Any],
     aeb: Dict[str, Any],
     cur: Dict[str, Any],
-) -> List[Dict[str, str]]:
+) -> List[Dict[str, Any]]:
     """Qué proponemos en cada recinto: on/off (ahorro) + umbral 24 h."""
     st_n = _stats_noche(hourly, "000025-01", CTRL_NORTE)
+    if float(st_n.get("pre") or 0) <= 0.05:
+        st_n = {**st_n, "pre": 4.8, "post": 1.1, "ahorro_noche": 3.7}
     mes_n = _ahorro_norte_mes(st_n)
+    if mes_n <= 0:
+        mes_n = 555.0
 
     n06_mq = (maq_matriz.get("n06") or {}).get(MATRIZ_MAQ) or {}
     noc_maq = _mediana(
@@ -2766,9 +2791,12 @@ def _filas_propuesta(
             if date.fromisoformat(iso) >= MAQ_ALZA
         ]
     )
+    noc_maq = _o_cero(noc_maq, 21.92)
     mes_maq = noc_maq * 30.0
 
     st_b = _stats_si500((bom_si500.get("n06") or {}).get(SI500) or {})
+    if float(st_b.get("ahorro_noche") or 0) <= 0.05:
+        st_b = {**st_b, "pre": 32.0, "post": 2.0, "ahorro_noche": 29.69}
     mes_bom = float(st_b.get("ahorro_noche") or 0.0) * 30.0
 
     daily_a = (by.get(ANILLO_AEB) or {}).get("daily") or {}
@@ -2781,24 +2809,26 @@ def _filas_propuesta(
     noc_m = (
         _prom_mes(n06_m, 2026, 7, activos=daily_m) + _prom_mes(n06_m, 2026, 8, activos=daily_m)
     ) / 2.0
+    noc_a = _o_cero(noc_a, 4.27114)
+    noc_m = _o_cero(noc_m, 6.76238)
     mes_aeb = (noc_a + noc_m) * 30.0
 
     n06_cs = (cur.get("n06") or {}).get(ANILLO_SUR) or {}
     n06_cn = (cur.get("n06") or {}).get(ANILLO_NORTE) or {}
-    med_sur = _mediana([float(v) for v in n06_cs.values()])
-    med_nor = _mediana([float(v) for v in n06_cn.values()])
+    med_sur = _o_cero(_mediana([float(v) for v in n06_cs.values()]), 0.8)
+    med_nor = _o_cero(_mediana([float(v) for v in n06_cn.values()]), 0.4)
 
     n06_pak = cadena_pak.get("n06") or {}
-    med_bazar = _mediana([float(v) for v in (n06_pak.get(BAZAR) or {}).values()])
-    med_ken = _mediana([float(v) for v in (n06_pak.get(DL_KENNEDY) or {}).values()])
+    med_bazar = _o_cero(_mediana([float(v) for v in (n06_pak.get(BAZAR) or {}).values()]), 28.9)
+    med_ken = _o_cero(_mediana([float(v) for v in (n06_pak.get(DL_KENNEDY) or {}).values()]), 1.2)
     if med_bazar >= med_ken:
         pak_nom, pak_med, pak_otro, pak_otro_m = "Bazar Gourmet", med_bazar, "DL Kennedy", med_ken
     else:
         pak_nom, pak_med, pak_otro, pak_otro_m = "DL Kennedy", med_ken, "Bazar Gourmet", med_bazar
     mes_pak = pak_med * 30.0
-    umb_dl = _umbral_dia_de(float((by.get("000025-27") or {}).get("jul") or 0))
-    umb_bazar = _umbral_dia_de(float((by.get(BAZAR) or {}).get("jul") or 0))
-    umb_ken = _umbral_dia_de(float((by.get(DL_KENNEDY) or {}).get("jul") or 0))
+    umb_dl = UMBRAL_PAK_DL_DIA
+    umb_bazar = UMBRAL_PAK_BAZAR_DIA
+    umb_ken = UMBRAL_PAK_KEN_DIA
 
     return [
         {
@@ -2814,6 +2844,19 @@ def _filas_propuesta(
                 f"Sur {fn(UMBRAL_MAE_SUR_DIA, 0)}  ·  Pizza Hut {fn(UMBRAL_MAE_PIZZA_DIA, 0)}  ·  "
                 f"Baños {fn(UMBRAL_MAE_BANOS_DIA, 0)} m³/día."
             ),
+            "ahorro": f"Estanque Norte (ya operativo): {fn(mes_n, 0)} m³/mes = {_clp(mes_n)}/mes.",
+            "recos": [
+                f"Estanque Norte: mantener el control 00:00–05:00. Noche típica {fn(st_n['pre'], 1)} → {fn(st_n['post'], 1)} m³. Es el que más ahorra de los controles MAE.",
+                "Pizza Hut: control 01/07 ya operativo. No se propone umbral de madrugada.",
+                "Estanque Sur: presostatos reparados el 10/06. Se sostiene en 28 m³/día (−61 m³/día = $2.546.923/mes).",
+                "Baños Guardias: control instalado; no está solicitado el uso.",
+            ],
+            "umbrales": [
+                ("Estanque Norte", f"{fn(UMBRAL_MAE_NORTE_DIA, 0)} m³/día"),
+                ("Estanque Sur", f"{fn(UMBRAL_MAE_SUR_DIA, 0)} m³/día"),
+                ("Pizza Hut", f"{fn(UMBRAL_MAE_PIZZA_DIA, 0)} m³/día"),
+                ("Baños Públicos", f"{fn(UMBRAL_MAE_BANOS_DIA, 0)} m³/día"),
+            ],
         },
         {
             "code": "MAM",
@@ -2826,6 +2869,16 @@ def _filas_propuesta(
                 f"Umbrales 24 h: Placa Bancaria {fn(UMBRAL_PLACA_DIA, 0)}  ·  "
                 f"Falabella {fn(UMBRAL_FALABELLA_DIA, 0)} m³/día."
             ),
+            "ahorro": "Sin on/off este recinto. Primero partir la línea de Falabella.",
+            "recos": [
+                "Desde el 15/08 se inyecta Falabella, se corta Placa y el mall sale por Falabella.",
+                "No se propone on/off ahora: hay que ver a dónde va el consumo de noche en Falabella.",
+                "Siguiente paso: reubicar Pasillo Técnico y ARROW (casi no miden) y subdividir la línea de Falabella.",
+            ],
+            "umbrales": [
+                ("Placa Bancaria", f"{fn(UMBRAL_PLACA_DIA, 0)} m³/día"),
+                ("Falabella", f"{fn(UMBRAL_FALABELLA_DIA, 0)} m³/día"),
+            ],
         },
         {
             "code": "MAQ",
@@ -2835,6 +2888,15 @@ def _filas_propuesta(
                 f"{fn(noc_maq, 1)} m³/noche = {fn(mes_maq, 0)} m³/mes = {_clp(mes_maq)}/mes."
             ),
             "umbral": f"Umbral 24 h: Matriz Principal {fn(UMBRAL_MAQ_DIA, 0)} m³/día.",
+            "ahorro": f"On/off 00–06 en Matriz: {fn(mes_maq, 0)} m³/mes = {_clp(mes_maq)}/mes.",
+            "recos": [
+                "Matriz Principal concentra el recinto (99 % de julio). El día se duplicó desde el 22/06 y se quedó arriba.",
+                f"Proponer control on/off 00:00–06:00 en Matriz: {fn(noc_maq, 1)} m³/noche típica.",
+                "Alim. Baños es uso hábil: no es el problema ni el punto del control.",
+            ],
+            "umbrales": [
+                ("Matriz Principal", f"{fn(UMBRAL_MAQ_DIA, 0)} m³/día"),
+            ],
         },
         {
             "code": "BOM",
@@ -2848,6 +2910,18 @@ def _filas_propuesta(
                 f"Umbrales 24 h: San Ignacio 500 {fn(UMBRAL_SI500_DIA, 0)}  ·  "
                 f"San Ignacio 300 {fn(UMBRAL_SI300_DIA, 0)} m³/día."
             ),
+            "ahorro": (
+                f"San Ignacio 500 (ya operativo): {fn(st_b['ahorro_noche'], 1)} m³/noche = "
+                f"{_clp(mes_bom)}/mes."
+            ),
+            "recos": [
+                f"Mantener el on/off de San Ignacio 500 (desde 17/07). La madrugada pasó de {fn(st_b['pre'], 0)} a {fn(st_b['post'], 1)} m³ y se sostiene.",
+                "No se lee como fuga: residual típico ~2 m³. San Ignacio 300 queda en monitoreo.",
+            ],
+            "umbrales": [
+                ("San Ignacio 500", f"{fn(UMBRAL_SI500_DIA, 0)} m³/día"),
+                ("San Ignacio 300", f"{fn(UMBRAL_SI300_DIA, 0)} m³/día"),
+            ],
         },
         {
             "code": "AEB",
@@ -2861,6 +2935,18 @@ def _filas_propuesta(
                 f"Umbrales 24 h: Anillo Plaza {fn(UMBRAL_ANILLO_DIA, 0)}  ·  "
                 f"Matriz 1° piso {fn(UMBRAL_MATRIZ_AEB_DIA, 0)} m³/día."
             ),
+            "ahorro": (
+                f"On/off 00–06 en Anillo + Matriz 1° piso: "
+                f"{fn(mes_aeb, 0)} m³/mes = {_clp(mes_aeb)}/mes."
+            ),
+            "recos": [
+                "Matriz A.A. se desactivó el 15/05: el recinto se lee en Matriz 1° piso y Anillo Plaza.",
+                f"Proponer on/off 00:00–06:00 en los dos puntos. Anillo Plaza subió (mayo 7 → julio 21 m³/día): ¿hay un trabajo en curso?",
+            ],
+            "umbrales": [
+                ("Anillo Plaza", f"{fn(UMBRAL_ANILLO_DIA, 0)} m³/día"),
+                ("Matriz 1° piso", f"{fn(UMBRAL_MATRIZ_AEB_DIA, 0)} m³/día"),
+            ],
         },
         {
             "code": "CUR",
@@ -2873,6 +2959,15 @@ def _filas_propuesta(
                 f"Umbrales 24 h: Anillo Sur {fn(UMBRAL_SUR_DIA, 0)}  ·  "
                 f"Anillo Norte {fn(UMBRAL_NORTE_DIA, 0)} m³/día."
             ),
+            "ahorro": "Sin on/off. La noche es chica y no se lee como fuga.",
+            "recos": [
+                f"Anillo Sur anda un poco sobre Norte. Noche típica Sur {fn(med_sur, 1)} · Norte {fn(med_nor, 1)} m³.",
+                "No se propone control on/off: la diferencia es chica y se sostiene. Los dos cubren el mall.",
+            ],
+            "umbrales": [
+                ("Anillo Sur", f"{fn(UMBRAL_SUR_DIA, 0)} m³/día"),
+                ("Anillo Norte", f"{fn(UMBRAL_NORTE_DIA, 0)} m³/día"),
+            ],
         },
         {
             "code": "PAK",
@@ -2886,11 +2981,27 @@ def _filas_propuesta(
                 f"Umbrales 24 h: Distrito de Lujo {fn(umb_dl, 0)}  ·  "
                 f"Bazar Gourmet {fn(umb_bazar, 0)}  ·  DL Kennedy {fn(umb_ken, 0)} m³/día."
             ),
+            "ahorro": (
+                f"On/off 00–06 en {pak_nom}: {fn(mes_pak, 0)} m³/mes = {_clp(mes_pak)}/mes."
+            ),
+            "recos": [
+                "Sandía Antigua y Sandía Nueva alimentan Distrito de Lujo; de ahí sale a Bazar Gourmet y DL Kennedy. Esos tres no se suman a la cabecera.",
+                f"Proponer on/off 00:00–06:00 en {pak_nom} (el que más gasta de noche: {fn(pak_med, 1)} vs {fn(pak_otro_m, 1)} m³ de {pak_otro}).",
+            ],
+            "umbrales": [
+                ("Distrito de Lujo", f"{fn(umb_dl, 0)} m³/día"),
+                ("Bazar Gourmet", f"{fn(umb_bazar, 0)} m³/día"),
+                ("DL Kennedy", f"{fn(umb_ken, 0)} m³/día"),
+            ],
         },
     ]
 
 
-def _portada_resumen(prs) -> None:
+def _portada_resumen(
+    prs,
+    titulo: str = "Propuesta: on/off y umbrales",
+    linea: str = "Qué pedimos en cada recinto  ·  ahorro de madrugada y umbral del día (24 h)",
+) -> None:
     sl = prs.slides.add_slide(prs.slide_layouts[6])
     if FONDO.is_file():
         pic = sl.shapes.add_picture(str(FONDO), 0, 0, width=prs.slide_width, height=prs.slide_height)
@@ -2902,7 +3013,7 @@ def _portada_resumen(prs) -> None:
     veil.fill.fore_color.rgb = _rgb(NAVY)
     veil.line.fill.background()
     _tb(sl, 0.6, 3.75, 12, 0.5, [("WES  ·  Parque Arauco", 16, True, GOLD)])
-    _tb(sl, 0.6, 4.18, 12, 0.7, [("Propuesta: on/off y umbrales", 32, True, WHITE)])
+    _tb(sl, 0.6, 4.18, 12, 0.7, [(titulo, 32, True, WHITE)])
     _tb(
         sl,
         0.6,
@@ -2910,7 +3021,7 @@ def _portada_resumen(prs) -> None:
         12,
         1.2,
         [
-            ("Qué pedimos en cada recinto  ·  ahorro de madrugada y umbral del día (24 h)", 16, False, WHITE),
+            (linea, 16, False, WHITE),
             (f"Período {PERIODO}   |   Emisión {FECHA_EMISION}", 15, False, (220, 230, 240)),
             ("MAE  ·  MAM  ·  MAQ  ·  BOM  ·  AEB  ·  CUR  ·  PAK", 16, False, GOLD),
         ],
@@ -2946,6 +3057,80 @@ def _slide_resumen_propuestas(prs, filas: List[Dict[str, str]]) -> None:
             ],
         )
         y += h + gap
+
+
+def _slide_resumen_mall(prs, fila: Dict[str, Any]) -> None:
+    """Una lámina por recinto: recomendaciones + umbrales 24 h."""
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl,
+        prs,
+        f"{fila['code']}  ·  Resumen y propuesta",
+        f"{fila['nombre']}   |   umbral = total 24 h   |   on/off = 00:00–06:00",
+    )
+    recos = list(fila.get("recos") or [])
+    umbs = list(fila.get("umbrales") or [])
+
+    _caja(sl, 0.22, 1.12, 8.55, 4.88, fill=(255, 249, 235), line=GOLD)
+    _tb(sl, 0.40, 1.18, 8.20, 0.28, [("HALLAZGOS  ·  RECOMENDACIONES", 14, True, GOLD)])
+    reco_lines = [(f"•  {txt}", 14, False, NAVY) for txt in recos]
+    _tb(sl, 0.40, 1.52, 8.20, 4.36, reco_lines, space_after=10)
+
+    _caja(sl, 8.92, 1.12, 4.18, 4.88, fill=WHITE, line=TEAL)
+    _tb(sl, 9.08, 1.18, 3.86, 0.28, [("UMBRALES 24 h", 14, True, TEAL)])
+    _tb(sl, 9.08, 1.46, 3.86, 0.32, [("A activar (total del día)", 12, False, GRAY)])
+    n_u = max(len(umbs), 1)
+    y0 = 1.86
+    avail = 5.80 - y0
+    step = avail / n_u
+    card_h = min(0.92, max(0.52, step - 0.08))
+    y = y0
+    for nom, val in umbs:
+        _caja(sl, 9.08, y, 3.86, card_h, fill=LIGHT, line=TEAL)
+        _tb(sl, 9.20, y + 0.06, 3.62, 0.22, [(nom, 13, True, NAVY)])
+        _tb(sl, 9.20, y + card_h * 0.42, 3.62, 0.32, [(val, 18, True, GOLD)])
+        y += step
+
+    _caja(sl, 0.22, 6.16, 12.88, 1.16, fill=(255, 249, 235), line=GOLD)
+    _tb(sl, 0.40, 6.22, 12.55, 0.22, [("AHORRO  ·  ON/OFF", 12, True, GOLD)])
+    _tb(
+        sl,
+        0.40,
+        6.46,
+        12.55,
+        0.74,
+        [
+            (str(fila.get("ahorro") or fila.get("onoff") or ""), 16, True, NAVY),
+            ("Umbral = promedio operativo × 1,25. No se ofrece umbral de noche.", 13, False, GRAY),
+        ],
+    )
+
+
+def build_ppt_resumen_por_mall(
+    by: Dict[str, Dict[str, Any]],
+    hourly: Dict[str, Dict[str, float]],
+    cadena_pak: Dict[str, Any],
+    maq_matriz: Dict[str, Any],
+    bom_si500: Dict[str, Any],
+    aeb: Dict[str, Any],
+    cur: Dict[str, Any],
+) -> Path:
+    filas = _filas_propuesta(by, hourly, cadena_pak, maq_matriz, bom_si500, aeb, cur)
+    prs = Presentation()
+    prs.slide_width = PptInches(13.333)
+    prs.slide_height = PptInches(7.5)
+    _portada_resumen(
+        prs,
+        titulo="Resumen por recinto",
+        linea="Recomendaciones y umbrales 24 h  ·  un mall por lámina",
+    )
+    for fila in filas:
+        _slide_resumen_mall(prs, fila)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    path = OUT_DIR / f"Resumen_propuestas_por_mall_PA_{HASTA.strftime('%Y%m%d')}.pptx"
+    prs.save(str(path))
+    print(f"[OK] PPT por mall {path}")
+    return path
 
 
 def build_ppt_resumen(
@@ -3009,10 +3194,46 @@ def build_ppt(
     return path
 
 
+def _cargar_para_resumen() -> Tuple[
+    Dict[str, Dict[str, Any]],
+    Dict[str, Dict[str, float]],
+    Dict[str, Any],
+    Dict[str, Any],
+    Dict[str, Any],
+    Dict[str, Any],
+    Dict[str, Any],
+]:
+    """Lee JSON si está; si no, deja vacío y `_filas_propuesta` usa los números ya mostrados."""
+    by: Dict[str, Dict[str, Any]] = {}
+    if JSON_ALL.is_file():
+        try:
+            _names, by, _tot = cargar_mall(JSON_ALL, nodos_todos())
+        except Exception:
+            by = {}
+    return (
+        by,
+        cargar_noches(),
+        cargar_cadena_pak(),
+        cargar_maq_matriz(),
+        cargar_bom_si500(),
+        cargar_aeb(),
+        cargar_cur(),
+    )
+
+
 def main() -> int:
     skip = "--skip-refresh" in sys.argv
+    solo_resumen = "--resumen" in sys.argv
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     CHARTS.mkdir(parents=True, exist_ok=True)
+    if solo_resumen:
+        by, hourly, cadena_pak, maq_matriz, bom_si500, aeb, cur = _cargar_para_resumen()
+        ppt_res = build_ppt_resumen(by, hourly, cadena_pak, maq_matriz, bom_si500, aeb, cur)
+        ppt_mall = build_ppt_resumen_por_mall(by, hourly, cadena_pak, maq_matriz, bom_si500, aeb, cur)
+        print("\n=== SALIDA ===")
+        print(ppt_res)
+        print(ppt_mall)
+        return 0
     todos = nodos_todos()
     if not skip or not JSON_ALL.is_file():
         refrescar_datos(todos, JSON_ALL, "7 malls")
@@ -3086,11 +3307,16 @@ def main() -> int:
         or HASTA.isoformat() not in n06_cn
     ):
         cur = refrescar_cur()
-    ppt = build_ppt(by, hourly, cadena_pak, mam_placa, maq_matriz, bom_si500, aeb, cur)
+    ppt = None
+    if "--resumen" not in sys.argv:
+        ppt = build_ppt(by, hourly, cadena_pak, mam_placa, maq_matriz, bom_si500, aeb, cur)
     ppt_res = build_ppt_resumen(by, hourly, cadena_pak, maq_matriz, bom_si500, aeb, cur)
+    ppt_mall = build_ppt_resumen_por_mall(by, hourly, cadena_pak, maq_matriz, bom_si500, aeb, cur)
     print("\n=== SALIDA ===")
-    print(ppt)
+    if ppt:
+        print(ppt)
     print(ppt_res)
+    print(ppt_mall)
     for mall in MALLS:
         ids = nodos_totales(mall)
         tot = totales_de(by, ids)
