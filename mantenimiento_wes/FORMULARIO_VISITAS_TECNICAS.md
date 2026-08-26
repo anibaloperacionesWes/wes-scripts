@@ -45,6 +45,8 @@ Ctrl+F en Apps Script → Codigo:
 
 - **Modalidad:** Visita física · Soporte técnico a distancia  
 - **Tipo mtto:** incluye **Soporte remoto** (se auto-elige con modalidad a distancia)  
+- **Remoto:** sin firma en pantalla (PDF indica «sin firma presencial»)  
+- **Ortografía:** spellcheck es en solución, observaciones, cargos y obs. de checklist  
 - **Tecnología:** CPA y CIR · SAB · CPA · CIR · On/Off (sin EYES)  
 - **Checklist:** ▸ Abrir solo con CIR/CPA/SAB/On-Off  
 - **Panel OT:** Continuar/cerrar o Marcar cerrada  

@@ -71,7 +71,7 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES · 21T')
+    .setTitle('Acta de visita WES · 21V')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -193,11 +193,20 @@ function procesarVisita(data) {
   if (!data.solucion) {
     throw new Error('Solución / diagnóstico es obligatorio');
   }
-  if (!data.firma_png) {
-    throw new Error('Firma obligatoria');
+  var esRemoto = esSoporteRemoto_(data);
+  data.soporte_remoto = !!esRemoto;
+  if (!esRemoto && !data.firma_png) {
+    throw new Error('Firma obligatoria en visita física');
+  }
+  if (esRemoto && !data.firma_png) {
+    data.firma_png = '';
   }
   if (!data.recibido_por) {
-    data.recibido_por = data.trabajo_interno ? 'WES interno / oficina' : '';
+    if (esRemoto) {
+      data.recibido_por = 'Soporte remoto (sin firma presencial)';
+    } else {
+      data.recibido_por = data.trabajo_interno ? 'WES interno / oficina' : '';
+    }
     if (!data.recibido_por) {
       throw new Error('Nombre quien recibe es obligatorio');
     }
@@ -225,7 +234,8 @@ function procesarVisita(data) {
 
   var carpeta = asegurarCarpetaActas_(data.cliente, data.fecha);
   // Firma solo en memoria → va dentro del PDF; no se guarda PNG suelto en Drive.
-  var firmaBlob = firmaBlobDesdeDataUrl_(data.firma_png);
+  // Soporte remoto: sin firma (blob null).
+  var firmaBlob = data.firma_png ? firmaBlobDesdeDataUrl_(data.firma_png) : null;
   var pdfFile = generarYGuardarPdf_(carpeta, stem, data, firmaBlob);
   var row = esCierre
     ? updateSheetByFolio_(folio, data, pdfFile.getUrl())
@@ -267,11 +277,29 @@ function procesarVisita(data) {
 function getWesApiVersion() {
   return {
     ok: true,
-    version: '21T',
+    version: '21V',
     has_listar_ots: true,
     has_procesar: true,
     formulario_drive_id: FORMULARIO_HTML_DRIVE_ID
   };
+}
+
+/** Modalidad a distancia o tipo mtto Soporte remoto → no exige firma. */
+function esSoporteRemoto_(data) {
+  if (!data) return false;
+  if (data.soporte_remoto === true || data.soporte_remoto === 'true' || data.soporte_remoto === 1) {
+    return true;
+  }
+  if (String(data.tipo_mtto || '') === 'Soporte remoto') return true;
+  var motivos = data.motivos;
+  if (typeof motivos === 'string') {
+    try { motivos = JSON.parse(motivos); } catch (e) { motivos = [motivos]; }
+  }
+  if (!motivos || !motivos.length) return false;
+  for (var i = 0; i < motivos.length; i++) {
+    if (String(motivos[i]) === 'Soporte técnico a distancia') return true;
+  }
+  return false;
 }
 
 function listarOTsPendientes() {
@@ -559,9 +587,10 @@ function asegurarCarpetaPorNombre_(nombre, parentId) {
 
 /** Blob de firma en memoria (no se crea archivo en Drive). */
 function firmaBlobDesdeDataUrl_(dataUrl) {
+  if (!dataUrl) return null;
   var parts = String(dataUrl).split(',');
-  if (parts.length < 2) {
-    throw new Error('Firma inválida');
+  if (parts.length < 2 || !parts[1]) {
+    return null;
   }
   var bytes = Utilities.base64Decode(parts[1]);
   return Utilities.newBlob(bytes, 'image/png', 'firma.png');
@@ -791,9 +820,18 @@ function appendPdfFirmaBlock_(body, data, firmaBlob) {
   var lab = cFirma.appendParagraph('Firma del receptor');
   lab.setFontSize(8).setForegroundColor(PDF_MUTED).setSpacingBefore(0).setSpacingAfter(2);
   try {
-    var img = cFirma.appendImage(firmaBlob);
-    img.setWidth(220);
-    img.setHeight(70);
+    if (firmaBlob) {
+      var img = cFirma.appendImage(firmaBlob);
+      img.setWidth(220);
+      img.setHeight(70);
+    } else if (esSoporteRemoto_(data)) {
+      cFirma.appendParagraph('Soporte remoto — sin firma presencial')
+        .setFontSize(9)
+        .setForegroundColor(PDF_MUTED)
+        .setItalic(true);
+    } else {
+      cFirma.appendParagraph('(Firma no disponible)').setFontSize(8).setForegroundColor(PDF_MUTED);
+    }
   } catch (e) {
     cFirma.appendParagraph('(Firma no disponible)').setFontSize(8).setForegroundColor(PDF_MUTED);
   }

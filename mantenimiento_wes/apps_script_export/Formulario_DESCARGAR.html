@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21S</title>
+  <title>Acta de visita WES · 21V</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -349,7 +349,7 @@
         <div class="row3">
           <div>
             <label for="comuna">Comuna</label>
-            <input id="comuna" placeholder="Ej: Providencia" />
+            <input id="comuna" placeholder="Ej: Providencia" spellcheck="true" lang="es" autocomplete="address-level2" />
           </div>
           <div>
             <label for="fecha">Fecha *</label>
@@ -365,7 +365,7 @@
         <p class="note" style="margin:6px 0 0">Visita física = en terreno. Soporte técnico a distancia = desde oficina (elige automáticamente tipo «Soporte remoto»).</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21U</div>
+        <div class="build-tag" id="form_build">WES-build-21V</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -386,9 +386,9 @@
         <label for="falla_especifica">Falla específica</label>
         <select id="falla_especifica"></select>
         <label for="solucion">Solución y/o diagnóstico *</label>
-        <textarea id="solucion" required placeholder="Qué se hizo / hallazgo principal"></textarea>
+        <textarea id="solucion" required placeholder="Qué se hizo / hallazgo principal" spellcheck="true" lang="es" autocapitalize="sentences"></textarea>
         <label for="observaciones">Observaciones</label>
-        <textarea id="observaciones" placeholder="Sugerencias, pendientes, materiales"></textarea>
+        <textarea id="observaciones" placeholder="Sugerencias, pendientes, materiales" spellcheck="true" lang="es" autocapitalize="sentences"></textarea>
         <div class="row">
           <div>
             <label for="estado_visita">Estado visita</label>
@@ -400,21 +400,21 @@
           </div>
           <div>
             <label for="lectura_medidor">Lectura medidor (auditoría)</label>
-            <input id="lectura_medidor" placeholder="Opcional" />
+            <input id="lectura_medidor" placeholder="Opcional" spellcheck="false" inputmode="decimal" />
           </div>
         </div>
       </section>
 
       <section class="card">
-        <h2>Cliente · firma · envío PDF</h2>
+        <h2 id="tituloFirmaEnvio">Cliente · firma · envío PDF</h2>
         <div class="row">
           <div>
             <label for="recibido_por">Nombre quien recibe</label>
-            <input id="recibido_por" autocomplete="name" placeholder="En interno puede quedar WES / oficina" />
+            <input id="recibido_por" autocomplete="name" placeholder="En interno puede quedar WES / oficina" spellcheck="true" lang="es" />
           </div>
           <div>
             <label for="cargo">Cargo</label>
-            <input id="cargo" placeholder="Encargado mantención / JO" />
+            <input id="cargo" placeholder="Encargado mantención / JO" spellcheck="true" lang="es" />
           </div>
         </div>
         <label class="chip on" style="display:flex;width:100%;margin:8px 0 10px;gap:10px;align-items:flex-start">
@@ -442,11 +442,17 @@
             Misma fuente: hoja Contactos. General sin máquina + CC de la máquina elegida (con nombre y cargo, igual que David Campos).
           </p>
         </div>
-        <label>Firma en pantalla *</label>
-        <div class="pad-wrap">
-          <div class="hint" id="hint">Firmá aquí</div>
-          <canvas id="pad" width="1000" height="400"></canvas>
+        <div id="bloqueFirma">
+          <label id="labelFirma">Firma en pantalla *</label>
+          <div class="pad-wrap">
+            <div class="hint" id="hint">Firmá aquí</div>
+            <canvas id="pad" width="1000" height="400"></canvas>
+          </div>
+          <p class="note" id="notaFirma">En visita física la firma del receptor es obligatoria.</p>
         </div>
+        <p class="note" id="notaRemotoSinFirma" style="display:none;margin:8px 0 0">
+          Soporte remoto: no se pide firma en pantalla. El PDF queda como trabajo a distancia.
+        </p>
         <p class="note" id="notaEnvio">Al enviar se genera el PDF, se manda al correo del cliente pidiendo acusar recibo, y se registra la fila en el Excel de análisis.</p>
         <div class="actions">
           <button type="button" class="btn-clear" id="btnClear">Borrar firma</button>
@@ -474,7 +480,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21U";
+    var FORM_BUILD = "WES-build-21V";
     var checklistHold = document.createDocumentFragment();
     var checklistUI = { cir: null, cpa: null, sab: null };
     var checklistOpen = { cir: false, cpa: false, sab: false };
@@ -905,6 +911,13 @@
     }
 
     /** Si modalidad = soporte a distancia → tipo mtto = Soporte remoto (más claro en el acta). */
+    function esSoporteRemoto() {
+      var motivos = selectedChips("motivo");
+      if (motivos.indexOf("Soporte técnico a distancia") >= 0) return true;
+      var sel = document.getElementById("tipo_mtto");
+      return !!(sel && sel.value === "Soporte remoto");
+    }
+
     function syncTipoMttoPorModalidad() {
       var sel = document.getElementById("tipo_mtto");
       if (!sel) return;
@@ -928,6 +941,37 @@
         }
       } else if (sel.value === "Soporte remoto") {
         sel.value = "";
+      }
+      syncFirmaPorModalidad();
+    }
+
+    /** Remoto: ocultar pad y no exigir firma. Visita física: firma obligatoria. */
+    function syncFirmaPorModalidad() {
+      var remoto = esSoporteRemoto();
+      var bloque = document.getElementById("bloqueFirma");
+      var notaR = document.getElementById("notaRemotoSinFirma");
+      var btnClear = document.getElementById("btnClear");
+      var titulo = document.getElementById("tituloFirmaEnvio");
+      if (bloque) bloque.style.display = remoto ? "none" : "";
+      if (notaR) notaR.style.display = remoto ? "" : "none";
+      if (btnClear) btnClear.style.display = remoto ? "none" : "";
+      if (titulo) {
+        titulo.textContent = remoto
+          ? "Cliente · envío PDF (soporte remoto)"
+          : "Cliente · firma · envío PDF";
+      }
+      if (remoto) {
+        state.dirty = false;
+        try {
+          if (typeof canvas !== "undefined" && canvas && ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (hint) hint.style.display = "block";
+          }
+        } catch (eClr) {}
+        var rec = document.getElementById("recibido_por");
+        if (rec && !String(rec.value || "").trim()) {
+          rec.placeholder = "Opcional en remoto (ej. contacto telefónico)";
+        }
       }
     }
 
@@ -959,6 +1003,8 @@
         obs.placeholder = "Obs. / medición";
         obs.setAttribute("data-obs-for", item);
         obs.setAttribute("data-prefix", prefix);
+        obs.setAttribute("spellcheck", "true");
+        obs.setAttribute("lang", "es");
         row.appendChild(nameEl);
         row.appendChild(sel);
         row.appendChild(obs);
@@ -1276,6 +1322,12 @@
         "Instalación sistema CPA"
       ];
       fillSelect(document.getElementById("tipo_mtto"), TIPOS_MTTO_FIJOS);
+      var tipoSel = document.getElementById("tipo_mtto");
+      if (tipoSel) {
+        tipoSel.addEventListener("change", function () {
+          try { syncFirmaPorModalidad(); } catch (eT) {}
+        });
+      }
       fillSelect(
         document.getElementById("tipo_falla"),
         Object.keys(c.tipos_falla || {}).sort(),
@@ -1389,7 +1441,8 @@
       if (!document.getElementById("solucion").value.trim()) {
         return showSubmitError("Completá solución / diagnóstico.", "solucion");
       }
-      if (!state.dirty) {
+      var remoto = esSoporteRemoto();
+      if (!remoto && !state.dirty) {
         return showSubmitError("Falta la firma en pantalla (firmá con mouse o dedo en el recuadro).", "pad");
       }
       var enviarMail = !!document.getElementById("enviar_correo_cliente").checked;
@@ -1424,11 +1477,16 @@
         trabajo_interno: !document.getElementById("enviar_correo_cliente").checked,
         email_cliente: document.getElementById("email_cliente").value.trim(),
         email_cc: document.getElementById("email_cc").value.trim(),
-        firma_png: canvas.toDataURL("image/png"),
+        soporte_remoto: !!remoto,
+        firma_png: remoto ? "" : canvas.toDataURL("image/png"),
         checklist_cir: collectChecklist("cir"),
         checklist_cpa: collectChecklist("cpa"),
         checklist_sab: collectChecklist("sab"),
       };
+      if (remoto && !payload.recibido_por) {
+        payload.recibido_por = "Soporte remoto (sin firma presencial)";
+        document.getElementById("recibido_por").value = payload.recibido_por;
+      }
       if (!payload.enviar_correo_cliente && !payload.recibido_por) {
         payload.recibido_por = "WES interno / oficina";
         document.getElementById("recibido_por").value = payload.recibido_por;
