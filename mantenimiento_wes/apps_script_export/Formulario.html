@@ -362,10 +362,10 @@
         </div>
         <label>Modalidad *</label>
         <div class="chips" id="motivos"></div>
-        <p class="note" style="margin:6px 0 0">Visita física = en terreno. Soporte técnico a distancia = desde oficina (ej. cambio de horario por evento).</p>
+        <p class="note" style="margin:6px 0 0">Visita física = en terreno. Soporte técnico a distancia = desde oficina (elige automáticamente tipo «Soporte remoto»).</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21S</div>
+        <div class="build-tag" id="form_build">WES-build-21U</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -474,7 +474,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21S";
+    var FORM_BUILD = "WES-build-21U";
     var checklistHold = document.createDocumentFragment();
     var checklistUI = { cir: null, cpa: null, sab: null };
     var checklistOpen = { cir: false, cpa: false, sab: false };
@@ -888,6 +888,9 @@
           if (name === "tecnologia" && typeof syncChecklistsPorTecnologia === "function") {
             try { syncChecklistsPorTecnologia(); } catch (eSync1) {}
           }
+          if (name === "motivo" && typeof syncTipoMttoPorModalidad === "function") {
+            try { syncTipoMttoPorModalidad(); } catch (eMot) {}
+          }
         });
         lab.appendChild(inp);
         lab.appendChild(document.createTextNode(" " + opt));
@@ -895,6 +898,36 @@
       }
       if (name === "tecnologia" && typeof syncChecklistsPorTecnologia === "function") {
         try { syncChecklistsPorTecnologia(); } catch (eSync2) {}
+      }
+      if (name === "motivo" && typeof syncTipoMttoPorModalidad === "function") {
+        try { syncTipoMttoPorModalidad(); } catch (eMot2) {}
+      }
+    }
+
+    /** Si modalidad = soporte a distancia → tipo mtto = Soporte remoto (más claro en el acta). */
+    function syncTipoMttoPorModalidad() {
+      var sel = document.getElementById("tipo_mtto");
+      if (!sel) return;
+      var motivos = selectedChips("motivo");
+      var remoto = motivos.indexOf("Soporte técnico a distancia") >= 0;
+      if (remoto) {
+        sel.value = "Soporte remoto";
+        if (sel.value !== "Soporte remoto") {
+          // Por si el option aún no estaba en el select
+          var has = false;
+          for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === "Soporte remoto") { has = true; break; }
+          }
+          if (!has) {
+            var o = document.createElement("option");
+            o.value = "Soporte remoto";
+            o.textContent = "Soporte remoto";
+            sel.appendChild(o);
+          }
+          sel.value = "Soporte remoto";
+        }
+      } else if (sel.value === "Soporte remoto") {
+        sel.value = "";
       }
     }
 
@@ -1231,7 +1264,18 @@
       const clientes = Object.keys(c.clientes_maquinas || {}).sort();
       fillSelect(document.getElementById("cliente"), clientes);
       fillSelect(document.getElementById("tecnico"), op.tecnicos || []);
-      fillSelect(document.getElementById("tipo_mtto"), op.tipos_mtto || []);
+      // Lista fija: incluye Soporte remoto (no depender de catalogos viejo en Apps Script).
+      var TIPOS_MTTO_FIJOS = [
+        "Mtto Correctivo",
+        "Mtto Preventivo",
+        "Mtto Predictivo",
+        "Soporte remoto",
+        "Reubicacion CIR",
+        "Instalación Valvula On/Off",
+        "Instalación sistema CIR",
+        "Instalación sistema CPA"
+      ];
+      fillSelect(document.getElementById("tipo_mtto"), TIPOS_MTTO_FIJOS);
       fillSelect(
         document.getElementById("tipo_falla"),
         Object.keys(c.tipos_falla || {}).sort(),
@@ -1247,6 +1291,7 @@
         // Lista fija (sin EYES). No usar catalogos embebido viejo.
         var TECNOLOGIAS_FIJAS = ["CPA y CIR", "SAB", "CPA", "CIR", "On/Off"];
         chips(document.getElementById("tecnologias"), "tecnologia", TECNOLOGIAS_FIJAS, true);
+        syncTipoMttoPorModalidad();
       } catch (eChips) {
         var st0 = document.getElementById("fold_status");
         if (st0) st0.textContent = "Error chips: " + eChips;
