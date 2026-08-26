@@ -8,13 +8,18 @@ GET /users/{userId}. Este script consulta un universo de correos conocidos
 cada nodo en allowedNodes.
 
 Salida (reports/Usuarios/usuarios_por_nodo/):
-  - CSV ranking
+  - CSV ranking (solo puntos activos)
   - XLSX (ranking + detalle de usuarios)
   - DOCX resumen
+  - PDF
+
+Por defecto se omiten puntos dados de baja o fuera de operación
+(exclusiones_reportes, registro_puntos_deshabilitados y bajas PA).
 
 Uso:
   python contar_usuarios_por_nodo.py
   python contar_usuarios_por_nodo.py --emails extra.txt
+  python contar_usuarios_por_nodo.py --incluir-inactivos
 """
 
 from __future__ import annotations
@@ -67,6 +72,52 @@ SKIP_SUFFIX = {
 }
 
 WES_SPA_ID = "000000"
+
+# Parque Arauco fuera de operación (mismo set que LISTADO_PA_IDS_EXCLUIDOS;
+# se copia acá para no importar listado_pa_que_esta_instalado → matplotlib).
+_PA_IDS_FUERA_DE_OPERACION = frozenset(
+    {
+        "000025-02",
+        "000025-03",
+        "000025-05",
+        "000025-06",
+    }
+)
+
+
+def _ids_pa_inactivos() -> Set[str]:
+    ids: Set[str] = set(_PA_IDS_FUERA_DE_OPERACION)
+    try:
+        from pa_nodos_inactivos_por_mall import NODOS_INACTIVOS_POR_MALL
+
+        for grupo in NODOS_INACTIVOS_POR_MALL.values():
+            ids.update(grupo)
+    except ImportError:
+        pass
+    return ids
+
+
+def es_nodo_activo(
+    node_id: str,
+    company_id: str = "",
+    company_name: str = "",
+) -> bool:
+    """True si el punto está operativo (no dado de baja / no excluido de reportes)."""
+    from exclusiones_reportes import (
+        EXCLUDED_NODE_IDS_PUNTOS_EN_CERO,
+        is_node_excluded,
+    )
+
+    nid = (node_id or "").strip()
+    if not nid:
+        return False
+    if is_node_excluded(nid, company_id or None, company_name or None):
+        return False
+    if nid in EXCLUDED_NODE_IDS_PUNTOS_EN_CERO:
+        return False
+    if nid in _ids_pa_inactivos():
+        return False
+    return True
 
 
 def _session() -> requests.Session:
@@ -518,7 +569,9 @@ def _escribir_docx(
     nr = nota.add_run(
         "Nota: la API WES no expone un listado completo de usuarios. "
         "El conteo cubre los correos conocidos en este proyecto (WES, Parque Arauco, "
-        "Linkes y otros rastreados en el repositorio)."
+        "Linkes y otros rastreados en el repositorio). "
+        "Solo se incluyen puntos activos (se omiten dados de baja, sin instalación "
+        "o fuera de operación según exclusiones_reportes y bajas PA)."
     )
     nr.italic = True
     nr.font.size = Pt(9)
@@ -569,6 +622,11 @@ def main() -> int:
     parser.add_argument("--salida", type=Path, default=OUT_DIR, help="Carpeta de salida")
     parser.add_argument("--workers", type=int, default=8, help="Consultas HTTP en paralelo")
     parser.add_argument(
+        "--incluir-inactivos",
+        action="store_true",
+        help="Incluir puntos dados de baja / fuera de operación (por defecto se omiten)",
+    )
+    parser.add_argument(
         "--desde-xlsx",
         type=Path,
         default=None,
@@ -610,44 +668,63 @@ def main() -> int:
 
     por_nodo: Dict[str, Set[str]] = defaultdict(set)
     filas_usuario: List[dict] = []
+    solo_activos = not args.incluir_inactivos
+    n_inactivos = 0
     for email_api, user in sorted(usuarios_por_email.items()):
         nodos = _allowed_nodes(user)
         nombre = f"{user.get('name', '')} {user.get('lastName', '')}".strip()
+        cid_user = str(user.get("companyId") or "").strip()
+        nodos_visibles: List[str] = []
+        for nid in nodos:
+            if nid not in nombres:
+                nombres[nid] = ""
+            if nid not in company_de and cid_user:
+                company_de[nid] = cid_user
+            cid = company_de.get(nid, cid_user)
+            cname = companies.get(cid, "")
+            if solo_activos and not es_nodo_activo(nid, cid, cname):
+                continue
+            por_nodo[nid].add(email_api)
+            nodos_visibles.append(nid)
+        if not nodos_visibles:
+            continue
         filas_usuario.append(
             {
                 "email": email_api,
                 "nombre": nombre,
                 "user_id": str(user.get("userId") or "").strip(),
-                "company_id_usuario": str(user.get("companyId") or "").strip(),
-                "nodos_count": len(nodos),
-                "nodos": ", ".join(nodos),
+                "company_id_usuario": cid_user,
+                "nodos_count": len(nodos_visibles),
+                "nodos": ", ".join(nodos_visibles),
             }
         )
-        for nid in nodos:
-            por_nodo[nid].add(email_api)
-            if nid not in nombres:
-                nombres[nid] = ""
-                cid = str(user.get("companyId") or "").strip()
-                if nid not in company_de and cid:
-                    company_de[nid] = cid
 
     ranking: List[dict] = []
     for nid in nombres:
-        users = sorted(por_nodo.get(nid, set()), key=str.casefold)
         cid = company_de.get(nid, "")
+        cname = companies.get(cid, "")
+        if solo_activos and not es_nodo_activo(nid, cid, cname):
+            n_inactivos += 1
+            continue
+        users = sorted(por_nodo.get(nid, set()), key=str.casefold)
         ranking.append(
             {
                 "cantidad_usuarios": len(users),
                 "node_id": nid,
                 "nombre_nodo": nombres.get(nid, ""),
                 "company_id": cid,
-                "empresa": companies.get(cid, cid),
+                "empresa": cname or cid,
                 "emails": ", ".join(users),
             }
         )
     ranking.sort(key=lambda r: (-int(r["cantidad_usuarios"]), r["node_id"]))
     for i, row in enumerate(ranking, 1):
         row["ranking"] = i
+    if solo_activos:
+        print(
+            f"[INFO] Puntos inactivos omitidos: {n_inactivos} "
+            f"(quedan {len(ranking)} activos)"
+        )
 
     args.salida.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(TZ_CL).strftime("%Y%m%d_%H%M")
