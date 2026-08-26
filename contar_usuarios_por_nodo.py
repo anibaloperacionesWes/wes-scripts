@@ -238,6 +238,171 @@ def _allowed_nodes(user: dict) -> List[str]:
     return out
 
 
+def xlsx_a_pdf(xlsx_path: Path, pdf_path: Optional[Path] = None) -> Path:
+    """Convierte el Excel de ranking a PDF (una hoja por página de tablas)."""
+    from openpyxl import load_workbook
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        KeepTogether,
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    xlsx_path = Path(xlsx_path)
+    if pdf_path is None:
+        pdf_path = xlsx_path.with_suffix(".pdf")
+    else:
+        pdf_path = Path(pdf_path)
+
+    wb = load_workbook(xlsx_path, data_only=True)
+    page = landscape(A4)
+    margin = 10 * mm
+    usable_w = page[0] - 2 * margin
+
+    cell_style = ParagraphStyle(
+        "celda",
+        fontName="Helvetica",
+        fontSize=6.5,
+        leading=8,
+        alignment=TA_LEFT,
+        wordWrap="CJK",
+    )
+    header_style = ParagraphStyle(
+        "encabezado",
+        fontName="Helvetica-Bold",
+        fontSize=7,
+        leading=8.5,
+        textColor=colors.white,
+        alignment=TA_CENTER,
+    )
+    title_style = ParagraphStyle(
+        "titulo",
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor("#1F4E79"),
+        alignment=TA_LEFT,
+    )
+    sub_style = ParagraphStyle(
+        "subtitulo",
+        fontName="Helvetica",
+        fontSize=8,
+        leading=10,
+        textColor=colors.HexColor("#555555"),
+    )
+
+    def _cell(val, header: bool = False) -> Paragraph:
+        txt = "" if val is None else str(val)
+        txt = (
+            txt.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+        return Paragraph(txt, header_style if header else cell_style)
+
+    story = []
+    story.append(Paragraph("Usuarios por Node ID — ranking mayor a menor", title_style))
+    story.append(
+        Paragraph(
+            f"PDF generado desde {xlsx_path.name}",
+            sub_style,
+        )
+    )
+    story.append(Spacer(1, 4 * mm))
+
+    header_bg = colors.HexColor("#1F4E79")
+    zebra = colors.HexColor("#F4F8FB")
+    green = colors.HexColor("#C6EFCE")
+
+    for si, ws in enumerate(wb.worksheets):
+        if si:
+            story.append(PageBreak())
+            story.append(Paragraph("Usuarios por Node ID — ranking mayor a menor", title_style))
+            story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph(f"Hoja: {ws.title}", sub_style))
+        story.append(Spacer(1, 2 * mm))
+
+        rows_raw = list(ws.iter_rows(values_only=True))
+        if not rows_raw:
+            continue
+        headers = ["" if h is None else str(h) for h in rows_raw[0]]
+        n_cols = len(headers)
+        data = [[_cell(h, header=True) for h in headers]]
+        qty_col = None
+        for i, h in enumerate(headers):
+            if h.strip().lower() in {"cantidad_usuarios", "nodos_count"}:
+                qty_col = i
+                break
+        qty_by_data_row: List[int] = [0]
+
+        for row in rows_raw[1:]:
+            if row is None or all(v is None or str(v).strip() == "" for v in row):
+                continue
+            data.append([_cell(row[c] if c < len(row) else "") for c in range(n_cols)])
+            qty = 0
+            if qty_col is not None and qty_col < len(row):
+                try:
+                    qty = int(row[qty_col] or 0)
+                except (TypeError, ValueError):
+                    qty = 0
+            qty_by_data_row.append(qty)
+
+        # Anchos según cantidad de columnas (Excel original: 7 u 6).
+        if n_cols >= 7:
+            weights = [0.05, 0.08, 0.09, 0.18, 0.08, 0.14, 0.38]
+        elif n_cols == 6:
+            weights = [0.18, 0.14, 0.16, 0.10, 0.08, 0.34]
+        else:
+            weights = [1.0 / n_cols] * n_cols
+        col_w = [usable_w * w for w in weights[:n_cols]]
+        if len(col_w) < n_cols:
+            rest = usable_w - sum(col_w)
+            col_w.extend([rest / (n_cols - len(col_w))] * (n_cols - len(col_w)))
+
+        style_cmds = [
+            ("BACKGROUND", (0, 0), (-1, 0), header_bg),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#B0B0B0")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]
+        for r_i in range(1, len(data)):
+            if r_i % 2 == 0:
+                style_cmds.append(("BACKGROUND", (0, r_i), (-1, r_i), zebra))
+            if qty_col is not None and qty_by_data_row[r_i] > 0:
+                style_cmds.append(("BACKGROUND", (qty_col, r_i), (qty_col, r_i), green))
+
+        table = Table(data, colWidths=col_w, repeatRows=1)
+        table.setStyle(TableStyle(style_cmds))
+        story.append(KeepTogether([table]) if len(data) <= 8 else table)
+
+    doc = SimpleDocTemplate(
+        str(pdf_path),
+        pagesize=page,
+        leftMargin=margin,
+        rightMargin=margin,
+        topMargin=margin,
+        bottomMargin=margin,
+        title="Usuarios por Node ID",
+        author="WES",
+    )
+    doc.build(story)
+    return pdf_path
+
+
 def _escribir_xlsx(
     path: Path,
     ranking: List[dict],
@@ -403,7 +568,22 @@ def main() -> int:
     )
     parser.add_argument("--salida", type=Path, default=OUT_DIR, help="Carpeta de salida")
     parser.add_argument("--workers", type=int, default=8, help="Consultas HTTP en paralelo")
+    parser.add_argument(
+        "--desde-xlsx",
+        type=Path,
+        default=None,
+        help="Solo convertir un Excel existente a PDF (sin consultar la API)",
+    )
     args = parser.parse_args()
+
+    if args.desde_xlsx:
+        src = args.desde_xlsx
+        if not src.is_file():
+            print(f"[ERROR] No existe el Excel: {src}")
+            return 1
+        pdf = xlsx_a_pdf(src)
+        print(f"[OK] PDF: {pdf}")
+        return 0
 
     session = _session()
     print("[INFO] Obteniendo nodos y empresas desde API...")
@@ -478,6 +658,8 @@ def main() -> int:
     csv_latest = args.salida / "usuarios_por_nodo_ranking.csv"
     xlsx_latest = args.salida / "usuarios_por_nodo_ranking.xlsx"
     docx_latest = args.salida / "usuarios_por_nodo_ranking.docx"
+    pdf_latest = args.salida / "usuarios_por_nodo_ranking.pdf"
+    pdf_path = None
 
     cols = [
         "ranking",
@@ -497,6 +679,13 @@ def main() -> int:
     try:
         _escribir_xlsx(xlsx_path, ranking, filas_usuario)
         xlsx_latest.write_bytes(xlsx_path.read_bytes())
+        try:
+            pdf_stamp = xlsx_path.with_suffix(".pdf")
+            pdf_path = xlsx_a_pdf(xlsx_path, pdf_stamp)
+            pdf_latest.write_bytes(pdf_path.read_bytes())
+        except Exception as exc:
+            pdf_path = None
+            print(f"[WARN] No se pudo generar PDF: {exc}")
     except ImportError:
         xlsx_path = None
         print("[WARN] openpyxl no instalado; se omite XLSX")
@@ -522,6 +711,8 @@ def main() -> int:
     print(f"[OK] CSV:  {csv_path}")
     if xlsx_path:
         print(f"[OK] XLSX: {xlsx_path}")
+    if pdf_path:
+        print(f"[OK] PDF:  {pdf_path}")
     if docx_path:
         print(f"[OK] DOCX: {docx_path}")
     print(f"[INFO] Correos sin usuario API: {len(sin_usuario)}")
