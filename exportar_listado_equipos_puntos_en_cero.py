@@ -61,9 +61,7 @@ HEADERS = [
 ]
 
 OPCIONES_MONITOREO = "Sí,No,Pendiente"
-OPCIONES_CONTROL = (
-    "Pendiente,Revisado OK,En cero,Sin datos,Fuera de servicio,Observación"
-)
+OPCIONES_CONTROL = "Sí,No"
 
 
 def _now_chile() -> datetime:
@@ -264,7 +262,7 @@ def _escribir_equipos(ws: Worksheet, nodos: List[Dict[str, str]], generado: date
         _aplicar_validacion(ws, 5, first_data, last_data, OPCIONES_MONITOREO, "Monitoreo")
         _aplicar_validacion(ws, 6, first_data, last_data, OPCIONES_CONTROL, "Control")
 
-    anchos = (6, 32, 14, 38, 16, 20, 40)
+    anchos = (6, 32, 14, 38, 16, 12, 40)
     for i, w in enumerate(anchos, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -362,8 +360,7 @@ def _escribir_notas(ws: Worksheet, generado: datetime, total: int) -> None:
         ),
         (
             "Control (amarillo)",
-            "Columna para completar al revisar: Pendiente, Revisado OK, En cero, Sin datos, "
-            "Fuera de servicio u Observación.",
+            "Columna para completar: Sí o No. Use el desplegable o déjela en blanco.",
         ),
         (
             "Observación (amarillo)",
