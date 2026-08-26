@@ -347,11 +347,17 @@ def _hora_corte_desde_mats(mats: Sequence[Sequence[float]], mid: int) -> int:
     return 23
 
 
-def _grafico_barras_dos(m3_con: float, m3_sin: float, dest: Path) -> Path:
+def _grafico_barras_dos(
+    m3_con: float,
+    m3_sin: float,
+    dest: Path,
+    lab_con: str = "Con WES",
+    lab_sin: str = "Sin WES",
+) -> Path:
     fig, ax = plt.subplots(figsize=(4.6, 3.15), dpi=140)
     fig.patch.set_facecolor("white")
     vals = [m3_con, m3_sin]
-    bars = ax.bar(["Con WES", "Sin WES"], vals, color=[COLOR_CON, COLOR_SIN], width=0.52)
+    bars = ax.bar([lab_con, lab_sin], vals, color=[COLOR_CON, COLOR_SIN], width=0.52)
     ax.set_ylabel("Σ (m³/h)", fontsize=10)
     ax.set_title("Total acumulado con WES V/S sin WES", fontsize=11, fontweight="bold")
     ax.set_ylim(0, max(vals + [1.0]) * 1.22)
@@ -571,8 +577,8 @@ def _slide_comparativo(prs, rec: Recinto, d: dict, png_bar: Path, png_d1: Path, 
     mid = d["mid"]
     hc = d["hora_corte"]
     y = 4.28
-    _textbox(slide, 0.28, y, 4.8, 0.28, f"Sin WES (línea base):  {_rango_txt(fechas, mid, False, hc)}", 11, True, GRIS)
-    _textbox(slide, 0.28, y + 0.30, 4.8, 0.28, f"Con WES (control activo):  {_rango_txt(fechas, mid, True, hc)}", 11, True, GRIS)
+    _textbox(slide, 0.28, y, 4.8, 0.28, f"{lab_sin}:  {_rango_txt(fechas, mid, False, hc)}", 11, True, GRIS)
+    _textbox(slide, 0.28, y + 0.30, 4.8, 0.28, f"{lab_con}:  {_rango_txt(fechas, mid, True, hc)}", 11, True, GRIS)
     _textbox(slide, 0.28, y + 0.68, 4.8, 0.42, f"Eficiencia:   {format_number_chilean(pct, 1)} %", 22, True, _color_pct(pct))
     _textbox(slide, 0.28, y + 1.12, 4.8, 0.42, f"Ahorro estimado mes:   {format_number_chilean(mes, 0)} m³", 16, True, _color_pct(mes))
     _textbox(
@@ -598,9 +604,11 @@ def _slide_comentarios(prs, rec: Recinto, d: dict, png_pares: Path, n_horas: int
     _add_picture(slide, png_pares, 0.25, 0.90, 7.55, 3.55)
     d_con, d_sin, mes, clp = _ahorro_mes(d["m3_con"], d["m3_sin"], n_horas)
     pct = d["pct"]
-    _textbox(slide, 8.05, 0.95, 4.9, 0.28, "Sin WES (línea base)", 11, True, GRIS)
+    lab_sin = "Sin control (trabajos)" if rec.iccp else "Sin WES (línea base)"
+    lab_con = "Con WES (sem. 10)" if rec.iccp else "Con WES (control activo)"
+    _textbox(slide, 8.05, 0.95, 4.9, 0.28, lab_sin, 11, True, GRIS)
     _textbox(slide, 8.05, 1.22, 4.9, 0.28, _rango_txt(d["fechas"], d["mid"], False, d["hora_corte"]), 12, False, GRIS)
-    _textbox(slide, 8.05, 1.58, 4.9, 0.28, "Con WES (control activo)", 11, True, GRIS)
+    _textbox(slide, 8.05, 1.58, 4.9, 0.28, lab_con, 11, True, GRIS)
     _textbox(slide, 8.05, 1.85, 4.9, 0.28, _rango_txt(d["fechas"], d["mid"], True, d["hora_corte"]), 12, False, GRIS)
     _textbox(slide, 8.05, 2.28, 4.9, 0.42, f"Eficiencia:  {format_number_chilean(pct, 1)} %", 20, True, _color_pct(pct))
     _textbox(slide, 8.05, 2.75, 4.9, 0.38, f"Ahorro estimado mes:  {format_number_chilean(mes, 0)} m³", 14, True, _color_pct(mes))
@@ -651,27 +659,39 @@ def _slide_anexo_vwb(prs) -> None:
 
 
 def _convertir_pdf(pptx: Path) -> Optional[Path]:
-    soffice = shutil.which("soffice") or shutil.which("libreoffice")
-    if not soffice:
+    soffice = shutil.which("soffice") or shutil.which("libreoffice") or "/usr/bin/soffice"
+    if not Path(soffice).exists():
         return None
+    profile = Path("/tmp/lo_profile_cih")
+    profile.mkdir(parents=True, exist_ok=True)
+    # Copiar a /tmp: LibreOffice Impress falla con espacios en la ruta.
+    tmp_in = Path("/tmp") / pptx.name.replace(" ", "_")
+    shutil.copy2(pptx, tmp_in)
     subprocess.run(
         [
             soffice,
+            f"-env:UserInstallation=file://{profile}",
             "--headless",
+            "--norestore",
+            "--nolockcheck",
             "--nologo",
             "--nofirststartwizard",
             "--convert-to",
             "pdf",
             "--outdir",
-            str(pptx.parent),
-            str(pptx),
+            "/tmp",
+            str(tmp_in),
         ],
         check=False,
         capture_output=True,
         text=True,
         timeout=180,
     )
+    tmp_pdf = tmp_in.with_suffix(".pdf")
     pdf = pptx.with_suffix(".pdf")
+    if tmp_pdf.is_file():
+        shutil.copy2(tmp_pdf, pdf)
+        return pdf
     return pdf if pdf.is_file() else None
 
 
@@ -760,7 +780,13 @@ def main() -> int:
         lab_con = "Con WES" if not rec.iccp else "Con WES (sem. 10)"
         lab_sin = "Sin WES" if not rec.iccp else "Sin control (trabajos)"
         gdir = out_charts / rec.nid
-        bar = _grafico_barras_dos(d["m3_con"], d["m3_sin"], gdir / "barras.png")
+        bar = _grafico_barras_dos(
+            d["m3_con"],
+            d["m3_sin"],
+            gdir / "barras.png",
+            "Con WES",
+            "Sin control" if rec.iccp else "Sin WES",
+        )
         # dos días homólogos completos: lun (0) y mar (1); si hay 1 solo, se repite
         j1 = 0
         j2 = 1 if d["n_dias"] > 1 else 0
