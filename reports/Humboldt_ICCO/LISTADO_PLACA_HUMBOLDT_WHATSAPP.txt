@@ -1,0 +1,21 @@
+PLACA HUMBOLDT — Consultas / plan de prueba
+(Editar este texto y pegar en WhatsApp)
+
+1) Prueba directa en cliente (no en oficina)
+La prueba se realizará directamente en un cliente, no en la oficina: Colegio ICCO Renca (000017-08), punto cercano que ya tiene control y monitoreo.
+Si la parte de control de Humboldt aún no está lista → arrancar solo con monitoreo. Control se suma después.
+
+2) Antena / señal baja en salas de bomba
+Pregunta abierta (a validar en campo): ¿se puede aumentar el alcance de la antena (externa / extensión) cuando la señal es baja bajo tierra?
+Objetivo: mejorar comunicación en salas de bomba. Mientras tanto: router afuera + placa cerca del sensor; si Humboldt trae conector de antena externa, probarla en ICCO.
+
+3) ¿Humboldt puede usar los routers que ya tienen?
+Sí. Se conecta por WiFi a los mismos routers actuales. Varias placas en un gabinete / sala de bombas pueden compartir un solo router.
+
+4) ¿Cuántos puntos toma una placa? (Copec vs Kennedy)
+Regla: 1 sensor → 1 placa (o 1 canal) → 1 nodeId → 1 nombre.
+
+• Copec (3 puntos, mismo gabinete, pulso): 3 placas / 3 sensores de pulso. Cada uno con nodeId distinto y nombre distinto.
+• PA Kennedy (ej. 3 ultrasonido): misma lógica. Cada ultrasonido con su nodeId y nombre.
+
+Diferenciación en Humboldt: cada sensor a una entrada distinta (o placa distinta) y en plataforma cada una con su nodeId + nombre.
