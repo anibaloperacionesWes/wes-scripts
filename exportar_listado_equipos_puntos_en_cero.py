@@ -1,7 +1,9 @@
 """
 Exporta a Excel el listado de equipos vigentes del reporte matinal de puntos en cero.
 
-Mismo universo que `reporte_puntos_en_cero.obtener_todos_los_nodos()` (API + exclusiones).
+Mismo universo que el reporte matinal (`obtener_todos_los_nodos`: API + exclusiones).
+Si no se puede importar `reporte_puntos_en_cero` (p. ej. sin matplotlib), se replica
+la consulta con las mismas exclusiones de `exclusiones_reportes.py`.
 Columnas pedidas: Cliente, Nombre del nodo, Monitoreo y Control (estas dos vacías para completar).
 
 Uso:
@@ -17,14 +19,22 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List
 
+import requests
+
+from exclusiones_reportes import (
+    EXCLUDED_COMPANY_IDS_PUNTOS_EN_CERO,
+    EXCLUDED_COMPANY_NAME_KEYWORDS,
+    EXCLUDED_NODE_IDS_PUNTOS_EN_CERO,
+)
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
 
-from reporte_puntos_en_cero import obtener_todos_los_nodos
 from wes_paths import wes_scripts_root
+
+ENTITY_BASE_URL = "http://104.248.53.141:7001/wes/api/acl-entities/v1"
 
 try:
     from zoneinfo import ZoneInfo
@@ -58,6 +68,101 @@ OPCIONES_CONTROL = (
 
 def _now_chile() -> datetime:
     return datetime.now(_CHILE_TZ)
+
+
+def _obtener_empresas_config() -> List[Dict[str, str]]:
+    url = f"{ENTITY_BASE_URL}/configuration/companies"
+    try:
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            if isinstance(data, list):
+                return data
+    except Exception:
+        pass
+    return []
+
+
+def obtener_nodos_vigentes_puntos_en_cero() -> List[Dict[str, str]]:
+    """
+    Mismo universo que el reporte matinal de puntos en cero.
+
+    Prefiere `reporte_puntos_en_cero.obtener_todos_los_nodos` cuando ese módulo
+    se puede importar; si faltan dependencias (matplotlib/docx), replica la
+    consulta a la API con las mismas exclusiones.
+    """
+    try:
+        from reporte_puntos_en_cero import obtener_todos_los_nodos
+
+        return obtener_todos_los_nodos()
+    except ImportError:
+        print(
+            "[INFO] No se pudo importar reporte_puntos_en_cero; "
+            "se consulta la API con las mismas exclusiones."
+        )
+        return _obtener_nodos_desde_api()
+
+
+def _obtener_nodos_desde_api() -> List[Dict[str, str]]:
+    empresas_excluidas = EXCLUDED_COMPANY_IDS_PUNTOS_EN_CERO
+    nombres_empresas_excluidas = EXCLUDED_COMPANY_NAME_KEYWORDS
+    nodos_excluidos = EXCLUDED_NODE_IDS_PUNTOS_EN_CERO
+    all_nodes: List[Dict[str, str]] = []
+
+    empresas_config = _obtener_empresas_config()
+    if not empresas_config:
+        print("[ADVERTENCIA] Sin empresas desde API; usando rango 000000-000100.")
+        empresas_config = [{"companyId": f"{i:06d}", "name": ""} for i in range(101)]
+
+    print("Obteniendo nodos vigentes (mismo filtro que puntos en cero)...")
+    for empresa in empresas_config:
+        company_id_raw = str(empresa.get("companyId", "")).strip()
+        if not company_id_raw:
+            continue
+        company_id = company_id_raw.zfill(6)
+        if company_id in empresas_excluidas:
+            continue
+
+        url = f"{ENTITY_BASE_URL}/companies/{company_id}"
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code != 200:
+                continue
+            data = response.json()
+            company_name = data.get("name", "").strip() or str(empresa.get("name", "")).strip()
+            if company_name:
+                company_name_upper = company_name.upper().strip()
+                if any(n in company_name_upper for n in nombres_empresas_excluidas):
+                    print(f"[EXCLUIDO] {company_id} ({company_name}) - por nombre")
+                    continue
+            if not company_name:
+                continue
+            nodes = data.get("nodes", [])
+            incluidos = 0
+            for node in nodes:
+                node_id = node.get("nodeId", "")
+                node_name = (node.get("name") or "").strip()
+                if node_id in nodos_excluidos:
+                    continue
+                if node_id and node_name:
+                    all_nodes.append(
+                        {
+                            "nodeId": node_id,
+                            "nodeName": node_name,
+                            "companyId": company_id,
+                            "companyName": company_name,
+                        }
+                    )
+                    incluidos += 1
+            if nodes:
+                print(f"[OK] {company_id} ({company_name}): {incluidos} nodos vigentes")
+        except requests.RequestException:
+            pass
+        except Exception as e:
+            print(f"[ERROR] {company_id}: {e}")
+
+    print(f"Total nodos vigentes: {len(all_nodes)}")
+    return all_nodes
 
 
 def _fill(color: str) -> PatternFill:
@@ -324,7 +429,7 @@ def main() -> int:
     args = parser.parse_args()
     salida = args.salida or default_salida()
 
-    nodos = obtener_todos_los_nodos()
+    nodos = obtener_nodos_vigentes_puntos_en_cero()
     if not nodos:
         print("[ERROR] No se obtuvieron nodos vigentes. Revise API y exclusiones.")
         return 1
