@@ -1,0 +1,200 @@
+﻿ranking;cantidad_usuarios;node_id;nombre_nodo;company_id;empresa;emails
+1;10;000025-01;Estanque Norte Locales Mall;000025;Parque Arauco;an_ambiental_pae@linkes.cl, anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+2;10;000025-07;PIZZA HUT;000025;Parque Arauco;an_ambiental_pae@linkes.cl, anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+3;9;000025-02;Abastecimiento Sur Terminal;000025;Parque Arauco;an_ambiental_pae@linkes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+4;9;000025-04;Baños Públicos;000025;Parque Arauco;an_ambiental_pae@linkes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+5;8;000002-01;Lo Valledor - P1;000002;Lo valledor;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseluisricardo@hotmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+6;8;000002-03;Lo Valledor - Barrio Norte;000002;Lo valledor;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseluisricardo@hotmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+7;7;000006-01;Liceo Lastarria;000006;Providencia;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+8;7;000006-02;Carmela Carvajal;000006;Providencia;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+9;7;000007-01;Estanque B;000007;Nido de Aguilas;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+10;7;000007-02;Teatro;000007;Nido de Aguilas;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+11;7;000007-03;Nido High School;000007;Nido de Aguilas;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+12;7;000007-04;Elementary;000007;Nido de Aguilas;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+13;7;000007-05;Nido Piscina;000007;Nido de Aguilas;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+14;7;000007-06;Nido Pozo Profundo;000007;Nido de Aguilas;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+15;7;000007-07;Estanque C;000007;Nido de Aguilas;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+16;7;000008-01;Lic. Antonio Hermida F;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+17;7;000008-02;Eduardo de la Barra;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+18;7;000008-03;Carlos Fernandez P.;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+19;7;000008-04;Tobalaba;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+20;7;000008-05;Santa Maria;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+21;7;000008-06;Luis Arrieta Caña;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+22;7;000008-07;Erasmo Escala;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+23;7;000008-08;Alicura;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+24;7;000008-09;Juan Bautista Pasten;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+25;7;000008-10;Matilde Huici Navas;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+26;7;000008-11;CE Valle Hermoso;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+27;7;000008-12;Unión Nacional Árabe;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+28;7;000008-13;Likankura;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+29;7;000008-14;Juan Pablo II;000008;CORMUP;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+30;7;000009-00;Copec Costanera;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+31;7;000009-01;Oficina Admin.;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+32;7;000009-02;Estanque Reutilización;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+33;7;000009-03;Lavado Automático Norte;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+34;7;000009-04;Lavado Automático Sur;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+35;7;000009-05;Copec Riego;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+36;7;000009-06;Copec Matriz Principal;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+37;7;000009-08;Copec Pronto Baños;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+38;7;000009-09;Copec Lavado Auto servicio Norte;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+39;7;000009-10;Copec Lavado Auto servicio Sur;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+40;7;000009-11;Copec Pronto Tienda;000009;COPEC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+41;7;000012-06;Quilicura Matriz Principal;000012;DERCO;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+42;7;000012-07;Quilicura Dercomaq;000012;DERCO;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+43;7;000012-08;Quilicura Lav. de Maquinas;000012;DERCO;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+44;7;000012-09;Quilicura Casino;000012;DERCO;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+45;7;000012-10;Quilicura Proderco;000012;DERCO;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+46;7;000012-11;Quilicura Camarines;000012;DERCO;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+47;7;000012-12;Quilicura Edificio JCB;000012;DERCO;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+48;7;000017-04;Esc. Lo Velásquez;000017;Renca;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+49;7;000017-05;Gimnasio;000017;Renca;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+50;7;000017-06;Piscina Municipal;000017;Renca;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+51;7;000017-07;Cumbre de cóndores pte.;000017;Renca;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+52;7;000017-08;Cumbre de cóndores Ote.;000017;Renca;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+53;7;000020-01;Deposito;000020;AGUNSA;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+54;7;000020-02;Modulo D;000020;AGUNSA;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+55;7;000020-03;Módulo ABC;000020;AGUNSA;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+56;7;000020-04;Módulo E;000020;AGUNSA;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+57;7;000021-01;Club House CDUC;000021;CDUC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+58;7;000021-03;Raimundo Tupper;000021;CDUC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+59;7;000021-04;Equitación;000021;CDUC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+60;7;000021-05;Calle de Servicio;000021;CDUC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+61;7;000021-07;Canchas de Tenis;000021;CDUC;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+62;7;000022-00;Alexander Fleming;000022;Las Condes;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+63;7;000024-01;Eugenio María De Hostos;000024;La Reina;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+64;7;000025-13;Matriz Principal;000025;Parque Arauco;an_ambiental_maq@linkes.cl, idustan@linkes.cl, medioambiente.dcl@parauco.com, mfreitez@parauco.com, msaavedra@parauco.com, pmartinez@parauco.com, tsaba@parauco.com
+65;7;000026-01;Sala impulsión Honduras;000026;000026;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+66;7;000026-02;Edificio o Aula Magna;000026;000026;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+67;7;000027-01;Matriz ESVAL;000027;Fundo Zapallar;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+68;7;000027-02;Estanque Inferior;000027;Fundo Zapallar;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+69;7;000027-03;Etapa N°5;000027;Fundo Zapallar;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+70;7;000027-04;Etapa N°1 al 4;000027;Fundo Zapallar;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+71;7;000028-01;Liceo Alto Cordillera;000028;La Florida;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+72;7;000031-01;Matriz Fitness;000031;Club Providencia;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+73;7;000031-02;Matriz Piscina;000031;Club Providencia;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+74;6;000006-04;Liceo 7 Luisa Saavedra;000006;Providencia;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+75;6;000006-05;Liceo Juan Pablo Duarte;000006;Providencia;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+76;6;000020-05;Intermodal-San Antonio;000020;AGUNSA;anibal.aoperaciones@wes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, joseotarola@wes.cl, juanlopez@wes.cl, mauricioorellana@wes.cl
+77;6;000025-03;Poniente 7;000025;Parque Arauco;an_ambiental_pae@linkes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+78;6;000025-05;Locales de Comida;000025;Parque Arauco;an_ambiental_pae@linkes.cl, benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+79;5;000006-03;Arturo Alessandri Palma;000006;Providencia;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+80;5;000010-01;Escuela Andes del SUR;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+81;5;000010-02;Esc. Villa Independencia;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+82;5;000010-03;Esc. Padre Hurtado;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+83;5;000010-04;Colegio Maipo;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+84;5;000010-05;Esc. Luis Matte Larraín;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+85;5;000010-06;Esc. Gabriela;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+86;5;000010-07;Esc. Juan Mackenna;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+87;5;000010-08;Liceo Chiloé;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+88;5;000010-09;Esc. Los Andes;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+89;5;000010-10;Consolidada;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+90;5;000010-11;Esc. Nonato Coo;000010;Corporación Puente Alto;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+91;5;000017-01;Rebeca Matte Bello;000017;Renca;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+92;5;000017-02;Juana Atala de Hirmas;000017;Renca;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+93;5;000017-03;José Luis Araneda;000017;Renca;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+94;5;000022-01;Juan Pablo II;000022;Las Condes;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+95;5;000023-01;San Nicolas;000023;MADECO;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+96;5;000023-02;Ureta Cox;000023;MADECO;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+97;5;000023-03;Estanque Cisterna;000023;MADECO;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+98;5;000023-04;Casino;000023;MADECO;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+99;5;000025-06;KFC;000025;Parque Arauco;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+100;5;000025-08;Placa Bancaria;000025;Parque Arauco;an_ambiental_mam@linkes.cl, cbustamante@linkes.cl, medioambiente.dcl@parauco.com, mrupayan@parauco.com, pmartinez@parauco.com
+101;5;000025-09;Impulsión Falabella;000025;Parque Arauco;an_ambiental_mam@linkes.cl, cbustamante@linkes.cl, medioambiente.dcl@parauco.com, mrupayan@parauco.com, pmartinez@parauco.com
+102;5;000025-10;Impulsión Ripley;000025;Parque Arauco;an_ambiental_mam@linkes.cl, cbustamante@linkes.cl, medioambiente.dcl@parauco.com, mrupayan@parauco.com, pmartinez@parauco.com
+103;5;000025-11;Matriz principal 1°piso;000025;Parque Arauco;an_ambiental_maq@linkes.cl, medioambiente.dcl@parauco.com, mfreitez@parauco.com, pmartinez@parauco.com, tsaba@parauco.com
+104;5;000025-12;Anillo Plaza;000025;Parque Arauco;an_ambiental_maq@linkes.cl, medioambiente.dcl@parauco.com, mfreitez@parauco.com, pmartinez@parauco.com, tsaba@parauco.com
+105;5;000025-14;Red de Incendio;000025;Parque Arauco;an_ambiental_maq@linkes.cl, idustan@linkes.cl, msaavedra@parauco.com, pmartinez@parauco.com, tsaba@parauco.com
+106;5;000025-17;San Ignacio 300;000025;Parque Arauco;acortes@parauco.com, an_ambiental_maq@linkes.cl, medioambiente.dcl@parauco.com, pmartinez@parauco.com, tsaba@parauco.com
+107;5;000025-18;San Ignacio 500;000025;Parque Arauco;acortes@parauco.com, an_ambiental_maq@linkes.cl, medioambiente.dcl@parauco.com, pmartinez@parauco.com, tsaba@parauco.com
+108;5;000025-34;Alimentación Baños;000025;Parque Arauco;an_ambiental_maq@linkes.cl, idustan@linkes.cl, medioambiente.dcl@parauco.com, mfreitez@parauco.com, msaavedra@parauco.com
+109;5;000027-05;Riego;000027;Fundo Zapallar;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+110;5;000029-01;Llenado de Estanques;000029;BUPA;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+111;5;000029-02;Torre A;000029;BUPA;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+112;5;000029-03;Torre B1;000029;BUPA;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+113;5;000029-04;Torre B2;000029;BUPA;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+114;5;000029-05;Torre C;000029;BUPA;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+115;5;000029-06;Central Térmica;000029;BUPA;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+116;5;000030-01;Matriz Av. Las Condes;000030;Estadio Israelita Maccabi;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+117;5;000030-02;Matriz Chesterton;000030;Estadio Israelita Maccabi;benjamingumucio@wes.cl, diegocarrasco@wes.cl, go.salass@gmail.com, joseotarola@wes.cl, juanlopez@wes.cl
+118;4;000025-20;Impulsión Anden 3-4 Matriz Principal;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+119;4;000025-21;Impulsión Anden 3-4 Locales Gast.;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+120;4;000025-22;Sala de Bomba Sandia Antigua;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+121;4;000025-23;Llenado Pileta;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+122;4;000025-24;Llenado Pileta Cascada;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+123;4;000025-27;Distrito de lujo DL;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+124;4;000025-28;Sala de Bomba Sandia Nueva;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+125;4;000025-29;Impulsión Anden 3-4 Restaurante;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com, pmartinez@parauco.com
+126;4;000025-32;Matriz Pasillo Tecnico Boulevard;000025;Parque Arauco;an_ambiental_mam@linkes.cl, cbustamante@linkes.cl, medioambiente.dcl@parauco.com, mrupayan@parauco.com
+127;4;000025-33;Salida de emergencia pasillo 1 ARROW;000025;Parque Arauco;an_ambiental_mam@linkes.cl, cbustamante@linkes.cl, medioambiente.dcl@parauco.com, mrupayan@parauco.com
+128;3;000025-35;PAK BAZAR GOURMET;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com
+129;3;000025-36;PAK DL KENNEDY;000025;Parque Arauco;an_ambiental_pak@linkes.cl, francisco.jeldres@parauco.com, medioambiente.dcl@parauco.com
+130;3;000025-37;CUR Anillo Sur;000025;Parque Arauco;an_ambiental_mam@linkes.cl, jlazo@parauco.com, medioambiente.dcl@parauco.com
+131;3;000025-38;CUR Anillo Norte;000025;Parque Arauco;an_ambiental_mam@linkes.cl, jlazo@parauco.com, medioambiente.dcl@parauco.com
+132;2;000025-19;Sala de Bomba Estanque Sur;000025;Parque Arauco;an_ambiental_pae@linkes.cl, medioambiente.dcl@parauco.com
+133;1;000000-01;;000000;Wes Spa;silvanaaraya.rojas@gmail.com
+134;1;000002-02;Lo valledor - Pozo;000002;Lo valledor;joseluisricardo@hotmail.com
+135;1;000025-25;Baño N°5 Damas;000025;Parque Arauco;pmartinez@parauco.com
+136;1;000025-26;Baño N°6 Varones;000025;Parque Arauco;pmartinez@parauco.com
+137;1;000025-30;Matriz A.A;000025;Parque Arauco;an_ambiental_maq@linkes.cl
+138;1;000027-09;Riego Llenado de Estanque ESVAL;000027;Fundo Zapallar;anibal.aoperaciones@wes.cl
+139;0;000000-02;Nodo isla Parcela;000000;Wes Spa;
+140;0;000001-03;Arrieta;000001;Ejercito de Chile;
+141;0;000001-05;Acad. de Guerra;000001;Ejercito de Chile;
+142;0;000001-06;Jef. Adm y Log (J.A.L);000001;Ejercito de Chile;
+143;0;000001-08;Regto. Tacna;000001;Ejercito de Chile;
+144;0;000001-09;Regto. Limache;000001;Ejercito de Chile;
+145;0;000001-11;Regto. Calama;000001;Ejercito de Chile;
+146;0;000001-12;Regto. Copiapo;000001;Ejercito de Chile;
+147;0;000001-13;Regto. Buin;000001;Ejercito de Chile;
+148;0;000001-14;Regto. Maipo;000001;Ejercito de Chile;
+149;0;000001-15;Regto. Chacabuco;000001;Ejercito de Chile;
+150;0;000004-01;CDP Puente Alto;000004;Gendarmeria de Chile;
+151;0;000004-02;CPF San Miguel;000004;Gendarmeria de Chile;
+152;0;000004-03;CDP Colina 2 Red Sur;000004;Gendarmeria de Chile;
+153;0;000004-04;CDP Colina 1;000004;Gendarmeria de Chile;
+154;0;000004-05;Esforpen Simulación;000004;Gendarmeria de Chile;
+155;0;000004-06;Esforpen Administración;000004;Gendarmeria de Chile;
+156;0;000004-07;Colina 2 Red de Impulsión;000004;Gendarmeria de Chile;
+157;0;000004-08;CDP STGO SUR Óvalo;000004;Gendarmeria de Chile;
+158;0;000004-09;CDP STGO SUR Módulos;000004;Gendarmeria de Chile;
+159;0;000004-10;CDP STGO SUR Ovalo Matriz Principal;000004;Gendarmeria de Chile;
+160;0;000004-11;CDP STGO SUR Modulo Matriz Principal;000004;Gendarmeria de Chile;
+161;0;000004-12;Esc Of. Genchi Carmen;000004;Gendarmeria de Chile;
+162;0;000004-13;Esc Of. Genchi Artemio;000004;Gendarmeria de Chile;
+163;0;000004-14;CPF San Miguel sala imp.;000004;Gendarmeria de Chile;
+164;0;000005-01;M.O.P;000005;Ministerio de O.P;
+165;0;000007-08;Nido Cancha;000007;Nido de Aguilas;
+166;0;000007-09;Control Nido de Aguilas;000007;Nido de Aguilas;
+167;0;000009-07;Copec Costanera - ¿?;000000;Wes Spa;
+168;0;000011-01;Casa Juan Lopez;000011;Sistemas Socios Wes;
+169;0;000012-01;Lo Boza Lavado de Vehículos;000012;DERCO;
+170;0;000012-02;Lo Boza Pozo;000012;DERCO;
+171;0;000012-03;Lo Boza Reutilización;000012;DERCO;
+172;0;000012-04;Lo Boza Edificio Principal Casino;000012;DERCO;
+173;0;000012-05;Lo Boza Matriz Principal;000012;DERCO;
+174;0;000012-13;Open Plaza Lavado de Vehiculos;000000;Wes Spa;
+175;0;000012-14;Open Plaza Matriz Principal;000000;Wes Spa;
+176;0;000012-20;lA CABAÑA;000000;Wes Spa;
+177;0;000013-01;Plaza Boulevard Pajaros Sur;000013;Lo Barnechea;
+178;0;000014-01;Agua de Rechazo Ablandador;000014;Tres Montes Lucchetti;
+179;0;000015-01;Molymet Red Riego;000000;Wes Spa;
+180;0;000015-02;Molymet Casa de Cambio;000000;Wes Spa;
+181;0;000015-03;Molymet Casa de Cambio;000000;Wes Spa;
+182;0;000016-01;SCL Rebeca Matte Bello;000016;Renca;
+183;0;000018-01;San Nicolas;000018;MADECO;
+184;0;000018-02;Ureta Cox;000018;MADECO;
+185;0;000018-03;Estanque Cisterna;000018;MADECO;
+186;0;000018-04;Casino;000018;MADECO;
+187;0;000019-01;Oficina WES;000019;WESSPA;
+188;0;000021-02;Edificio Deportivo;000021;CDUC;
+189;0;000021-08;Rugby CDUC;000021;CDUC;
+190;0;000025-15;Matriz Principal;000025;Parque Arauco;
+191;0;000025-16;Baños;000025;Parque Arauco;
+192;0;000027-06;Etapa N°1;000027;Fundo Zapallar;
+193;0;000027-07;Etapa N°2;000027;Fundo Zapallar;
+194;0;000027-08;Etapa N°3;000027;Fundo Zapallar;
+195;0;000029-07;Sala de Bomba Principal;000029;BUPA;
+196;0;000029-08;Sala de Bomba Sexto Piso;000029;BUPA;
+197;0;000029-09;Medidor Principal Sanitaria;000029;BUPA;
+198;0;000029-10;Sala de Bomba N°2;000029;BUPA;
+199;0;999999-01;Test wes - Gonza;000000;Wes Spa;
