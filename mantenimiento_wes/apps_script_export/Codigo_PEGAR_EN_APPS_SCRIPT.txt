@@ -817,9 +817,7 @@ function appendPdfFirmaBlock_(body, data, firmaBlob) {
   // Signature + meta
   var cFirma = table.getCell(1, 0);
   cFirma.clear();
-  var lab = cFirma.appendParagraph(
-    esSoporteRemoto_(data) ? 'Firma del receptor' : 'Firma del receptor'
-  );
+  var lab = cFirma.appendParagraph('Firma del receptor');
   lab.setFontSize(8).setForegroundColor(PDF_MUTED).setSpacingBefore(0).setSpacingAfter(2);
   try {
     if (firmaBlob) {
