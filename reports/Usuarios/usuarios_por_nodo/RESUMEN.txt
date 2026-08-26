@@ -31,5 +31,8 @@ Archivos
 - usuarios_por_nodo_ranking.csv
 - usuarios_por_nodo_ranking.xlsx
 - usuarios_por_nodo_ranking.docx
+- usuarios_por_nodo_ranking.pdf
 
 Script: contar_usuarios_por_nodo.py
+Para regenerar solo el PDF desde el Excel:
+  python contar_usuarios_por_nodo.py --desde-xlsx reports/Usuarios/usuarios_por_nodo/usuarios_por_nodo_ranking.xlsx
