@@ -25,6 +25,7 @@ from exclusiones_reportes import (
     EXCLUDED_COMPANY_IDS_PUNTOS_EN_CERO,
     EXCLUDED_COMPANY_NAME_KEYWORDS,
     EXCLUDED_NODE_IDS_PUNTOS_EN_CERO,
+    nombre_cliente_puntos_en_cero,
 )
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -148,7 +149,7 @@ def _obtener_nodos_desde_api() -> List[Dict[str, str]]:
                             "nodeId": node_id,
                             "nodeName": node_name,
                             "companyId": company_id,
-                            "companyName": company_name,
+                            "companyName": nombre_cliente_puntos_en_cero(node_id, company_name),
                         }
                     )
                     incluidos += 1
@@ -346,9 +347,9 @@ def _escribir_notas(ws: Worksheet, generado: datetime, total: int) -> None:
         ),
         (
             "Qué no incluye",
-            "Empresas y nodos excluidos (WES, Ejército, Gendarmería, BUPA pendiente de instalación, "
+            "Empresas y nodos excluidos (WES, Ejército, Gendarmería, BUPA 01-06 pendiente de instalación, "
             "Corporación Puente Alto, MOP, Lo Boza, TML, MADECO, IDs en exclusiones_reportes.py "
-            "y registro_puntos_deshabilitados.txt).",
+            "y registro_puntos_deshabilitados.txt). Sí incluye BUPA Antofagasta (000029-07..10).",
         ),
         (
             "Cliente / Nombre del nodo",

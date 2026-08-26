@@ -36,7 +36,9 @@
 000029-04 | BUPA — Torre B2 | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
 000029-05 | BUPA — Torre C | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
 000029-06 | BUPA — Central Térmica | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
-000029-07 | BUPA — Sala de Bomba Principal | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
-000029-08 | BUPA — Sala de Bomba Sexto Piso | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
-000029-09 | BUPA — Medidor Principal Sanitaria | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
-000029-10 | BUPA — Sala de Bomba N°2 | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+
+# Rehabilitados 2026-08-26: Clínica Bupa Antofagasta (instalación operativa; sí van a puntos en cero).
+# 000029-07 | BUPA — Sala de Bomba Principal | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+# 000029-08 | BUPA — Sala de Bomba Sexto Piso | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+# 000029-09 | BUPA — Medidor Principal Sanitaria | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
+# 000029-10 | BUPA — Sala de Bomba N°2 | Puntos creados en app; sin instalación operativa | 2026-07-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
