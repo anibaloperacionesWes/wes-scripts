@@ -540,7 +540,7 @@ def _cargar_marcas(path: Path) -> Dict[str, Dict[str, str]]:
 
 
 def _descargar_marcas_drive(destino: Path) -> Path | None:
-    """Exporta el Sheets de Drive a xlsx temporal para no perder Control/Monitoreo."""
+    """Baja el listado de Drive (xlsx nativo o export Sheets) para no perder Control/Monitoreo."""
     try:
         from googleapiclient.http import MediaIoBaseDownload
         from wes_google_drive import obtener_servicio_drive
@@ -551,10 +551,19 @@ def _descargar_marcas_drive(destino: Path) -> Path | None:
     file_id = "1g6rT-qF48UxIZrOxvvrnv7B-7WMtMLpM"
     try:
         service = obtener_servicio_drive()
-        request = service.files().export_media(
-            fileId=file_id,
-            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        meta = (
+            service.files()
+            .get(fileId=file_id, fields="id, mimeType")
+            .execute()
         )
+        mime = str(meta.get("mimeType") or "")
+        if mime == "application/vnd.google-apps.spreadsheet":
+            request = service.files().export_media(
+                fileId=file_id,
+                mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        else:
+            request = service.files().get_media(fileId=file_id)
         buf = io.BytesIO()
         downloader = MediaIoBaseDownload(buf, request)
         done = False
@@ -621,9 +630,17 @@ def main() -> int:
     for src in (drive_path, salida):
         if src and Path(src).is_file():
             got = _cargar_marcas(Path(src))
-            if got:
-                marcas.update(got)
-                print(f"[INFO] Conservando {sum(1 for v in got.values() if any(v.values()))} marcas desde {src.name}")
+            llenas = 0
+            for nid, vals in got.items():
+                cur = marcas.setdefault(
+                    nid, {"monitoreo": "", "control": "", "observacion": ""}
+                )
+                for k, v in vals.items():
+                    if v:
+                        cur[k] = v
+                        llenas += 1
+            if llenas:
+                print(f"[INFO] Conservando marcas desde {Path(src).name} ({llenas} celdas)")
     if tmp_drive.is_file():
         try:
             tmp_drive.unlink()
