@@ -131,8 +131,9 @@ def _email_valido(email: str) -> bool:
     if not email or "@" not in email:
         return False
     local, _, domain = email.partition("@")
-    if not local or not domain or "." not in domain:
+    if not local or not domain or "." not in domain.replace(",", "."):
         return False
+    domain = domain.replace(",", ".")
     if domain in JUNK_DOMAINS:
         return False
     if email.endswith((".png", ".jpg", ".css", ".js")):
@@ -151,7 +152,13 @@ def _email_valido(email: str) -> bool:
 
 
 def _normalizar_email(raw: str) -> str:
-    return raw.strip().lower().replace(",", ".")
+    email = raw.strip().lower()
+    if "@" not in email:
+        return email
+    local, _, domain = email.partition("@")
+    # Coma en dominio suele ser typo (externos,parauco.com). En el local se respeta
+    # porque hay usuarios WES con coma real (p. ej. supervisor,fundozapallar@gmail.com).
+    return f"{local}@{domain.replace(',', '.')}"
 
 
 def _nodos_y_empresas(session: requests.Session) -> Tuple[Dict[str, str], Dict[str, str], Dict[str, str]]:
@@ -249,25 +256,78 @@ def _recolectar_emails(extra: Iterable[Path]) -> List[str]:
     return sorted(pool)
 
 
+def _emails_desde_alertas(
+    session: requests.Session,
+    node_ids: Iterable[str],
+    workers: int = 10,
+) -> Set[str]:
+    """Correos de receivers FILTRATION (clientes que el ranking por repo no ve)."""
+    found: Set[str] = set()
+
+    def _uno(nid: str) -> List[str]:
+        nid = (nid or "").strip()
+        if "-" not in nid:
+            return []
+        cid = nid.split("-", 1)[0]
+        try:
+            r = session.get(
+                f"{ENTITY_BASE}/companies/{cid}/node/{nid}/alert/FILTRATION/information",
+                timeout=15,
+            )
+        except requests.RequestException:
+            return []
+        if r.status_code != 200:
+            return []
+        try:
+            data = r.json()
+        except ValueError:
+            return []
+        out: List[str] = []
+        for rec in data.get("receiverList") or []:
+            if not isinstance(rec, dict):
+                continue
+            e = _normalizar_email(rec.get("email") or "")
+            if e:
+                out.append(e)
+        return out
+
+    nids = [n for n in node_ids if n]
+    with ThreadPoolExecutor(max_workers=max(1, min(workers, 16))) as ex:
+        futs = [ex.submit(_uno, nid) for nid in nids]
+        for fut in as_completed(futs):
+            for e in fut.result():
+                found.add(e)
+    return found
+
+
 def _fetch_user(session: requests.Session, email: str) -> Tuple[str, Optional[dict], str]:
+    candidatos: List[str] = []
+    base = email.strip()
+    if base:
+        candidatos.append(base)
+    # Typo frecuente: coma en vez de punto en el dominio. Si el local tiene coma,
+    # también probar la variante con punto (por si el API la guarda distinta).
+    if "," in base:
+        candidatos.append(base.replace(",", "."))
+    vistos: Set[str] = set()
+    last_status = ""
     try:
-        r = session.get(f"{ENTITY_BASE}/users", params={"email": email}, timeout=25)
-        if r.status_code == 200:
-            u = r.json()
-            if isinstance(u, dict):
-                u.pop("password", None)
-            return email, u, ""
-        if r.status_code == 404 and "," in email:
-            alt = email.replace(",", ".")
-            r2 = session.get(f"{ENTITY_BASE}/users", params={"email": alt}, timeout=25)
-            if r2.status_code == 200:
-                u = r2.json()
+        for cand in candidatos:
+            key = cand.lower()
+            if key in vistos:
+                continue
+            vistos.add(key)
+            r = session.get(f"{ENTITY_BASE}/users", params={"email": cand}, timeout=25)
+            last_status = str(r.status_code)
+            if r.status_code == 200:
+                u = r.json()
                 if isinstance(u, dict):
                     u.pop("password", None)
-                return email, u, f"email corregido: {alt}"
-        if r.status_code == 404:
+                obs = "" if cand == base else f"email variante: {cand}"
+                return email, u, obs
+        if last_status == "404":
             return email, None, "no existe en API"
-        return email, None, f"HTTP {r.status_code}"
+        return email, None, f"HTTP {last_status or 'error'}"
     except requests.RequestException as exc:
         return email, None, str(exc)
 
@@ -289,8 +349,14 @@ def _allowed_nodes(user: dict) -> List[str]:
     return out
 
 
-def xlsx_a_pdf(xlsx_path: Path, pdf_path: Optional[Path] = None) -> Path:
-    """Convierte el Excel de ranking a PDF (una hoja por página de tablas)."""
+def xlsx_a_pdf(
+    xlsx_path: Path,
+    pdf_path: Optional[Path] = None,
+    *,
+    solo_ranking: bool = True,
+    max_paginas: int = 5,
+) -> Path:
+    """Convierte el Excel de ranking a PDF. Por defecto solo la hoja de ranking, págs. 1-5."""
     from openpyxl import load_workbook
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -363,7 +429,12 @@ def xlsx_a_pdf(xlsx_path: Path, pdf_path: Optional[Path] = None) -> Path:
     story.append(Paragraph("Usuarios por Node ID — ranking mayor a menor", title_style))
     story.append(
         Paragraph(
-            f"PDF generado desde {xlsx_path.name}",
+            f"PDF generado desde {xlsx_path.name}"
+            + (
+                " · ranking compacto (págs. 1-5; correos completos en el Excel)"
+                if solo_ranking and max_paginas == 5
+                else ""
+            ),
             sub_style,
         )
     )
@@ -373,7 +444,11 @@ def xlsx_a_pdf(xlsx_path: Path, pdf_path: Optional[Path] = None) -> Path:
     zebra = colors.HexColor("#F4F8FB")
     green = colors.HexColor("#C6EFCE")
 
-    for si, ws in enumerate(wb.worksheets):
+    hojas = list(wb.worksheets)
+    if solo_ranking:
+        hojas = [ws for ws in hojas if ws.title == "Ranking_por_nodo"] or hojas[:1]
+
+    for si, ws in enumerate(hojas):
         if si:
             story.append(PageBreak())
             story.append(Paragraph("Usuarios por Node ID — ranking mayor a menor", title_style))
@@ -385,6 +460,12 @@ def xlsx_a_pdf(xlsx_path: Path, pdf_path: Optional[Path] = None) -> Path:
         if not rows_raw:
             continue
         headers = ["" if h is None else str(h) for h in rows_raw[0]]
+        compact = bool(solo_ranking and max_paginas and max_paginas <= 5)
+        drop = {"company_id", "emails"} if compact else set()
+        keep_idx = [i for i, h in enumerate(headers) if h not in drop]
+        if not keep_idx:
+            keep_idx = list(range(len(headers)))
+        headers = [headers[i] for i in keep_idx]
         n_cols = len(headers)
         data = [[_cell(h, header=True) for h in headers]]
         qty_col = None
@@ -397,18 +478,21 @@ def xlsx_a_pdf(xlsx_path: Path, pdf_path: Optional[Path] = None) -> Path:
         for row in rows_raw[1:]:
             if row is None or all(v is None or str(v).strip() == "" for v in row):
                 continue
-            data.append([_cell(row[c] if c < len(row) else "") for c in range(n_cols)])
+            vals = [(row[i] if i < len(row) else "") for i in keep_idx]
+            data.append([_cell(v) for v in vals])
             qty = 0
-            if qty_col is not None and qty_col < len(row):
+            if qty_col is not None:
                 try:
-                    qty = int(row[qty_col] or 0)
+                    qty = int(vals[qty_col] or 0)
                 except (TypeError, ValueError):
                     qty = 0
             qty_by_data_row.append(qty)
 
-        # Anchos según cantidad de columnas (Excel original: 7 u 6).
+        # Anchos según cantidad de columnas.
         if n_cols >= 7:
             weights = [0.05, 0.08, 0.09, 0.18, 0.08, 0.14, 0.38]
+        elif n_cols == 5:
+            weights = [0.08, 0.14, 0.14, 0.40, 0.24]
         elif n_cols == 6:
             weights = [0.18, 0.14, 0.16, 0.10, 0.08, 0.34]
         else:
@@ -451,7 +535,24 @@ def xlsx_a_pdf(xlsx_path: Path, pdf_path: Optional[Path] = None) -> Path:
         author="WES",
     )
     doc.build(story)
+    if max_paginas and max_paginas > 0:
+        _limitar_pdf_paginas(pdf_path, max_paginas)
     return pdf_path
+
+
+def _limitar_pdf_paginas(pdf_path: Path, max_paginas: int) -> None:
+    try:
+        from pypdf import PdfReader, PdfWriter
+    except ImportError:
+        return
+    reader = PdfReader(str(pdf_path))
+    if len(reader.pages) <= max_paginas:
+        return
+    writer = PdfWriter()
+    for i in range(max_paginas):
+        writer.add_page(reader.pages[i])
+    with open(pdf_path, "wb") as f:
+        writer.write(f)
 
 
 def _escribir_xlsx(
@@ -632,6 +733,12 @@ def main() -> int:
         default=None,
         help="Solo convertir un Excel existente a PDF (sin consultar la API)",
     )
+    parser.add_argument(
+        "--pdf-paginas",
+        type=int,
+        default=5,
+        help="Máximo de páginas del PDF (default 5). 0 = sin recorte",
+    )
     args = parser.parse_args()
 
     if args.desde_xlsx:
@@ -639,7 +746,7 @@ def main() -> int:
         if not src.is_file():
             print(f"[ERROR] No existe el Excel: {src}")
             return 1
-        pdf = xlsx_a_pdf(src)
+        pdf = xlsx_a_pdf(src, max_paginas=args.pdf_paginas)
         print(f"[OK] PDF: {pdf}")
         return 0
 
@@ -649,11 +756,19 @@ def main() -> int:
     print(f"[OK] {len(nombres)} nodeId únicos · {len(companies)} empresas")
 
     emails = _recolectar_emails(args.emails)
+    workers = max(1, min(args.workers, 16))
+    extra_alertas = _emails_desde_alertas(session, nombres.keys(), workers=workers)
+    if extra_alertas:
+        n_antes = len(emails)
+        emails = sorted(set(emails) | extra_alertas)
+        print(
+            f"[INFO] Correos extra desde alertas FILTRATION: "
+            f"{len(emails) - n_antes} (total {len(emails)})"
+        )
     print(f"[INFO] Consultando {len(emails)} correo(s) candidatos...")
 
     usuarios_por_email: Dict[str, dict] = {}
     sin_usuario: List[str] = []
-    workers = max(1, min(args.workers, 16))
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futs = [ex.submit(_fetch_user, session, e) for e in emails]
         for fut in as_completed(futs):
@@ -758,7 +873,9 @@ def main() -> int:
         xlsx_latest.write_bytes(xlsx_path.read_bytes())
         try:
             pdf_stamp = xlsx_path.with_suffix(".pdf")
-            pdf_path = xlsx_a_pdf(xlsx_path, pdf_stamp)
+            pdf_path = xlsx_a_pdf(
+                xlsx_path, pdf_stamp, solo_ranking=True, max_paginas=args.pdf_paginas
+            )
             pdf_latest.write_bytes(pdf_path.read_bytes())
         except Exception as exc:
             pdf_path = None
