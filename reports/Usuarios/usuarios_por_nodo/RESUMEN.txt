@@ -1,0 +1,35 @@
+Usuarios WES por Node ID (ranking mayor a menor)
+Generado: 26/08/2026 13:51 hora Chile
+
+Fuente: GET /configuration/companies (nodos) + GET /users?email= (allowedNodes)
+Limitación: la API no lista todos los usuarios; se consultaron correos conocidos
+del repositorio (WES, Parque Arauco, Linkes y otros).
+
+Resumen
+- Empresas en API: 31
+- Node ID únicos: 199
+- Correos consultados: 58
+- Usuarios encontrados en API: 24
+- Nodos con al menos 1 usuario (en la muestra): 138
+- Nodos sin usuarios en la muestra: 61
+- Máximo de usuarios en un nodo: 10
+
+Distribución (cantidad de usuarios → cantidad de nodos)
+- 10 usuarios: 2 nodos
+- 9 usuarios: 2 nodos
+- 8 usuarios: 2 nodos
+- 7 usuarios: 67 nodos
+- 6 usuarios: 5 nodos
+- 5 usuarios: 39 nodos
+- 4 usuarios: 10 nodos
+- 3 usuarios: 4 nodos
+- 2 usuarios: 1 nodo
+- 1 usuario: 6 nodos
+- 0 usuarios: 61 nodos
+
+Archivos
+- usuarios_por_nodo_ranking.csv
+- usuarios_por_nodo_ranking.xlsx
+- usuarios_por_nodo_ranking.docx
+
+Script: contar_usuarios_por_nodo.py
