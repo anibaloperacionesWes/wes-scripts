@@ -1,0 +1,340 @@
+"""
+Exporta a Excel el listado de equipos vigentes del reporte matinal de puntos en cero.
+
+Mismo universo que `reporte_puntos_en_cero.obtener_todos_los_nodos()` (API + exclusiones).
+Columnas pedidas: Cliente, Nombre del nodo, Monitoreo y Control (estas dos vacías para completar).
+
+Uso:
+  python exportar_listado_equipos_puntos_en_cero.py
+  python exportar_listado_equipos_puntos_en_cero.py -o reports/Puntos_En_Cero/listado.xlsx
+"""
+
+from __future__ import annotations
+
+import argparse
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Dict, List
+
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.worksheet.worksheet import Worksheet
+
+from reporte_puntos_en_cero import obtener_todos_los_nodos
+from wes_paths import wes_scripts_root
+
+try:
+    from zoneinfo import ZoneInfo
+
+    _CHILE_TZ = ZoneInfo("America/Santiago")
+except Exception:
+    _CHILE_TZ = timezone(timedelta(hours=-4))
+
+WES_AZUL = "1F4788"
+WES_AZUL_TABLA = "4472C4"
+AMARILLO_EDITAR = "FFF2CC"
+GRIS_FILA = "F2F2F2"
+BLANCO = "FFFFFF"
+VERDE_RESUMEN = "548235"
+
+HEADERS = [
+    "N°",
+    "Cliente",
+    "ID Nodo",
+    "Nombre del nodo",
+    "Monitoreo",
+    "Control",
+    "Observación",
+]
+
+OPCIONES_MONITOREO = "Sí,No,Pendiente"
+OPCIONES_CONTROL = (
+    "Pendiente,Revisado OK,En cero,Sin datos,Fuera de servicio,Observación"
+)
+
+
+def _now_chile() -> datetime:
+    return datetime.now(_CHILE_TZ)
+
+
+def _fill(color: str) -> PatternFill:
+    return PatternFill("solid", fgColor=color)
+
+
+def _thin_border() -> Border:
+    side = Side(style="thin", color="B0B0B0")
+    return Border(left=side, right=side, top=side, bottom=side)
+
+
+def _estilo_encabezado(cell) -> None:
+    cell.font = Font(bold=True, color=BLANCO, name="Calibri", size=11)
+    cell.fill = _fill(WES_AZUL_TABLA)
+    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    cell.border = _thin_border()
+
+
+def _escribir_titulo(ws: Worksheet, titulo: str, subtitulo: str, ncols: int) -> int:
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+    c1 = ws.cell(row=1, column=1, value=titulo)
+    c1.font = Font(bold=True, color=BLANCO, name="Calibri", size=14)
+    c1.fill = _fill(WES_AZUL)
+    c1.alignment = Alignment(horizontal="left", vertical="center")
+
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
+    c2 = ws.cell(row=2, column=1, value=subtitulo)
+    c2.font = Font(italic=True, name="Calibri", size=10, color="333333")
+    c2.fill = _fill("D6E3F0")
+    c2.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+    ws.row_dimensions[1].height = 22
+    ws.row_dimensions[2].height = 36
+    return 4  # fila de encabezados de tabla
+
+
+def _aplicar_validacion(ws: Worksheet, col: int, first_data: int, last_data: int, formula: str, titulo: str) -> None:
+    letra = get_column_letter(col)
+    dv = DataValidation(type="list", formula1=f'"{formula}"', allow_blank=True)
+    dv.prompt = f"Seleccione un valor para {titulo} o déjelo en blanco"
+    dv.promptTitle = titulo
+    dv.error = "Elija una opción de la lista (o borre la celda)."
+    dv.errorTitle = titulo
+    dv.showErrorMessage = True
+    dv.showInputMessage = True
+    ws.add_data_validation(dv)
+    dv.add(f"{letra}{first_data}:{letra}{last_data}")
+
+
+def _escribir_equipos(ws: Worksheet, nodos: List[Dict[str, str]], generado: datetime) -> None:
+    subtitulo = (
+        f"Equipos vigentes al {generado.strftime('%d/%m/%Y %H:%M')} (hora Chile). "
+        "Mismo universo que el reporte matinal de puntos en cero "
+        "(API WES + exclusiones vigentes). "
+        "Complete las columnas Monitoreo y Control."
+    )
+    header_row = _escribir_titulo(
+        ws,
+        "Listado de equipos vigentes — Puntos en cero",
+        subtitulo,
+        len(HEADERS),
+    )
+
+    for col, header in enumerate(HEADERS, start=1):
+        _estilo_encabezado(ws.cell(row=header_row, column=col, value=header))
+
+    nodos_ord = sorted(nodos, key=lambda n: (n.get("companyName") or "", n.get("nodeName") or "", n.get("nodeId") or ""))
+    first_data = header_row + 1
+    border = _thin_border()
+    align_izq = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    align_cen = Alignment(horizontal="center", vertical="center")
+    fill_edit = _fill(AMARILLO_EDITAR)
+    fill_alt = _fill(GRIS_FILA)
+    font_dato = Font(name="Calibri", size=10)
+
+    for i, nodo in enumerate(nodos_ord, start=1):
+        row = first_data + i - 1
+        valores = [
+            i,
+            nodo.get("companyName") or "",
+            nodo.get("nodeId") or "",
+            nodo.get("nodeName") or "",
+            "",  # Monitoreo — a completar
+            "",  # Control — a completar
+            "",  # Observación
+        ]
+        for col, valor in enumerate(valores, start=1):
+            cell = ws.cell(row=row, column=col, value=valor)
+            cell.font = font_dato
+            cell.border = border
+            cell.alignment = align_cen if col in (1, 3, 5, 6) else align_izq
+            if col in (5, 6, 7):
+                cell.fill = fill_edit
+            elif i % 2 == 0:
+                cell.fill = fill_alt
+
+    last_data = first_data + len(nodos_ord) - 1 if nodos_ord else first_data
+    if nodos_ord:
+        _aplicar_validacion(ws, 5, first_data, last_data, OPCIONES_MONITOREO, "Monitoreo")
+        _aplicar_validacion(ws, 6, first_data, last_data, OPCIONES_CONTROL, "Control")
+
+    anchos = (6, 32, 14, 38, 16, 20, 40)
+    for i, w in enumerate(anchos, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(HEADERS))}{max(last_data, header_row)}"
+    ws.freeze_panes = f"A{first_data}"
+    ws.sheet_properties.tabColor = WES_AZUL_TABLA
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToPage = True
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.page_setup.paperSize = ws.PAPERSIZE_LETTER
+    ws.print_title_rows = f"{header_row}:{header_row}"
+    ws.sheet_view.showGridLines = False
+
+
+def _escribir_resumen(ws: Worksheet, nodos: List[Dict[str, str]], generado: datetime) -> None:
+    header_row = _escribir_titulo(
+        ws,
+        "Resumen por cliente",
+        f"Cantidad de equipos vigentes incluidos en el reporte matinal de puntos en cero. "
+        f"Generado {generado.strftime('%d/%m/%Y %H:%M')} hora Chile.",
+        3,
+    )
+    headers = ["Cliente", "Equipos vigentes", "% del total"]
+    for col, header in enumerate(headers, start=1):
+        _estilo_encabezado(ws.cell(row=header_row, column=col, value=header))
+
+    conteo = Counter((n.get("companyName") or "(sin nombre)").strip() for n in nodos)
+    total = len(nodos) or 1
+    first_data = header_row + 1
+    border = _thin_border()
+    font_dato = Font(name="Calibri", size=10)
+
+    for i, (cliente, cant) in enumerate(sorted(conteo.items(), key=lambda x: (-x[1], x[0])), start=1):
+        row = first_data + i - 1
+        ws.cell(row=row, column=1, value=cliente).font = font_dato
+        c_cant = ws.cell(row=row, column=2, value=cant)
+        c_cant.font = font_dato
+        c_cant.alignment = Alignment(horizontal="center")
+        c_pct = ws.cell(row=row, column=3, value=cant / total)
+        c_pct.number_format = "0.0%"
+        c_pct.alignment = Alignment(horizontal="center")
+        for col in range(1, 4):
+            cell = ws.cell(row=row, column=col)
+            cell.border = border
+            if i % 2 == 0:
+                cell.fill = _fill(GRIS_FILA)
+
+    total_row = first_data + len(conteo)
+    ws.cell(row=total_row, column=1, value="TOTAL").font = Font(bold=True, color=BLANCO, name="Calibri")
+    ws.cell(row=total_row, column=2, value=len(nodos)).font = Font(bold=True, color=BLANCO, name="Calibri")
+    ws.cell(row=total_row, column=3, value=1).font = Font(bold=True, color=BLANCO, name="Calibri")
+    ws.cell(row=total_row, column=3).number_format = "0.0%"
+    for col in range(1, 4):
+        cell = ws.cell(row=total_row, column=col)
+        cell.fill = _fill(VERDE_RESUMEN)
+        cell.border = border
+        cell.alignment = Alignment(horizontal="center" if col > 1 else "left")
+
+    ws.column_dimensions["A"].width = 40
+    ws.column_dimensions["B"].width = 20
+    ws.column_dimensions["C"].width = 14
+    ws.freeze_panes = f"A{first_data}"
+    ws.auto_filter.ref = f"A{header_row}:C{max(total_row - 1, header_row)}"
+    ws.sheet_properties.tabColor = VERDE_RESUMEN
+
+
+def _escribir_notas(ws: Worksheet, generado: datetime, total: int) -> None:
+    ws["A1"] = "Cómo usar este listado"
+    ws["A1"].font = Font(bold=True, color=BLANCO, name="Calibri", size=14)
+    ws["A1"].fill = _fill(WES_AZUL)
+    ws.merge_cells("A1:B1")
+
+    lineas = [
+        ("Generado", generado.strftime("%d/%m/%Y %H:%M") + " hora Chile"),
+        ("Equipos vigentes", str(total)),
+        (
+            "Qué incluye",
+            "Los mismos puntos que revisa cada mañana el reporte de puntos en cero "
+            "(reporte_puntos_en_cero.py → obtener_todos_los_nodos).",
+        ),
+        (
+            "Qué no incluye",
+            "Empresas y nodos excluidos (WES, Ejército, Gendarmería, BUPA pendiente de instalación, "
+            "Corporación Puente Alto, MOP, Lo Boza, TML, MADECO, IDs en exclusiones_reportes.py "
+            "y registro_puntos_deshabilitados.txt).",
+        ),
+        (
+            "Cliente / Nombre del nodo",
+            "Datos fijos desde la API. No los edite; si un nombre cambió, vuelva a generar el Excel.",
+        ),
+        (
+            "Monitoreo (amarillo)",
+            "Columna para completar: Sí / No / Pendiente. Use el desplegable o déjela en blanco.",
+        ),
+        (
+            "Control (amarillo)",
+            "Columna para completar al revisar: Pendiente, Revisado OK, En cero, Sin datos, "
+            "Fuera de servicio u Observación.",
+        ),
+        (
+            "Observación (amarillo)",
+            "Texto libre (contacto, visita, ticket, etc.).",
+        ),
+        (
+            "Regenerar",
+            "python exportar_listado_equipos_puntos_en_cero.py",
+        ),
+    ]
+    ws["A3"] = "Campo"
+    ws["B3"] = "Detalle"
+    for col in (1, 2):
+        _estilo_encabezado(ws.cell(row=3, column=col))
+
+    border = _thin_border()
+    for i, (campo, detalle) in enumerate(lineas, start=4):
+        ws.cell(row=i, column=1, value=campo).font = Font(bold=True, name="Calibri", size=10)
+        ws.cell(row=i, column=2, value=detalle).font = Font(name="Calibri", size=10)
+        ws.cell(row=i, column=2).alignment = Alignment(wrap_text=True, vertical="top")
+        for col in (1, 2):
+            ws.cell(row=i, column=col).border = border
+        ws.row_dimensions[i].height = 36
+
+    ws.column_dimensions["A"].width = 28
+    ws.column_dimensions["B"].width = 92
+    ws.sheet_properties.tabColor = "7F7F7F"
+
+
+def generar_excel(nodos: List[Dict[str, str]], salida: Path) -> Path:
+    generado = _now_chile()
+    wb = Workbook()
+    ws_eq = wb.active
+    ws_eq.title = "Equipos vigentes"
+    _escribir_equipos(ws_eq, nodos, generado)
+
+    ws_res = wb.create_sheet("Resumen por cliente")
+    _escribir_resumen(ws_res, nodos, generado)
+
+    ws_notas = wb.create_sheet("Cómo usar")
+    _escribir_notas(ws_notas, generado, len(nodos))
+
+    salida.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(salida)
+    return salida
+
+
+def default_salida() -> Path:
+    return wes_scripts_root() / "reports" / "Puntos_En_Cero" / "Listado_Equipos_Vigentes_Puntos_En_Cero.xlsx"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Excel de equipos vigentes del reporte matinal de puntos en cero"
+    )
+    parser.add_argument(
+        "-o",
+        "--salida",
+        type=Path,
+        default=None,
+        help="Ruta del .xlsx (por defecto reports/Puntos_En_Cero/Listado_Equipos_Vigentes_Puntos_En_Cero.xlsx)",
+    )
+    args = parser.parse_args()
+    salida = args.salida or default_salida()
+
+    nodos = obtener_todos_los_nodos()
+    if not nodos:
+        print("[ERROR] No se obtuvieron nodos vigentes. Revise API y exclusiones.")
+        return 1
+
+    path = generar_excel(nodos, salida)
+    print("=" * 60)
+    print(f"[OK] {len(nodos)} equipos vigentes")
+    print(f"     Excel: {path.resolve()}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
