@@ -17,7 +17,7 @@ import argparse
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import requests
 
@@ -33,6 +33,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
 
+from registro_gabinetes import filas_resumen_gabinetes, info_gabinete
 from wes_paths import wes_scripts_root
 
 ENTITY_BASE_URL = "http://104.248.53.141:7001/wes/api/acl-entities/v1"
@@ -50,12 +51,17 @@ AMARILLO_EDITAR = "FFF2CC"
 GRIS_FILA = "F2F2F2"
 BLANCO = "FFFFFF"
 VERDE_RESUMEN = "548235"
+NARANJA_CONFIRMAR = "FCE4D6"
 
 HEADERS = [
     "N°",
     "Cliente",
     "ID Nodo",
     "Nombre del nodo",
+    "Gabinete",
+    "Tipo gabinete",
+    "Placas",
+    "Otros nodos del gabinete",
     "Monitoreo",
     "Control",
     "Observación",
@@ -211,12 +217,18 @@ def _aplicar_validacion(ws: Worksheet, col: int, first_data: int, last_data: int
     dv.add(f"{letra}{first_data}:{letra}{last_data}")
 
 
-def _escribir_equipos(ws: Worksheet, nodos: List[Dict[str, str]], generado: datetime) -> None:
+def _escribir_equipos(
+    ws: Worksheet,
+    nodos: List[Dict[str, str]],
+    generado: datetime,
+    marcas: Optional[Dict[str, Dict[str, str]]] = None,
+) -> None:
+    marcas = marcas or {}
     subtitulo = (
         f"Equipos vigentes al {generado.strftime('%d/%m/%Y %H:%M')} (hora Chile). "
-        "Mismo universo que el reporte matinal de puntos en cero "
-        "(API WES + exclusiones vigentes). "
-        "Complete las columnas Monitoreo y Control."
+        "Mismo universo que el reporte matinal de puntos en cero. "
+        "Gabinete: 1 nodo/1 placa o varios nodos (hasta 4 placas) en el mismo armario. "
+        "Complete Monitoreo y Control (Sí/No)."
     )
     header_row = _escribir_titulo(
         ws,
@@ -228,42 +240,62 @@ def _escribir_equipos(ws: Worksheet, nodos: List[Dict[str, str]], generado: date
     for col, header in enumerate(HEADERS, start=1):
         _estilo_encabezado(ws.cell(row=header_row, column=col, value=header))
 
-    nodos_ord = sorted(nodos, key=lambda n: (n.get("companyName") or "", n.get("nodeName") or "", n.get("nodeId") or ""))
+    nodos_ord = sorted(
+        nodos,
+        key=lambda n: (n.get("companyName") or "", n.get("nodeName") or "", n.get("nodeId") or ""),
+    )
     first_data = header_row + 1
     border = _thin_border()
     align_izq = Alignment(horizontal="left", vertical="center", wrap_text=True)
     align_cen = Alignment(horizontal="center", vertical="center")
     fill_edit = _fill(AMARILLO_EDITAR)
     fill_alt = _fill(GRIS_FILA)
+    fill_conf = _fill(NARANJA_CONFIRMAR)
     font_dato = Font(name="Calibri", size=10)
+    cols_edit = {9, 10, 11}  # Monitoreo, Control, Observación
+    cols_cen = {1, 3, 6, 7, 9, 10}
 
     for i, nodo in enumerate(nodos_ord, start=1):
         row = first_data + i - 1
+        nid = nodo.get("nodeId") or ""
+        gab = info_gabinete(
+            nid,
+            company_name=nodo.get("companyName") or "",
+            node_name=nodo.get("nodeName") or "",
+        )
+        prev = marcas.get(nid) or {}
         valores = [
             i,
             nodo.get("companyName") or "",
-            nodo.get("nodeId") or "",
+            nid,
             nodo.get("nodeName") or "",
-            "",  # Monitoreo — a completar
-            "",  # Control — a completar
-            "",  # Observación
+            gab["gabinete"],
+            gab["tipo"],
+            int(gab["placas"]) if str(gab["placas"]).isdigit() else gab["placas"],
+            gab["otros_nodos"],
+            prev.get("monitoreo") or "",
+            prev.get("control") or "",
+            prev.get("observacion") or "",
         ]
+        confirmar = (gab.get("confianza") or "") == "media"
         for col, valor in enumerate(valores, start=1):
             cell = ws.cell(row=row, column=col, value=valor)
             cell.font = font_dato
             cell.border = border
-            cell.alignment = align_cen if col in (1, 3, 5, 6) else align_izq
-            if col in (5, 6, 7):
+            cell.alignment = align_cen if col in cols_cen else align_izq
+            if col in cols_edit:
                 cell.fill = fill_edit
+            elif confirmar and col in (5, 6, 7, 8):
+                cell.fill = fill_conf
             elif i % 2 == 0:
                 cell.fill = fill_alt
 
     last_data = first_data + len(nodos_ord) - 1 if nodos_ord else first_data
     if nodos_ord:
-        _aplicar_validacion(ws, 5, first_data, last_data, OPCIONES_MONITOREO, "Monitoreo")
-        _aplicar_validacion(ws, 6, first_data, last_data, OPCIONES_CONTROL, "Control")
+        _aplicar_validacion(ws, 9, first_data, last_data, OPCIONES_MONITOREO, "Monitoreo")
+        _aplicar_validacion(ws, 10, first_data, last_data, OPCIONES_CONTROL, "Control")
 
-    anchos = (6, 32, 14, 38, 16, 12, 40)
+    anchos = (6, 28, 14, 36, 48, 22, 10, 36, 14, 12, 28)
     for i, w in enumerate(anchos, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -331,6 +363,74 @@ def _escribir_resumen(ws: Worksheet, nodos: List[Dict[str, str]], generado: date
     ws.sheet_properties.tabColor = VERDE_RESUMEN
 
 
+def _escribir_gabinetes(ws: Worksheet, nodos: List[Dict[str, str]], generado: datetime) -> None:
+    headers = [
+        "Gabinete",
+        "Cliente",
+        "Nodos",
+        "Placas",
+        "Tipo",
+        "IDs",
+        "Nombres",
+        "Confianza",
+        "Notas",
+    ]
+    header_row = _escribir_titulo(
+        ws,
+        "Gabinetes — 1 placa o hasta 4 placas",
+        "Un gabinete WES puede llevar 1 nodo (1 placa) o varios (hasta 4 placas). "
+        f"Naranja = confirmar en terreno. Generado {generado.strftime('%d/%m/%Y %H:%M')} Chile. "
+        "Editar agrupaciones en registro_gabinetes.py.",
+        len(headers),
+    )
+    for col, header in enumerate(headers, start=1):
+        _estilo_encabezado(ws.cell(row=header_row, column=col, value=header))
+
+    filas = filas_resumen_gabinetes(nodos)
+    # Multi-placa primero, luego 1 placa
+    filas.sort(key=lambda f: (-int(f["placas"] or 1), f["cliente"], f["gabinete"]))
+    first_data = header_row + 1
+    border = _thin_border()
+    font_dato = Font(name="Calibri", size=10)
+    for i, fila in enumerate(filas, start=1):
+        row = first_data + i - 1
+        vals = [
+            fila["gabinete"],
+            fila["cliente"],
+            int(fila["nodos"]),
+            int(fila["placas"]),
+            fila["tipo"],
+            fila["ids"],
+            fila["nombres"],
+            fila["confianza"],
+            fila["notas"],
+        ]
+        confirmar = fila["confianza"] == "media"
+        for col, valor in enumerate(vals, start=1):
+            cell = ws.cell(row=row, column=col, value=valor)
+            cell.font = font_dato
+            cell.border = border
+            cell.alignment = Alignment(
+                horizontal="center" if col in (3, 4, 8) else "left",
+                vertical="center",
+                wrap_text=True,
+            )
+            if confirmar:
+                cell.fill = _fill(NARANJA_CONFIRMAR)
+            elif int(fila["placas"]) >= 2:
+                cell.fill = _fill("E2EFDA")
+            elif i % 2 == 0:
+                cell.fill = _fill(GRIS_FILA)
+
+    last = first_data + len(filas) - 1 if filas else header_row
+    anchos = (46, 22, 10, 10, 22, 42, 55, 14, 55)
+    for i, w in enumerate(anchos, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(headers))}{last}"
+    ws.freeze_panes = f"A{first_data}"
+    ws.sheet_properties.tabColor = "C65911"
+
+
 def _escribir_notas(ws: Worksheet, generado: datetime, total: int) -> None:
     ws["A1"] = "Cómo usar este listado"
     ws["A1"].font = Font(bold=True, color=BLANCO, name="Calibri", size=14)
@@ -354,6 +454,12 @@ def _escribir_notas(ws: Worksheet, generado: datetime, total: int) -> None:
         (
             "Cliente / Nombre del nodo",
             "Datos fijos desde la API. No los edite; si un nombre cambió, vuelva a generar el Excel.",
+        ),
+        (
+            "Gabinete / placas",
+            "Identifica si el nodo va solo (1 placa) o comparte gabinete con otros "
+            "(hasta 4 placas). Naranja = confirmar en terreno. Hoja «Gabinetes» agrupa por armario. "
+            "Corregir en registro_gabinetes.py.",
         ),
         (
             "Monitoreo (amarillo)",
@@ -391,12 +497,89 @@ def _escribir_notas(ws: Worksheet, generado: datetime, total: int) -> None:
     ws.sheet_properties.tabColor = "7F7F7F"
 
 
-def generar_excel(nodos: List[Dict[str, str]], salida: Path) -> Path:
+def _cargar_marcas(path: Path) -> Dict[str, Dict[str, str]]:
+    """Lee Monitoreo / Control / Observación de un Excel previo (por ID Nodo)."""
+    if not path.is_file():
+        return {}
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return {}
+    try:
+        wb = load_workbook(path, data_only=True, read_only=True)
+        ws = wb[wb.sheetnames[0]]
+        header_row = None
+        headers: Dict[str, int] = {}
+        for r, row in enumerate(ws.iter_rows(max_row=8, values_only=True), start=1):
+            vals = [str(c).strip() if c is not None else "" for c in row]
+            if "ID Nodo" in vals:
+                header_row = r
+                headers = {name: i for i, name in enumerate(vals) if name}
+                break
+        if header_row is None or "ID Nodo" not in headers:
+            wb.close()
+            return {}
+        i_id = headers["ID Nodo"]
+        i_mon = headers.get("Monitoreo")
+        i_ctl = headers.get("Control")
+        i_obs = headers.get("Observación")
+        out: Dict[str, Dict[str, str]] = {}
+        for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
+            if not row or i_id >= len(row) or not row[i_id]:
+                continue
+            nid = str(row[i_id]).strip()
+            out[nid] = {
+                "monitoreo": "" if i_mon is None or i_mon >= len(row) or row[i_mon] is None else str(row[i_mon]).strip(),
+                "control": "" if i_ctl is None or i_ctl >= len(row) or row[i_ctl] is None else str(row[i_ctl]).strip(),
+                "observacion": "" if i_obs is None or i_obs >= len(row) or row[i_obs] is None else str(row[i_obs]).strip(),
+            }
+        wb.close()
+        return out
+    except Exception:
+        return {}
+
+
+def _descargar_marcas_drive(destino: Path) -> Path | None:
+    """Exporta el Sheets de Drive a xlsx temporal para no perder Control/Monitoreo."""
+    try:
+        from googleapiclient.http import MediaIoBaseDownload
+        from wes_google_drive import obtener_servicio_drive
+    except Exception:
+        return None
+    import io
+
+    file_id = "1g6rT-qF48UxIZrOxvvrnv7B-7WMtMLpM"
+    try:
+        service = obtener_servicio_drive()
+        request = service.files().export_media(
+            fileId=file_id,
+            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        buf = io.BytesIO()
+        downloader = MediaIoBaseDownload(buf, request)
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
+        destino.write_bytes(buf.getvalue())
+        return destino
+    except Exception as e:
+        print(f"[INFO] No se pudo leer marcas desde Drive ({e}).")
+        return None
+
+
+def generar_excel(
+    nodos: List[Dict[str, str]],
+    salida: Path,
+    marcas: Optional[Dict[str, Dict[str, str]]] = None,
+) -> Path:
     generado = _now_chile()
     wb = Workbook()
     ws_eq = wb.active
     ws_eq.title = "Equipos vigentes"
-    _escribir_equipos(ws_eq, nodos, generado)
+    _escribir_equipos(ws_eq, nodos, generado, marcas=marcas)
+
+    ws_gab = wb.create_sheet("Gabinetes")
+    _escribir_gabinetes(ws_gab, nodos, generado)
 
     ws_res = wb.create_sheet("Resumen por cliente")
     _escribir_resumen(ws_res, nodos, generado)
@@ -432,7 +615,22 @@ def main() -> int:
         print("[ERROR] No se obtuvieron nodos vigentes. Revise API y exclusiones.")
         return 1
 
-    path = generar_excel(nodos, salida)
+    tmp_drive = salida.parent / "_marcas_drive_tmp.xlsx"
+    drive_path = _descargar_marcas_drive(tmp_drive)
+    marcas: Dict[str, Dict[str, str]] = {}
+    for src in (drive_path, salida):
+        if src and Path(src).is_file():
+            got = _cargar_marcas(Path(src))
+            if got:
+                marcas.update(got)
+                print(f"[INFO] Conservando {sum(1 for v in got.values() if any(v.values()))} marcas desde {src.name}")
+    if tmp_drive.is_file():
+        try:
+            tmp_drive.unlink()
+        except OSError:
+            pass
+
+    path = generar_excel(nodos, salida, marcas=marcas)
     print("=" * 60)
     print(f"[OK] {len(nodos)} equipos vigentes")
     print(f"     Excel: {path.resolve()}")
