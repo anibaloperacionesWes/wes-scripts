@@ -103,9 +103,8 @@ _EXCLUDED_NODE_IDS_CORE: Set[str] = {
 EXCLUDED_NODE_IDS: Set[str] = set(_EXCLUDED_NODE_IDS_CORE) | _node_ids_desde_registro_puntos_deshabilitados()
 
 # Solo «puntos en cero» (no afecta agregados ni individuales salvo que el ID también esté en el registro).
-EXCLUDED_NODE_IDS_SOLO_PUNTOS_EN_CERO: Set[str] = {
-    "000025-30",  # Matriz A.A — punto reubicado (Parque Arauco)
-}
+# 000025-30 Matriz A.A (El Bosque) vuelve al listado matinal: equipo operativo, reemplazo de 000025-11.
+EXCLUDED_NODE_IDS_SOLO_PUNTOS_EN_CERO: Set[str] = set()
 
 EXCLUDED_NODE_IDS_PUNTOS_EN_CERO: Set[str] = EXCLUDED_NODE_IDS | EXCLUDED_NODE_IDS_SOLO_PUNTOS_EN_CERO
 

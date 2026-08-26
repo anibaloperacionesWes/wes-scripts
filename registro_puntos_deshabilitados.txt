@@ -27,7 +27,9 @@
 000025-15 | Parque Arauco — Matriz Principal (ID 000025-15) | Excluir de reportes / puntos en cero | 2026-05-07 | Solicitud operativa (Aníbal).
 000025-16 | Parque Arauco — Baños (ID 000025-16) | Excluir de reportes / puntos en cero | 2026-05-07 | Solicitud operativa (Aníbal).
 000022-01 | Colegio Juan Pablo II (Las Condes) | Excluir de reportes / puntos en cero | 2026-05-11 | Sin datos confiables en API; no incluir en informe de puntos en cero.
-000025-09 | Parque Arauco — Impulsión Falabella (sala de bombas) | Excluir de reportes / puntos en cero | 2026-05-18 | A la espera de reparación de sala de bombas; no incluir en informe de puntos en cero hasta rehabilitar.
+
+# Rehabilitado 2026-08-26: Impulsión Falabella cuenta en los 28 puntos PA / revisión matinal.
+# 000025-09 | Parque Arauco — Impulsión Falabella (sala de bombas) | Excluir de reportes / puntos en cero | 2026-05-18 | A la espera de reparación de sala de bombas; no incluir en informe de puntos en cero hasta rehabilitar.
 
 # --- BUPA (empresa 000029): 01-06 fuera hasta instalación; Antofagasta 07-10 operativa ---
 000029-01 | BUPA — Llenado de Estanques | Puntos creados en app; sin instalación operativa | 2026-04-06 | Rehabilitar cuando el punto esté instalado y monitoreando.
