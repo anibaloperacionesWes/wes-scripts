@@ -1,9 +1,8 @@
 """
-Informe de auditoría Renca — 4 puntos con WES (desde lun 24) vs semana del 17 sin WES.
+Informe de auditoría Renca — 5 puntos en una tabla.
 
-ICCP (000017-07) no entra a ese total: control desactivado por trabajos especiales.
-Se evalúa contra la semana del 10 (antes del sin WES): lun 10 / mar 11 / mié 12…
-contra esta semana sin control (lun 24 / mar 25 / mié 26…), mismo corte horario.
+Lo Velásquez, gimnasio, piscina e ICCO: esta semana (desde lun 24) vs semana del 17.
+ICCP: lun 10 al homólogo de hoy (semana del 10, con WES) vs esta semana (control off, trabajos).
 
 Uso:
   python generar_auditoria_renca_semana_pasada_vs_esta.py
@@ -74,18 +73,18 @@ NOMBRE_ICCO = "Colegio ICCO Renca"
 NOMBRE_ICCP = "ICCP (Cumbre de Cóndores pte.)"
 TEXTO_SALA_BOMBAS = ""  # texto viejo; el informe usa TEXTO_CONTROL
 TEXTO_CONTROL = (
-    "Desde el lunes 24/08/2026 vuelven con control Escuela Lo Velásquez, el gimnasio, "
-    "la piscina e ICCO. Se comparan contra la semana del 17/08 sin WES. "
+    "Lo Velásquez, gimnasio, piscina e ICCO se evalúan con lo que va de esta semana "
+    "(desde lun 24) contra la semana del 17/08 sin WES. "
     "Ahorro = (Sin WES − Con WES) / Sin WES × 100. "
     "El lunes 24/08, entre 11:00 y 13:30 Chile, se reguló Escuela Lo Velásquez y el "
     "gimnasio municipal con las mejoras de horario (el gimnasio ya no va con el "
     "tope parejo de 0,54 m³/h que se quedaba corto en un evento)."
 )
 TEXTO_ICCP = (
-    "ICCP no entra al total de los 4 puntos: por trabajos especiales el control está "
-    "desactivado. Se evalúa contra la semana del 10/08 (la de antes del sin WES), "
-    "cuando sí tenía WES. Esta semana (desde el 24/08) es el lado sin control. "
-    "Ahorro = (esta semana sin control − semana del 10 con WES) / esta semana × 100."
+    "ICCP va en la misma tabla, con otro periodo: por trabajos especiales el control "
+    "está desactivado. Hasta el miércoles 26 se evalúa lun 10 al mié 12 (semana del 10, "
+    "cuando sí tenía WES) contra lun 24 al mié 26 (esta semana, sin control). "
+    "Ahorro = (esta semana − semana del 10) / esta semana × 100."
 )
 WD_CORTO = ("Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom")
 WD_LARGO = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
@@ -173,6 +172,38 @@ def _rellenar_fila(row, vals: Sequence[str], size: int = 9, shade: Optional[str]
             _set_cell_shading(row.cells[j], shade)
         for run in row.cells[j].paragraphs[0].runs:
             run.font.size = Pt(size)
+
+
+def _nota_en_celda(cell, titulo: str, nota: str, size: int = 9) -> None:
+    """Nombre del punto + criterio de evaluación (para Diego, en la misma celda)."""
+    cell.text = titulo
+    for run in cell.paragraphs[0].runs:
+        run.font.size = Pt(size)
+        run.bold = True
+    p = cell.add_paragraph()
+    r = p.add_run(nota)
+    r.italic = True
+    r.font.size = Pt(8)
+    r.font.color.rgb = RGBColor(89, 89, 89)
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(0)
+
+
+def _eval_esta_semana(dias_con: Sequence[date], dias_sin: Sequence[date]) -> str:
+    return (
+        f"Eval.: esta semana {_fmt_rango_dias(dias_con)} vs "
+        f"sem. del 17 {_fmt_rango_dias(dias_sin)}"
+    )
+
+
+def _eval_iccp(iccp_info: dict) -> str:
+    dc = iccp_info["dias_con"]
+    ds = iccp_info["dias_sin"]
+    ultimo = WD_CORTO[dc[-1].weekday()]
+    return (
+        f"Eval.: lun {dc[0]:%d} al {ultimo} {dc[-1]:%d/%m} (sem. del 10, con WES) vs "
+        f"esta semana {_fmt_rango_dias(ds)} (control off, trabajos)"
+    )
 
 
 def _set_cell_shading(cell, hex_fill: str) -> None:
@@ -676,14 +707,14 @@ def _word_conjunto(
     except Exception:
         pass
 
-    h = doc.add_heading("Informe de Auditoría — Renca (4 puntos con control; ICCP aparte)", level=0)
+    h = doc.add_heading("Informe de Auditoría — Renca (5 puntos)", level=0)
     if h.runs:
         h.runs[0].font.color.rgb = COLOR_HEAD
     p = doc.add_paragraph()
     p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
     r = p.add_run(
-        f"4 puntos CON WES {_fmt_rango_dias(dias_con)}  contra  "
-        f"SIN WES {_fmt_rango_dias(dias_sin)}"
+        f"Avance hasta {WD_LARGO[dias_con[-1].weekday()]} {dias_con[-1]:%d/%m/%Y} "
+        f"({_etiqueta_horas(hora_corte)} Chile el último día)"
     )
     r.bold = True
     r.font.color.rgb = COLOR_HEAD
@@ -696,21 +727,20 @@ def _word_conjunto(
         for i, (d1, d2) in enumerate(zip(dias_con, dias_sin))
     )
     p = doc.add_paragraph()
-    p.add_run("Comparación del caso. ").bold = True
+    p.add_run("Cómo leer la tabla. ").bold = True
     p.add_run(
-        f"{pares_txt}. "
-        f"El último día ({ultimo}) se corta a la misma hora en las dos semanas "
+        "Los 5 puntos van juntos. Lo Velásquez, gimnasio, piscina e ICCO se evalúan "
+        f"con lo que va de esta semana ({pares_txt}). "
+        "ICCP, por trabajos, se evalúa lun 10 al "
+        f"{WD_CORTO[dias_con[-1].weekday()]} {LUNES_CON + timedelta(days=n_dias - 1):%d/%m} "
+        f"(semana del 10, con WES) contra esta misma semana sin control. "
+        f"El último día ({ultimo}) se corta a la misma hora "
         f"({horas} Chile; corte {ahora:%d/%m/%Y %H:%M} Chile). "
-        "Ahorro = (Sin WES − Con WES) / Sin WES × 100. Tarifa de referencia 1.300 CLP/m³. "
+        "Ahorro = (sin control − con WES) / sin control × 100. Tarifa 1.300 CLP/m³. "
         + TEXTO_CONTROL
-        + " "
-        + TEXTO_ICCP
     )
 
-    doc.add_heading(
-        f"1. Los 4 puntos con control — {_fmt_rango_dias(dias_con)} vs {_fmt_rango_dias(dias_sin)}",
-        level=1,
-    )
+    doc.add_heading("1. Los 5 puntos (misma tabla, dos criterios)", level=1)
     if "todos" in pngs:
         doc.add_picture(str(pngs["todos"]), width=Cm(16.2))
     if "pares" in pngs:
@@ -719,22 +749,15 @@ def _word_conjunto(
     tot_con = sum(m3_con[nid] for nid, _ in puntos)
     tot_sin = sum(m3_sin[nid] for nid, _ in puntos)
     ahorro_t, pct_t = _rendimiento(tot_sin, tot_con)
-    doc.add_paragraph(
-        f"4 puntos (sin ICCP): Con WES {format_number_chilean(tot_con, 1)} m³; "
-        f"Sin WES {format_number_chilean(tot_sin, 1)} m³; "
-        f"diferencia {format_number_chilean(ahorro_t, 1)} m³ "
-        f"({format_number_chilean(pct_t, 1)} %; "
-        f"~{format_number_chilean(max(0.0, ahorro_t) * TARIFA_CLP_M3, 0)} CLP)."
-    )
-
-    n_extra = 1
-    tbl = doc.add_table(rows=1 + len(puntos) + n_extra, cols=6)
+    n_iccp = 1 if iccp_info else 0
+    tbl = doc.add_table(rows=1 + len(puntos) + 1 + n_iccp, cols=6)
     tbl.style = "Table Grid"
     _rellenar_encabezado(
         tbl.rows[0],
-        ["Punto", "Con WES (m³)", "Sin WES (m³)", "Ahorro (m³)", "%", "Hallazgo"],
+        ["Punto / evaluación", "Con WES (m³)", "Sin control (m³)", "Ahorro (m³)", "%", "Hallazgo"],
     )
 
+    nota_4 = _eval_esta_semana(dias_con, dias_sin)
     for i, (nid, nom) in enumerate(puntos, start=1):
         ahorro, pct = _rendimiento(m3_sin[nid], m3_con[nid])
         vals = [
@@ -746,12 +769,13 @@ def _word_conjunto(
             _hallazgo(pct),
         ]
         _rellenar_fila(tbl.rows[i], vals, shade="E2EFDA" if pct >= 15 else None)
+        _nota_en_celda(tbl.rows[i].cells[0], nom, nota_4)
 
     row = tbl.rows[1 + len(puntos)]
     _rellenar_fila(
         row,
         [
-            "Total 4 puntos",
+            "Subtotal 4 puntos (esta semana vs sem. del 17)",
             format_number_chilean(tot_con, 1),
             format_number_chilean(tot_sin, 1),
             format_number_chilean(ahorro_t, 1),
@@ -762,6 +786,34 @@ def _word_conjunto(
     )
     for run in row.cells[0].paragraphs[0].runs:
         run.bold = True
+
+    if iccp_info:
+        a_i, p_i = _rendimiento(iccp_info["m3_sin"], iccp_info["m3_con"])
+        row_i = tbl.rows[2 + len(puntos)]
+        _rellenar_fila(
+            row_i,
+            [
+                NOMBRE_ICCP,
+                format_number_chilean(iccp_info["m3_con"], 1),
+                format_number_chilean(iccp_info["m3_sin"], 1),
+                format_number_chilean(a_i, 1),
+                format_number_chilean(p_i, 1) + " %",
+                "Control off (trabajos); vs sem. del 10",
+            ],
+            shade="FFF2CC",
+        )
+        _nota_en_celda(row_i.cells[0], NOMBRE_ICCP, _eval_iccp(iccp_info))
+
+    doc.add_paragraph(
+        f"Subtotal 4 puntos: Con WES {format_number_chilean(tot_con, 1)} m³; "
+        f"sin WES {format_number_chilean(tot_sin, 1)} m³; "
+        f"{format_number_chilean(ahorro_t, 1)} m³ "
+        f"({format_number_chilean(pct_t, 1)} %; "
+        f"~{format_number_chilean(max(0.0, ahorro_t) * TARIFA_CLP_M3, 0)} CLP). "
+        "ICCP no se suma a ese subtotal: otra base (lun 10–"
+        f"{WD_CORTO[(LUNES_CON + timedelta(days=n_dias - 1)).weekday()]} "
+        f"{(LUNES_CON + timedelta(days=n_dias - 1)):%d/%m})."
+    )
 
     nomb_d: List[str] = [
         _etiqueta_par(d1, d2, _hora_corte_de_dia(i, n_dias, hora_corte))
@@ -821,9 +873,9 @@ def _word_conjunto(
                     run.font.size = Pt(9)
 
     if iccp_info:
-        doc.add_heading("2. ICCP — control off por trabajos; vs semana del 10", level=1)
+        doc.add_heading("ICCP en detalle (lun 10 al mismo corte, vs esta semana)", level=2)
         p = doc.add_paragraph()
-        p.add_run("Salvedad. ").bold = True
+        p.add_run("Misma tabla de arriba. ").bold = True
         p.add_run(TEXTO_ICCP)
         if iccp_info.get("png_barras") and Path(iccp_info["png_barras"]).is_file():
             doc.add_picture(str(iccp_info["png_barras"]), width=Cm(16.2))
@@ -873,12 +925,13 @@ def _word_conjunto(
 
     idx_lun24 = next((i for i, d in enumerate(dias_con) if d == LUNES_PROX), None)
     if horas_por_dia:
-        doc.add_heading("3. Perfiles de los 4 puntos con control", level=1)
+        doc.add_heading("2. Perfiles de los 5 puntos", level=1)
         p = doc.add_paragraph()
         p.add_run("Lectura. ").bold = True
         p.add_run(
-            "Cada panel es un par homólogo de esta semana (con WES) contra la semana del 17 "
-            "(sin WES). El último día va recortado a la misma hora. "
+            "Lo Velásquez, gimnasio e ICCO: cada panel es esta semana (con WES) contra "
+            "la semana del 17 (sin WES). ICCP: semana del 10 (con WES) contra esta semana "
+            "(control off). El último día va recortado a la misma hora. "
             "El sombreado amarillo es 11:00–13:59 (regulación cargada el lunes 24). "
             "En Lo Velásquez la noche sigue en 0 L/min; de día el tope deja pasar el uso del colegio. "
             "En el gimnasio el 100 % cubre el pico real (no el 0,54 m³/h parejo)."
@@ -887,13 +940,14 @@ def _word_conjunto(
             ("escuela", "Esc. Lo Velásquez"),
             ("gimnasio", "Gimnasio municipal"),
             ("icco", "Colegio ICCO Renca"),
+            ("iccp", "ICCP (lun 10–12 vs esta semana)"),
         ):
             if key in pngs and Path(pngs[key]).is_file():
                 doc.add_paragraph(nom).runs[0].bold = True
                 doc.add_picture(str(pngs[key]), width=Cm(16.2))
 
         if idx_lun24 is not None:
-            doc.add_heading("4. Regulación lun 24, 11:00–13:30 (vs lun 17)", level=1)
+            doc.add_heading("3. Regulación lun 24, 11:00–13:30 (vs lun 17)", level=1)
             p = doc.add_paragraph()
             p.add_run("Qué se hizo. ").bold = True
             p.add_run(
@@ -951,17 +1005,19 @@ def _word_conjunto(
     if iccp_info:
         a_i, p_i = _rendimiento(iccp_info["m3_sin"], iccp_info["m3_con"])
         extra_iccp = (
-            f"ICCP no entra al {format_number_chilean(pct_t, 1)} % de los 4 puntos: "
-            "control desactivado por trabajos. Contra la semana del 10 "
-            f"va {format_number_chilean(p_i, 1)} % "
-            f"({format_number_chilean(a_i, 1)} m³). "
+            f"ICCP va en la misma tabla: lun 10 al "
+            f"{WD_CORTO[(LUNES_CON + timedelta(days=len(dias_con) - 1)).weekday()]} "
+            f"{(LUNES_CON + timedelta(days=len(dias_con) - 1)):%d/%m} "
+            f"(con WES) vs esta semana sin control → {format_number_chilean(p_i, 1)} % "
+            f"({format_number_chilean(a_i, 1)} m³); no se mezcla en el {format_number_chilean(pct_t, 1)} % "
+            "de los 4. "
         )
     doc.add_paragraph(
-        "Los 4 puntos con control se comparan día a día contra la semana del 17, "
-        "con el último día recortado a la misma hora. "
+        "Los 5 puntos van en una sola tabla. Lo Velásquez, gimnasio, piscina e ICCO "
+        "se leen con lo que va de esta semana contra la del 17. "
         + extra_iccp
         + (
-            f"El ahorro de los 4 se concentra en {', '.join(suben)}. "
+            f"El ahorro de esos 4 se concentra en {', '.join(suben)}. "
             if suben
             else "En estos días ningún punto con control muestra un ahorro claro todavía. "
         )
@@ -1066,15 +1122,16 @@ def main() -> int:
 
     png_dir = out_root / "graficos"
     png_dir.mkdir(exist_ok=True)
-    nombres_4 = ["Lo Velásquez", "Gimnasio", "Piscina", "ICCO"]
+    nombres_5 = ["Lo Velásquez", "Gimnasio", "Piscina", "ICCO", "ICCP*"]
     p_all = png_dir / "todos_casos_con_vs_sin.png"
     _grafico_4_puntos(
-        nombres_4,
-        [m3_con[nid] for nid, _ in PUNTOS_CONTROL],
-        [m3_sin[nid] for nid, _ in PUNTOS_CONTROL],
-        f"Renca 4 puntos — {lab_con} contra {lab_sin}",
-        lab_con,
-        lab_sin,
+        nombres_5,
+        [m3_con[nid] for nid, _ in PUNTOS_CONTROL] + [c_i],
+        [m3_sin[nid] for nid, _ in PUNTOS_CONTROL] + [s_i],
+        "Renca 5 puntos — azul = con WES de referencia; rojo = sin control "
+        "(*ICCP: lun 10–mié 12 vs esta semana, control off)",
+        "Con WES (ref.)",
+        "Sin control (ref.)",
         p_all,
     )
     pngs: Dict[str, Path] = {"todos": p_all}
@@ -1173,6 +1230,7 @@ def main() -> int:
         "png": p_iccp_prf,
         "png_barras": p_iccp_bar,
     }
+    pngs["iccp"] = p_iccp_prf
 
     docx_path = out_root / f"Informe_Auditoria_Renca_semana_pasada_vs_esta_{ts}.docx"
     _word_conjunto(
