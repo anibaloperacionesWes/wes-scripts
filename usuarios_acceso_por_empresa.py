@@ -88,14 +88,22 @@ def _slug_nombre(texto: str) -> str:
 
 
 def es_personal_wes(user: dict) -> bool:
+    """Solo @wes.cl. companyId 000000 no basta: hay clientes (p. ej. tsaba@parauco.com) ahí."""
     email = str(user.get("username") or "").strip().lower()
     if email in PERSONAL_WES_EXCEPCIONES:
         return False
-    if email.endswith("@wes.cl"):
-        return True
-    if str(user.get("companyId") or "").strip() == WES_COMPANY_ID:
-        return True
-    return False
+    return email.endswith("@wes.cl")
+
+
+def _dominios_clientes_por_empresa(usuarios: Dict[str, dict]) -> Dict[str, Set[str]]:
+    dominios: Dict[str, Set[str]] = defaultdict(set)
+    for email, user in usuarios.items():
+        cid = str(user.get("companyId") or "").strip()
+        dom = str(email).partition("@")[2].lower()
+        if cid and cid != WES_COMPANY_ID and dom and dom not in DOMINIOS_PERSONALES:
+            dominios[cid].add(dom)
+    dominios["000025"].update(DOMINIOS_PA)
+    return dominios
 
 
 def _emails_desde_nombres(usuarios: Dict[str, dict]) -> Set[str]:
@@ -196,6 +204,7 @@ def _accesos_por_empresa(
     for cid in nodos_empresa:
         nodos_empresa[cid] = sorted(set(nodos_empresa[cid]))
 
+    dominios_cia = _dominios_clientes_por_empresa(usuarios)
     filas: Dict[str, List[dict]] = defaultdict(list)
     for email, user in usuarios.items():
         if es_personal_wes(user):
@@ -203,6 +212,7 @@ def _accesos_por_empresa(
         nombre = f"{user.get('name', '')} {user.get('lastName', '')}".strip()
         cid_user = str(user.get("companyId") or "").strip()
         switch = user.get("switchEnabled")
+        dom = str(email).partition("@")[2].lower()
         por_cia: Dict[str, List[str]] = defaultdict(list)
         for nid in _allowed_nodes(user):
             cid = company_de.get(nid, "")
@@ -214,19 +224,23 @@ def _accesos_por_empresa(
             por_cia[cid].append(nid)
         for cid, nids in por_cia.items():
             nids = sorted(set(nids))
+            dominio_de_esta = dom in dominios_cia.get(cid, set())
+            es_propia = cid_user == cid or (
+                cid_user == WES_COMPANY_ID and cid != WES_COMPANY_ID and dominio_de_esta
+            )
             filas[cid].append(
                 {
                     "email": email,
                     "nombre": nombre,
                     "company_id_cuenta": cid_user,
-                    "empresa_cuenta": companies.get(cid_user, cid_user),
+                    "empresa_cuenta": companies.get(cid if es_propia else cid_user, cid_user),
                     "switch_on_off": "Sí" if switch else "No",
                     "nodos_count": len(nids),
                     "node_ids": ", ".join(nids),
                     "nombres_puntos": "; ".join(
                         f"{nid} ({nombres.get(nid) or nid})" for nid in nids
                     ),
-                    "es_cuenta_de_esta_empresa": "Sí" if cid_user == cid else "No",
+                    "es_cuenta_de_esta_empresa": "Sí" if es_propia else "No",
                 }
             )
     for cid in filas:
@@ -275,8 +289,8 @@ def _escribir_xlsx(
     ws["A1"] = "Accesos WES por empresa (puntos activos, sin personal WES)"
     ws["A1"].font = Font(bold=True, size=14, color="1F4E79")
     ws["A2"] = (
-        f"Generado {generado} hora Chile · se omite personal WES (@wes.cl / cía 000000) "
-        "excepto go.salass@gmail.com"
+        f"Generado {generado} hora Chile · se omite personal WES (@wes.cl); "
+        "se incluye go.salass@gmail.com"
     )
     ws.merge_cells("A1:E1")
     ws.merge_cells("A2:E2")
