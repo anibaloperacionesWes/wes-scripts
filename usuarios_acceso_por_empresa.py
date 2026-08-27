@@ -22,7 +22,6 @@ from typing import Dict, List, Set, Tuple
 from zoneinfo import ZoneInfo
 
 from contar_usuarios_por_nodo import (
-    NOMBRE_DISPLAY_POR_EMAIL,
     _allowed_nodes,
     _emails_desde_alertas,
     _fetch_user,
@@ -364,6 +363,184 @@ def _escribir_xlsx(
     wb.save(path)
 
 
+def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
+    """PDF de una página con la hoja Resumen del Excel de accesos por empresa."""
+    from openpyxl import load_workbook
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    xlsx_path = Path(xlsx_path)
+    if pdf_path is None:
+        pdf_path = xlsx_path.with_name("accesos_por_empresa_resumen.pdf")
+    else:
+        pdf_path = Path(pdf_path)
+
+    wb = load_workbook(xlsx_path, data_only=True)
+    if "Resumen" not in wb.sheetnames:
+        raise SystemExit(f"No hay hoja Resumen en {xlsx_path}")
+    ws = wb["Resumen"]
+    titulo = str(ws["A1"].value or "Accesos WES por empresa").strip()
+
+    filas_excel = list(ws.iter_rows(min_row=1, max_col=5, values_only=True))
+    header_i = None
+    for i, row in enumerate(filas_excel):
+        first = str(row[0] or "").strip().lower()
+        if first == "company_id":
+            header_i = i
+            break
+    if header_i is None:
+        raise SystemExit("No se encontró el encabezado de Resumen")
+
+    titulos_pdf = ["Company ID", "Empresa", "Puntos activos", "Usuarios con acceso"]
+    data_rows = []
+    tot_pts = 0
+    tot_usr = 0
+    for row in filas_excel[header_i + 1 :]:
+        if not row or row[0] is None or str(row[0]).strip() == "":
+            continue
+        cid = str(row[0]).strip()
+        empresa = str(row[1] or "").strip()
+        pts = int(row[2] or 0)
+        usr = int(row[3] or 0)
+        tot_pts += pts
+        tot_usr += usr
+        data_rows.append([cid, empresa, str(pts), str(usr)])
+
+    generado = datetime.now(TZ_CL).strftime("%d/%m/%Y %H:%M")
+    nota = (
+        f"Generado {generado} hora Chile · puntos activos · sin personal WES (@wes.cl); "
+        "se incluye go.salass@gmail.com · fuente: hoja Resumen de accesos_por_empresa.xlsx"
+    )
+
+    navy = colors.HexColor("#1F4E79")
+    zebra = colors.HexColor("#F4F8FB")
+    title_style = ParagraphStyle(
+        "titulo",
+        fontName="Helvetica-Bold",
+        fontSize=14,
+        leading=18,
+        textColor=navy,
+        alignment=TA_LEFT,
+    )
+    sub_style = ParagraphStyle(
+        "sub",
+        fontName="Helvetica",
+        fontSize=8,
+        leading=11,
+        textColor=colors.HexColor("#555555"),
+    )
+    head_style = ParagraphStyle(
+        "head",
+        fontName="Helvetica-Bold",
+        fontSize=8,
+        leading=10,
+        textColor=colors.white,
+        alignment=TA_CENTER,
+    )
+    cell_l = ParagraphStyle(
+        "cell_l", fontName="Helvetica", fontSize=8, leading=11, alignment=TA_LEFT
+    )
+    cell_c = ParagraphStyle(
+        "cell_c", fontName="Helvetica", fontSize=8, leading=11, alignment=TA_CENTER
+    )
+    tot_style = ParagraphStyle(
+        "tot",
+        fontName="Helvetica-Bold",
+        fontSize=8,
+        leading=11,
+        alignment=TA_LEFT,
+        textColor=navy,
+    )
+    tot_c = ParagraphStyle(
+        "tot_c",
+        fontName="Helvetica-Bold",
+        fontSize=8,
+        leading=11,
+        alignment=TA_CENTER,
+        textColor=navy,
+    )
+
+    def _p(txt, style):
+        t = (
+            str(txt)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+        return Paragraph(t, style)
+
+    table_data = [[_p(h, head_style) for h in titulos_pdf]]
+    for cid, empresa, pts, usr in data_rows:
+        table_data.append(
+            [
+                _p(cid, cell_c),
+                _p(empresa, cell_l),
+                _p(pts, cell_c),
+                _p(usr, cell_c),
+            ]
+        )
+    table_data.append(
+        [
+            _p("", tot_c),
+            _p(f"Total ({len(data_rows)} empresas)", tot_style),
+            _p(str(tot_pts), tot_c),
+            _p(str(tot_usr), tot_c),
+        ]
+    )
+
+    page = A4
+    margin = 14 * mm
+    usable = page[0] - 2 * margin
+    col_w = [usable * w for w in (0.18, 0.42, 0.20, 0.20)]
+    cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), navy),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#B0B0B0")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#D6E3F0")),
+    ]
+    for i in range(1, len(table_data) - 1):
+        if i % 2 == 0:
+            cmds.append(("BACKGROUND", (0, i), (-1, i), zebra))
+
+    story = [
+        _p(titulo, title_style),
+        Spacer(1, 2 * mm),
+        _p(nota, sub_style),
+        Spacer(1, 5 * mm),
+        Table(table_data, colWidths=col_w, repeatRows=1),
+    ]
+    story[-1].setStyle(TableStyle(cmds))
+
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    doc = SimpleDocTemplate(
+        str(pdf_path),
+        pagesize=page,
+        leftMargin=margin,
+        rightMargin=margin,
+        topMargin=margin,
+        bottomMargin=margin,
+        title=titulo,
+        author="WES",
+    )
+    doc.build(story)
+    return pdf_path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Excel: una hoja por empresa con usuarios que tienen acceso"
@@ -376,7 +553,27 @@ def main() -> int:
         action="store_true",
         help="Incluir puntos dados de baja / fuera de operación",
     )
+    parser.add_argument(
+        "--pdf-resumen",
+        type=Path,
+        nargs="?",
+        const=OUT_DIR / "accesos_por_empresa.xlsx",
+        default=None,
+        help="Solo generar PDF de la hoja Resumen (Excel existente, sin consultar API)",
+    )
     args = parser.parse_args()
+
+    if args.pdf_resumen is not None:
+        src = args.pdf_resumen
+        if not src.is_file():
+            print(f"[ERROR] No existe el Excel: {src}")
+            return 1
+        pdf = resumen_a_pdf(src)
+        latest_pdf = src.with_name("accesos_por_empresa_resumen.pdf")
+        if pdf.resolve() != latest_pdf.resolve():
+            latest_pdf.write_bytes(pdf.read_bytes())
+        print(f"[OK] PDF: {latest_pdf}")
+        return 0
 
     nombres, company_de, companies, usuarios = _cargar_usuarios(
         args.emails, max(1, min(args.workers, 16))
@@ -406,6 +603,11 @@ def main() -> int:
         )
     print(f"[OK] XLSX: {xlsx}")
     print(f"[OK] XLSX: {latest}")
+    pdf = resumen_a_pdf(latest, args.salida / f"accesos_por_empresa_resumen_{stamp}.pdf")
+    pdf_latest = args.salida / "accesos_por_empresa_resumen.pdf"
+    pdf_latest.write_bytes(pdf.read_bytes())
+    print(f"[OK] PDF: {pdf}")
+    print(f"[OK] PDF: {pdf_latest}")
     return 0
 
 
