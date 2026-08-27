@@ -39,6 +39,30 @@ NOMBRE_EMPRESA_FALLBACK = {
     "000026": "UDD",
 }
 
+# Personal WES (compañía 000000 o @wes.cl) se omite, salvo esta excepción.
+PERSONAL_WES_EXCEPCIONES = {"go.salass@gmail.com"}
+WES_COMPANY_ID = "000000"
+DOMINIOS_PERSONALES = {
+    "gmail.com",
+    "hotmail.com",
+    "hotmail.es",
+    "outlook.com",
+    "outlook.es",
+    "yahoo.com",
+    "yahoo.es",
+    "live.com",
+    "icloud.com",
+    "wes.cl",
+}
+DOMINIOS_PA = ("parauco.com", "linkes.cl", "externos.parauco.com")
+
+# Cuentas cliente que no aparecen en el repo (p. ej. Tamara tiene también @parauco.com).
+EMAILS_CLIENTES_EXTRA = {
+    "tamara.martinez@parauco.com",
+    "tamara.martinez.a@linkes.cl",
+    "tmartinez@linkes.cl",
+}
+
 
 def _nombre_hoja(cid: str, empresa: str, usados: Set[str]) -> str:
     base = SHEET_BAD.sub(" ", f"{cid} {empresa}").strip()
@@ -53,6 +77,60 @@ def _nombre_hoja(cid: str, empresa: str, usados: Set[str]) -> str:
     return name
 
 
+def _slug_nombre(texto: str) -> str:
+    import unicodedata
+
+    t = unicodedata.normalize("NFKD", texto or "")
+    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    t = t.lower().strip()
+    t = re.sub(r"[^a-z0-9]+", " ", t).strip()
+    return t.split()[0] if t else ""
+
+
+def es_personal_wes(user: dict) -> bool:
+    email = str(user.get("username") or "").strip().lower()
+    if email in PERSONAL_WES_EXCEPCIONES:
+        return False
+    if email.endswith("@wes.cl"):
+        return True
+    if str(user.get("companyId") or "").strip() == WES_COMPANY_ID:
+        return True
+    return False
+
+
+def _emails_desde_nombres(usuarios: Dict[str, dict]) -> Set[str]:
+    """Arma correos alternativos: mismo local en otros dominios de la empresa + first.last."""
+    found: Set[str] = set()
+    dominios_cia: Dict[str, Set[str]] = defaultdict(set)
+    for email, user in usuarios.items():
+        cid = str(user.get("companyId") or "").strip()
+        dom = str(email).partition("@")[2].lower()
+        if cid and dom and dom not in DOMINIOS_PERSONALES:
+            dominios_cia[cid].add(dom)
+    dominios_cia["000025"].update(DOMINIOS_PA)
+
+    for email, user in usuarios.items():
+        cid = str(user.get("companyId") or "").strip()
+        dominios = set(dominios_cia.get(cid, set()))
+        dom_actual = str(email).partition("@")[2].lower()
+        if dom_actual in DOMINIOS_PA:
+            dominios.update(DOMINIOS_PA)
+        if not dominios:
+            continue
+        local = str(email).partition("@")[0].strip().lower()
+        locales = {local} if local else set()
+        first = _slug_nombre(str(user.get("name") or ""))
+        last = _slug_nombre(str(user.get("lastName") or ""))
+        if first and last and len(first) >= 2 and len(last) >= 2:
+            locales.add(f"{first}.{last}")
+            locales.add(f"{first[0]}{last}")
+        for d in dominios:
+            for loc in locales:
+                if loc and "." in d:
+                    found.add(f"{loc}@{d}")
+    return found
+
+
 def _cargar_usuarios(extra_email_files: List[Path], workers: int):
     session = _session()
     print("[INFO] Obteniendo empresas y nodos...")
@@ -63,6 +141,7 @@ def _cargar_usuarios(extra_email_files: List[Path], workers: int):
     print(f"[OK] {len(companies)} empresas · {len(nombres)} nodeId")
 
     emails = _recolectar_emails(extra_email_files)
+    emails = sorted(set(emails) | {e.lower() for e in EMAILS_CLIENTES_EXTRA})
     extra = _emails_desde_alertas(session, nombres.keys(), workers=workers)
     if extra:
         n0 = len(emails)
@@ -71,15 +150,33 @@ def _cargar_usuarios(extra_email_files: List[Path], workers: int):
     print(f"[INFO] Consultando {len(emails)} correo(s)...")
 
     usuarios: Dict[str, dict] = {}
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        futs = [ex.submit(_fetch_user, session, e) for e in emails]
-        for fut in as_completed(futs):
-            email, user, _obs = fut.result()
-            if not user:
-                continue
-            email_api = str(user.get("username") or email).strip().lower()
-            usuarios[email_api] = user
-            print(f"[OK] {email_api}")
+
+    def _ingestar(cands: List[str]) -> None:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futs = [ex.submit(_fetch_user, session, e) for e in cands]
+            for fut in as_completed(futs):
+                email, user, _obs = fut.result()
+                if not user:
+                    continue
+                email_api = str(user.get("username") or email).strip().lower()
+                if email_api in usuarios:
+                    continue
+                usuarios[email_api] = user
+                print(f"[OK] {email_api}")
+
+    conocidos = {e.lower() for e in emails}
+    _ingestar(emails)
+    extra_nombres = _emails_desde_nombres(usuarios) - {e.lower() for e in usuarios} - conocidos
+    if extra_nombres:
+        print(f"[INFO] Probando {len(extra_nombres)} correo(s) alternativos de cliente...")
+        antes = set(usuarios)
+        _ingestar(sorted(extra_nombres))
+        nuevos = sorted(set(usuarios) - antes)
+        if nuevos:
+            print(f"[INFO] Cuentas cliente extra encontradas: {', '.join(nuevos)}")
+
+    n_wes = sum(1 for u in usuarios.values() if es_personal_wes(u))
+    print(f"[INFO] Usuarios API: {len(usuarios)} · personal WES a omitir: {n_wes}")
     return nombres, company_de, companies, usuarios
 
 
@@ -101,6 +198,8 @@ def _accesos_por_empresa(
 
     filas: Dict[str, List[dict]] = defaultdict(list)
     for email, user in usuarios.items():
+        if es_personal_wes(user):
+            continue
         nombre = f"{user.get('name', '')} {user.get('lastName', '')}".strip()
         cid_user = str(user.get("companyId") or "").strip()
         switch = user.get("switchEnabled")
@@ -173,9 +272,12 @@ def _escribir_xlsx(
 
     ws = wb.active
     ws.title = "Resumen"
-    ws["A1"] = "Accesos WES por empresa (puntos activos)"
+    ws["A1"] = "Accesos WES por empresa (puntos activos, sin personal WES)"
     ws["A1"].font = Font(bold=True, size=14, color="1F4E79")
-    ws["A2"] = f"Generado {generado} hora Chile · una hoja por empresa"
+    ws["A2"] = (
+        f"Generado {generado} hora Chile · se omite personal WES (@wes.cl / cía 000000) "
+        "excepto go.salass@gmail.com"
+    )
     ws.merge_cells("A1:E1")
     ws.merge_cells("A2:E2")
     for c, h in enumerate(cols_res, 1):
