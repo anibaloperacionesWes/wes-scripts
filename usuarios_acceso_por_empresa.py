@@ -22,6 +22,7 @@ from typing import Dict, List, Set, Tuple
 from zoneinfo import ZoneInfo
 
 from contar_usuarios_por_nodo import (
+    NOMBRE_DISPLAY_POR_EMAIL,
     _allowed_nodes,
     _emails_desde_alertas,
     _fetch_user,
@@ -29,6 +30,7 @@ from contar_usuarios_por_nodo import (
     _recolectar_emails,
     _session,
     es_nodo_activo,
+    nombre_usuario,
 )
 
 ROOT = Path(__file__).resolve().parent
@@ -209,7 +211,7 @@ def _accesos_por_empresa(
     for email, user in usuarios.items():
         if es_personal_wes(user):
             continue
-        nombre = f"{user.get('name', '')} {user.get('lastName', '')}".strip()
+        nombre = nombre_usuario(user)
         cid_user = str(user.get("companyId") or "").strip()
         switch = user.get("switchEnabled")
         dom = str(email).partition("@")[2].lower()
@@ -290,7 +292,9 @@ def _escribir_xlsx(
     ws["A1"].font = Font(bold=True, size=14, color="1F4E79")
     ws["A2"] = (
         f"Generado {generado} hora Chile · se omite personal WES (@wes.cl); "
-        "se incluye go.salass@gmail.com"
+        "se incluye go.salass@gmail.com. "
+        "Nombre de an_ambiental_pae@linkes.cl: Sergio Fuenzalida "
+        "(en la API WES sigue figurando Tamara Martínez A.; no hay endpoint para editar nombre)."
     )
     ws.merge_cells("A1:E1")
     ws.merge_cells("A2:E2")

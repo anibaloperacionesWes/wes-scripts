@@ -73,6 +73,20 @@ SKIP_SUFFIX = {
 
 WES_SPA_ID = "000000"
 
+# La API no tiene PUT de nombre (solo POST crear / DELETE). Nombres reales
+# cuando el registro WES quedó desactualizado.
+NOMBRE_DISPLAY_POR_EMAIL: Dict[str, Tuple[str, str]] = {
+    "an_ambiental_pae@linkes.cl": ("Sergio", "Fuenzalida"),
+}
+
+
+def nombre_usuario(user: dict) -> str:
+    email = str(user.get("username") or "").strip().lower()
+    over = NOMBRE_DISPLAY_POR_EMAIL.get(email)
+    if over:
+        return f"{over[0]} {over[1]}".strip()
+    return f"{user.get('name', '')} {user.get('lastName', '')}".strip()
+
 # Parque Arauco fuera de operación (mismo set que LISTADO_PA_IDS_EXCLUIDOS;
 # se copia acá para no importar listado_pa_que_esta_instalado → matplotlib).
 _PA_IDS_FUERA_DE_OPERACION = frozenset(
@@ -787,7 +801,7 @@ def main() -> int:
     n_inactivos = 0
     for email_api, user in sorted(usuarios_por_email.items()):
         nodos = _allowed_nodes(user)
-        nombre = f"{user.get('name', '')} {user.get('lastName', '')}".strip()
+        nombre = nombre_usuario(user)
         cid_user = str(user.get("companyId") or "").strip()
         nodos_visibles: List[str] = []
         for nid in nodos:
