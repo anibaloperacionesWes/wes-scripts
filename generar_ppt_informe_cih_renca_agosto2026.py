@@ -3,7 +3,7 @@ Informa de consumos Renca en formato CIH (PPT 16:9 → PDF).
 
 Toma el «Informe de consumos CIH Nº 2» (portada, intros satelitales, paleta) y lo
 rellena con la auditoría homologada de agosto 2026 (4 puntos 24–26 vs 17–19;
-ICCP 10–12 vs 24–26, control off).
+ICCP al final: 10–16 con WES vs 17–23 sin WES).
 
 Uso:
   python generar_ppt_informe_cih_renca_agosto2026.py
@@ -128,8 +128,8 @@ RECINTOS: Tuple[Recinto, ...] = (
         "Av. Brasil 7965, Renca",
         "Auditoria_ICCP_000017-07",
         True,
-        "Control off por OT 2282 (trabajos hasta 08-09-26: mar–jue 20:00–02:30, "
-        "vie 20:00–06:00, sáb–dom 24 h). No entra al % de los 4 puntos.",
+        "Punto sí o sí. Semana completa lun 10–dom 16 con WES vs lun 17–dom 23 sin WES. "
+        "Esta semana el control está off (OT 2282); no se usa 24–26. No entra al % de los 4.",
     ),
 )
 
@@ -439,13 +439,13 @@ def _grafico_5_puntos(nombres, m3_con, m3_sin, dest: Path) -> Path:
     fig, ax = plt.subplots(figsize=(11.6, 4.6), dpi=140)
     fig.patch.set_facecolor("white")
     b1 = ax.bar(x - w / 2, m3_con, width=w, color=COLOR_CON, label="Con WES", zorder=2)
-    b2 = ax.bar(x + w / 2, m3_sin, width=w, color=COLOR_SIN, label="Sin WES / sin control", zorder=2)
+    b2 = ax.bar(x + w / 2, m3_sin, width=w, color=COLOR_SIN, label="Sin WES", zorder=2)
     ymax = max(list(m3_con) + list(m3_sin) + [1.0]) * 1.28
     ax.set_ylim(0, ymax)
     ax.set_xticks(list(x))
     ax.set_xticklabels(nombres, fontsize=10)
-    ax.set_ylabel("Consumo (m³)")
-    ax.set_title("Renca — 5 puntos  |  ICCP usa otra ventana (control off)", fontsize=13, fontweight="bold", color="#1d5372")
+    ax.set_ylabel("m³/día")
+    ax.set_title("Renca — 5 puntos (m³/día)  |  ICCP al final: 10–16 vs 17–23", fontsize=13, fontweight="bold", color="#1d5372")
     ax.grid(axis="y", linestyle="--", alpha=0.4, zorder=0)
     ax.legend(fontsize=9, loc="upper left")
     for bars in (b1, b2):
@@ -468,6 +468,13 @@ def _add_picture_full(slide, png: Path) -> None:
 
 def _add_picture(slide, png: Path, l, t, w, h) -> None:
     slide.shapes.add_picture(str(png), Inches(l), Inches(t), width=Inches(w), height=Inches(h))
+
+
+def _fecha_fila(d: dict) -> str:
+    fechas, mid = d["fechas"], d["mid"]
+    a, b = fechas[0], fechas[mid - 1]
+    c, e = fechas[mid], fechas[-1]
+    return f"Con WES ({a:%d/%m} a {b:%d/%m}) vs Sin WES ({c:%d/%m} a {e:%d/%m})"
 
 
 def _rango_txt(fechas: Sequence[date], mid: int, con: bool, hora_corte: int) -> str:
@@ -506,9 +513,9 @@ def _slide_agregado(prs, filas: List[dict], n_horas: int, hora_corte: int, fecha
         mes = f["ahorro_mes"]
         clp = f["ahorro_clp"]
         if rec.iccp:
-            fecha = "Con WES (10/8 a 12/8) vs sin control (24/8 a 26/8)"
+            fecha = _fecha_fila(f)
         else:
-            fecha = "Con WES (24/8 a 26/8) vs Sin WES (17/8 a 19/8)"
+            fecha = _fecha_fila(f)
             tot4_con += f["m3_con"]
             tot4_sin += f["m3_sin"]
             tot4_mes += mes
@@ -541,8 +548,10 @@ def _slide_agregado(prs, filas: List[dict], n_horas: int, hora_corte: int, fecha
 
     notas = [
         f"●  Ventana 4 puntos: {_rango_txt(fechas_4, len(fechas_4)//2, True, hora_corte)} con WES vs "
-        f"{_rango_txt(fechas_4, len(fechas_4)//2, False, hora_corte)} sin WES. "
-        f"Corte último día: 00:00–{hora_corte:02d}:59 Chile ({n_horas} h).",
+        f"{_rango_txt(fechas_4, len(fechas_4)//2, False, hora_corte)} sin WES "
+        f"(corte 00:00–{hora_corte:02d}:59, {n_horas} h). "
+        f"ICCP al final: {_rango_txt(fechas_i, len(fechas_i)//2, True, 23)} vs "
+        f"{_rango_txt(fechas_i, len(fechas_i)//2, False, 23)} (7 días, no se mezcla).",
         "●  Corresponde al 3er informe de auditoría (avance agosto 2026, formato CIH Nº 2).",
         "●  Ahorro mes = (m³/día sin − m³/día con) × 30, con m³/día prorateado a las horas de la ventana. "
         f"Tarifa 1.300 CLP/m³, sin sobreconsumo.",
@@ -558,11 +567,24 @@ def _slide_ventanas(prs, png5: Path, hora_corte: int, filas: List[dict]) -> None
     _banner(slide, "VENTANAS DE COMPARACIÓN — AGOSTO 2026")
     _shape_fill(slide, 0.28, 0.92, 6.2, 1.55, RGBColor(0xE8, 0xEE, 0xF3), "", size=10, tcolor=GRIS)
     _textbox(slide, 0.42, 0.98, 5.9, 0.32, "4 puntos con control (ICCO · Lo Velásquez · gimnasio · piscina)", 12, True, AZUL)
-    _textbox(slide, 0.42, 1.32, 5.9, 0.95, "Sin WES: lun 17 – mié 19 agosto\nCon WES: lun 24 – mié 26 agosto\nHomólogo día a día, mismo corte de hora.", 12, False, GRIS)
+    f4 = next(f for f in filas if not f["rec"].iccp)
+    _textbox(
+        slide,
+        0.42,
+        1.32,
+        5.9,
+        0.95,
+        f"Sin WES: {_rango_txt(f4['fechas'], f4['mid'], False, f4['hora_corte'])}\n"
+        f"Con WES: {_rango_txt(f4['fechas'], f4['mid'], True, f4['hora_corte'])}\n"
+        "Homólogo día a día, mismo corte de hora.",
+        12,
+        False,
+        GRIS,
+    )
 
     _shape_fill(slide, 6.85, 0.92, 6.2, 1.55, RGBColor(0xFF, 0xF2, 0xCC), "", size=10)
-    _textbox(slide, 7.0, 0.98, 5.9, 0.32, "ICCP — control off (OT 2282, hasta 08-09-26)", 12, True, AZUL)
-    _textbox(slide, 7.0, 1.32, 5.9, 0.95, "Con WES: lun 10 – mié 12 agosto (sem. previa al sin WES)\nSin control: lun 24 – mié 26 agosto (esta semana)\nNo entra al % de los 4 puntos.", 12, False, GRIS)
+    _textbox(slide, 7.0, 0.98, 5.9, 0.32, "ICCP (al final) — punto sí o sí", 12, True, AZUL)
+    _textbox(slide, 7.0, 1.32, 5.9, 0.95, "Con WES: lun 10 – dom 16 agosto\nSin WES: lun 17 – dom 23 agosto\nSemana completa. No entra al % de los 4 puntos.", 12, False, GRIS)
 
     _add_picture(slide, png5, 0.35, 2.62, 12.6, 4.55)
 
@@ -604,8 +626,8 @@ def _slide_comentarios(prs, rec: Recinto, d: dict, png_pares: Path, n_horas: int
     _add_picture(slide, png_pares, 0.25, 0.90, 7.55, 3.55)
     d_con, d_sin, mes, clp = _ahorro_mes(d["m3_con"], d["m3_sin"], n_horas)
     pct = d["pct"]
-    lab_sin = "Sin control (trabajos)" if rec.iccp else "Sin WES (línea base)"
-    lab_con = "Con WES (sem. 10)" if rec.iccp else "Con WES (control activo)"
+    lab_sin = "Sin WES (línea base)"
+    lab_con = "Con WES (control activo)"
     _textbox(slide, 8.05, 0.95, 4.9, 0.28, lab_sin, 11, True, GRIS)
     _textbox(slide, 8.05, 1.22, 4.9, 0.28, _rango_txt(d["fechas"], d["mid"], False, d["hora_corte"]), 12, False, GRIS)
     _textbox(slide, 8.05, 1.58, 4.9, 0.28, lab_con, 11, True, GRIS)
@@ -628,9 +650,11 @@ def _slide_comentarios(prs, rec: Recinto, d: dict, png_pares: Path, n_horas: int
             f"{fechas[i]:%d} vs {fechas[mid+i]:%d}: "
             f"{format_number_chilean(p, 1)} % ({format_number_chilean(a, 1)} m³)"
         )
-    bullets.append(">  " + "  ·  ".join(pares))
     if rec.iccp:
-        bullets.append(">  Ventanas de agua pedidas por el recinto (folio 2282). Miércoles 26 puede reaparecer caudal nocturno: control apagado.")
+        bullets.append(">  " + "  ·  ".join(pares[:4]))
+        bullets.append(">  " + "  ·  ".join(pares[4:]))
+    else:
+        bullets.append(">  " + "  ·  ".join(pares))
     y = 4.92
     for b in bullets:
         _textbox(slide, 0.28, y, 12.7, 0.55, b, 13, False, GRIS)
@@ -712,30 +736,32 @@ def main() -> int:
     gxlsx.LABEL_P2 = "Sin WES"
 
     datos: List[dict] = []
-    hora_corte = _hora_corte_run(run_dir) or 17
+    hora_corte_run = _hora_corte_run(run_dir) or 17
     for rec in RECINTOS:
         xlsx = _xlsx_de(run_dir, rec)
-        d = _datos_recinto(xlsx, hora_corte)
-        hc_mat = _hora_corte_desde_mats(d["mats"], d["mid"])
-        d["hora_corte"] = hora_corte if hora_corte is not None else hc_mat
+        d = _datos_recinto(xlsx, hora_corte_run)
         d["rec"] = rec
         d["xlsx"] = xlsx
         d["pct"] = _pct(d["m3_con"], d["m3_sin"])
-        datos.append(d)
-    hora_corte = int(datos[0]["hora_corte"])
-    n_horas = _n_horas(datos[0]["n_dias"], hora_corte)
-    for d in datos:
-        d["hora_corte"] = hora_corte
-        _c, _s, mes, clp = _ahorro_mes(d["m3_con"], d["m3_sin"], n_horas)
+        if rec.iccp:
+            d["hora_corte"] = 23
+            d["n_horas"] = d["n_dias"] * 24
+        else:
+            d["hora_corte"] = hora_corte_run
+            d["n_horas"] = _n_horas(d["n_dias"], hora_corte_run)
+        _c, _s, mes, clp = _ahorro_mes(d["m3_con"], d["m3_sin"], d["n_horas"])
         d["ahorro_mes"] = mes
         d["ahorro_clp"] = clp
+        datos.append(d)
+    hora_corte = int(next(d["hora_corte"] for d in datos if not d["rec"].iccp))
+    n_horas = next(d["n_horas"] for d in datos if not d["rec"].iccp)
 
     out_charts = run_dir / "graficos_cih"
     out_charts.mkdir(exist_ok=True)
     png5 = _grafico_5_puntos(
         ["ICCO", "Lo Velásquez", "Gimnasio", "Piscina", "ICCP"],
-        [d["m3_con"] for d in datos],
-        [d["m3_sin"] for d in datos],
+        [d["m3_con"] * 24.0 / d["n_horas"] for d in datos],
+        [d["m3_sin"] * 24.0 / d["n_horas"] for d in datos],
         out_charts / "cinco_puntos.png",
     )
 
@@ -777,24 +803,23 @@ def main() -> int:
         if intro.is_file():
             s = _blank(prs)
             _add_picture_full(s, intro)
-        lab_con = "Con WES" if not rec.iccp else "Con WES (sem. 10)"
-        lab_sin = "Sin WES" if not rec.iccp else "Sin control (trabajos)"
+        lab_con = "Con WES"
+        lab_sin = "Sin WES"
         gdir = out_charts / rec.nid
         bar = _grafico_barras_dos(
             d["m3_con"],
             d["m3_sin"],
             gdir / "barras.png",
             "Con WES",
-            "Sin control" if rec.iccp else "Sin WES",
+            "Sin WES",
         )
-        # dos días homólogos completos: lun (0) y mar (1); si hay 1 solo, se repite
         j1 = 0
-        j2 = 1 if d["n_dias"] > 1 else 0
+        j2 = (d["n_dias"] - 1) if rec.iccp else (1 if d["n_dias"] > 1 else 0)
         p1 = _grafico_dia(d["fechas"], d["mats"], j1, gdir / "dia1.png", lab_con, lab_sin)
         p2 = _grafico_dia(d["fechas"], d["mats"], j2, gdir / "dia2.png", lab_con, lab_sin)
-        _slide_comparativo(prs, rec, d, bar, p1, p2, n_horas, lab_con, lab_sin)
+        _slide_comparativo(prs, rec, d, bar, p1, p2, d["n_horas"], lab_con, lab_sin)
         pares = _grafico_pares_barras(d["fechas"], d["dias_con"], d["dias_sin"], gdir / "pares.png", lab_con, lab_sin)
-        _slide_comentarios(prs, rec, d, pares, n_horas)
+        _slide_comentarios(prs, rec, d, pares, d["n_horas"])
 
     _slide_anexo_vwb(prs)
     s_end = _blank(prs)

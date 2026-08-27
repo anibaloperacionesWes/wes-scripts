@@ -2,7 +2,7 @@
 Informe de auditoría Renca — 5 puntos en una tabla.
 
 Lo Velásquez, gimnasio, piscina e ICCO: esta semana (desde lun 24) vs semana del 17.
-ICCP: lun 10 al homólogo de hoy (semana del 10, con WES) vs esta semana (control off, trabajos).
+ICCP (al final, punto sí o sí): lun 10–dom 16 con WES vs lun 17–dom 23 sin WES.
 
 Uso:
   python generar_auditoria_renca_semana_pasada_vs_esta.py
@@ -68,9 +68,11 @@ PUNTOS_CONTROL: Tuple[Tuple[str, str], ...] = (
     ("000017-05", "Gimnasio municipal"),
     ("000017-06", "Piscina municipal"),
 )
-LUNES_CON = date(2026, 8, 10)  # última semana con WES antes del sin WES (referencia ICCP)
+LUNES_CON = date(2026, 8, 10)  # última semana con WES (ICCP: 10–16)
 LUNES_SIN = date(2026, 8, 17)
 LUNES_PROX = date(2026, 8, 24)  # vuelve el control en los 4 puntos (no ICCP: trabajos)
+DIAS_ICCP_CON = tuple(LUNES_CON + timedelta(days=i) for i in range(7))  # 10–16
+DIAS_ICCP_SIN = tuple(LUNES_SIN + timedelta(days=i) for i in range(7))  # 17–23
 HORAS_REGULADAS = (11, 12, 13)  # 11:00–13:59 cubre la regulación 11:00–13:30
 HORAS_CONTROL_ICCO = frozenset(range(0, 6))
 DOMINGO_SIN_ICCO = date(2026, 8, 16)
@@ -86,10 +88,10 @@ TEXTO_CONTROL = (
     "tope parejo de 0,54 m³/h que se quedaba corto en un evento)."
 )
 TEXTO_ICCP = (
-    "ICCP va en la misma tabla, con otro periodo: por trabajos especiales el control "
-    "está desactivado. Hasta el miércoles 26 se evalúa lun 10 al mié 12 (semana del 10, "
-    "cuando sí tenía WES) contra lun 24 al mié 26 (esta semana, sin control). "
-    "Ahorro = (esta semana − semana del 10) / esta semana × 100."
+    "ICCP es punto sí o sí y va al final, con semana completa: "
+    "lun 10–dom 16/08 con WES vs lun 17–dom 23/08 sin WES. "
+    "Esta semana el control está off por OT 2282, por eso no se usa 24–26. "
+    "Ahorro = (Sin WES − Con WES) / Sin WES × 100."
 )
 WD_CORTO = ("Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom")
 WD_LARGO = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
@@ -204,10 +206,9 @@ def _eval_esta_semana(dias_con: Sequence[date], dias_sin: Sequence[date]) -> str
 def _eval_iccp(iccp_info: dict) -> str:
     dc = iccp_info["dias_con"]
     ds = iccp_info["dias_sin"]
-    ultimo = WD_CORTO[dc[-1].weekday()]
     return (
-        f"Eval.: lun {dc[0]:%d} al {ultimo} {dc[-1]:%d/%m} (sem. del 10, con WES) vs "
-        f"esta semana {_fmt_rango_dias(ds)} (control off, trabajos)"
+        f"Eval.: {_fmt_rango_dias(dc)} con WES vs {_fmt_rango_dias(ds)} sin WES "
+        "(semana completa; no 24–26)"
     )
 
 
@@ -245,6 +246,7 @@ def _grafico_4_puntos(
     lab_con: str,
     lab_sin: str,
     out_png: Path,
+    ylabel: str = "Consumo (m³)",
 ) -> None:
     x = np.arange(len(nombres))
     w = 0.36
@@ -255,7 +257,7 @@ def _grafico_4_puntos(
     ax.set_ylim(0, ymax)
     ax.set_xticks(list(x))
     ax.set_xticklabels(nombres, fontsize=10)
-    ax.set_ylabel("Consumo (m³)")
+    ax.set_ylabel(ylabel)
     ax.set_title(titulo, fontweight="bold", fontsize=12, color="#1F4788")
     ax.grid(axis="y", alpha=0.3, zorder=0)
     ax.legend(fontsize=9, loc="upper left")
@@ -742,7 +744,7 @@ def _word_conjunto(
         _rellenar_fila(
             tper.rows[2],
             [
-                "ICCP (control off, trabajos)",
+                "ICCP (10–16 vs 17–23)",
                 _fmt_rango_dias(iccp_info["dias_sin"]),
                 _fmt_rango_dias(iccp_info["dias_con"]),
             ],
@@ -844,7 +846,7 @@ def _word_conjunto(
         t_i.style = "Table Grid"
         _rellenar_encabezado(
             t_i.rows[0],
-            ["Par ICCP", "Con WES sem. 10 (m³)", "Esta sem. (m³)", "Ahorro (m³)", "%"],
+            ["Par ICCP", "Con WES 10–16 (m³)", "Sin WES 17–23 (m³)", "Ahorro (m³)", "%"],
         )
         for i, lab in enumerate(nomb_i):
             a, pc = _rendimiento(iccp_info["dias_m3_sin"][i], iccp_info["dias_m3_con"][i])
@@ -897,7 +899,7 @@ def main() -> int:
         f"último día hasta {hora_corte:02d}:59 Chile | {ahora:%Y-%m-%d %H:%M}"
     )
     print("4 puntos con control: esta semana vs semana del 17")
-    print("ICCP: esta semana (control off, trabajos) vs semana del 10 (antes del sin WES)")
+    print("ICCP (al final): lun 10–dom 16 con WES vs lun 17–dom 23 sin WES")
 
     gxlsx.LABEL_P1 = lab_con
     gxlsx.LABEL_P2 = lab_sin
@@ -936,42 +938,50 @@ def main() -> int:
         print(f"  Con {c:.1f} m³ | Sin {s:.1f} m³")
 
     n = len(dias_con)
-    dias_iccp_con = tuple(LUNES_CON + timedelta(days=i) for i in range(n))
-    dias_iccp_sin = tuple(LUNES_PROX + timedelta(days=i) for i in range(n))
+    dias_iccp_con = DIAS_ICCP_CON
+    dias_iccp_sin = DIAS_ICCP_SIN
+    n_iccp = len(dias_iccp_con)
+    hora_corte_iccp = 23
     print("=" * 64)
-    print(f"{NODO_ICCP} {NOMBRE_ICCP} (vs semana del 10; control off)")
+    print(f"{NODO_ICCP} {NOMBRE_ICCP} (10–16 con WES vs 17–23 sin WES)")
     cdir_iccp = out_root / f"Auditoria_ICCP_{NODO_ICCP}"
     dirs[NODO_ICCP] = cdir_iccp
     lab_iccp_con = f"Con WES {_fmt_rango_dias(dias_iccp_con)}"
-    lab_iccp_sin = f"Sin control (trabajos) {_fmt_rango_dias(dias_iccp_sin)}"
+    lab_iccp_sin = f"Sin WES {_fmt_rango_dias(dias_iccp_sin)}"
     xlsx_i, _pdf, c_i, s_i, dc_i, ds_i = _auditoria_un_punto(
         NODO_ICCP,
         NOMBRE_ICCP,
         cdir_iccp,
         dias_iccp_con,
         dias_iccp_sin,
-        hora_corte,
+        hora_corte_iccp,
         Periodo(lab_iccp_con, dias_iccp_con),
         Periodo(lab_iccp_sin, dias_iccp_sin),
-        f"Con WES (sem. 10): {dias_iccp_con[0]:%d-%m-%Y} al {dias_iccp_con[-1]:%d-%m-%Y}",
-        f"Sin control trabajos: {dias_iccp_sin[0]:%d-%m-%Y} al {dias_iccp_sin[-1]:%d-%m-%Y}",
+        f"Con WES: {dias_iccp_con[0]:%d-%m-%Y} al {dias_iccp_con[-1]:%d-%m-%Y}",
+        f"Sin WES: {dias_iccp_sin[0]:%d-%m-%Y} al {dias_iccp_sin[-1]:%d-%m-%Y}",
     )
     _fechas_i, mats_i = leer_matriz_consolidado(xlsx_i)
-    horas_iccp = [(list(mats_i[i]), list(mats_i[n + i])) for i in range(n)]
-    print(f"  Sem. 10 {c_i:.1f} m³ | Esta sem. {s_i:.1f} m³")
+    horas_iccp = [(list(mats_i[i]), list(mats_i[n_iccp + i])) for i in range(n_iccp)]
+    print(f"  Con {c_i:.1f} m³ | Sin {s_i:.1f} m³")
 
     png_dir = out_root / "graficos"
     png_dir.mkdir(exist_ok=True)
     nombres_5 = ["ICCO", "Lo Velásquez", "Gimnasio", "Piscina", "ICCP"]
+    h4 = (n - 1) * 24 + (hora_corte + 1 if hora_corte < 23 else 24)
+    m3d_4c = [m3_con[nid] * 24.0 / h4 for nid, _ in PUNTOS_CONTROL]
+    m3d_4s = [m3_sin[nid] * 24.0 / h4 for nid, _ in PUNTOS_CONTROL]
+    m3d_ic = c_i / 7.0
+    m3d_is = s_i / 7.0
     p_all = png_dir / "todos_casos_con_vs_sin.png"
     _grafico_4_puntos(
         nombres_5,
-        [m3_con[nid] for nid, _ in PUNTOS_CONTROL] + [c_i],
-        [m3_sin[nid] for nid, _ in PUNTOS_CONTROL] + [s_i],
-        "Renca — 5 puntos  |  ICCP: sem. 10–12 vs esta semana (control off)",
+        m3d_4c + [m3d_ic],
+        m3d_4s + [m3d_is],
+        "Renca — 5 puntos (m³/día)  |  ICCP al final: 10–16 vs 17–23",
         "Con WES",
         "Sin WES",
         p_all,
+        ylabel="m³/día",
     )
     pngs: Dict[str, Path] = {"todos": p_all}
 
@@ -1022,37 +1032,37 @@ def main() -> int:
         )
         pngs[key] = png
 
-    p_iccp_bar = png_dir / "iccp_sem10_vs_esta.png"
+    p_iccp_bar = png_dir / "iccp_10_16_vs_17_23.png"
     labels_iccp = [
-        _etiqueta_par(d1, d2, _hora_corte_de_dia(i, n, hora_corte))
-        for i, (d1, d2) in enumerate(zip(dias_iccp_con, dias_iccp_sin))
+        _etiqueta_par(d1, d2, 23)
+        for d1, d2 in zip(dias_iccp_con, dias_iccp_sin)
     ]
     _grafico_4_puntos(
         labels_iccp,
         dc_i,
         ds_i,
-        "ICCP — sem. 10–12 (con WES) vs esta semana",
+        "ICCP — lun 10–dom 16 con WES vs lun 17–dom 23 sin WES",
         lab_iccp_con,
         lab_iccp_sin,
         p_iccp_bar,
     )
     pares_iccp: List[Tuple[str, Sequence[float], Sequence[float], int, Sequence[int]]] = []
-    for i, (d1, d2) in enumerate(zip(dias_iccp_con, dias_iccp_sin)):
-        hc = _hora_corte_de_dia(i, n, hora_corte)
+    for i in (0, 6):
+        d1, d2 = dias_iccp_con[i], dias_iccp_sin[i]
         vc, vs = horas_iccp[i]
         pares_iccp.append(
             (
                 f"{WD_CORTO[d1.weekday()]} {d1:%d/%m} vs {d2:%d/%m}",
                 vc,
                 vs,
-                hc,
+                23,
                 (),
             )
         )
-    p_iccp_prf = png_dir / "perfil_iccp_sem10_vs_esta.png"
+    p_iccp_prf = png_dir / "perfil_iccp_10_16_vs_17_23.png"
     _grafico_perfil_pares(
         pares_iccp,
-        "ICCP — semana del 10 (con WES) contra esta semana (sin control)",
+        "ICCP — lunes y domingo homólogos (10–16 vs 17–23)",
         lab_iccp_con,
         lab_iccp_sin,
         p_iccp_prf,
@@ -1065,7 +1075,7 @@ def main() -> int:
         "dias_m3_con": dc_i,
         "dias_m3_sin": ds_i,
         "horas": horas_iccp,
-        "hora_corte": hora_corte,
+        "hora_corte": hora_corte_iccp,
         "png": p_iccp_prf,
         "png_barras": p_iccp_bar,
     }
@@ -1106,7 +1116,7 @@ def main() -> int:
         a, p = _rendimiento(m3_sin[nid], m3_con[nid])
         print(f"  {nom}: {p:.1f}% ({a:.1f} m³)")
     a_i, p_i = _rendimiento(s_i, c_i)
-    print(f"  ICCP vs sem. 10: {p_i:.1f}% ({a_i:.1f} m³) | sem10 {c_i:.1f} | ahora {s_i:.1f}")
+    print(f"  ICCP 10–16 vs 17–23: {p_i:.1f}% ({a_i:.1f} m³) | con {c_i:.1f} | sin {s_i:.1f}")
     print(f"DOCX conjunto: {docx_path}")
     print(f"PDF  conjunto: {pdf_path or '(no convertido)'}")
     print(f"DIR: {out_root}")
