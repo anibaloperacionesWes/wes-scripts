@@ -14,16 +14,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
-
-import requests
 
 ENTITY_BASE = "http://104.248.53.141:7001/wes/api/acl-entities/v1"
 
 
 def _session() -> requests.Session:
     s = requests.Session()
-    s.headers.update({"Accept": "application/json", "Content-Type": "application/json"})
+    s.headers.update({"Accept": "*/*"})
     return s
 
 
@@ -60,9 +57,20 @@ def recrear(email: str, nombre: str, apellido: str) -> dict:
     print("[INFO] Usuario actual:")
     print(json.dumps(_sin_password(actual), indent=2, ensure_ascii=False))
     print(f"[INFO] Eliminando userId={user_id} ...")
-    d = session.delete(f"{ENTITY_BASE}/configuration/users/{user_id}", timeout=25)
-    print(f"[INFO] DELETE {d.status_code} {d.text[:200]!r}")
-    d.raise_for_status()
+    d = None
+    last_err = ""
+    for accept in ("*/*", "text/plain", "application/json"):
+        d = session.delete(
+            f"{ENTITY_BASE}/configuration/users/{user_id}",
+            timeout=25,
+            headers={"Accept": accept},
+        )
+        print(f"[INFO] DELETE Accept={accept!r} -> {d.status_code} {d.text[:200]!r}")
+        if d.status_code < 400:
+            break
+        last_err = f"{d.status_code} {d.text[:200]!r}"
+    else:
+        raise SystemExit(f"No se pudo eliminar el usuario: {last_err}")
 
     if _get_por_email(session, email):
         raise SystemExit("El usuario sigue existiendo después del DELETE")

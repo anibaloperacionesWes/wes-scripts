@@ -292,9 +292,7 @@ def _escribir_xlsx(
     ws["A1"].font = Font(bold=True, size=14, color="1F4E79")
     ws["A2"] = (
         f"Generado {generado} hora Chile · se omite personal WES (@wes.cl); "
-        "se incluye go.salass@gmail.com. "
-        "Nombre de an_ambiental_pae@linkes.cl: Sergio Fuenzalida "
-        "(en la API WES sigue figurando Tamara Martínez A.; no hay endpoint para editar nombre)."
+        "se incluye go.salass@gmail.com"
     )
     ws.merge_cells("A1:E1")
     ws.merge_cells("A2:E2")
