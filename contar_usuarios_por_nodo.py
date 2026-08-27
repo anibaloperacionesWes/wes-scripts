@@ -87,6 +87,7 @@ def nombre_usuario(user: dict) -> str:
         return f"{over[0]} {over[1]}".strip()
     return f"{user.get('name', '')} {user.get('lastName', '')}".strip()
 
+
 # Parque Arauco fuera de operación (mismo set que LISTADO_PA_IDS_EXCLUIDOS;
 # se copia acá para no importar listado_pa_que_esta_instalado → matplotlib).
 _PA_IDS_FUERA_DE_OPERACION = frozenset(
