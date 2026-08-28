@@ -17,7 +17,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 DRIVE_HORARIOS_ID = "1eM03xh4Pmqx5YTTKWiOku8_NT0115ausiWOKNaLc8Lk"
 CACHE_XLSX = Path(__file__).resolve().parent / "reports" / "Horarios_control_hidrico_clientes_wes.xlsx"
 
-# Nombres del Excel de horarios → nodeId WES.
+# Nombres del Excel de horarios (typos incluidos) → nodeId WES.
 CPA_ALIAS = {
     "171 antonio hermidas fabres": "000008-01",
     "antonio hermidas fabres": "000008-01",
@@ -28,14 +28,44 @@ CPA_ALIAS = {
     "tobalaba": "000008-04",
     "colegio santa maria": "000008-05",
     "santa maria": "000008-05",
+    "luis arrieta canas": "000008-06",
+    "luis arrieta cana": "000008-06",
+    "colegio erasmo escala": "000008-07",
+    "erasmo escala": "000008-07",
+    "juan bautista pastene": "000008-09",
+    "juan bautista pasten": "000008-09",
+    "juan bautista pastenes": "000008-09",
+    "matilde huichinavas": "000008-10",
+    "matilde huici navas": "000008-10",
+    "ce valle germoso": "000008-11",
+    "ce valle hermoso": "000008-11",
+    "valle hermoso": "000008-11",
+    "union nacional arabe": "000008-12",
+    "juan pablo segundo": "000008-14",
+    "juan pablo ii": "000008-14",
+    "juan pablo 2": "000008-14",
     "pae estanquer norte locales": "000025-01",
     "pae estanque norte locales": "000025-01",
     "estanque norte locales": "000025-01",
     "mae sala de bomba estanque sur": "000025-19",
     "sala de bomba estanque sur": "000025-19",
     "pizza hut": "000025-07",
+    "san ignacio 500": "000025-18",
     "liceo alto cordillera la florida": "000028-01",
     "alto cordillera": "000028-01",
+    "escuela alexander fleming": "000022-00",
+    "alexander fleming": "000022-00",
+    "derco matriz principal": "000012-06",
+    "quilicura matriz principal": "000012-06",
+    "las tarrias providencia": "000006-01",
+    "lastarria": "000006-01",
+    "liceo lastarria": "000006-01",
+    "carmela carvajal provi": "000006-02",
+    "carmela carvajal": "000006-02",
+    "liceo 7 luisa saavedra": "000006-04",
+    "luisa saavedra": "000006-04",
+    "liceo juan pablo duarte": "000006-05",
+    "juan pablo duarte": "000006-05",
     "lo valledor p1": "000002-01",
     "club hause uc": "000021-01",
     "club house uc": "000021-01",
@@ -44,6 +74,15 @@ CPA_ALIAS = {
     "raimundo tupper": "000021-03",
     "agunsa modulo d": "000020-02",
     "modulo d": "000020-02",
+    "escuela lo velazques": "000017-04",
+    "escuela lo velasquez": "000017-04",
+    "lo velazquez": "000017-04",
+    "lo velasquez": "000017-04",
+    "gym renca": "000017-05",
+    "gimnasio renca": "000017-05",
+    "picina municipal renca": "000017-06",
+    "piscina municipal renca": "000017-06",
+    "piscina municipal": "000017-06",
     "iccp": "000017-07",
     "icco": "000017-08",
     "eugenio maria de hostos": "000024-01",
@@ -54,6 +93,39 @@ SKIP_TITULOS = {
     "corporacion penalolen",
 }
 
+STOP = {
+    "colegio",
+    "liceo",
+    "escuela",
+    "esc",
+    "de",
+    "la",
+    "el",
+    "los",
+    "las",
+    "del",
+    "san",
+    "sala",
+    "provi",
+    "providencia",
+    "renca",
+}
+
+SINONIMOS = {
+    "segundo": "ii",
+    "gym": "gimnasio",
+    "picina": "piscina",
+    "germoso": "hermoso",
+    "pastene": "pasten",
+    "pastenes": "pasten",
+    "huichinavas": "huici",
+    "velazques": "velasquez",
+    "velazquez": "velasquez",
+    "tarrias": "lastarria",
+    "cana": "canas",
+    "hause": "house",
+}
+
 
 def _slug(texto: str) -> str:
     t = unicodedata.normalize("NFKD", texto or "")
@@ -61,6 +133,15 @@ def _slug(texto: str) -> str:
     t = t.lower()
     t = re.sub(r"[^a-z0-9]+", " ", t)
     return t.strip()
+
+
+def _tokens(slug: str) -> Set[str]:
+    out: Set[str] = set()
+    for t in slug.split():
+        t = SINONIMOS.get(t, t)
+        if len(t) >= 3 and t not in STOP:
+            out.add(t)
+    return out
 
 
 def _es_celda_horario(val: object) -> bool:
@@ -75,19 +156,24 @@ def _es_celda_horario(val: object) -> bool:
 
 
 def _titulos_desde_xlsx(path: Path) -> List[str]:
+    """Lee TODAS las columnas: los colegios van en A, D, G, J, M, P, S, V, Y, AA, AC."""
     from openpyxl import load_workbook
 
     wb = load_workbook(path, data_only=True)
     ws = wb[wb.sheetnames[0]]
     out: List[str] = []
-    for row in ws.iter_rows(max_col=12, values_only=True):
+    vistos: Set[str] = set()
+    for row in ws.iter_rows(values_only=True):
         for val in row:
             if _es_celda_horario(val):
                 continue
             t = str(val).strip()
             slug = _slug(t)
-            if not slug or slug in SKIP_TITULOS:
+            if not slug or slug in SKIP_TITULOS or slug in vistos:
                 continue
+            if "?" in t:
+                continue
+            vistos.add(slug)
             out.append(t)
     return out
 
@@ -119,24 +205,35 @@ def _resolver_node_id(
     slug = _slug(titulo)
     if slug in CPA_ALIAS:
         return CPA_ALIAS[slug]
-    # alias parcial
     for key, nid in CPA_ALIAS.items():
         if key in slug or slug in key:
             return nid
-    tokens = {t for t in slug.split() if len(t) >= 4}
+    tokens = _tokens(slug)
     if not tokens:
         return None
     best_nid = None
     best_score = 0
     for nid, name in nombres.items():
-        nslug = _slug(name)
-        ntok = {t for t in nslug.split() if len(t) >= 4}
+        ntok = _tokens(_slug(name))
         score = len(tokens & ntok)
         if score > best_score:
             best_score = score
             best_nid = nid
     if best_score >= 2:
         return best_nid
+    if best_score == 1 and best_nid:
+        ntok = _tokens(_slug(nombres.get(best_nid, "")))
+        comunes = tokens & ntok
+        if len(comunes) != 1:
+            return None
+        token = next(iter(comunes))
+        unicos = [
+            nid
+            for nid, name in nombres.items()
+            if token in _tokens(_slug(name))
+        ]
+        if len(unicos) == 1:
+            return unicos[0]
     return None
 
 

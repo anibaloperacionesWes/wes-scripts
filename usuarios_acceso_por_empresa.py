@@ -711,15 +711,21 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             )
         )
         story.append(Spacer(1, 4 * mm))
+        cpa_cell_l = ParagraphStyle(
+            "cpa_l", fontName="Helvetica", fontSize=7, leading=9, alignment=TA_LEFT
+        )
+        cpa_cell_c = ParagraphStyle(
+            "cpa_c", fontName="Helvetica", fontSize=7, leading=9, alignment=TA_CENTER
+        )
         cpa_headers = ["Node ID", "Punto", "Empresa", "Nombre en Excel de horarios"]
         cpa_data = [[_p(h, head_style) for h in cpa_headers]]
         for vals in cpa_pts:
             cpa_data.append(
                 [
-                    _p(vals[0], cell_c),
-                    _p(vals[1], cell_l),
-                    _p(vals[2], cell_l),
-                    _p(vals[3], cell_l),
+                    _p(vals[0], cpa_cell_c),
+                    _p(vals[1], cpa_cell_l),
+                    _p(vals[2], cpa_cell_l),
+                    _p(vals[3], cpa_cell_l),
                 ]
             )
         cpa_w = [usable * w for w in (0.14, 0.34, 0.22, 0.30)]
@@ -729,10 +735,10 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             ("BACKGROUND", (0, 1), (-1, -1), green_body),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#A9D08E")),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]
         cpa_table.setStyle(TableStyle(cpa_cmds))
         story.append(cpa_table)
@@ -748,7 +754,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             else "Hoja 2 · tabla verde (CPA control)"
         )
         canvas.drawString(margin, 8 * mm, label)
-        canvas.drawRightString(page[0] - margin, 8 * mm, f"{n} / {2 if cpa_pts else 1}")
+        canvas.drawRightString(page[0] - margin, 8 * mm, str(n))
         canvas.restoreState()
 
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
