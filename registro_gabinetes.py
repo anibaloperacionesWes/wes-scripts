@@ -147,7 +147,14 @@ GABINETES: List[Dict[str, object]] = [
         "confianza": "media",
         "notas": "Módulo D, ABC y E. Depósito e Intermodal San Antonio van aparte.",
     },
-    # --- Nido estanques ---
+    # --- Nido de Águilas ---
+    {
+        "id": "NIDO-ELEM-HS-TEATRO",
+        "nombre": "Nido de Águilas — Elementary / High School / Teatro",
+        "nodos": ["000007-02", "000007-03", "000007-04"],
+        "confianza": "confirmado",
+        "notas": "Un gabinete: Teatro, Nido High School y Elementary.",
+    },
     {
         "id": "NIDO-EST",
         "nombre": "Nido de Águilas — estanques B y C",

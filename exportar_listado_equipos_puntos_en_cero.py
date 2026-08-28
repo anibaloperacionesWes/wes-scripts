@@ -390,7 +390,7 @@ def _escribir_notas(ws: Worksheet, generado: datetime, total: int) -> None:
         (
             "Tipo gabinete (amarillo)",
             "Complete con el desplegable: 1 a 5 placas. Ya vienen llenos los gabinetes confirmados "
-            "(COPEC: 4 lavados; y matriz + riego + estanque).",
+            "(COPEC, Fundo Zapallar etapas 1-4/5, Nido Elementary/High School/Teatro).",
         ),
         (
             "Nodos que contiene el gabinete (amarillo)",
