@@ -66,10 +66,10 @@ CLIENTES = [
 ]
 
 DRIVE_LINKS = [
-    ("Renca", "https://drive.google.com/file/d/102Tx5tnlQxqSwPw4fTE0JNwBWN0GvU9s/view?usp=drivesdk"),
-    ("La Florida", "https://drive.google.com/file/d/1WoCcYyF_bpV4Q3TYlsPt2sF1Btv5XmXT/view?usp=drivesdk"),
-    ("La Reina", "https://drive.google.com/file/d/1V1OcLsKu4IZUStcUd35ViKWwxTC-AWQY/view?usp=drivesdk"),
-    ("CORMUP", "https://drive.google.com/file/d/1P93CBFoycDebfFHG6A6B1syWZzgrs-bn/view?usp=drivesdk"),
+    ("Renca", "https://drive.google.com/file/d/16-5PwcEO4IjPqUR99rSlYiGGmysmOM-n/view?usp=drivesdk"),
+    ("La Florida", "https://drive.google.com/file/d/1ciZx9Whl76wGfjjmfffEipEU7EtzYtnb/view?usp=drivesdk"),
+    ("La Reina", "https://drive.google.com/file/d/1ijZU3VLvsimuxPTVjWXELYqcuDOVVe4v/view?usp=drivesdk"),
+    ("CORMUP", "https://drive.google.com/file/d/1_34v44LT4nbiU3K4j_OKXnp7lFc2z3B3/view?usp=drivesdk"),
 ]
 
 ASUNTO = "Aprobación — Reportes agregados colegios Agosto 2026 (Renca, La Florida, La Reina, CORMUP)"

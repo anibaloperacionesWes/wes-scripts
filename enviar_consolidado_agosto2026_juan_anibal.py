@@ -50,14 +50,14 @@ CLIENTES = [
 ]
 
 DRIVE_LINKS = [
-    ("Fundo Zapallar", "https://drive.google.com/file/d/1ZQORiUMmRPHN_Yxaomn2cLFeYOhiUlAh/view"),
-    ("Inchcape", "https://drive.google.com/file/d/1ghKHnmB9SPaRnah4pJee2HU0h6ZZGKdq/view"),
-    ("Nido de Águilas", "https://drive.google.com/file/d/1NM-TDNJuUr5N2VOyrdrHYhNdhOz6KbNb/view"),
-    ("Lo Valledor", "https://drive.google.com/file/d/1RQnWkG3XWtiBLv2eyVMmn1ssJ_qZINI4/view"),
-    ("UDD", "https://drive.google.com/file/d/1_V5-0ZseKb027TapZTtjb5In-5DnzkWh/view"),
-    ("Club Providencia", "https://drive.google.com/file/d/1Xlgy3KsaC6CEmI2wAlg18wAGNxCoJX3B/view"),
-    ("AGUNSA Lampa", "https://drive.google.com/file/d/1sjOyccrVJ7OFB5zgx_6bxDwaRjFYBf9w/view"),
-    ("AGUNSA Intermodal", "https://drive.google.com/file/d/189ANIMKuDpCsF3JtipwSsxOcQ0XUDkq9/view"),
+    ("Fundo Zapallar", "https://drive.google.com/file/d/10hP-cnAMFJC8ny1YMH-22TEDsyeMFiNf/view?usp=drivesdk"),
+    ("Inchcape", "https://drive.google.com/file/d/1Ajx17aVXqNjGcqtYQZuePsBeCV7zRANK/view?usp=drivesdk"),
+    ("Nido de Águilas", "https://drive.google.com/file/d/19De85VA-Y5SqUSri9Opidtqb70l3SqJL/view?usp=drivesdk"),
+    ("Lo Valledor", "https://drive.google.com/file/d/13v2FQ1ozgscpSOogpUQ9KzZg6PFUPMQg/view?usp=drivesdk"),
+    ("UDD", "https://drive.google.com/file/d/1i5d6U35qywysnSjL_Rwb0P2tx4ZYcgjR/view?usp=drivesdk"),
+    ("Club Providencia", "https://drive.google.com/file/d/17qnLaliECs8m0ndO-IMQdOLksWoVHCl_/view?usp=drivesdk"),
+    ("AGUNSA Lampa", "https://drive.google.com/file/d/1Js6hbETsjrGu5f4PVpwa6BUxqPDEtibO/view?usp=drivesdk"),
+    ("AGUNSA Intermodal", "https://drive.google.com/file/d/1KXTWXFhU9yTee9vx7su97mxW32idZiQP/view?usp=drivesdk"),
 ]
 
 
