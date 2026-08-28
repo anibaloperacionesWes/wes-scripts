@@ -2,9 +2,8 @@
 Gabinetes WES: qué nodos comparten el mismo gabinete (1 placa o hasta 4 placas).
 
 La API no informa gabinete. Este registro es la fuente para el Excel de equipos
-vigentes. Cada entrada es un gabinete con 1–4 nodos (una placa por nodo).
-
-Los nodos que no aparecen aquí se tratan como gabinete de 1 nodo / 1 placa.
+vigentes. Cada entrada es un gabinete con 1–5 nodos (una placa por nodo).
+Solo `confianza: "confirmado"` se vuelca al Excel; el resto queda para que se complete a mano.
 
 Para corregir: editar GABINETES y volver a generar
   python exportar_listado_equipos_puntos_en_cero.py
@@ -74,27 +73,20 @@ GABINETES: List[Dict[str, object]] = [
         "confianza": "alta",
         "notas": "Llenado Pileta y Llenado Pileta Cascada.",
     },
-    # --- COPEC Costanera ---
+    # --- COPEC Costanera (confirmados en terreno) ---
     {
         "id": "COPEC-LAV-01",
-        "nombre": "COPEC Costanera — gabinete lavado (4 placas)",
+        "nombre": "COPEC Costanera — Lavados",
         "nodos": ["000009-03", "000009-04", "000009-09", "000009-10"],
-        "confianza": "alta",
-        "notas": "Lavado automático N/S y autoservicio N/S.",
+        "confianza": "confirmado",
+        "notas": "Un gabinete con los cuatro lavados: automático N/S y autoservicio N/S.",
     },
     {
-        "id": "COPEC-PRIN-01",
-        "nombre": "COPEC Costanera — gabinete principal (4 placas)",
-        "nodos": ["000009-00", "000009-01", "000009-02", "000009-06"],
-        "confianza": "media",
-        "notas": "Costanera, Oficina Admin., Estanque reutilización y Matriz. Confirmar en terreno.",
-    },
-    {
-        "id": "COPEC-PRONTO-01",
-        "nombre": "COPEC Costanera — Pronto",
-        "nodos": ["000009-08", "000009-11"],
-        "confianza": "media",
-        "notas": "Pronto Baños y Pronto Tienda.",
+        "id": "COPEC-MATRIZ-01",
+        "nombre": "COPEC Costanera — Matriz / riego / estanque",
+        "nodos": ["000009-02", "000009-05", "000009-06"],
+        "confianza": "confirmado",
+        "notas": "Un gabinete: Estanque reutilización, Riego y Matriz principal.",
     },
     # --- DERCO Quilicura (7 nodos → 4+3 placas) ---
     {
@@ -177,8 +169,26 @@ _INDICE = _indice()
 
 def tipo_gabinete(n_placas: int) -> str:
     if n_placas <= 1:
-        return "1 nodo / 1 placa"
-    return f"{n_placas} nodos / {n_placas} placas"
+        return "1 placa"
+    return f"{n_placas} placas"
+
+
+def relleno_confirmado(node_id: str, nombres: Dict[str, str]) -> Dict[str, str]:
+    """Gabinete / tipo / nodos para el Excel, solo si está confirmado."""
+    g = _INDICE.get(node_id)
+    if not g or str(g.get("confianza") or "") != "confirmado":
+        return {}
+    ids = [str(x) for x in (g.get("nodos") or [])]
+    n = len(ids)
+    partes = []
+    for nid in ids:
+        nom = (nombres.get(nid) or "").strip()
+        partes.append(f"{nid} {nom}".strip() if nom else nid)
+    return {
+        "gabinete": str(g.get("nombre") or ""),
+        "tipo": tipo_gabinete(n),
+        "nodos_gabinete": "; ".join(partes),
+    }
 
 
 def info_gabinete(

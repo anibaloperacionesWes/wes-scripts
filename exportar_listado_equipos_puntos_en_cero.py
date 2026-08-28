@@ -33,6 +33,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
 
+from registro_gabinetes import relleno_confirmado
 from wes_paths import wes_scripts_root
 
 ENTITY_BASE_URL = "http://104.248.53.141:7001/wes/api/acl-entities/v1"
@@ -225,6 +226,7 @@ def _escribir_equipos(
     subtitulo = (
         f"Equipos vigentes al {generado.strftime('%d/%m/%Y %H:%M')} (hora Chile). "
         "Complete Tipo gabinete (1 a 5 placas) y Nodos que contiene el gabinete. "
+        "Los gabinetes ya confirmados (p. ej. COPEC lavados y matriz/riego/estanque) vienen llenos. "
         "Monitoreo y Control: Sí/No."
     )
     header_row = _escribir_titulo(
@@ -241,6 +243,7 @@ def _escribir_equipos(
         nodos,
         key=lambda n: (n.get("companyName") or "", n.get("nodeName") or "", n.get("nodeId") or ""),
     )
+    nombres_por_id = {n.get("nodeId") or "": n.get("nodeName") or "" for n in nodos}
     first_data = header_row + 1
     border = _thin_border()
     align_izq = Alignment(horizontal="left", vertical="center", wrap_text=True)
@@ -255,14 +258,15 @@ def _escribir_equipos(
         row = first_data + i - 1
         nid = nodo.get("nodeId") or ""
         prev = marcas.get(nid) or {}
+        conf = relleno_confirmado(nid, nombres_por_id)
         valores = [
             i,
             nodo.get("companyName") or "",
             nid,
             nodo.get("nodeName") or "",
-            prev.get("gabinete") or "",
-            prev.get("tipo") or "",
-            prev.get("nodos_gabinete") or "",
+            prev.get("gabinete") or conf.get("gabinete") or "",
+            prev.get("tipo") or conf.get("tipo") or "",
+            prev.get("nodos_gabinete") or conf.get("nodos_gabinete") or "",
             prev.get("monitoreo") or "",
             prev.get("control") or "",
             prev.get("observacion") or "",
@@ -377,7 +381,8 @@ def _escribir_notas(ws: Worksheet, generado: datetime, total: int) -> None:
         ),
         (
             "Tipo gabinete (amarillo)",
-            "Complete con el desplegable: 1 placa, 2 placas, 3 placas, 4 placas o 5 placas.",
+            "Complete con el desplegable: 1 a 5 placas. Ya vienen llenos los gabinetes confirmados "
+            "(COPEC: 4 lavados; y matriz + riego + estanque).",
         ),
         (
             "Nodos que contiene el gabinete (amarillo)",
