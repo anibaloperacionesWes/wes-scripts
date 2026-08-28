@@ -4314,19 +4314,20 @@ def generate_aggregated_report(
             measures = flatten_measures(measures_payload)
             summary = summarize_consumption(measures)
             alerts = []
-            try:
-                alerts_payload = fetch_json(
-                    f"{acl_node_base_url()}/nodes/myalert/alerts",
-                    params=[
-                        ("id", node_id),
-                        ("start", _format_ddmmyyyy(start_dt)),
-                        ("end", _format_ddmmyyyy(end_dt)),
-                    ],
-                )
-                if isinstance(alerts_payload, list):
-                    alerts = alerts_payload
-            except Exception:
-                pass
+            if company_id != "000027":
+                try:
+                    alerts_payload = fetch_json(
+                        f"{acl_node_base_url()}/nodes/myalert/alerts",
+                        params=[
+                            ("id", node_id),
+                            ("start", _format_ddmmyyyy(start_dt)),
+                            ("end", _format_ddmmyyyy(end_dt)),
+                        ],
+                    )
+                    if isinstance(alerts_payload, list):
+                        alerts = alerts_payload
+                except Exception:
+                    pass
             alert_stats = summarize_alerts(alerts, start_dt, end_dt)
             for alert in alerts:
                 alert["nodeId"] = node_id
@@ -4672,16 +4673,6 @@ def generate_aggregated_report(
         summary_para.add_run(
             "Nota: no se suma estanques ni etapas al total (mediciones aguas abajo de ESVAL).\n"
         )
-        esval_alerts = int(((esval or {}).get("alert_stats") or {}).get("cantidad") or 0)
-        otros_alerts = max(0, int(total_alerts) - esval_alerts)
-        summary_para.add_run("Total de alertas registradas: ")
-        summary_para.add_run(f"{total_alerts}.  ")
-        run_m = summary_para.add_run(f"Matriz ESVAL: {esval_alerts}")
-        run_m.bold = True
-        from agregado_extendido_extra import RGB_MATRIZ_ESVAL
-        run_m.font.color.rgb = RGB_MATRIZ_ESVAL
-        run_o = summary_para.add_run(f"  ·  Otros puntos: {otros_alerts}.\n")
-        run_o.font.color.rgb = RGBColor(140, 155, 171)
     else:
         summary_para.add_run(f"Consumo total agregado: {format_number_chilean(total_consumption, 1)} m³.\n")
         summary_para.add_run(f"Consumo promedio por punto: {format_number_chilean(avg_consumption_per_node, 1)} m³.\n")
@@ -4760,9 +4751,15 @@ def generate_aggregated_report(
     # Tabla resumen por nodo (ordenar de mayor a menor consumo)
     add_formatted_heading(doc, "Resumen por punto de monitoreo", level=1)
     col_ultima = "Costo nocturno (CLP)" if es_agregado_fmt else "Proyección de filtración"
-    table_rows = [
-        ("Ranking", "Dispositivo", "Consumo total (m³)", "Número de alerta", "Consumo nocturno", col_ultima)
-    ]
+    omitir_col_alertas = es_fundo_zapallar
+    if omitir_col_alertas:
+        table_rows = [
+            ("Ranking", "Dispositivo", "Consumo total (m³)", "Consumo nocturno", col_ultima)
+        ]
+    else:
+        table_rows = [
+            ("Ranking", "Dispositivo", "Consumo total (m³)", "Número de alerta", "Consumo nocturno", col_ultima)
+        ]
     
     # Ordenar nodes_data por consumo total de mayor a menor
     sorted_nodes_data = sorted(nodes_data, key=lambda d: d["summary"]["total"], reverse=True)
@@ -4861,14 +4858,23 @@ def generate_aggregated_report(
         node_names_for_chart.append(node_name)
         consumo_nocturno_values.append(consumo_nocturno)
         
-        table_rows.append((
-            str(rank),
-            node_name,
-            format_number_chilean(summary["total"], 1),
-            str(num_alertas),
-            consumo_nocturno_str,
-            proyeccion_filtracion_str,
-        ))
+        if omitir_col_alertas:
+            table_rows.append((
+                str(rank),
+                node_name,
+                format_number_chilean(summary["total"], 1),
+                consumo_nocturno_str,
+                proyeccion_filtracion_str,
+            ))
+        else:
+            table_rows.append((
+                str(rank),
+                node_name,
+                format_number_chilean(summary["total"], 1),
+                str(num_alertas),
+                consumo_nocturno_str,
+                proyeccion_filtracion_str,
+            ))
     
     # Agregar fila de totales
     ultima_col_total = (
@@ -4876,14 +4882,23 @@ def generate_aggregated_report(
         if es_agregado_fmt
         else format_number_chilean(total_proyeccion_filtracion, 1) + " m³"
     )
-    table_rows.append((
-        "",
-        "TOTAL",
-        format_number_chilean(total_consumo_total, 1),
-        str(total_num_alertas),
-        format_number_chilean(total_consumo_nocturno, 1) + " m³",
-        ultima_col_total,
-    ))
+    if omitir_col_alertas:
+        table_rows.append((
+            "",
+            "TOTAL",
+            format_number_chilean(total_consumo_total, 1),
+            format_number_chilean(total_consumo_nocturno, 1) + " m³",
+            ultima_col_total,
+        ))
+    else:
+        table_rows.append((
+            "",
+            "TOTAL",
+            format_number_chilean(total_consumo_total, 1),
+            str(total_num_alertas),
+            format_number_chilean(total_consumo_nocturno, 1) + " m³",
+            ultima_col_total,
+        ))
     
     add_table(
         doc,
