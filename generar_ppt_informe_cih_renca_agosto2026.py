@@ -100,8 +100,8 @@ RECINTOS: Tuple[Recinto, ...] = (
         "Av. José Miguel Infante 7401, Renca",
         "Auditoria_Esc._Lo_Velásquez_000017-04",
         False,
-        "Noches ya en 0 vs 0. El mayor uso 07–13 es ocupación, no WES. "
-        "Regulación lun 24, 11:00–13:30 Chile.",
+        "Bypass abierto desde jue 27 ~17:00: de noche ~0,55 m³/h parejo (antes 0). "
+        "El control quedó fuera de circuito; el % negativo no es ocupación.",
     ),
     Recinto(
         "000017-05",
