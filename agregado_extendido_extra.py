@@ -8,14 +8,17 @@ Secciones del reporte agregado — formato extendido (Club Providencia, UDD, etc
 
 from __future__ import annotations
 
+import math
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+from matplotlib.ticker import FuncFormatter, MultipleLocator
 from docx import Document
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Inches, Pt, RGBColor
@@ -135,6 +138,81 @@ COLOR_MATRIZ_ESVAL = "#E67E22"
 COLOR_AGUAS_ABAJO = "#8C9BAB"
 RGB_MATRIZ_ESVAL = RGBColor(230, 126, 34)
 ZAPALLAR_ESVAL_ID = "000027-01"
+
+
+def _ceil_nice(value: float) -> float:
+    """Redondea hacia arriba a un tope de eje legible (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10 × 10^n)."""
+    if value <= 0:
+        return 1.0
+    mag = 10 ** math.floor(math.log10(value))
+    for m in (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10):
+        if value <= m * mag + 1e-9:
+            return m * mag
+    return 10 * mag
+
+
+def _tick_step(ymax: float, n_ticks: int = 4) -> float:
+    if ymax <= 0:
+        return 1.0
+    rough = ymax / max(n_ticks, 1)
+    mag = 10 ** math.floor(math.log10(max(rough, 1e-9)))
+    for m in (1, 2, 2.5, 5, 10):
+        if rough <= m * mag + 1e-9:
+            return m * mag
+    return 10 * mag
+
+
+def _formatter_m3_eje(x: float, _pos: int) -> str:
+    from generar_reporte_word import format_number_chilean
+
+    if abs(x) < 1e-9:
+        return "0"
+    if abs(x - round(x)) < 1e-6:
+        return format_number_chilean(x, 0)
+    return format_number_chilean(x, 1)
+
+
+def _aplicar_eje_y_m3(ax, ymin: float, ymax: float, n_ticks: int = 4) -> None:
+    ax.set_ylim(ymin, ymax)
+    span = max(ymax - ymin, 1e-9)
+    ax.yaxis.set_major_locator(MultipleLocator(_tick_step(span, n_ticks)))
+    ax.yaxis.set_major_formatter(FuncFormatter(_formatter_m3_eje))
+    ax.grid(axis="y", linestyle="--", alpha=0.32)
+    ax.tick_params(axis="y", labelsize=8)
+
+
+def _dibujar_marcas_quiebre(ax_top, ax_bot) -> None:
+    kwargs = dict(color="0.35", clip_on=False, linewidth=0.9)
+    d = 0.015
+    ax_top.plot((-d, +d), (-d, +d), transform=ax_top.transAxes, **kwargs)
+    ax_top.plot((1 - d, 1 + d), (-d, +d), transform=ax_top.transAxes, **kwargs)
+    ax_bot.plot((-d, +d), (1 - d, 1 + d), transform=ax_bot.transAxes, **kwargs)
+    ax_bot.plot((1 - d, 1 + d), (1 - d, 1 + d), transform=ax_bot.transAxes, **kwargs)
+
+
+def _usar_eje_partido(values: Sequence[float]) -> bool:
+    positivos = sorted((float(v) for v in values if v > 0), reverse=True)
+    if len(positivos) < 2:
+        return False
+    return positivos[0] >= 3.5 * max(positivos[1], 1.0)
+
+
+def _limites_eje_partido(values: Sequence[float]) -> Tuple[float, float, float]:
+    """Devuelve (tope panel bajo, piso panel alto, tope panel alto)."""
+    positivos = sorted((float(v) for v in values if v > 0), reverse=True)
+    vmax = positivos[0]
+    v2 = positivos[1]
+    bottom_high = _ceil_nice(v2 * 1.20)
+    top_step = 50.0 if vmax >= 200 else _tick_step(vmax, 4)
+    top_high = math.ceil((vmax * 1.10) / top_step) * top_step
+    top_low = math.floor((vmax * 0.88) / top_step) * top_step
+    if top_low <= bottom_high:
+        top_low = bottom_high * 2.0
+    if top_high <= top_low:
+        top_high = top_low + 2 * top_step
+    return bottom_high, top_low, top_high
+
+
 _MESES_ES = {
     1: "ene",
     2: "feb",
@@ -700,6 +778,119 @@ def agregar_secciones_consumo_diario_y_max_dia(
             run.font.color.rgb = RGBColor(0, 0, 0)
 
 
+def _colores_barras_nocturno(
+    company_id: str,
+    names: Sequence[str],
+    nodos_noct: Sequence[dict],
+) -> Optional[List[str]]:
+    if company_id != "000027":
+        return None
+    id_por_nombre = {n["nombre"]: n.get("node_id") for n in nodos_noct}
+    return [
+        COLOR_MATRIZ_ESVAL if id_por_nombre.get(n) == ZAPALLAR_ESVAL_ID else COLOR_AGUAS_ABAJO
+        for n in names
+    ]
+
+
+def _etiquetar_barras_nocturno(
+    ax,
+    bars,
+    values: Sequence[float],
+    y_min: Optional[float] = None,
+    y_max: Optional[float] = None,
+) -> None:
+    from generar_reporte_word import format_number_chilean
+
+    for bar, val in zip(bars, values):
+        if val <= 0:
+            continue
+        if y_max is not None and val > y_max:
+            continue
+        if y_min is not None and val < y_min:
+            continue
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            val,
+            format_number_chilean(val, 1),
+            ha="center",
+            va="bottom",
+            fontsize=7,
+            fontweight="bold",
+            clip_on=True,
+        )
+
+
+def _dibujar_grafico_consumo_nocturno(
+    names: Sequence[str],
+    values: Sequence[float],
+    bar_colors: Optional[Sequence[str]],
+    chart_path: Path,
+    destacar_esval: bool,
+) -> bool:
+    """Dibuja el ranking nocturno. Devuelve True si usó eje Y partido."""
+    n_pts = len(names)
+    rot = 48 if n_pts > 4 else 28
+    fs = 7 if n_pts > 6 else 8
+    fig_w = max(7.2, min(9.6, n_pts * 0.9))
+    color_unico = "#FF8C00"
+    edge = "#A04000" if destacar_esval else "#CC7000"
+    colors = list(bar_colors) if bar_colors else [color_unico] * n_pts
+    legend_handles = None
+    if destacar_esval:
+        legend_handles = [
+            Patch(facecolor=COLOR_MATRIZ_ESVAL, label="Matriz ESVAL (entrada real)"),
+            Patch(facecolor=COLOR_AGUAS_ABAJO, label="Estanques y etapas (aguas abajo)"),
+        ]
+
+    eje_partido = _usar_eje_partido(values)
+    if eje_partido:
+        bottom_high, top_low, top_high = _limites_eje_partido(values)
+        fig, (ax_top, ax_bot) = plt.subplots(
+            2,
+            1,
+            sharex=True,
+            figsize=(fig_w, 4.55),
+            gridspec_kw={"height_ratios": [1.15, 2.35], "hspace": 0.07},
+        )
+        bars_top = ax_top.bar(names, values, color=colors, alpha=0.92, edgecolor=edge, linewidth=0.8)
+        bars_bot = ax_bot.bar(names, values, color=colors, alpha=0.92, edgecolor=edge, linewidth=0.8)
+        _aplicar_eje_y_m3(ax_bot, 0.0, bottom_high, n_ticks=4)
+        _aplicar_eje_y_m3(ax_top, top_low, top_high, n_ticks=3)
+        ax_top.spines["bottom"].set_visible(False)
+        ax_bot.spines["top"].set_visible(False)
+        ax_top.spines["top"].set_visible(False)
+        ax_top.spines["right"].set_visible(False)
+        ax_bot.spines["right"].set_visible(False)
+        ax_top.tick_params(axis="x", bottom=False, labelbottom=False)
+        ax_top.set_title("Consumo nocturno por punto", fontsize=11, fontweight="bold", pad=8)
+        ax_bot.set_ylabel("m³ (periodo)", fontsize=10, fontweight="bold")
+        _dibujar_marcas_quiebre(ax_top, ax_bot)
+        _etiquetar_barras_nocturno(ax_bot, bars_bot, values, y_max=bottom_high)
+        _etiquetar_barras_nocturno(ax_top, bars_top, values, y_min=top_low)
+        plt.setp(ax_bot.xaxis.get_majorticklabels(), rotation=rot, ha="right", fontsize=fs)
+        if legend_handles:
+            ax_top.legend(handles=legend_handles, loc="upper right", fontsize=7, frameon=False)
+        fig.subplots_adjust(hspace=0.07, left=0.10, right=0.98, top=0.90, bottom=0.28)
+    else:
+        fig, ax = plt.subplots(figsize=(fig_w, 3.55 if n_pts > 5 else 3.8))
+        bars = ax.bar(names, values, color=colors, alpha=0.92, edgecolor=edge, linewidth=0.8)
+        ymax = _ceil_nice(max(values) * 1.22) if values else 1.0
+        _aplicar_eje_y_m3(ax, 0.0, ymax, n_ticks=5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.set_ylabel("m³ (periodo)", fontsize=10, fontweight="bold")
+        ax.set_title("Consumo nocturno por punto", fontsize=11, fontweight="bold", pad=8)
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=rot, ha="right", fontsize=fs)
+        _etiquetar_barras_nocturno(ax, bars, values)
+        if legend_handles:
+            ax.legend(handles=legend_handles, loc="upper right", fontsize=7, frameon=False)
+        fig.tight_layout()
+
+    fig.savefig(chart_path, dpi=160, bbox_inches="tight", pad_inches=0.12)
+    plt.close(fig)
+    return eje_partido
+
+
 def agregar_analisis_nocturno_extendido(
     company_id: str,
     doc: Document,
@@ -760,71 +951,43 @@ def agregar_analisis_nocturno_extendido(
     apply_keep_with_next(p_hor)
 
     chart_path = None
+    es_zapallar = company_id == "000027"
     if names and any(v > 0 for v in values):
         sorted_pairs = sorted(zip(names, values), key=lambda x: x[1], reverse=True)
         names = [n for n, _ in sorted_pairs]
         values = [v for _, v in sorted_pairs]
         n_pts = len(names)
-        fig_w = max(7.0, min(9.5, n_pts * 0.85))
-        fig_h = 2.2 if n_pts > 5 else 3.2
-        rot = 48 if n_pts > 4 else 28
-        fs = 7 if n_pts > 6 else 8
-        fig, ax = plt.subplots(figsize=(fig_w, fig_h))
-        es_zapallar = company_id == "000027"
-        if es_zapallar:
-            id_por_nombre = {n["nombre"]: n.get("node_id") for n in nodos_noct}
-            bar_colors = [
-                COLOR_MATRIZ_ESVAL if id_por_nombre.get(n) == ZAPALLAR_ESVAL_ID else COLOR_AGUAS_ABAJO
-                for n in names
-            ]
-            bars = ax.bar(names, values, color=bar_colors, alpha=0.92, edgecolor="#A04000", linewidth=0.8)
-            from matplotlib.patches import Patch
-
-            ax.legend(
-                handles=[
-                    Patch(facecolor=COLOR_MATRIZ_ESVAL, label="Matriz ESVAL (entrada real)"),
-                    Patch(facecolor=COLOR_AGUAS_ABAJO, label="Estanques y etapas (aguas abajo)"),
-                ],
-                loc="upper right",
-                fontsize=7,
-                frameon=False,
-            )
-        else:
-            bars = ax.bar(names, values, color="#FF8C00", alpha=0.88, edgecolor="#CC7000", linewidth=1.0)
-        ax.set_ylabel("m³ (periodo)", fontsize=10, fontweight="bold")
-        ax.set_title("Consumo nocturno por punto", fontsize=11, fontweight="bold", pad=8)
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        ax.set_ylim(bottom=0)
-        plt.setp(ax.xaxis.get_majorticklabels(), rotation=rot, ha="right", fontsize=fs)
-        for bar, val in zip(bars, values):
-            if val > 0:
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    bar.get_height(),
-                    f"{format_number_chilean(val, 1)}",
-                    ha="center",
-                    va="bottom",
-                    fontsize=7,
-                    fontweight="bold",
-                )
-        plt.tight_layout()
         chart_path = output_dir / f"{pref}_consumo_nocturno_periodo.png"
-        plt.savefig(chart_path, dpi=140, bbox_inches="tight")
-        plt.close()
-        img_w = Inches(5.4) if n_pts > 5 else Inches(5.8)
-        img_h = Inches(1.85) if n_pts > 5 else Inches(2.4)
+        eje_partido = _dibujar_grafico_consumo_nocturno(
+            names,
+            values,
+            _colores_barras_nocturno(company_id, names, nodos_noct),
+            chart_path,
+            destacar_esval=es_zapallar,
+        )
+        img_w = Inches(6.15) if n_pts > 5 else Inches(6.0)
         pic_para = doc.add_paragraph()
-        pic_para.add_run().add_picture(str(chart_path), width=img_w, height=img_h)
+        pic_para.add_run().add_picture(str(chart_path), width=img_w)
         pic_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
         pic_para.paragraph_format.space_before = Pt(2)
-        pic_para.paragraph_format.space_after = Pt(4)
+        pic_para.paragraph_format.space_after = Pt(2)
         apply_keep_with_next(pic_para)
+        if eje_partido:
+            nota_eje = doc.add_paragraph(
+                "El eje vertical está partido para mostrar a la vez la Matriz ESVAL "
+                "y los puntos de menor caudal nocturno, que de otro modo quedarían ilegibles."
+            )
+            nota_eje.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+            for run in nota_eje.runs:
+                run.font.size = Pt(8)
+                run.font.italic = True
+                run.font.color.rgb = RGBColor(80, 80, 80)
+            nota_eje.paragraph_format.space_after = Pt(4)
+            apply_keep_with_next(nota_eje)
 
     add_formatted_title(doc, "Detalle por punto")
     apply_keep_with_next(doc.paragraphs[-1])
 
-    es_zapallar = company_id == "000027"
     esval_noct = next((n for n in nodos_noct if n.get("node_id") == ZAPALLAR_ESVAL_ID), None)
     denom_fundo = float((esval_noct or {}).get("total_periodo") or 0.0) if es_zapallar else 0.0
 
