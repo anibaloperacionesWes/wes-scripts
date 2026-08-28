@@ -39,14 +39,24 @@ def _node_ids_desde_registro_puntos_deshabilitados() -> Set[str]:
 EXCLUDED_COMPANY_IDS: Set[str] = {"000000", "000001", "000004"}
 
 # Empresas excluidas solo del informe «puntos en cero» (creadas en app, sin instalación operativa).
+# BUPA (000029) ya no se excluye completa: Clínica Antofagasta (000029-07..10) está operativa.
+# Los puntos BUPA 01-06 siguen fuera vía registro_puntos_deshabilitados.txt.
 EXCLUDED_COMPANY_IDS_SOLO_PUNTOS_EN_CERO: Set[str] = {
-    "000029",  # BUPA — puntos pendientes de instalación
     "000010",  # Corporación Puente Alto — colegios fuera del reporte en cero
 }
 
 EXCLUDED_COMPANY_IDS_PUNTOS_EN_CERO: Set[str] = (
     EXCLUDED_COMPANY_IDS | EXCLUDED_COMPANY_IDS_SOLO_PUNTOS_EN_CERO
 )
+
+# Clínica Bupa Antofagasta (empresa 000029). Nombre de cliente en el listado de control.
+BUPA_ANTOFAGASTA_COMPANY_NAME = "BUPA Antofagasta"
+BUPA_ANTOFAGASTA_NODE_IDS: List[str] = [
+    "000029-07",  # Sala de Bomba Principal
+    "000029-08",  # Sala de Bomba Sexto Piso
+    "000029-09",  # Medidor Principal Sanitaria
+    "000029-10",  # Sala de Bomba N°2
+]
 
 # Palabras clave de nombres de empresas a excluir (comparación case-insensitive)
 EXCLUDED_COMPANY_NAME_KEYWORDS: Set[str] = {
@@ -93,9 +103,8 @@ _EXCLUDED_NODE_IDS_CORE: Set[str] = {
 EXCLUDED_NODE_IDS: Set[str] = set(_EXCLUDED_NODE_IDS_CORE) | _node_ids_desde_registro_puntos_deshabilitados()
 
 # Solo «puntos en cero» (no afecta agregados ni individuales salvo que el ID también esté en el registro).
-EXCLUDED_NODE_IDS_SOLO_PUNTOS_EN_CERO: Set[str] = {
-    "000025-30",  # Matriz A.A — punto reubicado (Parque Arauco)
-}
+# 000025-30 Matriz A.A (El Bosque) vuelve al listado matinal: equipo operativo, reemplazo de 000025-11.
+EXCLUDED_NODE_IDS_SOLO_PUNTOS_EN_CERO: Set[str] = set()
 
 EXCLUDED_NODE_IDS_PUNTOS_EN_CERO: Set[str] = EXCLUDED_NODE_IDS | EXCLUDED_NODE_IDS_SOLO_PUNTOS_EN_CERO
 
@@ -111,6 +120,13 @@ FUNDO_ZAPALLAR_NODE_IDS: List[str] = [
     "000027-08",  # Etapa N°3
     "000027-09",  # Riego Llenado de Estanque ESVAL
 ]
+
+
+def nombre_cliente_puntos_en_cero(node_id: Optional[str], company_name: Optional[str] = None) -> str:
+    """Nombre de cliente para el listado / reporte en cero (BUPA Antofagasta vs resto)."""
+    if node_id in BUPA_ANTOFAGASTA_NODE_IDS:
+        return BUPA_ANTOFAGASTA_COMPANY_NAME
+    return (company_name or "").strip()
 
 
 def is_company_excluded(company_id: Optional[str], company_name: Optional[str] = None) -> bool:

@@ -12,6 +12,7 @@ from exclusiones_reportes import (
     EXCLUDED_COMPANY_IDS_PUNTOS_EN_CERO,
     EXCLUDED_COMPANY_NAME_KEYWORDS,
     EXCLUDED_NODE_IDS_PUNTOS_EN_CERO,
+    nombre_cliente_puntos_en_cero,
 )
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -186,7 +187,7 @@ def obtener_todos_los_nodos() -> List[Dict[str, str]]:
     print("  - WES / Wes Spa (000000)")
     print("  - Ejército de Chile (000001)")
     print("  - Gendarmería de Chile (000004)")
-    print("  - BUPA (000029) — puntos creados en app, pendiente instalación")
+    print("  - BUPA 000029-01..06 — pendientes de instalación (sí se incluye BUPA Antofagasta 000029-07..10)")
     print("  - Corporación Puente Alto (000010) — colegios fuera del reporte en cero")
     print("  - MOP / Ministerio de Obras Públicas (por nombre)")
     print("  - Lo Boza (por nombre)")
@@ -217,11 +218,9 @@ def obtener_todos_los_nodos() -> List[Dict[str, str]]:
     print("  - Edificio Deportivo (000021-02)")
     print("  - Matriz principal 1°piso (000025-11)")
     print("  - Red de Incendio (000025-14)")
-    print("  - Matriz A.A reubicado (000025-30) — solo puntos en cero")
     print("  - Riego Fundo Zapallar (000027-05)")
     print("  - Control Nido de Aguilas (000007-09)")
     print("  - Puntos dados de baja / cliente (registro auditable): registro_puntos_deshabilitados.txt")
-    print("    (incl. 000025-09 Impulsión Falabella — sala bombas en reparación)")
     print("=" * 60)
     
     # Obtener empresas desde la API de configuración
@@ -275,7 +274,7 @@ def obtener_todos_los_nodos() -> List[Dict[str, str]]:
                                 "nodeId": node_id,
                                 "nodeName": node_name,
                                 "companyId": company_id,
-                                "companyName": company_name
+                                "companyName": nombre_cliente_puntos_en_cero(node_id, company_name),
                             })
                     if nodes:
                         print(f"[OK] {company_id} ({company_name}): {len(nodes)} nodos")
