@@ -161,17 +161,6 @@ def leyenda_matriz_entrada(company_id: str) -> Optional[Tuple[str, str]]:
     return None
 
 
-def _ceil_nice(value: float) -> float:
-    """Redondea hacia arriba a un tope de eje legible (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10 × 10^n)."""
-    if value <= 0:
-        return 1.0
-    mag = 10 ** math.floor(math.log10(value))
-    for m in (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10):
-        if value <= m * mag + 1e-9:
-            return m * mag
-    return 10 * mag
-
-
 def _tick_step(ymax: float, n_ticks: int = 8) -> float:
     """Paso de eje Y pensado para volúmenes en m³ (50/100 en rangos altos)."""
     span = max(float(ymax), 1e-9)
@@ -211,38 +200,6 @@ def _aplicar_eje_y_m3(ax, ymin: float, ymax: float, n_ticks: int = 8) -> None:
     ax.yaxis.set_major_formatter(FuncFormatter(_formatter_m3_eje))
     ax.grid(axis="y", linestyle="--", alpha=0.32)
     ax.tick_params(axis="y", labelsize=8)
-
-
-def _dibujar_marcas_quiebre(ax_top, ax_bot) -> None:
-    kwargs = dict(color="0.35", clip_on=False, linewidth=0.9)
-    d = 0.015
-    ax_top.plot((-d, +d), (-d, +d), transform=ax_top.transAxes, **kwargs)
-    ax_top.plot((1 - d, 1 + d), (-d, +d), transform=ax_top.transAxes, **kwargs)
-    ax_bot.plot((-d, +d), (1 - d, 1 + d), transform=ax_bot.transAxes, **kwargs)
-    ax_bot.plot((1 - d, 1 + d), (1 - d, 1 + d), transform=ax_bot.transAxes, **kwargs)
-
-
-def _usar_eje_partido(values: Sequence[float]) -> bool:
-    positivos = sorted((float(v) for v in values if v > 0), reverse=True)
-    if len(positivos) < 2:
-        return False
-    return positivos[0] >= 3.5 * max(positivos[1], 1.0)
-
-
-def _limites_eje_partido(values: Sequence[float]) -> Tuple[float, float, float]:
-    """Devuelve (tope panel bajo, piso panel alto, tope panel alto)."""
-    positivos = sorted((float(v) for v in values if v > 0), reverse=True)
-    vmax = positivos[0]
-    v2 = positivos[1]
-    bottom_high = _ceil_nice(v2 * 1.20)
-    top_step = 50.0 if vmax >= 200 else _tick_step(vmax, 4)
-    top_high = math.ceil((vmax * 1.10) / top_step) * top_step
-    top_low = math.floor((vmax * 0.88) / top_step) * top_step
-    if top_low <= bottom_high:
-        top_low = bottom_high * 2.0
-    if top_high <= top_low:
-        top_high = top_low + 2 * top_step
-    return bottom_high, top_low, top_high
 
 
 _MESES_ES = {
@@ -944,7 +901,7 @@ def _etiquetar_barras_nocturno(
             va="bottom",
             fontsize=7,
             fontweight="bold",
-            clip_on=True,
+            clip_on=False,
         )
 
 
@@ -955,8 +912,8 @@ def _dibujar_grafico_consumo_nocturno(
     chart_path: Path,
     destacar_matriz: bool,
     leyenda: Optional[Tuple[str, str]] = None,
-) -> bool:
-    """Dibuja el ranking nocturno. Devuelve True si usó eje Y partido."""
+) -> None:
+    """Dibuja el ranking nocturno con eje Y continuo (sin quiebre que recorte barras)."""
     n_pts = len(names)
     rot = 48 if n_pts > 4 else 28
     fs = 7 if n_pts > 6 else 8
@@ -971,53 +928,31 @@ def _dibujar_grafico_consumo_nocturno(
             Patch(facecolor=COLOR_AGUAS_ABAJO, label=leyenda[1]),
         ]
 
-    eje_partido = _usar_eje_partido(values)
-    if eje_partido:
-        bottom_high, top_low, top_high = _limites_eje_partido(values)
-        fig, (ax_top, ax_bot) = plt.subplots(
-            2,
-            1,
-            sharex=True,
-            figsize=(fig_w, 4.55),
-            gridspec_kw={"height_ratios": [1.15, 2.35], "hspace": 0.07},
-        )
-        bars_top = ax_top.bar(names, values, color=colors, alpha=0.92, edgecolor=edge, linewidth=0.8)
-        bars_bot = ax_bot.bar(names, values, color=colors, alpha=0.92, edgecolor=edge, linewidth=0.8)
-        _aplicar_eje_y_m3(ax_bot, 0.0, bottom_high, n_ticks=4)
-        _aplicar_eje_y_m3(ax_top, top_low, top_high, n_ticks=3)
-        ax_top.spines["bottom"].set_visible(False)
-        ax_bot.spines["top"].set_visible(False)
-        ax_top.spines["top"].set_visible(False)
-        ax_top.spines["right"].set_visible(False)
-        ax_bot.spines["right"].set_visible(False)
-        ax_top.tick_params(axis="x", bottom=False, labelbottom=False)
-        ax_top.set_title("Consumo nocturno por punto", fontsize=11, fontweight="bold", pad=8)
-        ax_bot.set_ylabel("m³ (periodo)", fontsize=10, fontweight="bold")
-        _dibujar_marcas_quiebre(ax_top, ax_bot)
-        _etiquetar_barras_nocturno(ax_bot, bars_bot, values, y_max=bottom_high)
-        _etiquetar_barras_nocturno(ax_top, bars_top, values, y_min=top_low)
-        plt.setp(ax_bot.xaxis.get_majorticklabels(), rotation=rot, ha="right", fontsize=fs)
-        if legend_handles:
-            ax_top.legend(handles=legend_handles, loc="upper right", fontsize=7, frameon=False)
-        fig.subplots_adjust(hspace=0.07, left=0.10, right=0.98, top=0.90, bottom=0.28)
-    else:
-        ymax = _ymax_barras(values)
-        fig, ax = plt.subplots(figsize=(fig_w, 4.7 if n_pts > 5 else 4.2))
-        bars = ax.bar(names, values, color=colors, alpha=0.92, edgecolor=edge, linewidth=0.8)
-        _aplicar_eje_y_m3(ax, 0.0, ymax)
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        ax.set_ylabel("m³ (periodo)", fontsize=10, fontweight="bold")
-        ax.set_title("Consumo nocturno por punto", fontsize=11, fontweight="bold", pad=8)
-        plt.setp(ax.xaxis.get_majorticklabels(), rotation=rot, ha="right", fontsize=fs)
-        _etiquetar_barras_nocturno(ax, bars, values)
-        if legend_handles:
-            ax.legend(handles=legend_handles, loc="upper right", fontsize=7, frameon=False)
-        fig.tight_layout()
-
-    fig.savefig(chart_path, dpi=160, bbox_inches="tight", pad_inches=0.12)
+    ymax = _ymax_barras(values)
+    fig, ax = plt.subplots(figsize=(fig_w, 4.7 if n_pts > 5 else 4.2))
+    bars = ax.bar(
+        names,
+        values,
+        width=0.68,
+        color=colors,
+        alpha=0.92,
+        edgecolor=edge,
+        linewidth=0.8,
+        clip_on=False,
+    )
+    _aplicar_eje_y_m3(ax, 0.0, ymax)
+    ax.set_xlim(-0.9, len(names) - 0.1)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.set_ylabel("m³ (periodo)", fontsize=10, fontweight="bold")
+    ax.set_title("Consumo nocturno por punto", fontsize=11, fontweight="bold", pad=8)
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=rot, ha="right", fontsize=fs)
+    _etiquetar_barras_nocturno(ax, bars, values)
+    if legend_handles:
+        ax.legend(handles=legend_handles, loc="upper right", fontsize=7, frameon=False)
+    fig.subplots_adjust(left=0.12, right=0.98, top=0.88, bottom=0.30)
+    fig.savefig(chart_path, dpi=160, bbox_inches="tight", pad_inches=0.2)
     plt.close(fig)
-    return eje_partido
 
 
 def agregar_analisis_nocturno_extendido(
@@ -1088,7 +1023,7 @@ def agregar_analisis_nocturno_extendido(
         values = [v for _, v in sorted_pairs]
         n_pts = len(names)
         chart_path = output_dir / f"{pref}_consumo_nocturno_periodo.png"
-        eje_partido = _dibujar_grafico_consumo_nocturno(
+        _dibujar_grafico_consumo_nocturno(
             names,
             values,
             _colores_barras_nocturno(company_id, names, nodos_noct),
@@ -1103,23 +1038,6 @@ def agregar_analisis_nocturno_extendido(
         pic_para.paragraph_format.space_before = Pt(2)
         pic_para.paragraph_format.space_after = Pt(2)
         apply_keep_with_next(pic_para)
-        if eje_partido:
-            etiqueta = (
-                "la Matriz Principal"
-                if company_id == "000012"
-                else ("la Matriz ESVAL" if company_id == "000027" else "el punto de mayor caudal")
-            )
-            nota_eje = doc.add_paragraph(
-                f"El eje vertical está partido para mostrar a la vez {etiqueta} "
-                "y los puntos de menor caudal nocturno, que de otro modo quedarían ilegibles."
-            )
-            nota_eje.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
-            for run in nota_eje.runs:
-                run.font.size = Pt(8)
-                run.font.italic = True
-                run.font.color.rgb = RGBColor(80, 80, 80)
-            nota_eje.paragraph_format.space_after = Pt(4)
-            apply_keep_with_next(nota_eje)
 
     add_formatted_title(doc, "Detalle por punto")
     apply_keep_with_next(doc.paragraphs[-1])
