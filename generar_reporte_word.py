@@ -4332,7 +4332,9 @@ def generate_aggregated_report(
             measures = flatten_measures(measures_payload)
             summary = summarize_consumption(measures)
             alerts = []
-            if company_id != "000027":
+            from agregado_extendido_extra import es_formato_portada_nocturno_anexo
+
+            if not es_formato_portada_nocturno_anexo(company_id):
                 try:
                     alerts_payload = fetch_json(
                         f"{acl_node_base_url()}/nodes/myalert/alerts",
@@ -4420,10 +4422,12 @@ def generate_aggregated_report(
     from agregado_extendido_extra import (
         OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS,
         es_agregado_extendido,
+        es_formato_portada_nocturno_anexo,
     )
 
     es_agregado_fmt = es_agregado_extendido(company_id)
     omitir_dia_mayor = company_id in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS
+    es_formato_lote = es_formato_portada_nocturno_anexo(company_id)
     nodo_estanque_inferior = "000027-02" if es_fundo_zapallar else None
     
     # Si no se especificó fuente_agua_id pero es Fundo Zapallar, usar ESVAL como fuente
@@ -4612,7 +4616,13 @@ def generate_aggregated_report(
             )
         )
         ax.set_title(titulo_barras, fontsize=20, fontweight="bold")
-        ax.set_ylim(bottom=0)
+        from matplotlib.ticker import MultipleLocator
+        from agregado_extendido_extra import _tick_step, _ymax_barras
+
+        y_top = _ymax_barras(consumptions) if consumptions else 1.0
+        ax.set_ylim(bottom=0, top=y_top)
+        ax.yaxis.set_major_locator(MultipleLocator(_tick_step(y_top)))
+        ax.grid(axis="y", linestyle="--", alpha=0.28)
         
         # Rotar las etiquetas del eje X para mejor legibilidad con fuente más grande
         plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=16)
@@ -4694,7 +4704,8 @@ def generate_aggregated_report(
     else:
         summary_para.add_run(f"Consumo total agregado: {format_number_chilean(total_consumption, 1)} m³.\n")
         summary_para.add_run(f"Consumo promedio por punto: {format_number_chilean(avg_consumption_per_node, 1)} m³.\n")
-        summary_para.add_run(f"Total de alertas registradas: {total_alerts}.\n")
+        if not es_formato_lote:
+            summary_para.add_run(f"Total de alertas registradas: {total_alerts}.\n")
     if not es_agregado_fmt and sum_promedio_alerta > 0:
         summary_para.add_run(f"Promedio de alerta agregado: {format_number_chilean(sum_promedio_alerta, 1)} m³/h.\n")
         summary_para.add_run(f"Proyección diaria de consumo nocturno agregada: {format_number_chilean(sum_proyeccion_24h, 1)} m³/día.\n")
@@ -4722,13 +4733,17 @@ def generate_aggregated_report(
             run.font.color.rgb = RGBColor(0, 0, 0)  # Negro
         add_picture_with_pagination(doc, str(comparison_chart_path), Inches(6), keep_with_next=True)
 
-        if es_fundo_zapallar:
-            from agregado_extendido_extra import agregar_tabla_kpis_consumo
+        if es_formato_lote:
+            from agregado_extendido_extra import agregar_tabla_kpis_consumo, nodo_referencia_portada
 
-            esval_kpi = next((d for d in nodes_data if d["node_id"] == "000027-01"), None)
-            if esval_kpi:
+            ref_kpi = nodo_referencia_portada(company_id, nodes_data)
+            if ref_kpi:
                 agregar_tabla_kpis_consumo(
-                    doc, esval_kpi.get("summary") or {}, destacar_matriz=True
+                    doc,
+                    ref_kpi.get("summary") or {},
+                    destacar_matriz=(
+                        es_fundo_zapallar and ref_kpi.get("node_id") == "000027-01"
+                    ),
                 )
         
         consumer_nodes_for_narrative = [
@@ -4750,7 +4765,7 @@ def generate_aggregated_report(
             for run in narrative_para.runs:
                 run.font.color.rgb = RGBColor(0, 0, 0)  # Negro
 
-    if es_agregado_fmt and not es_fundo_zapallar:
+    if es_agregado_fmt and not es_formato_lote:
         try:
             from agregado_extendido_extra import agregar_secciones_consumo_diario_y_max_dia
 
@@ -4761,8 +4776,8 @@ def generate_aggregated_report(
             print(f"[ADVERTENCIA] Agregado extendido — secciones consumo diario: {e}")
     
     # Tabla resumen por nodo (ordenar de mayor a menor consumo).
-    # Fundo Zapallar: se omite — el detalle va en cada gráfico y en nocturno.
-    if not es_fundo_zapallar:
+    # Lote comercial (formato Zapallar): se omite — el detalle va en nocturno y en el anexo diario.
+    if not es_formato_lote:
         add_formatted_heading(doc, "Resumen por punto de monitoreo", level=1)
     col_ultima = "Costo nocturno (CLP)" if es_agregado_fmt else "Proyección de filtración"
     omitir_col_alertas = es_fundo_zapallar
@@ -4777,7 +4792,7 @@ def generate_aggregated_report(
     
     # Ordenar nodes_data por consumo total de mayor a menor
     sorted_nodes_data = sorted(nodes_data, key=lambda d: d["summary"]["total"], reverse=True)
-    if es_fundo_zapallar:
+    if es_formato_lote:
         sorted_nodes_data = []
     
     # Calcular número total de días del periodo
@@ -4916,7 +4931,7 @@ def generate_aggregated_report(
             ultima_col_total,
         ))
     
-    if not es_fundo_zapallar:
+    if not es_formato_lote:
         add_table(
             doc,
             "Métricas por punto",
@@ -4935,7 +4950,7 @@ def generate_aggregated_report(
         except Exception as e:
             print(f"[ADVERTENCIA] Agregado extendido — análisis nocturno: {e}")
 
-    if es_agregado_fmt and es_fundo_zapallar:
+    if es_agregado_fmt and es_formato_lote:
         try:
             from agregado_extendido_extra import agregar_secciones_consumo_diario_y_max_dia
 

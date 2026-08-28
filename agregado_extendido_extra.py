@@ -353,22 +353,28 @@ def _serie_mensual_nodo(node_id: str, end_dt: datetime, n_meses: int = 6) -> Lis
     return series
 
 
-def agregar_comparativo_6_meses_esval(
+def agregar_comparativo_6_meses(
     doc: Document,
     end_dt: datetime,
     output_dir: Path,
+    node_id: str,
+    node_name: str,
+    *,
+    company_id: str,
+    es_esval: bool = False,
 ) -> None:
-    """Comparativo de consumo mensual de Matriz ESVAL (últimos 6 meses)."""
+    """Comparativo de consumo mensual del punto de referencia (últimos 6 meses)."""
     from generar_reporte_word import (
         add_formatted_title,
         add_picture_with_pagination,
         format_number_chilean,
     )
 
+    nombre = (node_name or "").replace("\n", " ").strip() or node_id
     try:
-        series = _serie_mensual_nodo(ZAPALLAR_ESVAL_ID, end_dt, 6)
+        series = _serie_mensual_nodo(node_id, end_dt, 6)
     except Exception as e:
-        print(f"[ADVERTENCIA] Comparativo 6 meses ESVAL: {e}")
+        print(f"[ADVERTENCIA] Comparativo 6 meses {nombre}: {e}")
         return
     if not series:
         return
@@ -379,11 +385,16 @@ def agregar_comparativo_6_meses_esval(
     colors = [COLOR_MATRIZ_ESVAL if i == len(vals) - 1 else "#0050b3" for i in range(len(vals))]
     bars = ax.bar(labels, vals, color=colors, width=0.62, edgecolor="#A04000", linewidth=0.6)
     ax.set_ylabel("m³ / mes", fontsize=10, fontweight="bold")
-    ax.set_title("Últimos 6 meses — Matriz ESVAL (entrada al fundo)", fontsize=11, fontweight="bold")
+    titulo_graf = (
+        "Últimos 6 meses — Matriz ESVAL (entrada al fundo)"
+        if es_esval
+        else f"Últimos 6 meses — {nombre}"
+    )
+    ax.set_title(titulo_graf, fontsize=11, fontweight="bold")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.set_ylim(bottom=0)
-    ax.grid(axis="y", linestyle="--", alpha=0.3)
+    ymax = _ymax_barras(vals) if any(v > 0 for v in vals) else 1.0
+    _aplicar_eje_y_m3(ax, 0.0, ymax)
     for bar, v in zip(bars, vals):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
@@ -395,20 +406,49 @@ def agregar_comparativo_6_meses_esval(
             fontweight="bold",
         )
     plt.tight_layout()
-    chart_path = output_dir / "zapallar_ultimos_6_meses_esval.png"
+    pref = _cfg(company_id)["prefijo"]
+    chart_path = output_dir / f"{pref}_ultimos_6_meses.png"
     plt.savefig(chart_path, dpi=140, bbox_inches="tight")
     plt.close()
 
-    add_formatted_title(doc, "Comparativo últimos 6 meses — Matriz ESVAL")
-    add_picture_with_pagination(doc, str(chart_path), Inches(6), keep_with_next=True)
-    nota = doc.add_paragraph(
-        "Consumo mensual de la Matriz ESVAL (entrada real de agua al fundo). "
-        "El mes marcado con * es el periodo en curso, acotado a la fecha de este informe."
+    titulo_sec = (
+        "Comparativo últimos 6 meses — Matriz ESVAL"
+        if es_esval
+        else f"Comparativo últimos 6 meses — {nombre}"
     )
+    add_formatted_title(doc, titulo_sec)
+    add_picture_with_pagination(doc, str(chart_path), Inches(6), keep_with_next=True)
+    if es_esval:
+        nota_txt = (
+            "Consumo mensual de la Matriz ESVAL (entrada real de agua al fundo). "
+            "El mes marcado con * es el periodo en curso, acotado a la fecha de este informe."
+        )
+    else:
+        nota_txt = (
+            f"Consumo mensual de {nombre}, punto de referencia del sitio. "
+            "El mes marcado con * es el periodo en curso, acotado a la fecha de este informe."
+        )
+    nota = doc.add_paragraph(nota_txt)
     nota.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     for run in nota.runs:
         run.font.size = Pt(9)
         run.font.color.rgb = RGBColor(0, 0, 0)
+
+
+def agregar_comparativo_6_meses_esval(
+    doc: Document,
+    end_dt: datetime,
+    output_dir: Path,
+) -> None:
+    agregar_comparativo_6_meses(
+        doc,
+        end_dt,
+        output_dir,
+        ZAPALLAR_ESVAL_ID,
+        "Matriz ESVAL",
+        company_id="000027",
+        es_esval=True,
+    )
 
 
 def _conclusion_dia_mayor(
@@ -561,6 +601,7 @@ INCHCAPE_NODE_MATRIZ_PRINCIPAL = "000012-06"
 OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS = frozenset({
     "000027",  # Fundo Zapallar
     "000012",  # Inchcape (ex DERCO)
+    "000007",  # Nido de Águilas
     "000002",  # Lo Valledor
     "000026",  # UDD
     "000031",  # Club Providencia
@@ -570,6 +611,42 @@ OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS = frozenset({
     "000024",  # La Reina
     "000028",  # La Florida
 })
+
+# Lote comercial: mismo orden de Zapallar (portada → nocturno → anexo diario).
+FORMATO_PORTADA_NOCTURNO_ANEXO = frozenset({
+    "000027",  # Fundo Zapallar
+    "000012",  # Inchcape
+    "000007",  # Nido de Águilas
+    "000002",  # Lo Valledor
+    "000026",  # UDD
+    "000031",  # Club Providencia
+    "000020",  # AGUNSA Lampa e Intermodal
+})
+
+
+def es_formato_portada_nocturno_anexo(company_id: str) -> bool:
+    return company_id in FORMATO_PORTADA_NOCTURNO_ANEXO
+
+
+def nodo_referencia_portada(company_id: str, nodes_data: Sequence[dict]) -> Optional[dict]:
+    """Punto de control de la portada / comparativo 6 meses (entrada o mayor consumo)."""
+    if not nodes_data:
+        return None
+    if company_id == "000027":
+        esval = next((d for d in nodes_data if d.get("node_id") == ZAPALLAR_ESVAL_ID), None)
+        if esval:
+            return esval
+    if company_id == "000012":
+        matriz = next(
+            (d for d in nodes_data if d.get("node_id") == INCHCAPE_NODE_MATRIZ_PRINCIPAL),
+            None,
+        )
+        if matriz:
+            return matriz
+    return max(
+        nodes_data,
+        key=lambda d: float((d.get("summary") or {}).get("total") or 0.0),
+    )
 
 
 def _omitir_grafico_dia_mayor(company_id: str, data: dict) -> bool:
@@ -693,13 +770,13 @@ def agregar_secciones_consumo_diario_y_max_dia(
     )
 
     pref = _cfg(company_id)["prefijo"]
-    es_zapallar = company_id == "000027"
+    es_anexo = es_formato_portada_nocturno_anexo(company_id)
     titulo = (
         "Anexo — Evolución del consumo diario por punto"
-        if es_zapallar
+        if es_anexo
         else "Evolución del consumo diario por punto"
     )
-    add_formatted_heading(doc, titulo, level=1, page_break_before=es_zapallar)
+    add_formatted_heading(doc, titulo, level=1, page_break_before=es_anexo)
     intro = doc.add_paragraph(
         "Gráficos de consumo total diario (m³) de cada día del periodo analizado, "
         "por punto de monitoreo."
@@ -1082,9 +1159,19 @@ def agregar_analisis_nocturno_extendido(
             run.font.size = Pt(8)
             run.font.color.rgb = RGBColor(80, 80, 80)
 
-    if es_zapallar:
+    if es_formato_portada_nocturno_anexo(company_id):
         doc.add_page_break()
-        agregar_comparativo_6_meses_esval(doc, end_dt, output_dir)
+        ref = nodo_referencia_portada(company_id, nodes_data)
+        if ref:
+            agregar_comparativo_6_meses(
+                doc,
+                end_dt,
+                output_dir,
+                str(ref.get("node_id") or ""),
+                str(ref.get("node_name") or ""),
+                company_id=company_id,
+                es_esval=(str(ref.get("node_id") or "") == ZAPALLAR_ESVAL_ID),
+            )
 
     add_formatted_title(doc, "Conclusión — consumo nocturno")
     conc = doc.add_paragraph(
