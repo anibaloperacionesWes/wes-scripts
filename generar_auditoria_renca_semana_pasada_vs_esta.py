@@ -85,7 +85,9 @@ TEXTO_CONTROL = (
     "Ahorro = (Sin WES − Con WES) / Sin WES × 100. "
     "El lunes 24/08, entre 11:00 y 13:30 Chile, se reguló Escuela Lo Velásquez y el "
     "gimnasio municipal con las mejoras de horario (el gimnasio ya no va con el "
-    "tope parejo de 0,54 m³/h que se quedaba corto en un evento)."
+    "tope parejo de 0,54 m³/h que se quedaba corto en un evento). "
+    "En Lo Velásquez abrieron el bypass el jueves 27 ~17:00: de noche volvió el caudal "
+    "parejo (~0,55 m³/h; antes 0). Desde entonces el punto no está con control."
 )
 TEXTO_ICCP = (
     "ICCP es punto sí o sí y va al final, con semana completa: "
