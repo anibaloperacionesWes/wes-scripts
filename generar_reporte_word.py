@@ -1679,6 +1679,21 @@ def apply_keep_with_next(paragraph) -> None:
     paragraph.paragraph_format.space_after = Pt(2)
 
 
+def mantener_tabla_en_una_pagina(table) -> None:
+    """Impide que una tabla se parta entre páginas (filas unidas + cantSplit)."""
+    n_rows = len(table.rows)
+    for i, row in enumerate(table.rows):
+        tr_pr = row._tr.get_or_add_trPr()
+        if tr_pr.find(qn("w:cantSplit")) is None:
+            tr_pr.append(OxmlElement("w:cantSplit"))
+        for cell in row.cells:
+            for para in cell.paragraphs:
+                para.paragraph_format.keep_together = True
+                para.paragraph_format.widow_control = True
+                if i < n_rows - 1:
+                    para.paragraph_format.keep_with_next = True
+
+
 def add_summary_section(doc: Document, summary: dict, alerts: List[dict], alert_stats: dict, start_date: datetime, end_date: datetime) -> None:
     add_formatted_heading(doc, "Resumen ejecutivo", level=1)
     p = doc.add_paragraph()
@@ -1749,6 +1764,7 @@ def estilizar_tabla_wes(
                 _aplicar_shading_celda(cell, "FFE6E6")
             elif i % 2 == 0:
                 _aplicar_shading_celda(cell, "F2F6FC")
+    mantener_tabla_en_una_pagina(table)
 
 
 def add_table(
@@ -1908,6 +1924,8 @@ def add_table(
 
     if wes_style:
         estilizar_tabla_wes(table, highlight_rows=highlight_set, has_total_row=has_total_row)
+    else:
+        mantener_tabla_en_una_pagina(table)
 
 
 def generate_comparison_narrative(nodes_data: List[dict], avg_consumption_per_node: float) -> str:
@@ -4748,8 +4766,10 @@ def generate_aggregated_report(
         except Exception as e:
             print(f"[ADVERTENCIA] Agregado extendido — secciones consumo diario: {e}")
     
-    # Tabla resumen por nodo (ordenar de mayor a menor consumo)
-    add_formatted_heading(doc, "Resumen por punto de monitoreo", level=1)
+    # Tabla resumen por nodo (ordenar de mayor a menor consumo).
+    # Fundo Zapallar: se omite — el detalle va en cada gráfico y en nocturno.
+    if not es_fundo_zapallar:
+        add_formatted_heading(doc, "Resumen por punto de monitoreo", level=1)
     col_ultima = "Costo nocturno (CLP)" if es_agregado_fmt else "Proyección de filtración"
     omitir_col_alertas = es_fundo_zapallar
     if omitir_col_alertas:
@@ -4763,6 +4783,8 @@ def generate_aggregated_report(
     
     # Ordenar nodes_data por consumo total de mayor a menor
     sorted_nodes_data = sorted(nodes_data, key=lambda d: d["summary"]["total"], reverse=True)
+    if es_fundo_zapallar:
+        sorted_nodes_data = []
     
     # Calcular número total de días del periodo
     num_dias_periodo = (end_dt.date() - start_dt.date()).days + 1
@@ -4900,13 +4922,14 @@ def generate_aggregated_report(
             ultima_col_total,
         ))
     
-    add_table(
-        doc,
-        "Métricas por punto",
-        table_rows,
-        highlight_rows=None if es_agregado_fmt else [len(table_rows) - 1],
-        wes_style=es_agregado_fmt,
-    )
+    if not es_fundo_zapallar:
+        add_table(
+            doc,
+            "Métricas por punto",
+            table_rows,
+            highlight_rows=None if es_agregado_fmt else [len(table_rows) - 1],
+            wes_style=es_agregado_fmt,
+        )
     
     if es_agregado_fmt:
         try:

@@ -185,7 +185,7 @@ def agregar_tabla_kpis_consumo(
     destacar_matriz: bool = False,
 ) -> None:
     """Tabla compacta bajo gráfico: total, promedio diario y día de mayor consumo."""
-    from generar_reporte_word import _aplicar_shading_celda, apply_keep_with_next
+    from generar_reporte_word import _aplicar_shading_celda, apply_keep_with_next, mantener_tabla_en_una_pagina
 
     total_txt, promedio_txt, max_txt = _kpis_desde_summary(summary)
     table = doc.add_table(rows=2, cols=3)
@@ -213,6 +213,7 @@ def agregar_tabla_kpis_consumo(
                 elif destacar_matriz:
                     run.font.color.rgb = RGB_MATRIZ_ESVAL
                     _aplicar_shading_celda(cell, "FDEBD0")
+    mantener_tabla_en_una_pagina(table)
     apply_keep_with_next(table.rows[0].cells[0].paragraphs[0])
 
 
@@ -816,6 +817,7 @@ def agregar_analisis_nocturno_extendido(
         apply_keep_with_next(pic_para)
 
     add_formatted_title(doc, "Detalle por punto")
+    apply_keep_with_next(doc.paragraphs[-1])
 
     es_zapallar = company_id == "000027"
     esval_noct = next((n for n in nodos_noct if n.get("node_id") == ZAPALLAR_ESVAL_ID), None)
