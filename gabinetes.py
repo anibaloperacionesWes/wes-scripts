@@ -151,21 +151,18 @@ def texto_gabinetes_numerados(
     gabinete_de: Dict[str, str],
     miembros: Dict[str, List[str]],
 ) -> str:
-    """'1: id, id · 2: id · 3: id, id' — un número por gabinete con los puntos que tiene."""
+    """Solo gabinetes unidos (2+ puntos): '1: id, id · 2: id, id'."""
     activos = set(node_ids)
     partes: List[str] = []
     vistos = set()
     n = 0
     for nid in node_ids:
-        key = gabinete_de.get(nid, nid)
-        if key in vistos:
+        key = gabinete_de.get(nid)
+        if not key or key in vistos:
             continue
         vistos.add(key)
-        if key in miembros:
-            ids = [x for x in miembros[key] if x in activos]
-        else:
-            ids = [nid]
-        if not ids:
+        ids = [x for x in miembros.get(key, []) if x in activos]
+        if len(ids) < 2:
             continue
         n += 1
         partes.append(f"{n}: {', '.join(ids)}")

@@ -329,6 +329,7 @@ def _escribir_xlsx(
     for i, (cid, empresa, sheet) in enumerate(hojas, 5):
         nids = nodos_empresa.get(cid, [])
         cpa, solo = clasificar_nodos(nids, ids_cpa)
+        unidos = texto_gabinetes_numerados(nids, gab_de, gab_miembros)
         ws.cell(row=i, column=1, value=cid)
         ws.cell(row=i, column=2, value=empresa)
         ws.cell(row=i, column=3, value=len(nids))
@@ -338,7 +339,7 @@ def _escribir_xlsx(
         ws.cell(row=i, column=7, value=len(filas.get(cid, [])))
         ws.cell(row=i, column=8, value=", ".join(cpa))
         ws.cell(row=i, column=9, value=", ".join(solo))
-        ws.cell(row=i, column=10, value=texto_gabinetes_numerados(nids, gab_de, gab_miembros) or "—")
+        ws.cell(row=i, column=10, value=unidos or "—")
         ws.cell(row=i, column=11, value=sheet)
         ws.cell(row=i, column=8).alignment = wrap
         ws.cell(row=i, column=9).alignment = wrap
@@ -580,7 +581,8 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         tot_usr += usr
         nids = nodos_por_cia.get(cid, [])
         n_gab = conteo_gabinetes(nids, gab_de) if nids else pts
-        celda_gab = texto_gabinetes_numerados(nids, gab_de, gab_miembros) or str(n_gab)
+        unidos = texto_gabinetes_numerados(nids, gab_de, gab_miembros)
+        celda_gab = f"{n_gab}\n{unidos}" if unidos else str(n_gab)
         tot_gab += n_gab
         if tiene_cpa:
             n_cpa = int(_col(row, "puntos_CPA", 0) or 0)
