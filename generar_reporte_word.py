@@ -1675,6 +1675,7 @@ def add_picture_with_pagination(doc: Document, image_path: str, width: Inches, k
 def apply_keep_with_next(paragraph) -> None:
     """Evita que el párrafo quede separado del siguiente (misma página)."""
     paragraph.paragraph_format.keep_with_next = True
+    paragraph.paragraph_format.keep_together = True
     paragraph.paragraph_format.widow_control = True
     paragraph.paragraph_format.space_after = Pt(2)
 
@@ -4584,24 +4585,32 @@ def generate_aggregated_report(
         consumptions = [pair[1] for pair in node_consumption_pairs]
         node_ids_chart = [pair[2] for pair in node_consumption_pairs]
 
-        if es_fundo_zapallar:
-            from agregado_extendido_extra import COLOR_AGUAS_ABAJO, COLOR_MATRIZ_ESVAL
+        if es_fundo_zapallar or company_id == "000012":
+            from agregado_extendido_extra import (
+                COLOR_AGUAS_ABAJO,
+                COLOR_MATRIZ_ESVAL,
+                INCHCAPE_NODE_MATRIZ_PRINCIPAL,
+                leyenda_matriz_entrada,
+            )
             from matplotlib.patches import Patch
 
+            entrada_id = "000027-01" if es_fundo_zapallar else INCHCAPE_NODE_MATRIZ_PRINCIPAL
             bar_colors = [
-                COLOR_MATRIZ_ESVAL if nid == "000027-01" else COLOR_AGUAS_ABAJO
+                COLOR_MATRIZ_ESVAL if nid == entrada_id else COLOR_AGUAS_ABAJO
                 for nid in node_ids_chart
             ]
             bars = ax.bar(node_names, consumptions, color=bar_colors)
-            ax.legend(
-                handles=[
-                    Patch(facecolor=COLOR_MATRIZ_ESVAL, label="Matriz ESVAL (entrada real)"),
-                    Patch(facecolor=COLOR_AGUAS_ABAJO, label="Estanques y etapas (aguas abajo)"),
-                ],
-                loc="upper right",
-                fontsize=12,
-                frameon=False,
-            )
+            leyenda = leyenda_matriz_entrada(company_id)
+            if leyenda:
+                ax.legend(
+                    handles=[
+                        Patch(facecolor=COLOR_MATRIZ_ESVAL, label=leyenda[0]),
+                        Patch(facecolor=COLOR_AGUAS_ABAJO, label=leyenda[1]),
+                    ],
+                    loc="upper right",
+                    fontsize=12,
+                    frameon=False,
+                )
         else:
             bars = ax.bar(node_names, consumptions, color="#0050b3")
         ax.set_ylabel("Consumo total (m³)", fontsize=18, fontweight='bold')
@@ -4610,9 +4619,13 @@ def generate_aggregated_report(
             "Consumo del periodo por punto — Matriz ESVAL destacada"
             if es_fundo_zapallar
             else (
-                "Consumo total del periodo por punto de monitoreo"
-                if es_agregado_fmt
-                else "Consumo total por punto de monitoreo"
+                "Consumo del periodo por punto — Matriz Principal destacada"
+                if company_id == "000012"
+                else (
+                    "Consumo total del periodo por punto de monitoreo"
+                    if es_agregado_fmt
+                    else "Consumo total por punto de monitoreo"
+                )
             )
         )
         ax.set_title(titulo_barras, fontsize=20, fontweight="bold")
@@ -4691,6 +4704,9 @@ def generate_aggregated_report(
     # Resumen ejecutivo agregado
     add_formatted_heading(doc, "Resumen ejecutivo agregado", level=1)
     summary_para = doc.add_paragraph()
+    summary_para.paragraph_format.keep_together = True
+    summary_para.paragraph_format.keep_with_next = True
+    summary_para.paragraph_format.widow_control = True
     summary_para.add_run(f"Puntos de monitoreo analizados: {total_nodes}.\n")
     if es_fundo_zapallar:
         esval = next((d for d in nodes_data if d["node_id"] == "000027-01"), None)
@@ -4700,6 +4716,17 @@ def generate_aggregated_report(
         )
         summary_para.add_run(
             "Nota: no se suma estanques ni etapas al total (mediciones aguas abajo de ESVAL).\n"
+        )
+    elif company_id == "000012":
+        from agregado_extendido_extra import INCHCAPE_NODE_MATRIZ_PRINCIPAL
+
+        matriz = next((d for d in nodes_data if d["node_id"] == INCHCAPE_NODE_MATRIZ_PRINCIPAL), None)
+        matriz_m3 = float(matriz["summary"]["total"]) if matriz else 0.0
+        summary_para.add_run(
+            f"Consumo de la sucursal (Matriz Principal): {format_number_chilean(matriz_m3, 1)} m³.\n"
+        )
+        summary_para.add_run(
+            "Nota: no se suman los demás puntos al total (son parte de la Matriz Principal).\n"
         )
     else:
         summary_para.add_run(f"Consumo total agregado: {format_number_chilean(total_consumption, 1)} m³.\n")
@@ -4719,6 +4746,12 @@ def generate_aggregated_report(
                 "Las barras grises son estanques y etapas aguas abajo (el mismo caudal medido en cadena); "
                 "no se suman al total."
             )
+        elif company_id == "000012":
+            comp_texto = (
+                "La barra naranja es la Matriz Principal, el consumo real de la sucursal. "
+                "Las barras grises son puntos internos de esa misma matriz (el mismo caudal medido "
+                "en derivaciones); no se suman al total."
+            )
         elif es_agregado_fmt:
             comp_texto = (
                 "Consumo acumulado de cada punto en el periodo (suma de todos los días analizados)."
@@ -4729,6 +4762,9 @@ def generate_aggregated_report(
             )
         comp_para = doc.add_paragraph(comp_texto)
         comp_para.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+        comp_para.paragraph_format.keep_together = True
+        comp_para.paragraph_format.keep_with_next = True
+        comp_para.paragraph_format.widow_control = True
         for run in comp_para.runs:
             run.font.color.rgb = RGBColor(0, 0, 0)  # Negro
         add_picture_with_pagination(doc, str(comparison_chart_path), Inches(6), keep_with_next=True)
@@ -4742,7 +4778,7 @@ def generate_aggregated_report(
                     doc,
                     ref_kpi.get("summary") or {},
                     destacar_matriz=(
-                        es_fundo_zapallar and ref_kpi.get("node_id") == "000027-01"
+                        ref_kpi.get("node_id") in ("000027-01", "000012-06")
                     ),
                 )
         
@@ -4750,7 +4786,7 @@ def generate_aggregated_report(
             d for d in nodes_data 
             if not (es_bupa and d["node_id"] == "000029-01")
         ]
-        if es_fundo_zapallar:
+        if es_fundo_zapallar or company_id == "000012":
             narrative = ""
         elif es_agregado_fmt:
             from agregado_extendido_extra import narrativa_consumo_total_extendido
