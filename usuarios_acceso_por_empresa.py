@@ -288,7 +288,7 @@ def _escribir_xlsx(
         "ids_solo_monitoreo",
         "hoja",
     ]
-    usados: Set[str] = {"resumen", "puntos"}
+    usados: Set[str] = {"resumen", "puntos", "cpa control"}
     hojas: List[Tuple[str, str, str]] = []  # cid, empresa, sheet name
     for cid, empresa in sorted(companies.items(), key=lambda x: (x[1].casefold(), x[0])):
         if cid not in nodos_empresa:
@@ -318,12 +318,8 @@ def _escribir_xlsx(
         ws.cell(row=i, column=1, value=cid)
         ws.cell(row=i, column=2, value=empresa)
         ws.cell(row=i, column=3, value=len(nids))
-        cell_cpa = ws.cell(row=i, column=4, value=len(cpa))
-        cell_mon = ws.cell(row=i, column=5, value=len(solo))
-        if cpa:
-            cell_cpa.fill = cpa_fill
-        if solo:
-            cell_mon.fill = mon_fill
+        ws.cell(row=i, column=4, value=len(cpa))
+        ws.cell(row=i, column=5, value=len(solo))
         ws.cell(row=i, column=6, value=len(filas.get(cid, [])))
         ws.cell(row=i, column=7, value=", ".join(cpa))
         ws.cell(row=i, column=8, value=", ".join(solo))
@@ -335,7 +331,59 @@ def _escribir_xlsx(
     ws.freeze_panes = "A5"
     ws.auto_filter.ref = f"A4:I{4 + max(1, len(hojas))}"
 
-    wsp = wb.create_sheet("Puntos", 1)
+    tit_pts = [
+        "node_id",
+        "nombre",
+        "company_id",
+        "empresa",
+        "tipo",
+        "nombre_en_excel_horarios",
+    ]
+    titulo_por_nid: Dict[str, str] = {}
+    for titulo, nid, _nom in cpa_detalle:
+        if nid:
+            titulo_por_nid.setdefault(nid, titulo)
+    filas_cpa: List[List[str]] = []
+    filas_pts: List[Tuple[List[str], bool]] = []
+    for cid, empresa, _sheet in hojas:
+        for nid in nodos_empresa.get(cid, []):
+            es_cpa = nid in ids_cpa
+            vals = [
+                nid,
+                nombres.get(nid, nid),
+                cid,
+                empresa,
+                "CPA (monitoreo con control)" if es_cpa else "Solo monitoreo",
+                titulo_por_nid.get(nid, ""),
+            ]
+            filas_pts.append((vals, es_cpa))
+            if es_cpa:
+                filas_cpa.append(vals)
+
+    header_cpa_fill = PatternFill("solid", fgColor="375623")
+    wscpa = wb.create_sheet("CPA control", 1)
+    wscpa["A1"] = "Puntos CPA control (monitoreo con control)"
+    wscpa["A1"].font = Font(bold=True, size=14, color="375623")
+    wscpa.merge_cells("A1:F1")
+    wscpa["A2"] = (
+        "Hoja 2 · sitios con horario programado en "
+        "«Horarios de contron hidrico clientes wes» (Drive)."
+    )
+    wscpa.merge_cells("A2:F2")
+    for c, h in enumerate(tit_pts, 1):
+        cell = wscpa.cell(row=4, column=c, value=h)
+        cell.fill = header_cpa_fill
+        cell.font = header_font
+    for r_i, vals in enumerate(filas_cpa, 5):
+        for c, v in enumerate(vals, 1):
+            cell = wscpa.cell(row=r_i, column=c, value=v)
+            cell.fill = cpa_fill
+    for i, w in enumerate((14, 40, 12, 28, 28, 40), 1):
+        wscpa.column_dimensions[get_column_letter(i)].width = w
+    wscpa.freeze_panes = "A5"
+    wscpa.auto_filter.ref = f"A4:F{max(5, 4 + len(filas_cpa))}"
+
+    wsp = wb.create_sheet("Puntos", 2)
     wsp["A1"] = "Puntos activos: CPA (monitoreo con control) vs solo monitoreo"
     wsp["A1"].font = Font(bold=True, size=14, color="1F4E79")
     wsp.merge_cells("A1:F1")
@@ -344,34 +392,18 @@ def _escribir_xlsx(
         "«Horarios de contron hidrico clientes wes» (Drive)."
     )
     wsp.merge_cells("A2:F2")
-    tit_pts = ["node_id", "nombre", "company_id", "empresa", "tipo", "nombre_en_excel_horarios"]
     for c, h in enumerate(tit_pts, 1):
         cell = wsp.cell(row=4, column=c, value=h)
         cell.fill = header_fill
         cell.font = header_font
-    titulo_por_nid: Dict[str, str] = {}
-    for titulo, nid, _nom in cpa_detalle:
-        if nid:
-            titulo_por_nid.setdefault(nid, titulo)
     r_i = 5
-    for cid, empresa, _sheet in hojas:
-        for nid in nodos_empresa.get(cid, []):
-            es_cpa = nid in ids_cpa
-            tipo = "CPA (monitoreo con control)" if es_cpa else "Solo monitoreo"
-            fill = cpa_fill if es_cpa else mon_fill
-            vals = [
-                nid,
-                nombres.get(nid, nid),
-                cid,
-                empresa,
-                tipo,
-                titulo_por_nid.get(nid, ""),
-            ]
-            for c, v in enumerate(vals, 1):
-                cell = wsp.cell(row=r_i, column=c, value=v)
-                if c == 5:
-                    cell.fill = fill
-            r_i += 1
+    for vals, es_cpa in filas_pts:
+        fill = cpa_fill if es_cpa else mon_fill
+        for c, v in enumerate(vals, 1):
+            cell = wsp.cell(row=r_i, column=c, value=v)
+            if c == 5:
+                cell.fill = fill
+        r_i += 1
     for i, w in enumerate((14, 40, 12, 28, 28, 40), 1):
         wsp.column_dimensions[get_column_letter(i)].width = w
     wsp.freeze_panes = "A5"
@@ -443,7 +475,7 @@ def _escribir_xlsx(
 
 
 def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
-    """PDF de una página con la hoja Resumen del Excel de accesos por empresa."""
+    """PDF de 2 hojas: tabla blanca (resumen) en hoja 1 y tabla verde (CPA) en hoja 2."""
     from openpyxl import load_workbook
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -523,12 +555,13 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             data_rows.append([cid, empresa, str(pts), str(usr)])
 
     cpa_pts = []
-    if "Puntos" in wb.sheetnames:
-        for row in wb["Puntos"].iter_rows(min_row=5, max_col=6, values_only=True):
+    hoja_cpa = "CPA control" if "CPA control" in wb.sheetnames else "Puntos"
+    if hoja_cpa in wb.sheetnames:
+        for row in wb[hoja_cpa].iter_rows(min_row=5, max_col=6, values_only=True):
             if not row or not row[0]:
                 continue
             tipo = str(row[4] or "")
-            if "CPA" in tipo:
+            if hoja_cpa == "CPA control" or "CPA" in tipo:
                 cpa_pts.append(
                     [
                         str(row[0]),
@@ -547,7 +580,8 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     )
 
     navy = colors.HexColor("#1F4E79")
-    zebra = colors.HexColor("#F4F8FB")
+    green_hdr = colors.HexColor("#375623")
+    green_body = colors.HexColor("#C6EFCE")
     title_style = ParagraphStyle(
         "titulo",
         fontName="Helvetica-Bold",
@@ -639,20 +673,17 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     cmds = [
         ("BACKGROUND", (0, 0), (-1, 0), navy),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#B0B0B0")),
         ("LEFTPADDING", (0, 0), (-1, -1), 5),
         ("RIGHTPADDING", (0, 0), (-1, -1), 5),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#D6E3F0")),
     ]
-    for i in range(1, len(table_data) - 1):
-        if i % 2 == 0:
-            cmds.append(("BACKGROUND", (0, i), (-1, i), zebra))
 
     story = [
-        _p(titulo, title_style),
+        _p("Hoja 1 · " + titulo, title_style),
         Spacer(1, 2 * mm),
         _p(nota, sub_style),
         Spacer(1, 5 * mm),
@@ -660,13 +691,21 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     ]
     story[-1].setStyle(TableStyle(cmds))
 
+    title_cpa = ParagraphStyle(
+        "titulo_cpa",
+        fontName="Helvetica-Bold",
+        fontSize=14,
+        leading=18,
+        textColor=green_hdr,
+        alignment=TA_LEFT,
+    )
     if cpa_pts:
         story.append(PageBreak())
-        story.append(_p("Puntos CPA control (monitoreo con control)", title_style))
+        story.append(_p("Hoja 2 · Puntos CPA control (monitoreo con control)", title_cpa))
         story.append(Spacer(1, 2 * mm))
         story.append(
             _p(
-                "Hoja 2 · sitios con horario programado en el Excel de Drive "
+                "Tabla verde · sitios con horario programado en el Excel de Drive "
                 "«Horarios de contron hidrico clientes wes».",
                 sub_style,
             )
@@ -686,17 +725,31 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         cpa_w = [usable * w for w in (0.14, 0.34, 0.22, 0.30)]
         cpa_table = Table(cpa_data, colWidths=cpa_w, repeatRows=1)
         cpa_cmds = [
-            ("BACKGROUND", (0, 0), (-1, 0), navy),
+            ("BACKGROUND", (0, 0), (-1, 0), green_hdr),
+            ("BACKGROUND", (0, 1), (-1, -1), green_body),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#B0B0B0")),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#A9D08E")),
             ("LEFTPADDING", (0, 0), (-1, -1), 4),
             ("RIGHTPADDING", (0, 0), (-1, -1), 4),
             ("TOPPADDING", (0, 0), (-1, -1), 3),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#C6EFCE")),
         ]
         cpa_table.setStyle(TableStyle(cpa_cmds))
         story.append(cpa_table)
+
+    def _folio(canvas, doc):
+        canvas.saveState()
+        n = canvas.getPageNumber()
+        canvas.setFont("Helvetica", 8)
+        canvas.setFillColor(colors.HexColor("#555555"))
+        label = (
+            "Hoja 1 · tabla blanca (resumen)"
+            if n == 1
+            else "Hoja 2 · tabla verde (CPA control)"
+        )
+        canvas.drawString(margin, 8 * mm, label)
+        canvas.drawRightString(page[0] - margin, 8 * mm, f"{n} / {2 if cpa_pts else 1}")
+        canvas.restoreState()
 
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(
@@ -705,11 +758,11 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         leftMargin=margin,
         rightMargin=margin,
         topMargin=margin,
-        bottomMargin=margin,
+        bottomMargin=14 * mm,
         title=titulo,
         author="WES",
     )
-    doc.build(story)
+    doc.build(story, onFirstPage=_folio, onLaterPages=_folio)
     return pdf_path
 
 
