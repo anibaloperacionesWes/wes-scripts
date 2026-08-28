@@ -260,24 +260,35 @@ def _escribir_xlsx(
     nodos_empresa: Dict[str, List[str]],
     filas: Dict[str, List[dict]],
     generado: str,
+    nombres: Dict[str, str],
+    ids_cpa: Set[str],
+    cpa_detalle: List[Tuple[str, str, str]],
 ) -> None:
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
+    from puntos_cpa import clasificar_nodos
+
     wb = Workbook()
     header_fill = PatternFill("solid", fgColor="1F4E79")
     header_font = Font(color="FFFFFF", bold=True)
     wrap = Alignment(wrap_text=True, vertical="top")
+    cpa_fill = PatternFill("solid", fgColor="C6EFCE")
+    mon_fill = PatternFill("solid", fgColor="FFF2CC")
 
     cols_res = [
         "company_id",
         "empresa",
         "puntos_activos",
+        "puntos_CPA",
+        "puntos_solo_monitoreo",
         "usuarios_con_acceso",
+        "ids_CPA",
+        "ids_solo_monitoreo",
         "hoja",
     ]
-    usados: Set[str] = {"resumen"}
+    usados: Set[str] = {"resumen", "puntos"}
     hojas: List[Tuple[str, str, str]] = []  # cid, empresa, sheet name
     for cid, empresa in sorted(companies.items(), key=lambda x: (x[1].casefold(), x[0])):
         if cid not in nodos_empresa:
@@ -291,24 +302,80 @@ def _escribir_xlsx(
     ws["A1"].font = Font(bold=True, size=14, color="1F4E79")
     ws["A2"] = (
         f"Generado {generado} hora Chile · se omite personal WES (@wes.cl); "
-        "se incluye go.salass@gmail.com"
+        "se incluye go.salass@gmail.com. "
+        "CPA = monitoreo con control (horarios programados Drive). "
+        "Solo monitoreo = punto activo sin CPA."
     )
-    ws.merge_cells("A1:E1")
-    ws.merge_cells("A2:E2")
+    ws.merge_cells("A1:I1")
+    ws.merge_cells("A2:I2")
     for c, h in enumerate(cols_res, 1):
         cell = ws.cell(row=4, column=c, value=h)
         cell.fill = header_fill
         cell.font = header_font
     for i, (cid, empresa, sheet) in enumerate(hojas, 5):
+        nids = nodos_empresa.get(cid, [])
+        cpa, solo = clasificar_nodos(nids, ids_cpa)
         ws.cell(row=i, column=1, value=cid)
         ws.cell(row=i, column=2, value=empresa)
-        ws.cell(row=i, column=3, value=len(nodos_empresa.get(cid, [])))
-        ws.cell(row=i, column=4, value=len(filas.get(cid, [])))
-        ws.cell(row=i, column=5, value=sheet)
-    for i, w in enumerate((12, 32, 16, 20, 28), 1):
+        ws.cell(row=i, column=3, value=len(nids))
+        cell_cpa = ws.cell(row=i, column=4, value=len(cpa))
+        cell_mon = ws.cell(row=i, column=5, value=len(solo))
+        if cpa:
+            cell_cpa.fill = cpa_fill
+        if solo:
+            cell_mon.fill = mon_fill
+        ws.cell(row=i, column=6, value=len(filas.get(cid, [])))
+        ws.cell(row=i, column=7, value=", ".join(cpa))
+        ws.cell(row=i, column=8, value=", ".join(solo))
+        ws.cell(row=i, column=9, value=sheet)
+        ws.cell(row=i, column=7).alignment = wrap
+        ws.cell(row=i, column=8).alignment = wrap
+    for i, w in enumerate((12, 28, 14, 12, 20, 18, 36, 42, 26), 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.freeze_panes = "A5"
-    ws.auto_filter.ref = f"A4:E{4 + max(1, len(hojas))}"
+    ws.auto_filter.ref = f"A4:I{4 + max(1, len(hojas))}"
+
+    wsp = wb.create_sheet("Puntos", 1)
+    wsp["A1"] = "Puntos activos: CPA (monitoreo con control) vs solo monitoreo"
+    wsp["A1"].font = Font(bold=True, size=14, color="1F4E79")
+    wsp.merge_cells("A1:F1")
+    wsp["A2"] = (
+        "CPA toma los sitios con horario programado en "
+        "«Horarios de contron hidrico clientes wes» (Drive)."
+    )
+    wsp.merge_cells("A2:F2")
+    tit_pts = ["node_id", "nombre", "company_id", "empresa", "tipo", "nombre_en_excel_horarios"]
+    for c, h in enumerate(tit_pts, 1):
+        cell = wsp.cell(row=4, column=c, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+    titulo_por_nid: Dict[str, str] = {}
+    for titulo, nid, _nom in cpa_detalle:
+        if nid:
+            titulo_por_nid.setdefault(nid, titulo)
+    r_i = 5
+    for cid, empresa, _sheet in hojas:
+        for nid in nodos_empresa.get(cid, []):
+            es_cpa = nid in ids_cpa
+            tipo = "CPA (monitoreo con control)" if es_cpa else "Solo monitoreo"
+            fill = cpa_fill if es_cpa else mon_fill
+            vals = [
+                nid,
+                nombres.get(nid, nid),
+                cid,
+                empresa,
+                tipo,
+                titulo_por_nid.get(nid, ""),
+            ]
+            for c, v in enumerate(vals, 1):
+                cell = wsp.cell(row=r_i, column=c, value=v)
+                if c == 5:
+                    cell.fill = fill
+            r_i += 1
+    for i, w in enumerate((14, 40, 12, 28, 28, 40), 1):
+        wsp.column_dimensions[get_column_letter(i)].width = w
+    wsp.freeze_panes = "A5"
+    wsp.auto_filter.ref = f"A4:F{max(5, r_i - 1)}"
 
     cols = [
         "email",
@@ -337,10 +404,21 @@ def _escribir_xlsx(
         wsc["A1"] = f"{empresa} ({cid})"
         wsc["A1"].font = Font(bold=True, size=14, color="1F4E79")
         wsc.merge_cells("A1:H1")
-        n_pts = len(nodos_empresa.get(cid, []))
+        nids = nodos_empresa.get(cid, [])
+        cpa, solo = clasificar_nodos(nids, ids_cpa)
         n_usr = len(filas.get(cid, []))
-        wsc["A2"] = f"{n_usr} usuario(s) con acceso · {n_pts} punto(s) activo(s)"
+        wsc["A2"] = (
+            f"{n_usr} usuario(s) · {len(nids)} punto(s) activo(s) · "
+            f"{len(cpa)} CPA · {len(solo)} solo monitoreo"
+        )
         wsc.merge_cells("A2:H2")
+        wsc["A3"] = (
+            ("CPA: " + (", ".join(cpa) if cpa else "—"))
+            + "  |  Solo monitoreo: "
+            + (", ".join(solo) if solo else "—")
+        )
+        wsc.merge_cells("A3:H3")
+        wsc["A3"].alignment = wrap
         for c, h in enumerate(titulos, 1):
             cell = wsc.cell(row=4, column=c, value=h)
             cell.fill = header_fill
@@ -348,15 +426,16 @@ def _escribir_xlsx(
         rows = filas.get(cid, [])
         if not rows:
             wsc.cell(row=5, column=1, value="Sin usuarios en la muestra consultada")
-        for r_i, row in enumerate(rows, 5):
+        for rr, row in enumerate(rows, 5):
             for c, key in enumerate(cols, 1):
-                cell = wsc.cell(row=r_i, column=c, value=row.get(key, ""))
+                cell = wsc.cell(row=rr, column=c, value=row.get(key, ""))
                 cell.alignment = wrap
         for i, w in enumerate(widths, 1):
             wsc.column_dimensions[get_column_letter(i)].width = w
         wsc.freeze_panes = "A5"
         last = 4 + max(1, len(rows))
         wsc.auto_filter.ref = f"A4:H{last}"
+        wsc.row_dimensions[3].height = 28
         wsc.row_dimensions[4].height = 18
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -368,7 +447,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     from openpyxl import load_workbook
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_LEFT
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import (
@@ -391,7 +470,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     ws = wb["Resumen"]
     titulo = str(ws["A1"].value or "Accesos WES por empresa").strip()
 
-    filas_excel = list(ws.iter_rows(min_row=1, max_col=5, values_only=True))
+    filas_excel = list(ws.iter_rows(min_row=1, max_col=9, values_only=True))
     header_i = None
     for i, row in enumerate(filas_excel):
         first = str(row[0] or "").strip().lower()
@@ -401,25 +480,69 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     if header_i is None:
         raise SystemExit("No se encontró el encabezado de Resumen")
 
-    titulos_pdf = ["Company ID", "Empresa", "Puntos activos", "Usuarios con acceso"]
+    headers = [str(h or "").strip() for h in filas_excel[header_i]]
+    idx = {h: i for i, h in enumerate(headers) if h}
+
+    def _col(row, name, default=0):
+        i = idx.get(name)
+        if i is None or i >= len(row) or row[i] is None:
+            return default
+        return row[i]
+
+    tiene_cpa = "puntos_CPA" in idx
+    if tiene_cpa:
+        titulos_pdf = [
+            "Company ID",
+            "Empresa",
+            "Activos",
+            "CPA",
+            "Solo monitoreo",
+            "Usuarios",
+        ]
+    else:
+        titulos_pdf = ["Company ID", "Empresa", "Puntos activos", "Usuarios con acceso"]
     data_rows = []
-    tot_pts = 0
-    tot_usr = 0
+    tot_pts = tot_cpa = tot_solo = tot_usr = 0
     for row in filas_excel[header_i + 1 :]:
         if not row or row[0] is None or str(row[0]).strip() == "":
             continue
-        cid = str(row[0]).strip()
-        empresa = str(row[1] or "").strip()
-        pts = int(row[2] or 0)
-        usr = int(row[3] or 0)
+        cid = str(_col(row, "company_id", "")).strip()
+        empresa = str(_col(row, "empresa", "")).strip()
+        pts = int(_col(row, "puntos_activos", 0) or 0)
+        usr = int(_col(row, "usuarios_con_acceso", 0) or 0)
         tot_pts += pts
         tot_usr += usr
-        data_rows.append([cid, empresa, str(pts), str(usr)])
+        if tiene_cpa:
+            n_cpa = int(_col(row, "puntos_CPA", 0) or 0)
+            n_solo = int(_col(row, "puntos_solo_monitoreo", 0) or 0)
+            tot_cpa += n_cpa
+            tot_solo += n_solo
+            data_rows.append([cid, empresa, str(pts), str(n_cpa), str(n_solo), str(usr)])
+        else:
+            data_rows.append([cid, empresa, str(pts), str(usr)])
+
+    cpa_pts = []
+    if "Puntos" in wb.sheetnames:
+        for row in wb["Puntos"].iter_rows(min_row=5, max_col=6, values_only=True):
+            if not row or not row[0]:
+                continue
+            tipo = str(row[4] or "")
+            if "CPA" in tipo:
+                cpa_pts.append(
+                    [
+                        str(row[0]),
+                        str(row[1] or ""),
+                        str(row[3] or ""),
+                        str(row[5] or ""),
+                    ]
+                )
 
     generado = datetime.now(TZ_CL).strftime("%d/%m/%Y %H:%M")
     nota = (
         f"Generado {generado} hora Chile · puntos activos · sin personal WES (@wes.cl); "
-        "se incluye go.salass@gmail.com · fuente: hoja Resumen de accesos_por_empresa.xlsx"
+        "se incluye go.salass@gmail.com. "
+        "CPA = monitoreo con control (horarios programados). "
+        "Solo monitoreo = sin CPA."
     )
 
     navy = colors.HexColor("#1F4E79")
@@ -480,28 +603,38 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         return Paragraph(t, style)
 
     table_data = [[_p(h, head_style) for h in titulos_pdf]]
-    for cid, empresa, pts, usr in data_rows:
+    for vals in data_rows:
+        row_cells = []
+        for i, v in enumerate(vals):
+            row_cells.append(_p(v, cell_l if i == 1 else cell_c))
+        table_data.append(row_cells)
+    if tiene_cpa:
         table_data.append(
             [
-                _p(cid, cell_c),
-                _p(empresa, cell_l),
-                _p(pts, cell_c),
-                _p(usr, cell_c),
+                _p("", tot_c),
+                _p(f"Total ({len(data_rows)} empresas)", tot_style),
+                _p(str(tot_pts), tot_c),
+                _p(str(tot_cpa), tot_c),
+                _p(str(tot_solo), tot_c),
+                _p(str(tot_usr), tot_c),
             ]
         )
-    table_data.append(
-        [
-            _p("", tot_c),
-            _p(f"Total ({len(data_rows)} empresas)", tot_style),
-            _p(str(tot_pts), tot_c),
-            _p(str(tot_usr), tot_c),
-        ]
-    )
+        weights = (0.14, 0.30, 0.12, 0.12, 0.18, 0.14)
+    else:
+        table_data.append(
+            [
+                _p("", tot_c),
+                _p(f"Total ({len(data_rows)} empresas)", tot_style),
+                _p(str(tot_pts), tot_c),
+                _p(str(tot_usr), tot_c),
+            ]
+        )
+        weights = (0.18, 0.42, 0.20, 0.20)
 
-    page = A4
-    margin = 14 * mm
+    page = landscape(A4) if tiene_cpa else A4
+    margin = 12 * mm
     usable = page[0] - 2 * margin
-    col_w = [usable * w for w in (0.18, 0.42, 0.20, 0.20)]
+    col_w = [usable * w for w in weights]
     cmds = [
         ("BACKGROUND", (0, 0), (-1, 0), navy),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -525,6 +658,36 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         Table(table_data, colWidths=col_w, repeatRows=1),
     ]
     story[-1].setStyle(TableStyle(cmds))
+
+    if cpa_pts:
+        story.append(Spacer(1, 6 * mm))
+        story.append(_p("Puntos CPA (monitoreo con control)", title_style))
+        story.append(Spacer(1, 2 * mm))
+        cpa_headers = ["Node ID", "Punto", "Empresa", "Nombre en Excel de horarios"]
+        cpa_data = [[_p(h, head_style) for h in cpa_headers]]
+        for vals in cpa_pts:
+            cpa_data.append(
+                [
+                    _p(vals[0], cell_c),
+                    _p(vals[1], cell_l),
+                    _p(vals[2], cell_l),
+                    _p(vals[3], cell_l),
+                ]
+            )
+        cpa_w = [usable * w for w in (0.14, 0.34, 0.22, 0.30)]
+        cpa_table = Table(cpa_data, colWidths=cpa_w, repeatRows=1)
+        cpa_cmds = [
+            ("BACKGROUND", (0, 0), (-1, 0), navy),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#B0B0B0")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#C6EFCE")),
+        ]
+        cpa_table.setStyle(TableStyle(cpa_cmds))
+        story.append(cpa_table)
 
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(
@@ -587,7 +750,12 @@ def main() -> int:
     generado = datetime.now(TZ_CL).strftime("%d/%m/%Y %H:%M")
     xlsx = args.salida / f"accesos_por_empresa_{stamp}.xlsx"
     latest = args.salida / "accesos_por_empresa.xlsx"
-    _escribir_xlsx(xlsx, companies, nodos_empresa, filas, generado)
+    from puntos_cpa import cargar_ids_cpa
+
+    ids_cpa, cpa_detalle = cargar_ids_cpa(nombres)
+    _escribir_xlsx(
+        xlsx, companies, nodos_empresa, filas, generado, nombres, ids_cpa, cpa_detalle
+    )
     latest.write_bytes(xlsx.read_bytes())
 
     n_emp = sum(1 for cid in companies if cid in nodos_empresa)
@@ -599,7 +767,8 @@ def main() -> int:
             continue
         print(
             f"  {cid} {empresa}: {len(filas.get(cid, []))} usuario(s) · "
-            f"{len(nodos_empresa[cid])} punto(s)"
+            f"{len(nodos_empresa[cid])} punto(s) · "
+            f"{sum(1 for n in nodos_empresa[cid] if n in ids_cpa)} CPA"
         )
     print(f"[OK] XLSX: {xlsx}")
     print(f"[OK] XLSX: {latest}")
