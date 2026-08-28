@@ -274,6 +274,9 @@ def _escribir_xlsx(
     from openpyxl.utils import get_column_letter
 
     from puntos_cpa import clasificar_nodos
+    from gabinetes import cargar_gabinetes, conteo_gabinetes, texto_mismo_gabinete
+
+    gab_de, gab_miembros = cargar_gabinetes()
 
     wb = Workbook()
     header_fill = PatternFill("solid", fgColor="1F4E79")
@@ -286,11 +289,13 @@ def _escribir_xlsx(
         "company_id",
         "empresa",
         "puntos_activos",
+        "gabinetes",
         "puntos_CPA",
         "puntos_solo_monitoreo",
         "usuarios_con_acceso",
         "ids_CPA",
         "ids_solo_monitoreo",
+        "mismo_gabinete",
         "hoja",
     ]
     usados: Set[str] = {"resumen", "puntos", "cpa control"}
@@ -309,10 +314,12 @@ def _escribir_xlsx(
         f"Generado {generado} hora Chile · se omite personal WES (@wes.cl); "
         "se incluye go.salass@gmail.com. "
         "CPA = monitoreo con control (horarios programados Drive). "
-        "Solo monitoreo = punto activo sin CPA."
+        "Solo monitoreo = punto activo sin CPA. "
+        "Gabinetes: puntos en el mismo gabinete cuentan como 1 "
+        "(listado de equipos vigentes)."
     )
-    ws.merge_cells("A1:I1")
-    ws.merge_cells("A2:I2")
+    ws.merge_cells("A1:K1")
+    ws.merge_cells("A2:K2")
     for c, h in enumerate(cols_res, 1):
         cell = ws.cell(row=4, column=c, value=h)
         cell.fill = header_fill
@@ -323,18 +330,21 @@ def _escribir_xlsx(
         ws.cell(row=i, column=1, value=cid)
         ws.cell(row=i, column=2, value=empresa)
         ws.cell(row=i, column=3, value=len(nids))
-        ws.cell(row=i, column=4, value=len(cpa))
-        ws.cell(row=i, column=5, value=len(solo))
-        ws.cell(row=i, column=6, value=len(filas.get(cid, [])))
-        ws.cell(row=i, column=7, value=", ".join(cpa))
-        ws.cell(row=i, column=8, value=", ".join(solo))
-        ws.cell(row=i, column=9, value=sheet)
-        ws.cell(row=i, column=7).alignment = wrap
+        ws.cell(row=i, column=4, value=conteo_gabinetes(nids, gab_de))
+        ws.cell(row=i, column=5, value=len(cpa))
+        ws.cell(row=i, column=6, value=len(solo))
+        ws.cell(row=i, column=7, value=len(filas.get(cid, [])))
+        ws.cell(row=i, column=8, value=", ".join(cpa))
+        ws.cell(row=i, column=9, value=", ".join(solo))
+        ws.cell(row=i, column=10, value=texto_mismo_gabinete(nids, gab_de, gab_miembros) or "—")
+        ws.cell(row=i, column=11, value=sheet)
         ws.cell(row=i, column=8).alignment = wrap
-    for i, w in enumerate((12, 28, 14, 12, 20, 18, 36, 42, 26), 1):
+        ws.cell(row=i, column=9).alignment = wrap
+        ws.cell(row=i, column=10).alignment = wrap
+    for i, w in enumerate((12, 28, 14, 12, 12, 20, 18, 36, 42, 48, 26), 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.freeze_panes = "A5"
-    ws.auto_filter.ref = f"A4:I{4 + max(1, len(hojas))}"
+    ws.auto_filter.ref = f"A4:K{4 + max(1, len(hojas))}"
 
     tit_pts = [
         "node_id",
@@ -508,7 +518,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     ws = wb["Resumen"]
     titulo = str(ws["A1"].value or "Accesos WES por empresa").strip()
 
-    filas_excel = list(ws.iter_rows(min_row=1, max_col=9, values_only=True))
+    filas_excel = list(ws.iter_rows(min_row=1, max_col=12, values_only=True))
     header_i = None
     for i, row in enumerate(filas_excel):
         first = str(row[0] or "").strip().lower()
@@ -527,12 +537,23 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             return default
         return row[i]
 
+    from gabinetes import cargar_gabinetes, conteo_gabinetes, texto_mismo_gabinete
+
+    gab_de, gab_miembros = cargar_gabinetes()
+    nodos_por_cia: Dict[str, List[str]] = defaultdict(list)
+    if "Puntos" in wb.sheetnames:
+        for prow in wb["Puntos"].iter_rows(min_row=5, max_col=4, values_only=True):
+            if not prow or not prow[0] or not prow[2]:
+                continue
+            nodos_por_cia[str(prow[2]).strip()].append(str(prow[0]).strip())
+
     tiene_cpa = "puntos_CPA" in idx
     if tiene_cpa:
         titulos_pdf = [
             "Company ID",
             "Empresa",
             "Activos",
+            "Gabinetes",
             "CPA",
             "Solo monitoreo",
             "Usuarios",
@@ -540,7 +561,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     else:
         titulos_pdf = ["Company ID", "Empresa", "Puntos activos", "Usuarios con acceso"]
     data_rows = []
-    tot_pts = tot_cpa = tot_solo = tot_usr = 0
+    tot_pts = tot_cpa = tot_solo = tot_usr = tot_gab = 0
     for row in filas_excel[header_i + 1 :]:
         if not row or row[0] is None or str(row[0]).strip() == "":
             continue
@@ -550,12 +571,22 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         usr = int(_col(row, "usuarios_con_acceso", 0) or 0)
         tot_pts += pts
         tot_usr += usr
+        nids = nodos_por_cia.get(cid, [])
+        n_gab = conteo_gabinetes(nids, gab_de) if nids else pts
+        grupos = texto_mismo_gabinete(nids, gab_de, gab_miembros)
+        if grupos:
+            celda_gab = f"{n_gab}\n{grupos}"
+        else:
+            celda_gab = str(n_gab)
+        tot_gab += n_gab
         if tiene_cpa:
             n_cpa = int(_col(row, "puntos_CPA", 0) or 0)
             n_solo = int(_col(row, "puntos_solo_monitoreo", 0) or 0)
             tot_cpa += n_cpa
             tot_solo += n_solo
-            data_rows.append([cid, empresa, str(pts), str(n_cpa), str(n_solo), str(usr)])
+            data_rows.append(
+                [cid, empresa, str(pts), celda_gab, str(n_cpa), str(n_solo), str(usr)]
+            )
         else:
             data_rows.append([cid, empresa, str(pts), str(usr)])
 
@@ -581,7 +612,8 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         f"Generado {generado} hora Chile · puntos activos · sin personal WES (@wes.cl); "
         "se incluye go.salass@gmail.com. "
         "CPA = monitoreo con control (horarios programados). "
-        "Solo monitoreo = sin CPA."
+        "Solo monitoreo = sin CPA. "
+        "Gabinetes: puntos en el mismo gabinete cuentan como 1."
     )
 
     navy = colors.HexColor("#1F4E79")
@@ -640,13 +672,16 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             .replace("<", "&lt;")
             .replace(">", "&gt;")
         )
+        t = t.replace("\n", "<br/>")
         return Paragraph(t, style)
 
     table_data = [[_p(h, head_style) for h in titulos_pdf]]
     for vals in data_rows:
         row_cells = []
         for i, v in enumerate(vals):
-            row_cells.append(_p(v, cell_l if i == 1 else cell_c))
+            # empresa (1) y gabinetes (3) van a la izquierda
+            align_l = i in (1, 3) if tiene_cpa else i == 1
+            row_cells.append(_p(v, cell_l if align_l else cell_c))
         table_data.append(row_cells)
     if tiene_cpa:
         table_data.append(
@@ -654,12 +689,13 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
                 _p("", tot_c),
                 _p(f"Total ({len(data_rows)} empresas)", tot_style),
                 _p(str(tot_pts), tot_c),
+                _p(str(tot_gab), tot_c),
                 _p(str(tot_cpa), tot_c),
                 _p(str(tot_solo), tot_c),
                 _p(str(tot_usr), tot_c),
             ]
         )
-        weights = (0.14, 0.30, 0.12, 0.12, 0.18, 0.14)
+        weights = (0.11, 0.20, 0.09, 0.24, 0.09, 0.14, 0.13)
     else:
         table_data.append(
             [
@@ -679,12 +715,13 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         ("BACKGROUND", (0, 0), (-1, 0), navy),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("BACKGROUND", (0, 1), (-1, -1), colors.white),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
+        ("VALIGN", (0, 1), (-1, -1), "TOP"),
         ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#B0B0B0")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]
 
     story = [
