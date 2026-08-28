@@ -604,8 +604,13 @@ def agregar_secciones_consumo_diario_y_max_dia(
     )
 
     pref = _cfg(company_id)["prefijo"]
-
-    add_formatted_heading(doc, "Evolución del consumo diario por punto", level=1)
+    es_zapallar = company_id == "000027"
+    titulo = (
+        "Anexo — Evolución del consumo diario por punto"
+        if es_zapallar
+        else "Evolución del consumo diario por punto"
+    )
+    add_formatted_heading(doc, titulo, level=1, page_break_before=es_zapallar)
     intro = doc.add_paragraph(
         "Gráficos de consumo total diario (m³) de cada día del periodo analizado, "
         "por punto de monitoreo."
@@ -761,7 +766,7 @@ def agregar_analisis_nocturno_extendido(
         values = [v for _, v in sorted_pairs]
         n_pts = len(names)
         fig_w = max(7.0, min(9.5, n_pts * 0.85))
-        fig_h = 2.5 if n_pts > 5 else 3.2
+        fig_h = 2.2 if n_pts > 5 else 3.2
         rot = 48 if n_pts > 4 else 28
         fs = 7 if n_pts > 6 else 8
         fig, ax = plt.subplots(figsize=(fig_w, fig_h))
@@ -807,8 +812,8 @@ def agregar_analisis_nocturno_extendido(
         chart_path = output_dir / f"{pref}_consumo_nocturno_periodo.png"
         plt.savefig(chart_path, dpi=140, bbox_inches="tight")
         plt.close()
-        img_w = Inches(5.2) if n_pts > 5 else Inches(5.8)
-        img_h = Inches(2.0) if n_pts > 5 else Inches(2.4)
+        img_w = Inches(5.4) if n_pts > 5 else Inches(5.8)
+        img_h = Inches(1.85) if n_pts > 5 else Inches(2.4)
         pic_para = doc.add_paragraph()
         pic_para.add_run().add_picture(str(chart_path), width=img_w, height=img_h)
         pic_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -904,6 +909,7 @@ def agregar_analisis_nocturno_extendido(
             run.font.color.rgb = RGBColor(80, 80, 80)
 
     if es_zapallar:
+        doc.add_page_break()
         agregar_comparativo_6_meses_esval(doc, end_dt, output_dir)
 
     add_formatted_title(doc, "Conclusión — consumo nocturno")

@@ -4736,13 +4736,7 @@ def generate_aggregated_report(
             if not (es_bupa and d["node_id"] == "000029-01")
         ]
         if es_fundo_zapallar:
-            esval = next((d for d in nodes_data if d["node_id"] == "000027-01"), None)
-            esval_m3 = float(esval["summary"]["total"]) if esval else 0.0
-            narrative = (
-                f"Consumo real del fundo = Matriz ESVAL: {format_number_chilean(esval_m3, 1)} m³. "
-                f"Estanques y etapas miden caudales aguas abajo de esa matriz; "
-                f"el máximo del gráfico es ESVAL, no la suma de barras."
-            )
+            narrative = ""
         elif es_agregado_fmt:
             from agregado_extendido_extra import narrativa_consumo_total_extendido
 
@@ -4756,7 +4750,7 @@ def generate_aggregated_report(
             for run in narrative_para.runs:
                 run.font.color.rgb = RGBColor(0, 0, 0)  # Negro
 
-    if es_agregado_fmt:
+    if es_agregado_fmt and not es_fundo_zapallar:
         try:
             from agregado_extendido_extra import agregar_secciones_consumo_diario_y_max_dia
 
@@ -4940,6 +4934,16 @@ def generate_aggregated_report(
             )
         except Exception as e:
             print(f"[ADVERTENCIA] Agregado extendido — análisis nocturno: {e}")
+
+    if es_agregado_fmt and es_fundo_zapallar:
+        try:
+            from agregado_extendido_extra import agregar_secciones_consumo_diario_y_max_dia
+
+            agregar_secciones_consumo_diario_y_max_dia(
+                company_id, doc, nodes_data, start_dt, end_dt, output_dir_path
+            )
+        except Exception as e:
+            print(f"[ADVERTENCIA] Agregado extendido — anexo consumo diario: {e}")
     
     # Generar gráfica de consumo nocturno por nodo (orden: mayor a menor consumo nocturno)
     if (
