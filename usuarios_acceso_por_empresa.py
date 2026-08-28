@@ -40,6 +40,9 @@ NOMBRE_EMPRESA_FALLBACK = {
     "000026": "UDD",
 }
 
+# Fuera de este reporte (pedido operativo).
+EMPRESAS_EXCLUIDAS = {"000010"}  # Corporación Puente Alto
+
 # Personal WES (compañía 000000 o @wes.cl) se omite, salvo esta excepción.
 PERSONAL_WES_EXCEPCIONES = {"go.salass@gmail.com"}
 WES_COMPANY_ID = "000000"
@@ -198,6 +201,8 @@ def _accesos_por_empresa(
 ) -> Tuple[Dict[str, List[str]], Dict[str, List[dict]]]:
     nodos_empresa: Dict[str, List[str]] = defaultdict(list)
     for nid, cid in company_de.items():
+        if cid in EMPRESAS_EXCLUIDAS:
+            continue
         cname = companies.get(cid, "")
         if solo_activos and not es_nodo_activo(nid, cid, cname):
             continue
@@ -217,7 +222,7 @@ def _accesos_por_empresa(
         por_cia: Dict[str, List[str]] = defaultdict(list)
         for nid in _allowed_nodes(user):
             cid = company_de.get(nid, "")
-            if not cid:
+            if not cid or cid in EMPRESAS_EXCLUIDAS:
                 continue
             cname = companies.get(cid, "")
             if solo_activos and not es_nodo_activo(nid, cid, cname):
@@ -291,7 +296,7 @@ def _escribir_xlsx(
     usados: Set[str] = {"resumen", "puntos", "cpa control"}
     hojas: List[Tuple[str, str, str]] = []  # cid, empresa, sheet name
     for cid, empresa in sorted(companies.items(), key=lambda x: (x[1].casefold(), x[0])):
-        if cid not in nodos_empresa:
+        if cid in EMPRESAS_EXCLUIDAS or cid not in nodos_empresa:
             continue
         sheet = _nombre_hoja(cid, empresa, usados)
         hojas.append((cid, empresa, sheet))
