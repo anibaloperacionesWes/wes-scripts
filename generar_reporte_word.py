@@ -4544,14 +4544,14 @@ def generate_aggregated_report(
     if nodes_data:
         fig, ax = plt.subplots(figsize=(16, 8))
         
-        # Crear lista de tuplas (node_name, consumption) incluyendo todos los puntos.
+        # Crear lista de tuplas (node_name, consumption, node_id) incluyendo todos los puntos.
         # Fundo Zapallar: se muestran todos los puntos en el gráfico, pero el "total" del
         # fundo NO es la suma (doble conteo): la referencia real es Matriz ESVAL (fuente).
         # Para BUPA, excluir "Llenado de Estanques" (000029-01) de la gráfica
         es_bupa = company_id == "000029"
         node_consumption_pairs = [
-            (d["node_name"], d["summary"]["total"]) 
-            for d in nodes_data 
+            (d["node_name"], d["summary"]["total"], d["node_id"])
+            for d in nodes_data
             if not (es_bupa and d["node_id"] == "000029-01")
         ]
         node_consumption_pairs.sort(key=lambda x: x[1], reverse=True)  # Ordenar de mayor a menor
@@ -4559,12 +4559,32 @@ def generate_aggregated_report(
         # Extraer nombres y consumos ordenados
         node_names = [pair[0] for pair in node_consumption_pairs]
         consumptions = [pair[1] for pair in node_consumption_pairs]
-        
-        bars = ax.bar(node_names, consumptions, color="#0050b3")
+        node_ids_chart = [pair[2] for pair in node_consumption_pairs]
+
+        if es_fundo_zapallar:
+            from agregado_extendido_extra import COLOR_AGUAS_ABAJO, COLOR_MATRIZ_ESVAL
+            from matplotlib.patches import Patch
+
+            bar_colors = [
+                COLOR_MATRIZ_ESVAL if nid == "000027-01" else COLOR_AGUAS_ABAJO
+                for nid in node_ids_chart
+            ]
+            bars = ax.bar(node_names, consumptions, color=bar_colors)
+            ax.legend(
+                handles=[
+                    Patch(facecolor=COLOR_MATRIZ_ESVAL, label="Matriz ESVAL (entrada real)"),
+                    Patch(facecolor=COLOR_AGUAS_ABAJO, label="Estanques y etapas (aguas abajo)"),
+                ],
+                loc="upper right",
+                fontsize=12,
+                frameon=False,
+            )
+        else:
+            bars = ax.bar(node_names, consumptions, color="#0050b3")
         ax.set_ylabel("Consumo total (m³)", fontsize=18, fontweight='bold')
         ax.set_xlabel("Punto de monitoreo", fontsize=18, fontweight='bold')
         titulo_barras = (
-            "Consumo del periodo por punto (FZ: ESVAL = entrada real)"
+            "Consumo del periodo por punto — Matriz ESVAL destacada"
             if es_fundo_zapallar
             else (
                 "Consumo total del periodo por punto de monitoreo"
@@ -4652,10 +4672,20 @@ def generate_aggregated_report(
         summary_para.add_run(
             "Nota: no se suma estanques ni etapas al total (mediciones aguas abajo de ESVAL).\n"
         )
+        esval_alerts = int(((esval or {}).get("alert_stats") or {}).get("cantidad") or 0)
+        otros_alerts = max(0, int(total_alerts) - esval_alerts)
+        summary_para.add_run("Total de alertas registradas: ")
+        summary_para.add_run(f"{total_alerts}.  ")
+        run_m = summary_para.add_run(f"Matriz ESVAL: {esval_alerts}")
+        run_m.bold = True
+        from agregado_extendido_extra import RGB_MATRIZ_ESVAL
+        run_m.font.color.rgb = RGB_MATRIZ_ESVAL
+        run_o = summary_para.add_run(f"  ·  Otros puntos: {otros_alerts}.\n")
+        run_o.font.color.rgb = RGBColor(140, 155, 171)
     else:
         summary_para.add_run(f"Consumo total agregado: {format_number_chilean(total_consumption, 1)} m³.\n")
         summary_para.add_run(f"Consumo promedio por punto: {format_number_chilean(avg_consumption_per_node, 1)} m³.\n")
-    summary_para.add_run(f"Total de alertas registradas: {total_alerts}.\n")
+        summary_para.add_run(f"Total de alertas registradas: {total_alerts}.\n")
     if not es_agregado_fmt and sum_promedio_alerta > 0:
         summary_para.add_run(f"Promedio de alerta agregado: {format_number_chilean(sum_promedio_alerta, 1)} m³/h.\n")
         summary_para.add_run(f"Proyección diaria de consumo nocturno agregada: {format_number_chilean(sum_proyeccion_24h, 1)} m³/día.\n")
@@ -4665,9 +4695,9 @@ def generate_aggregated_report(
         add_formatted_heading(doc, "Comparación de consumo por punto", level=1)
         if es_fundo_zapallar:
             comp_texto = (
-                "Consumo acumulado por punto en el periodo. "
-                "Matriz ESVAL es la entrada al fundo (referencia de consumo real); "
-                "estanques y etapas son mediciones aguas abajo y no deben sumarse al total."
+                "La barra naranja es la Matriz ESVAL, la entrada de agua al fundo: es el consumo real. "
+                "Las barras grises son estanques y etapas aguas abajo (el mismo caudal medido en cadena); "
+                "no se suman al total."
             )
         elif es_agregado_fmt:
             comp_texto = (
@@ -4682,6 +4712,15 @@ def generate_aggregated_report(
         for run in comp_para.runs:
             run.font.color.rgb = RGBColor(0, 0, 0)  # Negro
         add_picture_with_pagination(doc, str(comparison_chart_path), Inches(6), keep_with_next=True)
+
+        if es_fundo_zapallar:
+            from agregado_extendido_extra import agregar_tabla_kpis_consumo
+
+            esval_kpi = next((d for d in nodes_data if d["node_id"] == "000027-01"), None)
+            if esval_kpi:
+                agregar_tabla_kpis_consumo(
+                    doc, esval_kpi.get("summary") or {}, destacar_matriz=True
+                )
         
         consumer_nodes_for_narrative = [
             d for d in nodes_data 
@@ -4691,11 +4730,9 @@ def generate_aggregated_report(
             esval = next((d for d in nodes_data if d["node_id"] == "000027-01"), None)
             esval_m3 = float(esval["summary"]["total"]) if esval else 0.0
             narrative = (
-                f"En Fundo Zapallar el consumo real del periodo corresponde a la Matriz ESVAL "
-                f"(entrada de agua al fundo): {format_number_chilean(esval_m3, 1)} m³. "
-                f"Los demás puntos (estanques y etapas) miden caudales aguas abajo de esa matriz; "
-                f"por eso no se suman entre sí ni con ESVAL — el máximo del gráfico es Matriz ESVAL, "
-                f"no la suma de barras, que no representa un consumo adicional."
+                f"Consumo real del fundo = Matriz ESVAL: {format_number_chilean(esval_m3, 1)} m³. "
+                f"Estanques y etapas miden caudales aguas abajo de esa matriz; "
+                f"el máximo del gráfico es ESVAL, no la suma de barras."
             )
         elif es_agregado_fmt:
             from agregado_extendido_extra import narrativa_consumo_total_extendido

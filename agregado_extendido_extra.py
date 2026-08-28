@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib
 
@@ -130,6 +130,26 @@ HORARIO_NOCTURNO_TEXTO = (
     "suma de esas horas en todos los días con datos — no se extrapola ni proyecta a 30 días."
 )
 
+# Fundo Zapallar: distinguir Matriz ESVAL (entrada real) del resto aguas abajo.
+COLOR_MATRIZ_ESVAL = "#E67E22"
+COLOR_AGUAS_ABAJO = "#8C9BAB"
+RGB_MATRIZ_ESVAL = RGBColor(230, 126, 34)
+ZAPALLAR_ESVAL_ID = "000027-01"
+_MESES_ES = {
+    1: "ene",
+    2: "feb",
+    3: "mar",
+    4: "abr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "ago",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dic",
+}
+
 
 def es_agregado_extendido(company_id: str) -> bool:
     return company_id in AGREGADO_EXTENDIDO_COMPANY_IDS
@@ -137,6 +157,168 @@ def es_agregado_extendido(company_id: str) -> bool:
 
 def _cfg(company_id: str) -> dict:
     return _CLIENTE[company_id]
+
+
+def _kpis_desde_summary(summary: dict) -> Tuple[str, str, str]:
+    from generar_reporte_word import format_number_chilean
+
+    total = float((summary or {}).get("total") or 0.0)
+    promedio = float((summary or {}).get("promedio_diario") or 0.0)
+    max_m = (summary or {}).get("max")
+    total_txt = f"{format_number_chilean(total, 1)} m³"
+    promedio_txt = f"{format_number_chilean(promedio, 1)} m³/día"
+    if max_m is None:
+        max_txt = "—"
+    else:
+        try:
+            fecha = max_m.date.strftime("%d/%m/%Y")
+        except Exception:
+            fecha = "—"
+        max_txt = f"{fecha} ({format_number_chilean(float(max_m.total_m3), 1)} m³)"
+    return total_txt, promedio_txt, max_txt
+
+
+def agregar_tabla_kpis_consumo(
+    doc: Document,
+    summary: dict,
+    *,
+    destacar_matriz: bool = False,
+) -> None:
+    """Tabla compacta bajo gráfico: total, promedio diario y día de mayor consumo."""
+    from generar_reporte_word import _aplicar_shading_celda, apply_keep_with_next
+
+    total_txt, promedio_txt, max_txt = _kpis_desde_summary(summary)
+    table = doc.add_table(rows=2, cols=3)
+    table.style = "Table Grid"
+    headers = ["Consumo total", "Promedio diario", "Día de mayor consumo"]
+    values = [total_txt, promedio_txt, max_txt]
+    for j, h in enumerate(headers):
+        table.rows[0].cells[j].text = h
+    for j, v in enumerate(values):
+        table.rows[1].cells[j].text = v
+    for i, row in enumerate(table.rows):
+        for cell in row.cells:
+            para = cell.paragraphs[0]
+            para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+            para.paragraph_format.space_before = Pt(2)
+            para.paragraph_format.space_after = Pt(2)
+            if not para.runs and (cell.text or "").strip():
+                para.add_run(cell.text.strip())
+            for run in para.runs:
+                run.font.size = Pt(9 if i == 0 else 10)
+                run.bold = True
+                if i == 0:
+                    run.font.color.rgb = RGBColor(255, 255, 255)
+                    _aplicar_shading_celda(cell, "003366")
+                elif destacar_matriz:
+                    run.font.color.rgb = RGB_MATRIZ_ESVAL
+                    _aplicar_shading_celda(cell, "FDEBD0")
+    apply_keep_with_next(table.rows[0].cells[0].paragraphs[0])
+
+
+def _meses_ultimos_n(end_dt: datetime, n: int = 6) -> List[Tuple[int, int]]:
+    y, m = end_dt.year, end_dt.month
+    out: List[Tuple[int, int]] = []
+    for _ in range(n):
+        out.append((y, m))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    out.reverse()
+    return out
+
+
+def _serie_mensual_nodo(node_id: str, end_dt: datetime, n_meses: int = 6) -> List[Tuple[str, float]]:
+    from generar_reporte_word import (
+        acl_node_base_url,
+        fetch_json,
+        flatten_measures,
+        normalize_measures_payload,
+    )
+
+    meses = _meses_ultimos_n(end_dt, n_meses)
+    y0, m0 = meses[0]
+    start = datetime(y0, m0, 1)
+    payload_raw = fetch_json(
+        f"{acl_node_base_url()}/nodes/measures/dates",
+        params=[
+            ("id", node_id),
+            ("start", start.strftime("%d%m%Y")),
+            ("end", end_dt.strftime("%d%m%Y")),
+        ],
+    )
+    payload = normalize_measures_payload(payload_raw, node_id)
+    measures = flatten_measures(payload)
+    by_month: Dict[Tuple[int, int], float] = {}
+    for mp in measures:
+        key = (mp.date.year, mp.date.month)
+        by_month[key] = by_month.get(key, 0.0) + float(mp.total_m3)
+    series: List[Tuple[str, float]] = []
+    for y, m in meses:
+        label = f"{_MESES_ES.get(m, str(m))} {y}"
+        if y == end_dt.year and m == end_dt.month:
+            label += "*"
+        series.append((label, float(by_month.get((y, m), 0.0))))
+    return series
+
+
+def agregar_comparativo_6_meses_esval(
+    doc: Document,
+    end_dt: datetime,
+    output_dir: Path,
+) -> None:
+    """Comparativo de consumo mensual de Matriz ESVAL (últimos 6 meses)."""
+    from generar_reporte_word import (
+        add_formatted_title,
+        add_picture_with_pagination,
+        format_number_chilean,
+    )
+
+    try:
+        series = _serie_mensual_nodo(ZAPALLAR_ESVAL_ID, end_dt, 6)
+    except Exception as e:
+        print(f"[ADVERTENCIA] Comparativo 6 meses ESVAL: {e}")
+        return
+    if not series:
+        return
+
+    labels = [s[0] for s in series]
+    vals = [s[1] for s in series]
+    fig, ax = plt.subplots(figsize=(8.4, 3.6))
+    colors = [COLOR_MATRIZ_ESVAL if i == len(vals) - 1 else "#0050b3" for i in range(len(vals))]
+    bars = ax.bar(labels, vals, color=colors, width=0.62, edgecolor="#A04000", linewidth=0.6)
+    ax.set_ylabel("m³ / mes", fontsize=10, fontweight="bold")
+    ax.set_title("Últimos 6 meses — Matriz ESVAL (entrada al fundo)", fontsize=11, fontweight="bold")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.set_ylim(bottom=0)
+    ax.grid(axis="y", linestyle="--", alpha=0.3)
+    for bar, v in zip(bars, vals):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height(),
+            format_number_chilean(v, 0),
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
+        )
+    plt.tight_layout()
+    chart_path = output_dir / "zapallar_ultimos_6_meses_esval.png"
+    plt.savefig(chart_path, dpi=140, bbox_inches="tight")
+    plt.close()
+
+    add_formatted_title(doc, "Comparativo últimos 6 meses — Matriz ESVAL")
+    add_picture_with_pagination(doc, str(chart_path), Inches(6), keep_with_next=True)
+    nota = doc.add_paragraph(
+        "Consumo mensual de la Matriz ESVAL (entrada real de agua al fundo). "
+        "El mes marcado con * es el periodo en curso, acotado a la fecha de este informe."
+    )
+    nota.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    for run in nota.runs:
+        run.font.size = Pt(9)
+        run.font.color.rgb = RGBColor(0, 0, 0)
 
 
 def _conclusion_dia_mayor(
@@ -199,13 +381,27 @@ def _conclusion_nocturno_agregado(
         )
     else:
         detalle = " y ".join(partes)
+    if company_id == "000027":
+        esval = next(
+            (n for n in nodos if n.get("node_id") == ZAPALLAR_ESVAL_ID),
+            None,
+        )
+        if esval:
+            total_periodo = float(esval.get("total_periodo") or 0.0)
+            pct = (esval["m3"] / total_periodo * 100.0) if total_periodo > 0 else 0.0
+            return (
+                f"Durante los {num_dias} días del periodo, la Matriz ESVAL (entrada real al fundo) "
+                f"registró {format_number_chilean(esval['m3'], 1)} m³ en horario nocturno "
+                f"(00:00–06:59), equivalente a {format_currency_chilean(esval['clp'])} "
+                f"({format_number_chilean(pct, 1)} % del consumo del fundo en el periodo). "
+                f"Ese caudal de madrugada es el de control: es agua que entra al predio cuando "
+                f"la operación debería ser mínima."
+            )
     return (
         f"Durante los {num_dias} días del periodo, {c['sujeto_min']} registró un total de "
         f"{format_number_chilean(total_m3, 1)} m³ en horario nocturno ({detalle}), equivalente a "
         f"{format_currency_chilean(total_clp)} al precio de referencia del servicio. Ese volumen "
-        f"corresponde a agua consumida en madrugada cuando la operación debería ser mínima; un "
-        f"sistema de monitoreo y regulación WES permite detectar y reducir esos caudales, "
-        f"mejorando el control del recurso y el costo asociado."
+        f"corresponde a agua consumida en madrugada cuando la operación debería ser mínima."
     )
 
 
@@ -433,6 +629,11 @@ def agregar_secciones_consumo_diario_y_max_dia(
         doc.add_paragraph("")
         add_formatted_title(doc, node_name.upper())
         add_picture_with_pagination(doc, str(chart_path), Inches(6), keep_with_next=True)
+        agregar_tabla_kpis_consumo(
+            doc,
+            data.get("summary") or {},
+            destacar_matriz=(company_id == "000027" and node_id == ZAPALLAR_ESVAL_ID),
+        )
         if (
             es_agregado_extendido(company_id)
             and company_id not in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS
@@ -526,10 +727,12 @@ def agregar_analisis_nocturno_extendido(
         c_noche = float(nm["consumo_nocturno_total"])
         nodos_noct.append(
             {
+                "node_id": node_id,
                 "nombre": node_name,
                 "m3": c_noche,
                 "dias_con": int(nm["dias_con_consumo_nocturno"]),
                 "clp": c_noche * price_per_m3,
+                "total_periodo": float((data.get("summary") or {}).get("total") or 0.0),
             }
         )
         names.append(node_name)
@@ -561,7 +764,27 @@ def agregar_analisis_nocturno_extendido(
         rot = 48 if n_pts > 4 else 28
         fs = 7 if n_pts > 6 else 8
         fig, ax = plt.subplots(figsize=(fig_w, fig_h))
-        bars = ax.bar(names, values, color="#FF8C00", alpha=0.88, edgecolor="#CC7000", linewidth=1.0)
+        es_zapallar = company_id == "000027"
+        if es_zapallar:
+            id_por_nombre = {n["nombre"]: n.get("node_id") for n in nodos_noct}
+            bar_colors = [
+                COLOR_MATRIZ_ESVAL if id_por_nombre.get(n) == ZAPALLAR_ESVAL_ID else COLOR_AGUAS_ABAJO
+                for n in names
+            ]
+            bars = ax.bar(names, values, color=bar_colors, alpha=0.92, edgecolor="#A04000", linewidth=0.8)
+            from matplotlib.patches import Patch
+
+            ax.legend(
+                handles=[
+                    Patch(facecolor=COLOR_MATRIZ_ESVAL, label="Matriz ESVAL (entrada real)"),
+                    Patch(facecolor=COLOR_AGUAS_ABAJO, label="Estanques y etapas (aguas abajo)"),
+                ],
+                loc="upper right",
+                fontsize=7,
+                frameon=False,
+            )
+        else:
+            bars = ax.bar(names, values, color="#FF8C00", alpha=0.88, edgecolor="#CC7000", linewidth=1.0)
         ax.set_ylabel("m³ (periodo)", fontsize=10, fontweight="bold")
         ax.set_title("Consumo nocturno por punto", fontsize=11, fontweight="bold", pad=8)
         ax.spines["top"].set_visible(False)
@@ -594,36 +817,92 @@ def agregar_analisis_nocturno_extendido(
 
     add_formatted_title(doc, "Detalle por punto")
 
+    es_zapallar = company_id == "000027"
+    esval_noct = next((n for n in nodos_noct if n.get("node_id") == ZAPALLAR_ESVAL_ID), None)
+    denom_fundo = float((esval_noct or {}).get("total_periodo") or 0.0) if es_zapallar else 0.0
+
+    def _pct_mensual(n: dict) -> str:
+        if es_zapallar:
+            base = denom_fundo
+        else:
+            base = float(n.get("total_periodo") or 0.0)
+        if base <= 0:
+            return "—"
+        return f"{format_number_chilean(float(n['m3']) / base * 100.0, 1)} %"
+
     table_rows = [
-        ["Punto", "m³ nocturnos", "Días 00–06:59", "Costo (CLP)"],
+        ["Punto", "m³ nocturnos", "Días 00–06:59", "Costo (CLP)", "% del total mensual"],
     ]
-    for n in sorted(nodos_noct, key=lambda x: x["m3"], reverse=True):
+    ordenados_noct = sorted(nodos_noct, key=lambda x: x["m3"], reverse=True)
+    esval_row_idx = None
+    for n in ordenados_noct:
+        if n.get("node_id") == ZAPALLAR_ESVAL_ID:
+            esval_row_idx = len(table_rows)
         table_rows.append(
             [
                 n["nombre"],
                 format_number_chilean(n["m3"], 1),
                 str(n["dias_con"]),
                 format_currency_chilean(n["clp"]),
+                _pct_mensual(n),
             ]
         )
-    table_rows.append(
-        [
-            total_label,
-            format_number_chilean(total_m3, 1),
-            "",
-            format_currency_chilean(total_clp),
-        ]
-    )
+    if es_zapallar and esval_noct:
+        table_rows.append(
+            [
+                "Referencia fundo (Matriz ESVAL)",
+                format_number_chilean(esval_noct["m3"], 1),
+                str(esval_noct["dias_con"]),
+                format_currency_chilean(esval_noct["clp"]),
+                _pct_mensual(esval_noct),
+            ]
+        )
+    else:
+        table_rows.append(
+            [
+                total_label,
+                format_number_chilean(total_m3, 1),
+                "",
+                format_currency_chilean(total_clp),
+                (
+                    f"{format_number_chilean(total_m3 / sum(float(n.get('total_periodo') or 0) for n in nodos_noct) * 100.0, 1)} %"
+                    if sum(float(n.get("total_periodo") or 0) for n in nodos_noct) > 0
+                    else "—"
+                ),
+            ]
+        )
 
-    table = doc.add_table(rows=len(table_rows), cols=4)
+    table = doc.add_table(rows=len(table_rows), cols=5)
     table.style = "Table Grid"
     for i, row_vals in enumerate(table_rows):
         for j, val in enumerate(row_vals):
             cell = table.rows[i].cells[j]
             cell.text = str(val)
     estilizar_tabla_wes(table)
+    if es_zapallar and esval_row_idx:
+        from generar_reporte_word import _aplicar_shading_celda
+
+        for cell in table.rows[esval_row_idx].cells:
+            _aplicar_shading_celda(cell, "FDEBD0")
+            for para in cell.paragraphs:
+                for run in para.runs:
+                    run.bold = True
+                    run.font.color.rgb = RGB_MATRIZ_ESVAL
     if table.rows:
         apply_keep_with_next(table.rows[0].cells[0].paragraphs[0])
+    if es_zapallar:
+        pie = doc.add_paragraph(
+            "El % del total mensual se calcula sobre el consumo de la Matriz ESVAL "
+            "(entrada real al fundo). Las demás filas muestran cuánto representa el "
+            "caudal nocturno de cada punto respecto de esa entrada; no se suman entre sí."
+        )
+        pie.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+        for run in pie.runs:
+            run.font.size = Pt(8)
+            run.font.color.rgb = RGBColor(80, 80, 80)
+
+    if es_zapallar:
+        agregar_comparativo_6_meses_esval(doc, end_dt, output_dir)
 
     add_formatted_title(doc, "Conclusión — consumo nocturno")
     conc = doc.add_paragraph(
@@ -637,23 +916,3 @@ def agregar_analisis_nocturno_extendido(
 
     if company_id == "000012":
         _agregar_destacado_matriz_principal_inchcape(doc, nodes_data, nodos_noct)
-    elif company_id == "000027":
-        # Destacar el volumen nocturno real del periodo (sin día de máximo consumo).
-        from generar_reporte_word import add_formatted_title, format_currency_chilean, format_number_chilean
-
-        add_formatted_title(doc, "Énfasis operativo — periodo nocturno")
-        esval_noct = next(
-            (n for n in nodos_noct if "esval" in str(n.get("nombre", "")).lower() or "matriz" in str(n.get("nombre", "")).lower()),
-            nodos_noct[0] if nodos_noct else None,
-        )
-        if esval_noct and total_m3 > 0:
-            enf = doc.add_paragraph(
-                "En Fundo Zapallar el foco de control queda en el caudal nocturno del periodo "
-                f"({format_number_chilean(total_m3, 1)} m³; {format_currency_chilean(total_clp)}). "
-                f"La Matriz ESVAL concentra {format_number_chilean(esval_noct['m3'], 1)} m³ en madrugada "
-                f"({esval_noct['dias_con']} días con consumo 00:00–06:59): es el punto de entrada "
-                "donde conviene priorizar la regulación y el seguimiento WES."
-            )
-            enf.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
-            for run in enf.runs:
-                run.font.color.rgb = RGBColor(0, 0, 0)
