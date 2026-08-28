@@ -259,14 +259,22 @@ def _escribir_equipos(
         nid = nodo.get("nodeId") or ""
         prev = marcas.get(nid) or {}
         conf = relleno_confirmado(nid, nombres_por_id)
+        if conf:
+            gabinete = conf.get("gabinete") or ""
+            tipo = conf.get("tipo") or ""
+            nodos_gab = conf.get("nodos_gabinete") or ""
+        else:
+            gabinete = prev.get("gabinete") or ""
+            tipo = prev.get("tipo") or ""
+            nodos_gab = prev.get("nodos_gabinete") or ""
         valores = [
             i,
             nodo.get("companyName") or "",
             nid,
             nodo.get("nodeName") or "",
-            prev.get("gabinete") or conf.get("gabinete") or "",
-            prev.get("tipo") or conf.get("tipo") or "",
-            prev.get("nodos_gabinete") or conf.get("nodos_gabinete") or "",
+            gabinete,
+            tipo,
+            nodos_gab,
             prev.get("monitoreo") or "",
             prev.get("control") or "",
             prev.get("observacion") or "",

@@ -88,6 +88,20 @@ GABINETES: List[Dict[str, object]] = [
         "confianza": "confirmado",
         "notas": "Un gabinete: Estanque reutilización, Riego y Matriz principal.",
     },
+    {
+        "id": "COPEC-ADMIN-01",
+        "nombre": "COPEC Costanera — Costanera / Oficina Admin.",
+        "nodos": ["000009-00", "000009-01"],
+        "confianza": "confirmado",
+        "notas": "Copec Costanera y Oficina Admin. en el mismo gabinete.",
+    },
+    {
+        "id": "COPEC-PRONTO-01",
+        "nombre": "COPEC Costanera — Pronto",
+        "nodos": ["000009-08", "000009-11"],
+        "confianza": "confirmado",
+        "notas": "Pronto Tienda y Pronto Baños en el mismo gabinete.",
+    },
     # --- DERCO Quilicura (7 nodos → 4+3 placas) ---
     {
         "id": "DERCO-Q-01",
@@ -105,18 +119,25 @@ GABINETES: List[Dict[str, object]] = [
     },
     # --- Fundo Zapallar ---
     {
+        "id": "ZAP-ETAPA-1-5",
+        "nombre": "Fundo Zapallar — Etapa 1-4 y Etapa 5",
+        "nodos": ["000027-03", "000027-04"],
+        "confianza": "confirmado",
+        "notas": "Etapa N°5 y Etapa N°1 al 4 en el mismo gabinete.",
+    },
+    {
         "id": "ZAP-ETAPAS",
-        "nombre": "Fundo Zapallar — etapas (4 placas)",
-        "nodos": ["000027-04", "000027-06", "000027-07", "000027-08"],
-        "confianza": "alta",
-        "notas": "Etapa 1 al 4, Etapa 1, Etapa 2 y Etapa 3.",
+        "nombre": "Fundo Zapallar — etapas 1, 2 y 3",
+        "nodos": ["000027-06", "000027-07", "000027-08"],
+        "confianza": "media",
+        "notas": "Etapa 1, 2 y 3. Pendiente confirmar gabinete.",
     },
     {
         "id": "ZAP-MATRIZ",
-        "nombre": "Fundo Zapallar — matriz / estanque (4 placas)",
-        "nodos": ["000027-01", "000027-02", "000027-03", "000027-09"],
+        "nombre": "Fundo Zapallar — matriz / estanque",
+        "nodos": ["000027-01", "000027-02", "000027-09"],
         "confianza": "media",
-        "notas": "Matriz ESVAL, Estanque Inferior, Etapa 5 y Riego llenado ESVAL.",
+        "notas": "Matriz ESVAL, Estanque Inferior y Riego llenado ESVAL. Pendiente confirmar.",
     },
     # --- AGUNSA Lampa ---
     {
