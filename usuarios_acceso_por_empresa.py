@@ -41,7 +41,10 @@ NOMBRE_EMPRESA_FALLBACK = {
 }
 
 # Fuera de este reporte (pedido operativo).
-EMPRESAS_EXCLUIDAS = {"000010"}  # Corporación Puente Alto
+EMPRESAS_EXCLUIDAS = {
+    "000010",  # Corporación Puente Alto
+    "000028",  # La Florida
+}
 
 # Personal WES (compañía 000000 o @wes.cl) se omite, salvo esta excepción.
 PERSONAL_WES_EXCEPCIONES = {"go.salass@gmail.com"}
@@ -274,7 +277,7 @@ def _escribir_xlsx(
     from openpyxl.utils import get_column_letter
 
     from puntos_cpa import clasificar_nodos
-    from gabinetes import cargar_gabinetes, conteo_gabinetes, texto_mismo_gabinete
+    from gabinetes import cargar_gabinetes, conteo_gabinetes, texto_gabinetes_numerados
 
     gab_de, gab_miembros = cargar_gabinetes()
 
@@ -314,9 +317,8 @@ def _escribir_xlsx(
         f"Generado {generado} hora Chile · se omite personal WES (@wes.cl); "
         "se incluye go.salass@gmail.com. "
         "CPA = monitoreo con control (horarios programados Drive). "
-        "Solo monitoreo = punto activo sin CPA. "
-        "Gabinetes: puntos en el mismo gabinete cuentan como 1 "
-        "(listado de equipos vigentes)."
+        "Monitoreo = punto activo sin CPA. "
+        "Gabinetes: 1 estos puntos, 2 estos puntos (mismo gabinete cuenta como 1)."
     )
     ws.merge_cells("A1:K1")
     ws.merge_cells("A2:K2")
@@ -336,7 +338,7 @@ def _escribir_xlsx(
         ws.cell(row=i, column=7, value=len(filas.get(cid, [])))
         ws.cell(row=i, column=8, value=", ".join(cpa))
         ws.cell(row=i, column=9, value=", ".join(solo))
-        ws.cell(row=i, column=10, value=texto_mismo_gabinete(nids, gab_de, gab_miembros) or "—")
+        ws.cell(row=i, column=10, value=texto_gabinetes_numerados(nids, gab_de, gab_miembros) or "—")
         ws.cell(row=i, column=11, value=sheet)
         ws.cell(row=i, column=8).alignment = wrap
         ws.cell(row=i, column=9).alignment = wrap
@@ -368,7 +370,7 @@ def _escribir_xlsx(
                 nombres.get(nid, nid),
                 cid,
                 empresa,
-                "CPA (monitoreo con control)" if es_cpa else "Solo monitoreo",
+                "CPA (monitoreo con control)" if es_cpa else "Monitoreo",
                 titulo_por_nid.get(nid, ""),
             ]
             filas_pts.append((vals, es_cpa))
@@ -399,7 +401,7 @@ def _escribir_xlsx(
     wscpa.auto_filter.ref = f"A4:F{max(5, 4 + len(filas_cpa))}"
 
     wsp = wb.create_sheet("Puntos", 2)
-    wsp["A1"] = "Puntos activos: CPA (monitoreo con control) vs solo monitoreo"
+    wsp["A1"] = "Puntos activos: CPA (monitoreo con control) vs monitoreo"
     wsp["A1"].font = Font(bold=True, size=14, color="1F4E79")
     wsp.merge_cells("A1:F1")
     wsp["A2"] = (
@@ -456,12 +458,12 @@ def _escribir_xlsx(
         n_usr = len(filas.get(cid, []))
         wsc["A2"] = (
             f"{n_usr} usuario(s) · {len(nids)} punto(s) activo(s) · "
-            f"{len(cpa)} CPA · {len(solo)} solo monitoreo"
+            f"{len(cpa)} CPA · {len(solo)} monitoreo"
         )
         wsc.merge_cells("A2:H2")
         wsc["A3"] = (
             ("CPA: " + (", ".join(cpa) if cpa else "—"))
-            + "  |  Solo monitoreo: "
+            + "  |  Monitoreo: "
             + (", ".join(solo) if solo else "—")
         )
         wsc.merge_cells("A3:H3")
@@ -537,7 +539,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             return default
         return row[i]
 
-    from gabinetes import cargar_gabinetes, conteo_gabinetes, texto_mismo_gabinete
+    from gabinetes import cargar_gabinetes, conteo_gabinetes, texto_gabinetes_numerados
 
     gab_de, gab_miembros = cargar_gabinetes()
     nodos_por_cia: Dict[str, List[str]] = defaultdict(list)
@@ -545,7 +547,10 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         for prow in wb["Puntos"].iter_rows(min_row=5, max_col=4, values_only=True):
             if not prow or not prow[0] or not prow[2]:
                 continue
-            nodos_por_cia[str(prow[2]).strip()].append(str(prow[0]).strip())
+            cid_pt = str(prow[2]).strip()
+            if cid_pt in EMPRESAS_EXCLUIDAS:
+                continue
+            nodos_por_cia[cid_pt].append(str(prow[0]).strip())
 
     tiene_cpa = "puntos_CPA" in idx
     if tiene_cpa:
@@ -555,7 +560,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             "Activos",
             "Gabinetes",
             "CPA",
-            "Solo monitoreo",
+            "Monitoreo",
             "Usuarios",
         ]
     else:
@@ -567,17 +572,15 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             continue
         cid = str(_col(row, "company_id", "")).strip()
         empresa = str(_col(row, "empresa", "")).strip()
+        if cid in EMPRESAS_EXCLUIDAS or "florida" in empresa.casefold():
+            continue
         pts = int(_col(row, "puntos_activos", 0) or 0)
         usr = int(_col(row, "usuarios_con_acceso", 0) or 0)
         tot_pts += pts
         tot_usr += usr
         nids = nodos_por_cia.get(cid, [])
         n_gab = conteo_gabinetes(nids, gab_de) if nids else pts
-        grupos = texto_mismo_gabinete(nids, gab_de, gab_miembros)
-        if grupos:
-            celda_gab = f"{n_gab}\n{grupos}"
-        else:
-            celda_gab = str(n_gab)
+        celda_gab = texto_gabinetes_numerados(nids, gab_de, gab_miembros) or str(n_gab)
         tot_gab += n_gab
         if tiene_cpa:
             n_cpa = int(_col(row, "puntos_CPA", 0) or 0)
@@ -596,6 +599,10 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         for row in wb[hoja_cpa].iter_rows(min_row=5, max_col=6, values_only=True):
             if not row or not row[0]:
                 continue
+            nid = str(row[0])
+            cid_pt = nid.split("-")[0] if "-" in nid else ""
+            if cid_pt in EMPRESAS_EXCLUIDAS:
+                continue
             tipo = str(row[4] or "")
             if hoja_cpa == "CPA control" or "CPA" in tipo:
                 cpa_pts.append(
@@ -612,8 +619,8 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         f"Generado {generado} hora Chile · puntos activos · sin personal WES (@wes.cl); "
         "se incluye go.salass@gmail.com. "
         "CPA = monitoreo con control (horarios programados). "
-        "Solo monitoreo = sin CPA. "
-        "Gabinetes: puntos en el mismo gabinete cuentan como 1."
+        "Monitoreo = sin CPA. "
+        "Gabinetes: 1 estos puntos, 2 estos puntos (mismo gabinete = 1)."
     )
 
     navy = colors.HexColor("#1F4E79")
@@ -644,6 +651,9 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     )
     cell_l = ParagraphStyle(
         "cell_l", fontName="Helvetica", fontSize=8, leading=11, alignment=TA_LEFT
+    )
+    cell_gab = ParagraphStyle(
+        "cell_gab", fontName="Helvetica", fontSize=6.5, leading=8, alignment=TA_LEFT
     )
     cell_c = ParagraphStyle(
         "cell_c", fontName="Helvetica", fontSize=8, leading=11, alignment=TA_CENTER
@@ -679,9 +689,13 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     for vals in data_rows:
         row_cells = []
         for i, v in enumerate(vals):
-            # empresa (1) y gabinetes (3) van a la izquierda
-            align_l = i in (1, 3) if tiene_cpa else i == 1
-            row_cells.append(_p(v, cell_l if align_l else cell_c))
+            if tiene_cpa and i == 3:
+                st = cell_gab
+            elif i == 1:
+                st = cell_l
+            else:
+                st = cell_c
+            row_cells.append(_p(v, st))
         table_data.append(row_cells)
     if tiene_cpa:
         table_data.append(
@@ -790,6 +804,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         n = canvas.getPageNumber()
         canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.HexColor("#555555"))
+        # Página 1 = resumen blanco; el resto = tabla verde CPA.
         label = (
             "Hoja 1 · tabla blanca (resumen)"
             if n == 1

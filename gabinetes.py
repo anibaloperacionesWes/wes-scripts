@@ -146,22 +146,35 @@ def conteo_gabinetes(
     return len(vistos)
 
 
+def texto_gabinetes_numerados(
+    node_ids: Sequence[str],
+    gabinete_de: Dict[str, str],
+    miembros: Dict[str, List[str]],
+) -> str:
+    """'1: id, id · 2: id · 3: id, id' — un número por gabinete con los puntos que tiene."""
+    activos = set(node_ids)
+    partes: List[str] = []
+    vistos = set()
+    n = 0
+    for nid in node_ids:
+        key = gabinete_de.get(nid, nid)
+        if key in vistos:
+            continue
+        vistos.add(key)
+        if key in miembros:
+            ids = [x for x in miembros[key] if x in activos]
+        else:
+            ids = [nid]
+        if not ids:
+            continue
+        n += 1
+        partes.append(f"{n}: {', '.join(ids)}")
+    return " · ".join(partes)
+
+
 def texto_mismo_gabinete(
     node_ids: Sequence[str],
     gabinete_de: Dict[str, str],
     miembros: Dict[str, List[str]],
 ) -> str:
-    """Lista los grupos de 2+ nodos de esta empresa que comparten gabinete."""
-    activos = set(node_ids)
-    lineas: List[str] = []
-    vistos = set()
-    for nid in node_ids:
-        gab = gabinete_de.get(nid)
-        if not gab or gab in vistos:
-            continue
-        vistos.add(gab)
-        ids = [x for x in miembros.get(gab, []) if x in activos]
-        if len(ids) < 2:
-            continue
-        lineas.append(f"{_nombre_corto(gab)}: {', '.join(ids)}")
-    return " · ".join(lineas)
+    return texto_gabinetes_numerados(node_ids, gabinete_de, miembros)
