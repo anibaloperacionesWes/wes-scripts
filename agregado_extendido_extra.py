@@ -151,15 +151,27 @@ def _ceil_nice(value: float) -> float:
     return 10 * mag
 
 
-def _tick_step(ymax: float, n_ticks: int = 4) -> float:
-    if ymax <= 0:
+def _tick_step(ymax: float, n_ticks: int = 8) -> float:
+    """Paso de eje Y pensado para volúmenes en m³ (50/100 en rangos altos)."""
+    span = max(float(ymax), 1e-9)
+    if span <= 10:
         return 1.0
-    rough = ymax / max(n_ticks, 1)
-    mag = 10 ** math.floor(math.log10(max(rough, 1e-9)))
-    for m in (1, 2, 2.5, 5, 10):
-        if rough <= m * mag + 1e-9:
-            return m * mag
-    return 10 * mag
+    if span <= 25:
+        return 5.0
+    if span <= 80:
+        return 10.0
+    if span <= 200:
+        return 25.0
+    if span <= 900:
+        return 50.0
+    return 100.0
+
+
+def _ymax_barras(values: Sequence[float], headroom: float = 1.18) -> float:
+    mx = max((float(v) for v in values), default=1.0)
+    target = max(mx * headroom, mx + _tick_step(mx))
+    step = _tick_step(target)
+    return math.ceil(target / step - 1e-9) * step
 
 
 def _formatter_m3_eje(x: float, _pos: int) -> str:
@@ -172,10 +184,9 @@ def _formatter_m3_eje(x: float, _pos: int) -> str:
     return format_number_chilean(x, 1)
 
 
-def _aplicar_eje_y_m3(ax, ymin: float, ymax: float, n_ticks: int = 4) -> None:
+def _aplicar_eje_y_m3(ax, ymin: float, ymax: float, n_ticks: int = 8) -> None:
     ax.set_ylim(ymin, ymax)
-    span = max(ymax - ymin, 1e-9)
-    ax.yaxis.set_major_locator(MultipleLocator(_tick_step(span, n_ticks)))
+    ax.yaxis.set_major_locator(MultipleLocator(_tick_step(ymax - ymin, n_ticks)))
     ax.yaxis.set_major_formatter(FuncFormatter(_formatter_m3_eje))
     ax.grid(axis="y", linestyle="--", alpha=0.32)
     ax.tick_params(axis="y", labelsize=8)
@@ -872,10 +883,10 @@ def _dibujar_grafico_consumo_nocturno(
             ax_top.legend(handles=legend_handles, loc="upper right", fontsize=7, frameon=False)
         fig.subplots_adjust(hspace=0.07, left=0.10, right=0.98, top=0.90, bottom=0.28)
     else:
-        fig, ax = plt.subplots(figsize=(fig_w, 3.55 if n_pts > 5 else 3.8))
+        ymax = _ymax_barras(values)
+        fig, ax = plt.subplots(figsize=(fig_w, 4.7 if n_pts > 5 else 4.2))
         bars = ax.bar(names, values, color=colors, alpha=0.92, edgecolor=edge, linewidth=0.8)
-        ymax = _ceil_nice(max(values) * 1.22) if values else 1.0
-        _aplicar_eje_y_m3(ax, 0.0, ymax, n_ticks=5)
+        _aplicar_eje_y_m3(ax, 0.0, ymax)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.set_ylabel("m³ (periodo)", fontsize=10, fontweight="bold")
