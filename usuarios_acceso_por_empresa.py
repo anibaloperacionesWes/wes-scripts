@@ -451,6 +451,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import (
+        PageBreak,
         Paragraph,
         SimpleDocTemplate,
         Spacer,
@@ -660,9 +661,17 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     story[-1].setStyle(TableStyle(cmds))
 
     if cpa_pts:
-        story.append(Spacer(1, 6 * mm))
-        story.append(_p("Puntos CPA (monitoreo con control)", title_style))
+        story.append(PageBreak())
+        story.append(_p("Puntos CPA control (monitoreo con control)", title_style))
         story.append(Spacer(1, 2 * mm))
+        story.append(
+            _p(
+                "Hoja 2 · sitios con horario programado en el Excel de Drive "
+                "«Horarios de contron hidrico clientes wes».",
+                sub_style,
+            )
+        )
+        story.append(Spacer(1, 4 * mm))
         cpa_headers = ["Node ID", "Punto", "Empresa", "Nombre en Excel de horarios"]
         cpa_data = [[_p(h, head_style) for h in cpa_headers]]
         for vals in cpa_pts:
