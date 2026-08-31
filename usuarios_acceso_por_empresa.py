@@ -732,7 +732,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         "Gabinetes: 1 estos puntos, 2 estos puntos (mismo gabinete = 1). "
         "SIM 4G: igual que gabinetes, salvo internet del cliente "
         "(AGUNSA alimenta los 5 puntos; Nido Estanque B / High School / "
-        "Elementary / Teatro / Pozo Profundo; Lo Valledor P1 / Placa 1 problema)."
+        "Elementary / Teatro / Pozo Profundo; Lo Valledor P1 / Placa 1)."
     )
 
     navy = colors.HexColor("#1F4E79")

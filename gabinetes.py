@@ -25,7 +25,7 @@ _NODE_RE = re.compile(r"\d{6}-\d{2}")
 # Puntos sin SIM 4G: internet lo pone el cliente (no WES).
 # AGUNSA: la empresa provee internet en los 5 puntos.
 # Nido: Estanque B, High School, Elementary, Teatro, Pozo Profundo.
-# Lo Valledor P1: el que tiene el problema.
+# Lo Valledor P1: internet del cliente (no SIM WES).
 INTERNET_CLIENTE: Set[str] = {
     "000020-01",
     "000020-02",
@@ -46,7 +46,7 @@ NOTA_SIM = {
         "Internet cliente: Estanque B, Teatro, High School, "
         "Elementary, Pozo Profundo"
     ),
-    "000002": "P1 / Placa 1 (000002-01): problema",
+    "000002": "Internet cliente: P1 / Placa 1",
 }
 
 
