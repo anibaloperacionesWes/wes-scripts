@@ -128,6 +128,7 @@ class InformeSpec:
     conclusion: List[List[Tuple[str, bool]]]
     lectura_ejecutiva: List[List[Tuple[str, bool]]]
     nota_agosto: str
+    kpi_consumo_label: str = "Consumo de entrada"
     chart_6m: Optional[Path] = None
     chart_puntos: Optional[Path] = None
     chart_puntos_nota: str = ""
@@ -313,7 +314,7 @@ def _draw_kpis(c: canvas.Canvas, spec: InformeSpec, top: float) -> float:
     c.setLineWidth(0.5)
     c.rect(TABLE_X, y, TABLE_W, h, fill=0, stroke=1)
     items = [
-        (spec.kpi_entrada, "Consumo de entrada"),
+        (spec.kpi_entrada, spec.kpi_consumo_label or "Consumo de entrada"),
         (spec.kpi_promedio, "Promedio diario"),
         (spec.kpi_nocturno, "Consumo nocturno"),
         (spec.kpi_pct, "Participación nocturna"),
@@ -612,12 +613,18 @@ def build_chart_puntos(path: Path, names: Sequence[str], values: Sequence[float]
     return path
 
 
-def build_chart_nocturno(path: Path, names: Sequence[str], values: Sequence[float], matriz_name: str) -> Path:
+def build_chart_nocturno(
+    path: Path,
+    names: Sequence[str],
+    values: Sequence[float],
+    matriz_name: str = "",
+    leyenda: Optional[Tuple[str, str]] = None,
+) -> Path:
     fig, ax = plt.subplots(figsize=(8.3, 3.15), dpi=160)
     order = sorted(zip(names, values), key=lambda x: x[1], reverse=True)
     names_s = [n for n, _ in order]
     vals_s = [v for _, v in order]
-    colors = ["#E67E22" if n == matriz_name else "#7FB3D5" for n in names_s]
+    colors = ["#E67E22" if matriz_name and n == matriz_name else "#7FB3D5" for n in names_s]
     y = range(len(names_s))
     ax.barh(list(y), vals_s, color=colors, height=0.62, edgecolor="none")
     ax.invert_yaxis()
@@ -631,11 +638,16 @@ def build_chart_nocturno(path: Path, names: Sequence[str], values: Sequence[floa
     ax.set_xlim(0, xmax)
     for yi, v in zip(y, vals_s):
         ax.text(v + xmax * 0.012, yi, _fmt(v, 1), va="center", fontsize=7.5, color="#20313D", fontweight="bold")
-    legend = [
-        Patch(facecolor="#E67E22", label="Matriz Principal (total sucursal)"),
-        Patch(facecolor="#7FB3D5", label="Puntos internos (parte de la matriz)"),
-    ]
-    ax.legend(handles=legend, loc="lower right", fontsize=7, frameon=False)
+    if matriz_name and leyenda:
+        ax.legend(
+            handles=[
+                Patch(facecolor="#E67E22", label=leyenda[0]),
+                Patch(facecolor="#7FB3D5", label=leyenda[1]),
+            ],
+            loc="lower right",
+            fontsize=7,
+            frameon=False,
+        )
     fig.tight_layout()
     fig.savefig(path, bbox_inches="tight", facecolor="white")
     plt.close(fig)
