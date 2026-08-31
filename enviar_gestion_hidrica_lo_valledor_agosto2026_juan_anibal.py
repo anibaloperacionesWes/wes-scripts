@@ -78,12 +78,10 @@ def enviar(*, dry_run: bool = False) -> None:
 
     cuerpo = (
         "Estimados Juan y Aníbal,\n\n"
-        "Adjunto la versión personalizada de Lo Valledor (agosto 2026): one-pager e informe mensual.\n\n"
-        "Lectura de cliente: mercado mayorista hortofrutícola (~300.000 m², compra L–V 17:00–14:00 "
-        "del día siguiente, peak 22:00–03:00). El caudal 24 h y el 30 % en 00:00–06:59 son uso "
-        "normal (lavado de producto, baños con ducha, foodtrucks), no pérdida.\n\n"
-        "Estado: Requiere atención, porque el equipo CPA está instalado y falta activarlo y programarlo. "
-        "Cuando esté en servicio se reevalúa.\n\n"
+        "Adjunto la versión actualizada de Lo Valledor (agosto 2026): one-pager e informe mensual.\n\n"
+        "Estado: Requiere atención. El equipo CPA está instalado y falta activarlo y programarlo "
+        "(peak 22:00–03:00). El caudal 24 h y el 30 % en 00:00–06:59 son operación del recinto, "
+        "no pérdida. Cuando el CPA esté en servicio se reevalúa.\n\n"
         "También en Drive:\n"
         f"  • One-pager: {DRIVE_ONE}\n"
         f"  • Mensual: {DRIVE_MEN}\n\n"

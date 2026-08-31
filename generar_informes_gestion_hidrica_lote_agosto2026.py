@@ -543,9 +543,8 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
                 "ATENCIÓN",
                 "Equipo CPA pendiente de activar y programar",
                 "El control WES está instalado y aún no opera.",
-                "Activarlo y programarlo según el horario del mercado (compra hasta las 14:00, "
-                "peak 22:00–03:00). Sin CPA no hay control automático de caudal: por eso el "
-                "estado del periodo es Requiere atención.",
+                "Activarlo y programarlo con el peak 22:00–03:00. Sin CPA no hay "
+                "control automático de caudal: por eso el estado del periodo es Requiere atención.",
             )
         )
 
@@ -564,10 +563,9 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
         hall.append(
             Hallazgo(
                 "INFORMATIVA",
-                "El caudal 24 h es propio de la operación hortofrutícola",
-                f"{_fmt(round(pct), 0)} % en 00:00–06:59 ({_fmt(nocturno, 1)} m³) entra en el horario de compra.",
-                "Lavado de fruta y verdura, baños con ducha, foodtrucks y recambio de camiones "
-                "explican el uso diurno y nocturno. Peak comercial 22:00–03:00. No se lee como pérdida.",
+                "El caudal 24 h es operación del recinto",
+                f"{_fmt(round(pct), 0)} % en 00:00–06:59 ({_fmt(nocturno, 1)} m³); peak 22:00–03:00.",
+                "No se interpreta como pérdida. Queda como línea base del periodo.",
             )
         )
     elif explain == "bombas_estanques":
@@ -735,9 +733,9 @@ def _acciones(hallazgos: Sequence[Hallazgo], cfg: dict) -> List[Accion]:
         if cfg.get("cpa_estado") == "instalado_pendiente":
             acts.append(
                 Accion(
-                    "Programar el CPA con el horario de compra y el peak 22:00–03:00.",
+                    "Programar el CPA con el peak 22:00–03:00.",
                     "7 días",
-                    "Que el control no corte agua durante la operación del mercado.",
+                    "Que el control no corte agua en el horario de operación.",
                     "WES + operación",
                 )
             )
