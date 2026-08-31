@@ -294,6 +294,11 @@
     "Construccion": [
       "Reparación Camara",
       "Canalización"
+    ],
+    "Soporte remoto": [
+      "Programación de auditoría",
+      "Programación especial por requerimiento del establecimiento",
+      "Validar correcto funcionamiento"
     ]
   },
   "opciones": {
