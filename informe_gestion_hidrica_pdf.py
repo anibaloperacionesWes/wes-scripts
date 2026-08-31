@@ -597,25 +597,128 @@ def build_chart_6_meses(path: Path, labels: Sequence[str], values: Sequence[floa
     return path
 
 
-def build_chart_puntos(path: Path, names: Sequence[str], values: Sequence[float], matriz_name: str) -> Path:
-    fig, ax = plt.subplots(figsize=(8.3, 2.7), dpi=160)
-    colors = ["#E67E22" if n == matriz_name else "#5B9BD5" for n in names]
-    bars = ax.bar(names, values, width=0.64, color=colors, edgecolor="none")
-    ax.set_ylabel("m³", fontsize=8, fontweight="bold")
+def _style_axes_h(ax) -> None:
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5D3DA")
+    ax.spines["bottom"].set_color("#C5D3DA")
+    ax.tick_params(colors="#677681", labelsize=7.5)
+    ax.xaxis.label.set_color("#20313D")
+    ax.grid(axis="x", color="#E6EEF2", linewidth=0.6)
+    ax.set_axisbelow(True)
+
+
+def build_chart_puntos(
+    path: Path,
+    names: Sequence[str],
+    values: Sequence[float],
+    matriz_name: str,
+    *,
+    additive: bool = False,
+) -> Path:
+    """Comparación por punto.
+
+    Recintos aditivos (p. ej. Lo Valledor): anillo de participación + barras
+    horizontales en m³, para que un punto chico no desaparezca frente al grande.
+    Recintos con matriz: barras horizontales; la matriz va en naranja.
+    """
+    pairs = [(n, float(v or 0.0)) for n, v in zip(names, values)]
+    if not pairs:
+        pairs = [("—", 0.0)]
+    total = sum(v for _, v in pairs) or 1.0
+    palette = ["#003B64", "#E67E22", "#087EAE", "#5B9BD5", "#1E8449", "#7FB3D5"]
+
+    if additive and len(pairs) >= 2:
+        fig, (ax_d, ax_b) = plt.subplots(
+            1, 2, figsize=(8.4, 2.85), dpi=160, gridspec_kw={"width_ratios": [1.05, 1.15]}
+        )
+        fig.suptitle(
+            "Consumo por punto · quién concentra el total",
+            fontsize=10,
+            fontweight="bold",
+            color="#003B64",
+            y=0.98,
+        )
+        labels = [n for n, _ in pairs]
+        vals = [v for _, v in pairs]
+        colors = [palette[i % len(palette)] for i in range(len(pairs))]
+        wedges, _ = ax_d.pie(
+            vals,
+            startangle=90,
+            colors=colors,
+            wedgeprops={"width": 0.54, "edgecolor": "white", "linewidth": 1.8},
+        )
+        ax_d.set_aspect("equal")
+        ax_d.text(0, 0.08, _fmt(total, 0), ha="center", va="center", fontsize=12, fontweight="bold", color="#003B64")
+        ax_d.text(0, -0.18, "m³ total", ha="center", va="center", fontsize=7, color="#677681")
+        ax_d.legend(
+            wedges,
+            [f"{n}   {_fmt(100.0 * v / total, 0)} %" for n, v in pairs],
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.0),
+            frameon=False,
+            fontsize=7.5,
+            ncol=1,
+            handlelength=1.0,
+            labelspacing=0.35,
+        )
+
+        order = sorted(pairs, key=lambda t: t[1])
+        y_pos = list(range(len(order)))
+        color_by_name = {n: palette[i % len(palette)] for i, (n, _) in enumerate(pairs)}
+        ax_b.barh(
+            y_pos,
+            [v for _, v in order],
+            color=[color_by_name[n] for n, _ in order],
+            height=0.55,
+            edgecolor="none",
+        )
+        ax_b.set_yticks(y_pos)
+        ax_b.set_yticklabels([n for n, _ in order], fontsize=8.5)
+        ax_b.set_xlabel("m³", fontsize=8, fontweight="bold")
+        ax_b.set_title("Volumen absoluto", fontsize=8, color="#677681", pad=4)
+        _style_axes_h(ax_b)
+        xmax = max(v for _, v in order) * 1.38 if order else 1
+        ax_b.set_xlim(0, xmax)
+        for i, (_, v) in enumerate(order):
+            pct = 100.0 * v / total
+            label = f"{_fmt(v, 0) if v >= 100 else _fmt(v, 1)} m³   {_fmt(pct, 0)} %"
+            inside = v > xmax * 0.38
+            ax_b.text(
+                (v - xmax * 0.03) if inside else (v + xmax * 0.02),
+                i,
+                label,
+                va="center",
+                ha="right" if inside else "left",
+                fontsize=7.5,
+                fontweight="bold",
+                color="white" if inside else "#20313D",
+            )
+        fig.tight_layout(rect=[0, 0.02, 1, 0.93])
+        fig.savefig(path, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        return path
+
+    fig, ax = plt.subplots(figsize=(8.3, max(2.5, 0.38 * len(pairs) + 1.35)), dpi=160)
+    labels = [n for n, _ in pairs]
+    vals = [v for _, v in pairs]
+    colors = ["#E67E22" if n == matriz_name else "#5B9BD5" for n in labels]
+    y_pos = list(range(len(pairs) - 1, -1, -1))
+    ax.barh(y_pos, vals, color=colors, height=0.55, edgecolor="none")
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(labels, fontsize=8)
+    ax.set_xlabel("m³", fontsize=8, fontweight="bold")
     ax.set_title("Consumo registrado por punto", fontsize=10, fontweight="bold", color="#003B64", pad=8)
-    _style_axes(ax)
-    rot = 35 if len(names) >= 8 else 18
-    fs = 6.0 if len(names) >= 10 else 7.5
-    plt.setp(ax.get_xticklabels(), rotation=rot, ha="right", fontsize=fs)
-    ax.set_ylim(0, max(values) * 1.22 if values else 1)
-    for bar, v in zip(bars, values):
+    _style_axes_h(ax)
+    xmax = (max(vals) * 1.22) if vals else 1
+    ax.set_xlim(0, xmax)
+    for y, v in zip(y_pos, vals):
         ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height(),
+            v + xmax * 0.015,
+            y,
             _fmt(v, 0) if v >= 100 else _fmt(v, 1),
-            ha="center",
-            va="bottom",
-            fontsize=7,
+            va="center",
+            fontsize=7.5,
             fontweight="bold",
             color="#20313D",
         )
@@ -783,7 +886,7 @@ def render_mensual(spec: InformeSpec, out_path: Path, chart_dir: Path) -> Path:
     _new_page(c, spec, logo, 2)
     y = _section(c, "Hallazgos prioritarios", PAGE_H - 58, 15)
     y = _draw_hallazgos_table(c, spec.hallazgos, y + 6)
-    y = _draw_image(c, spec.chart_puntos, y, 175)
+    y = _draw_image(c, spec.chart_puntos, y, 188)
     y = _draw_runs(
         c,
         [("Cómo leer este gráfico: ", True), (spec.chart_puntos_nota, False)],

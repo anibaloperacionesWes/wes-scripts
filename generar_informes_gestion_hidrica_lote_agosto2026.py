@@ -196,7 +196,9 @@ CLIENTES: List[Dict[str, Any]] = [
             },
             "leyenda": None,
             "chart_nota": (
-                "P1 y Barrio Norte son recintos distintos: sus consumos se suman al total del periodo."
+                "P1 y Barrio Norte son recintos distintos y se suman al total. "
+                "El anillo muestra la participación; las barras, el volumen en m³. "
+                "P1 concentra ~94 % del recinto."
             ),
         }
     ),
@@ -1026,7 +1028,13 @@ def build_spec(
         nocts = [float(n["nocturno_m3"]) for n in by_tot]
 
     chart_6m = build_chart_6_meses(charts / f"{cfg['key']}_6m.png", labels_6, vals_6)
-    chart_pts = build_chart_puntos(charts / f"{cfg['key']}_puntos.png", names, totals, highlight)
+    chart_pts = build_chart_puntos(
+        charts / f"{cfg['key']}_puntos.png",
+        names,
+        totals,
+        highlight,
+        additive=bool(cfg.get("additive")),
+    )
     chart_noc = build_chart_nocturno(
         charts / f"{cfg['key']}_nocturno.png",
         names,
