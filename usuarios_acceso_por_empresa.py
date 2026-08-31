@@ -505,7 +505,7 @@ def _escribir_xlsx(
 def actualizar_sim_4g_xlsx(xlsx_path: Path) -> None:
     """Inserta o refresca la columna sim_4g en un Excel ya generado."""
     from openpyxl import load_workbook
-    from openpyxl.styles import Alignment, Font
+    from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
     from gabinetes import cargar_gabinetes, celda_sim_4g
@@ -539,11 +539,9 @@ def actualizar_sim_4g_xlsx(xlsx_path: Path) -> None:
         else:
             insert_at = 5
         ws.insert_cols(insert_at)
-        modelo = ws.cell(header_row, insert_at - 1)
         cell = ws.cell(header_row, insert_at, value="sim_4g")
-        cell.fill = modelo.fill
-        cell.font = modelo.font
-        cell.alignment = modelo.alignment
+        cell.fill = PatternFill("solid", fgColor="1F4E79")
+        cell.font = Font(color="FFFFFF", bold=True)
         headers.insert(insert_at - 1, "sim_4g")
 
     sim_col = headers.index("sim_4g") + 1
