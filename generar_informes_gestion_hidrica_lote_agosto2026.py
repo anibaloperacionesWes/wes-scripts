@@ -187,7 +187,7 @@ CLIENTES: List[Dict[str, Any]] = [
         "matriz_id": None,
         "matriz_name": "",
         "additive": True,
-        "nocturnal_explain": None,
+        "nocturnal_explain": "mercado",
         "kpi_label": "Consumo total",
         "short_names": {
             "000002-01": "P1",
@@ -198,7 +198,17 @@ CLIENTES: List[Dict[str, Any]] = [
             "P1 y Barrio Norte son recintos distintos: sus consumos se suman al total del periodo."
         ),
         "nocturno_nota": (
-            "El consumo nocturno de cada recinto se suma porque no miden el mismo caudal."
+            "El volumen en 00:00–06:59 incluye el horario full del mercado (22:00–03:00). "
+            "P1 y Barrio Norte se suman porque no miden el mismo caudal."
+        ),
+        "ventana_nocturna": (
+            "En Lo Valledor el horario full del mercado es 22:00–03:00. "
+            "La ventana 00:00–06:59 se reporta como referencia y se solapa con esa "
+            "operación; no se interpreta como pérdida. "
+        ),
+        "lectura_nocturno": (
+            ". El horario full del mercado es 22:00–03:00. El volumen medido entre "
+            "las 00:00 y las 06:59 (que incluye esa operación) alcanzó "
         ),
     },
     {
@@ -484,6 +494,12 @@ def _clasificar(cfg: dict, pct: float, evento_fuerte: bool) -> Tuple[str, str]:
             "el caudal nocturno de la Matriz Principal corresponde al funcionamiento del "
             "sistema WES y no se identifica pérdida en la sucursal.",
         )
+    if explain == "mercado":
+        return (
+            "BAJO CONTROL",
+            "el horario full del mercado es 22:00–03:00 y el caudal de madrugada "
+            "corresponde a esa operación, no a una pérdida.",
+        )
     if explain == "bombas_estanques" and pct >= 18:
         return (
             "EN OBSERVACIÓN",
@@ -533,6 +549,17 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
                 "El caudal de madrugada de la Matriz Principal se explica por los ciclos de "
                 "control y regulación del sistema WES, no por una pérdida. Se mantiene como "
                 "referencia operativa.",
+            )
+        )
+    elif explain == "mercado":
+        hall.append(
+            Hallazgo(
+                "INFORMATIVA",
+                f"{_fmt(round(pct), 0)} % en 00:00–06:59 es operación del mercado",
+                f"{_fmt(nocturno, 1)} m³ en la ventana estándar; el horario full es 22:00–03:00.",
+                "Lo Valledor opera de madrugada. Ese caudal es uso del recinto, no pérdida. "
+                "El perfil es continuo las 24 h (~4 % por hora). Se mantiene como línea base; "
+                "alertar solo si el patrón se dispara sin operación.",
             )
         )
     elif explain == "bombas_estanques":
@@ -669,6 +696,15 @@ def _acciones(hallazgos: Sequence[Hallazgo], cfg: dict) -> List[Accion]:
                     "WES",
                 )
             )
+        elif "mercado" in h.titulo.lower():
+            acts.append(
+                Accion(
+                    "Mantener el horario full 22:00–03:00 como línea base.",
+                    "Próximo informe",
+                    "Detectar desviaciones sobre el patrón continuo del mercado.",
+                    "WES",
+                )
+            )
         elif "Cobertura" in h.titulo:
             acts.append(
                 Accion(
@@ -679,14 +715,24 @@ def _acciones(hallazgos: Sequence[Hallazgo], cfg: dict) -> List[Accion]:
                 )
             )
     if len(acts) < 3:
-        acts.append(
-            Accion(
-                "Definir línea base nocturna y umbral de alerta.",
-                "Próximo informe",
-                "Detección temprana de desviaciones.",
-                "WES + cliente",
+        if cfg.get("nocturnal_explain") == "mercado":
+            acts.append(
+                Accion(
+                    "Alertar solo si el caudal 24 h se dispara sin operación de mercado.",
+                    "Próximo informe",
+                    "No usar 00:00–06:59 como indicador de pérdida en este recinto.",
+                    "WES + cliente",
+                )
             )
-        )
+        else:
+            acts.append(
+                Accion(
+                    "Definir línea base nocturna y umbral de alerta.",
+                    "Próximo informe",
+                    "Detección temprana de desviaciones.",
+                    "WES + cliente",
+                )
+            )
     # unique by accion, max 3
     seen = set()
     out = []
@@ -839,7 +885,7 @@ def build_spec(
         [
             (f"Durante el periodo analizado {cfg['sujeto']} {verbo} ", False),
             (entrada_txt, True),
-            (". El consumo entre las 00:00 y las 06:59 alcanzó ", False),
+            (cfg.get("lectura_nocturno") or ". El consumo entre las 00:00 y las 06:59 alcanzó ", False),
             (noct_txt, True),
             (", equivalente al ", False),
             (pct_txt, True),
@@ -884,8 +930,12 @@ def build_spec(
         ],
         [
             (
-                "Si el consumo nocturno se desvía de esta referencia, aumenta o presenta "
-                "eventos sin explicación operacional, la clasificación avanzará a ",
+                (
+                    "Si el caudal 24 h se dispara sin operación de mercado, la clasificación avanzará a "
+                    if cfg.get("nocturnal_explain") == "mercado"
+                    else "Si el consumo nocturno se desvía de esta referencia, aumenta o presenta "
+                    "eventos sin explicación operacional, la clasificación avanzará a "
+                ),
                 False,
             ),
             ("“Requiere atención”", True),

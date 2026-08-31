@@ -64,7 +64,7 @@ CLIENTES = [
     (
         "Lo Valledor",
         "Lo_Valledor",
-        "En observación (30 % nocturno)",
+        "Bajo control (horario full 22:00–03:00)",
         "https://drive.google.com/file/d/17koaZKFdbKLJDbS28hINsQ8F_0ffQash/view?usp=drivesdk",
         "https://drive.google.com/file/d/1UgAvHzVxjpTT95IoxMGBOsEEZD0OpBre/view?usp=drivesdk",
     ),
