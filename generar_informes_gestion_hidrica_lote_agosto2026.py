@@ -39,6 +39,7 @@ from informe_gestion_hidrica_pdf import (
     InformeSpec,
     PuntoIndicador,
     SerieDiaria,
+    VisitaTecnicaSpec,
     _fecha_es,
     _fmt,
     _fmt_clp,
@@ -48,6 +49,11 @@ from informe_gestion_hidrica_pdf import (
     render_mensual,
     render_one_pager,
     resolve_logo,
+)
+from visitas_tecnicas_formulario import (
+    VisitaTecnica,
+    cargar_visitas_periodo,
+    visitas_de_cliente,
 )
 
 ENTITY = "http://104.248.53.141:7001/wes/api/acl-entities/v1"
@@ -709,7 +715,50 @@ def _series_diarias(cfg: dict, nodos: List[dict], hallazgos: Sequence[Hallazgo])
     return out
 
 
-def build_spec(cfg: dict, data: dict) -> InformeSpec:
+def _visitas_spec(visitas: Sequence[VisitaTecnica]) -> List[VisitaTecnicaSpec]:
+    return [
+        VisitaTecnicaSpec(
+            fecha=v.fecha,
+            tecnico=v.tecnico,
+            punto=v.punto,
+            motivo=v.motivo,
+            diagnostico=v.diagnostico,
+        )
+        for v in visitas
+    ]
+
+
+def _parrafo_visitas(visitas: Sequence[VisitaTecnica]) -> List[Tuple[str, bool]]:
+    if not visitas:
+        return []
+    if len(visitas) == 1:
+        v = visitas[0]
+        return [
+            ("En el periodo se registró una visita técnica el ", False),
+            (_fecha_es(v.fecha_iso), True),
+            (f" en {v.punto} (", False),
+            (v.motivo, True),
+            ("). El detalle está en la sección de visitas técnicas.", False),
+        ]
+    fechas = " y ".join(_fecha_es(v.fecha_iso) for v in visitas)
+    puntos: List[str] = []
+    for v in visitas:
+        if v.punto not in puntos:
+            puntos.append(v.punto)
+    punto_txt = puntos[0] if len(puntos) == 1 else ", ".join(puntos)
+    return [
+        (f"En el periodo se registraron {len(visitas)} visitas técnicas el ", False),
+        (fechas, True),
+        (f" en {punto_txt}. El detalle está en la sección de visitas técnicas.", False),
+    ]
+
+
+def build_spec(
+    cfg: dict,
+    data: dict,
+    visitas: Optional[Sequence[VisitaTecnica]] = None,
+) -> InformeSpec:
+    visitas = list(visitas or [])
     kpi = data["kpi"]
     nodos = data["nodos"]
     entrada = float(kpi["entrada"])
@@ -773,6 +822,9 @@ def build_spec(cfg: dict, data: dict) -> InformeSpec:
         (". ", False),
         (motivo[0].upper() + motivo[1:] if motivo else "", False),
     ]
+    extra_visitas = _parrafo_visitas(visitas)
+    if extra_visitas:
+        lectura.append(extra_visitas)
 
     conclusion = [
         [
@@ -900,6 +952,7 @@ def build_spec(cfg: dict, data: dict) -> InformeSpec:
         ),
         series_diarias=series,
         logo_path=resolve_logo(),
+        visitas=_visitas_spec(visitas),
     )
 
 
@@ -912,15 +965,20 @@ def _pretty_cls(c: str) -> str:
     }[c]
 
 
-def generar_cliente(cfg: dict) -> Tuple[Path, Path]:
+def generar_cliente(
+    cfg: dict,
+    visitas: Optional[Sequence[VisitaTecnica]] = None,
+) -> Tuple[Path, Path]:
     data = fetch_cliente(cfg)
-    spec = build_spec(cfg, data)
+    spec = build_spec(cfg, data, visitas)
     out_dir = Path("reports") / cfg["folder"] / "GESTION_HIDRICA"
     slug = cfg["cliente"].replace(" ", "_").replace("Á", "A").replace("á", "a")
     one = out_dir / f"One_Pager_Gestion_Hidrica_{slug}_Agosto_2026.pdf"
     monthly = out_dir / f"Informe_Mensual_{slug}_Agosto_2026.pdf"
     render_one_pager(spec, one)
     render_mensual(spec, monthly, out_dir / "_charts")
+    if spec.visitas:
+        print(f"  visitas: {len(spec.visitas)}", flush=True)
     return one, monthly
 
 
@@ -932,11 +990,18 @@ def main() -> None:
         except Exception:
             pass
     print("GESTIÓN HÍDRICA — lote 8 — 01/08/2026 a 31/08/2026\n", flush=True)
+    try:
+        todas = cargar_visitas_periodo(START_DT, END_DT)
+        print(f"[INFO] Visitas del formulario en el periodo: {len(todas)}", flush=True)
+    except Exception as e:
+        todas = []
+        print(f"[ADVERTENCIA] No se pudieron leer visitas técnicas: {e}", flush=True)
     ok = []
     errors = []
     for cfg in CLIENTES:
         try:
-            one, monthly = generar_cliente(cfg)
+            visitas = visitas_de_cliente(todas, cfg)
+            one, monthly = generar_cliente(cfg, visitas)
             print(f"[OK] {cfg['cliente']}: {one.name} | {monthly.name}", flush=True)
             ok.append((cfg, one, monthly))
         except Exception as e:

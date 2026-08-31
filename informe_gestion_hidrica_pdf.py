@@ -108,6 +108,15 @@ class SerieDiaria:
 
 
 @dataclass
+class VisitaTecnicaSpec:
+    fecha: str
+    tecnico: str
+    punto: str
+    motivo: str
+    diagnostico: str
+
+
+@dataclass
 class InformeSpec:
     cliente: str
     sitio: str
@@ -140,6 +149,7 @@ class InformeSpec:
     nota_cobertura: str = ""
     series_diarias: List[SerieDiaria] = field(default_factory=list)
     logo_path: Optional[Path] = None
+    visitas: List[VisitaTecnicaSpec] = field(default_factory=list)
 
 
 def _fmt(value: float, decimals: int = 1) -> str:
@@ -712,6 +722,39 @@ def render_one_pager(spec: InformeSpec, out_path: Path) -> Path:
     return out_path
 
 
+def _draw_visitas_section(c: canvas.Canvas, spec: InformeSpec, y: float) -> float:
+    """Solo se llama si hay visitas del formulario en el periodo."""
+    y = _section(c, "Visitas técnicas del periodo", y - 6, 10.5)
+    y = _draw_runs(
+        c,
+        [
+            (
+                "Registro del formulario de técnicos WES en este recinto. "
+                "Se copian fecha, punto, tipo y diagnóstico de cada visita.",
+                False,
+            )
+        ],
+        ML,
+        y + 2,
+        CONTENT_W,
+        8,
+        GRAY,
+        11,
+    )
+    rows = [
+        [v.fecha, v.tecnico, v.punto, v.motivo, v.diagnostico] for v in spec.visitas
+    ]
+    col_ws = [58.0, 92.0, 78.0, 118.0, TABLE_W - 58.0 - 92.0 - 78.0 - 118.0]
+    return _draw_table(
+        c,
+        ["FECHA", "TÉCNICO", "PUNTO", "MOTIVO / TIPO", "DIAGNÓSTICO"],
+        rows,
+        col_ws,
+        y + 4,
+        font_size=7.5,
+    )
+
+
 def render_mensual(spec: InformeSpec, out_path: Path, chart_dir: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     chart_dir.mkdir(parents=True, exist_ok=True)
@@ -755,7 +798,8 @@ def render_mensual(spec: InformeSpec, out_path: Path, chart_dir: Path) -> Path:
     # Página 3
     _new_page(c, spec, logo, 3)
     y = _section(c, "Consumo nocturno y plan de acción", PAGE_H - 58, 15)
-    y = _draw_image(c, spec.chart_nocturno, y + 6, 210)
+    chart_h = 158 if spec.visitas else 210
+    y = _draw_image(c, spec.chart_nocturno, y + 6, chart_h)
     y = _draw_runs(c, [(spec.chart_nocturno_nota, False)], ML, y, CONTENT_W, 7.2, GRAY, 10)
     y = _section(c, "Acciones recomendadas", y - 8, 10.5)
     rows = [[a.accion, a.responsable, a.plazo, a.objetivo] for a in spec.acciones]
@@ -767,6 +811,12 @@ def render_mensual(spec: InformeSpec, out_path: Path, chart_dir: Path) -> Path:
         y + 4,
         font_size=8.5,
     )
+    if spec.visitas:
+        y = _draw_visitas_section(c, spec, y)
+    if y < 88:
+        c.showPage()
+        _new_page(c, spec, logo, 3)
+        y = PAGE_H - 58
     y = _section(c, "Conclusión", y + 2, 10.5)
     for para in spec.conclusion:
         y = _draw_runs(c, para, ML, y, CONTENT_W, 9, BODY, 13) - 4
@@ -841,6 +891,7 @@ __all__ = [
     "Accion",
     "PuntoIndicador",
     "SerieDiaria",
+    "VisitaTecnicaSpec",
     "InformeSpec",
     "_fmt",
     "_fmt_clp",
