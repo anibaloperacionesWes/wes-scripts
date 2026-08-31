@@ -277,7 +277,12 @@ def _escribir_xlsx(
     from openpyxl.utils import get_column_letter
 
     from puntos_cpa import clasificar_nodos
-    from gabinetes import cargar_gabinetes, conteo_gabinetes, texto_gabinetes_numerados
+    from gabinetes import (
+        cargar_gabinetes,
+        celda_sim_4g,
+        conteo_gabinetes,
+        texto_gabinetes_numerados,
+    )
 
     gab_de, gab_miembros = cargar_gabinetes()
 
@@ -293,6 +298,7 @@ def _escribir_xlsx(
         "empresa",
         "puntos_activos",
         "gabinetes",
+        "sim_4g",
         "puntos_CPA",
         "puntos_solo_monitoreo",
         "usuarios_con_acceso",
@@ -318,10 +324,11 @@ def _escribir_xlsx(
         "se incluye go.salass@gmail.com. "
         "CPA = monitoreo con control (horarios programados Drive). "
         "Monitoreo = punto activo sin CPA. "
-        "Gabinetes: 1 estos puntos, 2 estos puntos (mismo gabinete cuenta como 1)."
+        "Gabinetes: 1 estos puntos, 2 estos puntos (mismo gabinete cuenta como 1). "
+        "SIM 4G: igual que gabinetes, salvo internet del cliente (AGUNSA, Nido, Lo Valledor P1)."
     )
-    ws.merge_cells("A1:K1")
-    ws.merge_cells("A2:K2")
+    ws.merge_cells("A1:L1")
+    ws.merge_cells("A2:L2")
     for c, h in enumerate(cols_res, 1):
         cell = ws.cell(row=4, column=c, value=h)
         cell.fill = header_fill
@@ -330,24 +337,27 @@ def _escribir_xlsx(
         nids = nodos_empresa.get(cid, [])
         cpa, solo = clasificar_nodos(nids, ids_cpa)
         unidos = texto_gabinetes_numerados(nids, gab_de, gab_miembros)
+        _n_sim, txt_sim = celda_sim_4g(nids, gab_de, gab_miembros, cid)
         ws.cell(row=i, column=1, value=cid)
         ws.cell(row=i, column=2, value=empresa)
         ws.cell(row=i, column=3, value=len(nids))
         ws.cell(row=i, column=4, value=conteo_gabinetes(nids, gab_de))
-        ws.cell(row=i, column=5, value=len(cpa))
-        ws.cell(row=i, column=6, value=len(solo))
-        ws.cell(row=i, column=7, value=len(filas.get(cid, [])))
-        ws.cell(row=i, column=8, value=", ".join(cpa))
-        ws.cell(row=i, column=9, value=", ".join(solo))
-        ws.cell(row=i, column=10, value=unidos or "—")
-        ws.cell(row=i, column=11, value=sheet)
-        ws.cell(row=i, column=8).alignment = wrap
+        ws.cell(row=i, column=5, value=txt_sim)
+        ws.cell(row=i, column=6, value=len(cpa))
+        ws.cell(row=i, column=7, value=len(solo))
+        ws.cell(row=i, column=8, value=len(filas.get(cid, [])))
+        ws.cell(row=i, column=9, value=", ".join(cpa))
+        ws.cell(row=i, column=10, value=", ".join(solo))
+        ws.cell(row=i, column=11, value=unidos or "—")
+        ws.cell(row=i, column=12, value=sheet)
+        ws.cell(row=i, column=5).alignment = wrap
         ws.cell(row=i, column=9).alignment = wrap
         ws.cell(row=i, column=10).alignment = wrap
-    for i, w in enumerate((12, 28, 14, 12, 12, 20, 18, 36, 42, 48, 26), 1):
+        ws.cell(row=i, column=11).alignment = wrap
+    for i, w in enumerate((12, 28, 14, 12, 36, 12, 20, 18, 36, 42, 48, 26), 1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.freeze_panes = "A5"
-    ws.auto_filter.ref = f"A4:K{4 + max(1, len(hojas))}"
+    ws.auto_filter.ref = f"A4:L{4 + max(1, len(hojas))}"
 
     tit_pts = [
         "node_id",
@@ -492,6 +502,87 @@ def _escribir_xlsx(
     wb.save(path)
 
 
+def actualizar_sim_4g_xlsx(xlsx_path: Path) -> None:
+    """Inserta o refresca la columna sim_4g en un Excel ya generado."""
+    from openpyxl import load_workbook
+    from openpyxl.styles import Alignment, Font
+    from openpyxl.utils import get_column_letter
+
+    from gabinetes import cargar_gabinetes, celda_sim_4g
+
+    wb = load_workbook(xlsx_path)
+    if "Resumen" not in wb.sheetnames:
+        raise SystemExit(f"No hay hoja Resumen en {xlsx_path}")
+    ws = wb["Resumen"]
+    for rng in list(ws.merged_cells.ranges):
+        ws.unmerge_cells(str(rng))
+
+    header_row = None
+    for r in range(1, 8):
+        if str(ws.cell(r, 1).value or "").strip().lower() == "company_id":
+            header_row = r
+            break
+    if header_row is None:
+        raise SystemExit("No se encontró el encabezado de Resumen")
+
+    headers = [
+        str(ws.cell(header_row, c).value or "").strip()
+        for c in range(1, (ws.max_column or 1) + 1)
+    ]
+    while headers and headers[-1] == "":
+        headers.pop()
+
+    if "sim_4g" not in headers:
+        if "gabinetes" in headers:
+            insert_at = headers.index("gabinetes") + 2
+        else:
+            insert_at = 5
+        ws.insert_cols(insert_at)
+        modelo = ws.cell(header_row, insert_at - 1)
+        cell = ws.cell(header_row, insert_at, value="sim_4g")
+        cell.fill = modelo.fill
+        cell.font = modelo.font
+        cell.alignment = modelo.alignment
+        headers.insert(insert_at - 1, "sim_4g")
+
+    sim_col = headers.index("sim_4g") + 1
+    nodos_por_cia: Dict[str, List[str]] = defaultdict(list)
+    if "Puntos" in wb.sheetnames:
+        for prow in wb["Puntos"].iter_rows(min_row=5, max_col=4, values_only=True):
+            if not prow or not prow[0] or not prow[2]:
+                continue
+            cid_pt = str(prow[2]).strip()
+            if cid_pt in EMPRESAS_EXCLUIDAS:
+                continue
+            nodos_por_cia[cid_pt].append(str(prow[0]).strip())
+
+    gab_de, gab_miembros = cargar_gabinetes()
+    wrap = Alignment(wrap_text=True, vertical="top")
+    for r in range(header_row + 1, (ws.max_row or header_row) + 1):
+        cid = str(ws.cell(r, 1).value or "").strip()
+        if not cid:
+            continue
+        nids = nodos_por_cia.get(cid, [])
+        _n, txt = celda_sim_4g(nids, gab_de, gab_miembros, cid)
+        cell = ws.cell(r, sim_col, value=txt)
+        cell.alignment = wrap
+
+    nota = str(ws["A2"].value or "")
+    if "SIM 4G" not in nota:
+        ws["A2"] = (
+            nota.rstrip(" .")
+            + ". SIM 4G: igual que gabinetes, salvo internet del cliente "
+            "(AGUNSA, Nido, Lo Valledor P1)."
+        )
+    ws["A2"].font = Font(size=10, color="555555")
+    last = get_column_letter(len(headers))
+    ws.merge_cells(f"A1:{last}1")
+    ws.merge_cells(f"A2:{last}2")
+    ws.column_dimensions[get_column_letter(sim_col)].width = 36
+    ws.auto_filter.ref = f"A{header_row}:{last}{header_row + max(1, ws.max_row - header_row)}"
+    wb.save(xlsx_path)
+
+
 def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     """PDF de 2 hojas: tabla blanca (resumen) en hoja 1 y tabla verde (CPA) en hoja 2."""
     from openpyxl import load_workbook
@@ -540,7 +631,12 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             return default
         return row[i]
 
-    from gabinetes import cargar_gabinetes, conteo_gabinetes, texto_gabinetes_numerados
+    from gabinetes import (
+        cargar_gabinetes,
+        celda_sim_4g,
+        conteo_gabinetes,
+        texto_gabinetes_numerados,
+    )
 
     gab_de, gab_miembros = cargar_gabinetes()
     nodos_por_cia: Dict[str, List[str]] = defaultdict(list)
@@ -560,6 +656,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
             "Empresa",
             "Activos",
             "Gabinetes",
+            "SIM 4G",
             "CPA",
             "Monitoreo",
             "Usuarios",
@@ -567,7 +664,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     else:
         titulos_pdf = ["Company ID", "Empresa", "Puntos activos", "Usuarios con acceso"]
     data_rows = []
-    tot_pts = tot_cpa = tot_solo = tot_usr = tot_gab = 0
+    tot_pts = tot_cpa = tot_solo = tot_usr = tot_gab = tot_sim = 0
     for row in filas_excel[header_i + 1 :]:
         if not row or row[0] is None or str(row[0]).strip() == "":
             continue
@@ -583,14 +680,25 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         n_gab = conteo_gabinetes(nids, gab_de) if nids else pts
         unidos = texto_gabinetes_numerados(nids, gab_de, gab_miembros)
         celda_gab = f"{n_gab}\n{unidos}" if unidos else str(n_gab)
+        n_sim, celda_sim = celda_sim_4g(nids, gab_de, gab_miembros, cid)
         tot_gab += n_gab
+        tot_sim += n_sim
         if tiene_cpa:
             n_cpa = int(_col(row, "puntos_CPA", 0) or 0)
             n_solo = int(_col(row, "puntos_solo_monitoreo", 0) or 0)
             tot_cpa += n_cpa
             tot_solo += n_solo
             data_rows.append(
-                [cid, empresa, str(pts), celda_gab, str(n_cpa), str(n_solo), str(usr)]
+                [
+                    cid,
+                    empresa,
+                    str(pts),
+                    celda_gab,
+                    celda_sim,
+                    str(n_cpa),
+                    str(n_solo),
+                    str(usr),
+                ]
             )
         else:
             data_rows.append([cid, empresa, str(pts), str(usr)])
@@ -622,7 +730,10 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
         "se incluye go.salass@gmail.com. "
         "CPA = monitoreo con control (horarios programados). "
         "Monitoreo = sin CPA. "
-        "Gabinetes: 1 estos puntos, 2 estos puntos (mismo gabinete = 1)."
+        "Gabinetes: 1 estos puntos, 2 estos puntos (mismo gabinete = 1). "
+        "SIM 4G: igual que gabinetes, salvo internet del cliente "
+        "(AGUNSA alimenta los 5 puntos; Nido Estanque B / High School / "
+        "Elementary / Teatro / Pozo Profundo; Lo Valledor P1 / Placa 1 problema)."
     )
 
     navy = colors.HexColor("#1F4E79")
@@ -691,7 +802,7 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
     for vals in data_rows:
         row_cells = []
         for i, v in enumerate(vals):
-            if tiene_cpa and i == 3:
+            if tiene_cpa and i in (3, 4):
                 st = cell_gab
             elif i == 1:
                 st = cell_l
@@ -706,12 +817,13 @@ def resumen_a_pdf(xlsx_path: Path, pdf_path: Path | None = None) -> Path:
                 _p(f"Total ({len(data_rows)} empresas)", tot_style),
                 _p(str(tot_pts), tot_c),
                 _p(str(tot_gab), tot_c),
+                _p(str(tot_sim), tot_c),
                 _p(str(tot_cpa), tot_c),
                 _p(str(tot_solo), tot_c),
                 _p(str(tot_usr), tot_c),
             ]
         )
-        weights = (0.11, 0.20, 0.09, 0.24, 0.09, 0.14, 0.13)
+        weights = (0.09, 0.14, 0.07, 0.18, 0.22, 0.08, 0.11, 0.11)
     else:
         table_data.append(
             [
@@ -858,6 +970,10 @@ def main() -> int:
         if not src.is_file():
             print(f"[ERROR] No existe el Excel: {src}")
             return 1
+        actualizar_sim_4g_xlsx(src)
+        latest_xlsx = src.with_name("accesos_por_empresa.xlsx")
+        if src.resolve() != latest_xlsx.resolve():
+            latest_xlsx.write_bytes(src.read_bytes())
         pdf = resumen_a_pdf(src)
         latest_pdf = src.with_name("accesos_por_empresa_resumen.pdf")
         if pdf.resolve() != latest_pdf.resolve():

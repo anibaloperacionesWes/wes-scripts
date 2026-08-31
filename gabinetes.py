@@ -12,7 +12,7 @@ import io
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 DRIVE_GABINETES_ID = "1g6rT-qF48UxIZrOxvvrnv7B-7WMtMLpM"
 CACHE_XLSX = (
@@ -21,6 +21,33 @@ CACHE_XLSX = (
     / "Listado_Equipos_Vigentes_Puntos_En_Cero.xlsx"
 )
 _NODE_RE = re.compile(r"\d{6}-\d{2}")
+
+# Puntos sin SIM 4G: internet lo pone el cliente (no WES).
+# AGUNSA: la empresa provee internet en los 5 puntos.
+# Nido: Estanque B, High School, Elementary, Teatro, Pozo Profundo.
+# Lo Valledor P1: el que tiene el problema.
+INTERNET_CLIENTE: Set[str] = {
+    "000020-01",
+    "000020-02",
+    "000020-03",
+    "000020-04",
+    "000020-05",
+    "000007-01",  # Estanque B
+    "000007-02",  # Teatro
+    "000007-03",  # High School
+    "000007-04",  # Elementary
+    "000007-06",  # Pozo Profundo
+    "000002-01",  # Lo Valledor P1
+}
+
+NOTA_SIM = {
+    "000020": "Internet AGUNSA (la empresa alimenta los 5 puntos)",
+    "000007": (
+        "Internet cliente: Estanque B, Teatro, High School, "
+        "Elementary, Pozo Profundo"
+    ),
+    "000002": "P1 / Placa 1 (000002-01): problema",
+}
 
 
 def _descargar_drive(destino: Path) -> Path:
@@ -175,3 +202,37 @@ def texto_mismo_gabinete(
     miembros: Dict[str, List[str]],
 ) -> str:
     return texto_gabinetes_numerados(node_ids, gabinete_de, miembros)
+
+
+def nids_con_sim(node_ids: Iterable[str]) -> List[str]:
+    """Puntos con SIM 4G WES (excluye internet del cliente)."""
+    out: List[str] = []
+    for nid in node_ids:
+        if nid in INTERNET_CLIENTE or str(nid).startswith("000020-"):
+            continue
+        out.append(nid)
+    return out
+
+
+def celda_sim_4g(
+    node_ids: Sequence[str],
+    gabinete_de: Dict[str, str],
+    miembros: Dict[str, List[str]],
+    cid: str = "",
+) -> Tuple[int, str]:
+    """
+    Misma lógica que gabinetes, solo sobre puntos con SIM 4G.
+    Returns (conteo, texto de celda).
+    """
+    sim = nids_con_sim(node_ids)
+    n = conteo_gabinetes(sim, gabinete_de) if sim else 0
+    unidos = texto_gabinetes_numerados(sim, gabinete_de, miembros)
+    nota = NOTA_SIM.get(cid, "")
+    if not nota and any(x.startswith("000020-") for x in node_ids):
+        nota = NOTA_SIM["000020"]
+    partes: List[str] = [str(n)]
+    if unidos:
+        partes.append(unidos)
+    if nota:
+        partes.append(nota)
+    return n, "\n".join(partes)
