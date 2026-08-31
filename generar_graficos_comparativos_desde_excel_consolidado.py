@@ -167,17 +167,11 @@ def _partir_dos_periodos(
     if len(fechas) != len(mats):
         raise ValueError("fechas y matrices no coinciden")
     n = len(fechas)
-    if n == 14:
-        mid = 7
-        return (
-            (LABEL_P1, list(mats[:mid])),
-            (LABEL_P2, list(mats[mid:])),
-        )
     if n % 2 == 0 and n >= 2:
         mid = n // 2
         return (
-            (f"Periodo A ({fechas[0]} … {fechas[mid - 1]})", list(mats[:mid])),
-            (f"Periodo B ({fechas[mid]} … {fechas[-1]})", list(mats[mid:])),
+            (LABEL_P1, list(mats[:mid])),
+            (LABEL_P2, list(mats[mid:])),
         )
     raise ValueError(
         f"Se esperaban 14 columnas (7+7) o un numero par de dias; hay {n}."
@@ -308,9 +302,9 @@ def generar_pngs(
     plt.close(fig)
     guardados.append(p3)
 
-    # 4–10) Un gráfico por día homólogo: col j vs col (mitad+j) — 7+7 o 4+4 (ICCO CPA).
+    # Un gráfico por día homólogo: col j vs col (mitad+j) — 4+4, 5+5, 7+7, etc.
     n_all = len(fechas)
-    if n_all == len(mats) and n_all in (8, 14) and n_all % 2 == 0:
+    if n_all == len(mats) and n_all >= 2 and n_all % 2 == 0:
         mitad = n_all // 2
         for j in range(mitad):
             d_con = fechas[j]
