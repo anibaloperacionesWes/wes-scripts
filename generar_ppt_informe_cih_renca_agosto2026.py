@@ -408,7 +408,28 @@ def _grafico_barras_dos(
     return dest
 
 
-def _grafico_dia(fechas, mats, j: int, dest: Path, lab_con: str, lab_sin: str) -> Path:
+def _fmt_clp(clp: float) -> str:
+    signo = "-" if clp < 0 else ""
+    return f"{signo}${format_number_chilean(abs(clp), 0)}"
+
+
+def _idx_martes(fechas: Sequence[date], mid: int) -> int:
+    """Índice del martes homólogo en el periodo Con WES (0-based)."""
+    for i, d in enumerate(fechas[:mid]):
+        if d.weekday() == 1:
+            return i
+    return min(1, max(0, mid - 1))
+
+
+def _grafico_dia(
+    fechas,
+    mats,
+    j: int,
+    dest: Path,
+    lab_con: str,
+    lab_sin: str,
+    figsize: Tuple[float, float] = (7.35, 5.0),
+) -> Path:
     mid = len(fechas) // 2
     d_con = fechas[j]
     d_sin = fechas[mid + j]
@@ -416,7 +437,7 @@ def _grafico_dia(fechas, mats, j: int, dest: Path, lab_con: str, lab_sin: str) -
     y_sin = np.array(mats[mid + j], dtype=float)
     horas = np.arange(24)
     wd = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")[d_con.weekday()]
-    fig, ax = plt.subplots(figsize=(7.35, 2.55), dpi=140)
+    fig, ax = plt.subplots(figsize=figsize, dpi=140)
     fig.patch.set_facecolor("white")
     _dibujar_comparativo_area_lineas(
         ax,
@@ -427,7 +448,7 @@ def _grafico_dia(fechas, mats, j: int, dest: Path, lab_con: str, lab_sin: str) -
         f"{lab_sin} ({d_sin:%d-%m-%Y})",
         f"Comparativo: {wd} — área + líneas (día homólogo)",
     )
-    ax.title.set_fontsize(11)
+    ax.title.set_fontsize(12)
     fig.tight_layout()
     dest.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(dest, dpi=140, bbox_inches="tight", facecolor="white")
@@ -567,7 +588,8 @@ def _slide_agregado(prs, filas: List[dict], n_horas: int, hora_corte: int, fecha
         table,
         r,
         5,
-        f"Eficiencia 4 puntos = {format_number_chilean(pct4, 1)} % (línea de base agregada). ICCP no se mezcla.",
+        f"Eficiencia 4 puntos = {format_number_chilean(pct4, 1)} %  ·  "
+        f"Ahorro {format_number_chilean(tot4_mes, 0)} m³ ({_fmt_clp(tot4_clp)}). ICCP no se mezcla.",
         size=9,
         bold=True,
         fill=RGBColor(0xE8, 0xEE, 0xF3),
@@ -617,11 +639,11 @@ def _slide_ventanas(prs, png5: Path, hora_corte: int, filas: List[dict]) -> None
     _add_picture(slide, png5, 0.35, 2.62, 12.6, 4.55)
 
 
-def _slide_comparativo(prs, rec: Recinto, d: dict, png_bar: Path, png_d1: Path, png_d2: Path, n_horas: int, lab_con: str, lab_sin: str) -> None:
+def _slide_comparativo(prs, rec: Recinto, d: dict, png_bar: Path, png_dia: Path, n_horas: int, lab_con: str, lab_sin: str) -> None:
     slide = _blank(prs)
     _banner(slide, rec.titulo)
     _add_picture(slide, png_bar, 0.22, 0.88, 4.85, 3.35)
-    d_con, d_sin, mes, _clp = _ahorro_mes(d["m3_con"], d["m3_sin"], n_horas)
+    d_con, d_sin, mes, clp = _ahorro_mes(d["m3_con"], d["m3_sin"], n_horas)
     pct = d["pct"]
     fechas = d["fechas"]
     mid = d["mid"]
@@ -630,11 +652,21 @@ def _slide_comparativo(prs, rec: Recinto, d: dict, png_bar: Path, png_d1: Path, 
     _textbox(slide, 0.28, y, 4.8, 0.28, f"{lab_sin}:  {_rango_txt(fechas, mid, False, hc)}", 11, True, GRIS)
     _textbox(slide, 0.28, y + 0.30, 4.8, 0.28, f"{lab_con}:  {_rango_txt(fechas, mid, True, hc)}", 11, True, GRIS)
     _textbox(slide, 0.28, y + 0.68, 4.8, 0.42, f"Eficiencia:   {format_number_chilean(pct, 1)} %", 22, True, _color_pct(pct))
-    _textbox(slide, 0.28, y + 1.12, 4.8, 0.42, f"Ahorro estimado mes:   {format_number_chilean(mes, 0)} m³", 16, True, _color_pct(mes))
     _textbox(
         slide,
         0.28,
-        y + 1.55,
+        y + 1.12,
+        4.8,
+        0.48,
+        f"Ahorro estimado mes:   {format_number_chilean(mes, 0)} m³  ·  {_fmt_clp(clp)}",
+        14,
+        True,
+        _color_pct(mes),
+    )
+    _textbox(
+        slide,
+        0.28,
+        y + 1.58,
         4.9,
         0.45,
         f"*Considera: consumo promedio basal de {format_number_chilean(d_sin, 0)} m³/día "
@@ -643,9 +675,8 @@ def _slide_comparativo(prs, rec: Recinto, d: dict, png_bar: Path, png_d1: Path, 
         False,
         GRIS,
     )
-    _textbox(slide, 5.35, 0.82, 7.6, 0.32, "Comparativo diario auditado (24 hrs)", 14, True, AZUL)
-    _add_picture(slide, png_d1, 5.28, 1.14, 7.75, 2.72)
-    _add_picture(slide, png_d2, 5.28, 3.95, 7.75, 2.72)
+    _textbox(slide, 5.35, 0.82, 7.6, 0.32, "Comparativo horario homologado — martes", 14, True, AZUL)
+    _add_picture(slide, png_dia, 5.28, 1.14, 7.75, 5.53)
 
 
 def _slide_comentarios(prs, rec: Recinto, d: dict, png_pares: Path, n_horas: int) -> None:
@@ -661,9 +692,19 @@ def _slide_comentarios(prs, rec: Recinto, d: dict, png_pares: Path, n_horas: int
     _textbox(slide, 8.05, 1.58, 4.9, 0.28, lab_con, 11, True, GRIS)
     _textbox(slide, 8.05, 1.85, 4.9, 0.28, _rango_txt(d["fechas"], d["mid"], True, d["hora_corte"]), 12, False, GRIS)
     _textbox(slide, 8.05, 2.28, 4.9, 0.42, f"Eficiencia:  {format_number_chilean(pct, 1)} %", 20, True, _color_pct(pct))
-    _textbox(slide, 8.05, 2.75, 4.9, 0.38, f"Ahorro estimado mes:  {format_number_chilean(mes, 0)} m³", 14, True, _color_pct(mes))
-    _textbox(slide, 8.05, 3.18, 4.9, 0.32, f"{format_number_chilean(d['m3_con'], 1)} m³ con  vs  {format_number_chilean(d['m3_sin'], 1)} m³ sin", 11, False, GRIS)
-    _textbox(slide, 8.05, 3.50, 4.9, 0.32, f"${format_number_chilean(clp, 0)} / mes  (tarifa 1.300)", 11, False, GRIS)
+    _textbox(
+        slide,
+        8.05,
+        2.75,
+        4.9,
+        0.48,
+        f"Ahorro estimado mes:  {format_number_chilean(mes, 0)} m³  ·  {_fmt_clp(clp)}",
+        13,
+        True,
+        _color_pct(mes),
+    )
+    _textbox(slide, 8.05, 3.28, 4.9, 0.32, f"{format_number_chilean(d['m3_con'], 1)} m³ con  vs  {format_number_chilean(d['m3_sin'], 1)} m³ sin", 11, False, GRIS)
+    _textbox(slide, 8.05, 3.58, 4.9, 0.32, f"Tarifa 1.300 CLP/m³", 11, False, GRIS)
 
     _textbox(slide, 0.28, 4.55, 12.7, 0.32, "Comentarios:", 16, True, AZUL)
     bullets = [f">  {rec.comentario}"]
@@ -842,11 +883,16 @@ def main() -> int:
             "Con WES",
             "Sin WES",
         )
-        j1 = 0
-        j2 = (d["n_dias"] - 1) if rec.iccp else (1 if d["n_dias"] > 1 else 0)
-        p1 = _grafico_dia(d["fechas"], d["mats"], j1, gdir / "dia1.png", lab_con, lab_sin)
-        p2 = _grafico_dia(d["fechas"], d["mats"], j2, gdir / "dia2.png", lab_con, lab_sin)
-        _slide_comparativo(prs, rec, d, bar, p1, p2, d["n_horas"], lab_con, lab_sin)
+        j_mar = _idx_martes(d["fechas"], d["mid"])
+        p_mar = _grafico_dia(
+            d["fechas"],
+            d["mats"],
+            j_mar,
+            gdir / "martes.png",
+            lab_con,
+            lab_sin,
+        )
+        _slide_comparativo(prs, rec, d, bar, p_mar, d["n_horas"], lab_con, lab_sin)
         pares = _grafico_pares_barras(d["fechas"], d["dias_con"], d["dias_sin"], gdir / "pares.png", lab_con, lab_sin)
         _slide_comentarios(prs, rec, d, pares, d["n_horas"])
 
