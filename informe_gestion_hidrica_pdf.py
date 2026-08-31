@@ -604,7 +604,9 @@ def build_chart_puntos(path: Path, names: Sequence[str], values: Sequence[float]
     ax.set_ylabel("m³", fontsize=8, fontweight="bold")
     ax.set_title("Consumo registrado por punto", fontsize=10, fontweight="bold", color="#003B64", pad=8)
     _style_axes(ax)
-    plt.setp(ax.get_xticklabels(), rotation=18, ha="right", fontsize=7.5)
+    rot = 35 if len(names) >= 8 else 18
+    fs = 6.0 if len(names) >= 10 else 7.5
+    plt.setp(ax.get_xticklabels(), rotation=rot, ha="right", fontsize=fs)
     ax.set_ylim(0, max(values) * 1.22 if values else 1)
     for bar, v in zip(bars, values):
         ax.text(
@@ -812,6 +814,10 @@ def render_mensual(spec: InformeSpec, out_path: Path, chart_dir: Path) -> Path:
         font_size=8.5,
     )
     if spec.visitas:
+        if y < 210:
+            c.showPage()
+            _new_page(c, spec, logo, 3)
+            y = PAGE_H - 58
         y = _draw_visitas_section(c, spec, y)
     if y < 88:
         c.showPage()
@@ -839,7 +845,7 @@ def render_mensual(spec: InformeSpec, out_path: Path, chart_dir: Path) -> Path:
                 f"{p.cobertura} días",
             ]
         )
-    y = _draw_table(c, headers, rows, col_ws, y + 6, font_size=8)
+    y = _draw_table(c, headers, rows, col_ws, y + 6, font_size=7 if len(rows) >= 10 else 8)
     y = _section(c, "Criterio nocturno y costo referencial", y - 2, 10.5)
     for para in spec.criterio_nocturno:
         y = _draw_runs(c, para, ML, y, CONTENT_W, 9, BODY, 13) - 4

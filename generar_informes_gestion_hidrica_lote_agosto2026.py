@@ -365,7 +365,7 @@ def fetch_cliente(cfg: dict) -> dict:
     start_dt = parse_date(START)
     end_dt = parse_date(END, end_of_day=True)
     results: Dict[str, dict] = {}
-    workers = max(2, min(6, len(node_ids)))
+    workers = int(cfg.get("workers") or max(2, min(6, len(node_ids))))
     print(f"[INFO] {cfg['cliente']}: {len(node_ids)} nodos", flush=True)
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futs = {ex.submit(_fetch_node, cfg, nid, start_dt, end_dt): nid for nid in node_ids}
@@ -916,7 +916,8 @@ def build_spec(
         kpi_nocturno=noct_txt,
         kpi_pct=pct_txt,
         panorama=panorama,
-        panorama_nota="Agosto se evalúa del 1 al 31 y no se extrapola.",
+        panorama_nota=cfg.get("panorama_nota")
+        or "Agosto se evalúa del 1 al 31 y no se extrapola.",
         hallazgos=hallazgos,
         acciones=acciones,
         conclusion=conclusion,
@@ -935,8 +936,14 @@ def build_spec(
         criterio_nocturno=[
             [
                 (
-                    "Se considera nocturno el volumen medido entre las 00:00 y las 06:59, "
-                    "hora de Chile. Los valores corresponden únicamente a días con datos y no "
+                    (
+                        cfg.get("ventana_nocturna")
+                        or (
+                            "Se considera nocturno el volumen medido entre las 00:00 y las 06:59, "
+                            "hora de Chile. "
+                        )
+                    )
+                    + "Los valores corresponden únicamente a días con datos y no "
                     "se proyectan. El costo nocturno de la referencia se estima en ",
                     False,
                 ),
@@ -982,14 +989,8 @@ def generar_cliente(
     return one, monthly
 
 
-def main() -> None:
-    if sys.platform == "win32":
-        try:
-            sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)
-            sys.stderr.reconfigure(encoding="utf-8", line_buffering=True)
-        except Exception:
-            pass
-    print("GESTIÓN HÍDRICA — lote 8 — 01/08/2026 a 31/08/2026\n", flush=True)
+def run_lote(clientes: Sequence[dict], titulo: str) -> None:
+    print(f"{titulo}\n", flush=True)
     try:
         todas = cargar_visitas_periodo(START_DT, END_DT)
         print(f"[INFO] Visitas del formulario en el periodo: {len(todas)}", flush=True)
@@ -998,7 +999,7 @@ def main() -> None:
         print(f"[ADVERTENCIA] No se pudieron leer visitas técnicas: {e}", flush=True)
     ok = []
     errors = []
-    for cfg in CLIENTES:
+    for cfg in clientes:
         try:
             visitas = visitas_de_cliente(todas, cfg)
             one, monthly = generar_cliente(cfg, visitas)
@@ -1010,11 +1011,25 @@ def main() -> None:
             import traceback
 
             traceback.print_exc()
-    print(f"\n[INFO] Completados: {len(ok)}/{len(CLIENTES)}", flush=True)
+    print(f"\n[INFO] Completados: {len(ok)}/{len(clientes)}", flush=True)
     if errors:
         print("[INFO] Fallidos:")
         for e in errors:
             print("  -", e)
+        raise SystemExit(1)
+
+
+def main() -> None:
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)
+            sys.stderr.reconfigure(encoding="utf-8", line_buffering=True)
+        except Exception:
+            pass
+    run_lote(
+        CLIENTES,
+        "GESTIÓN HÍDRICA — lote 8 — 01/08/2026 a 31/08/2026",
+    )
 
 
 if __name__ == "__main__":

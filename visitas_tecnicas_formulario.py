@@ -68,6 +68,13 @@ MATCH_POR_KEY: Dict[str, _Match] = {
         clientes=["AGUNSA"],
         maquinas=["INTERMODAL"],
     ),
+    "renca": _Match(
+        clientes=["RENCA"],
+        excluir=["GIMNASIO", "PISCINA"],
+    ),
+    "florida": _Match(clientes=["LA FLORIDA"]),
+    "reina": _Match(clientes=["LA REINA"]),
+    "cormup": _Match(clientes=["CORMUP"]),
 }
 
 
