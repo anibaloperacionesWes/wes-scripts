@@ -479,9 +479,9 @@ def _clasificar(cfg: dict, pct: float, evento_fuerte: bool) -> Tuple[str, str]:
     explain = cfg.get("nocturnal_explain")
     if cfg.get("cpa_estado") == "instalado_pendiente":
         return (
-            "EN OBSERVACIÓN",
-            "hay un equipo CPA instalado que falta activar y programar; el caudal 24 h "
-            "es coherente con un mercado mayorista hortofrutícola.",
+            "REQUIERE ATENCIÓN",
+            "el equipo CPA está instalado y falta activarlo y programarlo; sin ese control "
+            "el recinto no tiene regulación automática de caudal.",
         )
     if explain == "wes" and pct <= 16:
         return (
@@ -538,12 +538,12 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
     if cfg.get("cpa_estado") == "instalado_pendiente":
         hall.append(
             Hallazgo(
-                "SEGUIMIENTO",
+                "ATENCIÓN",
                 "Equipo CPA pendiente de activar y programar",
                 "El control WES está instalado y aún no opera.",
                 "Activarlo y programarlo según el horario del mercado (compra hasta las 14:00, "
-                "peak 22:00–03:00). Hasta entonces se eleva la observación de este punto: "
-                "no hay control automático de caudal.",
+                "peak 22:00–03:00). Sin CPA no hay control automático de caudal: por eso el "
+                "estado del periodo es Requiere atención.",
             )
         )
 
@@ -963,7 +963,7 @@ def build_spec(
         [
             (
                 (
-                    "Cuando el CPA esté activo y programado se reevaluará el estado. "
+                    "Cuando el CPA esté activo y programado se reevaluará a En observación o Bajo control. "
                     "Si el caudal 24 h se dispara sin operación de mercado, la clasificación avanzará a "
                     if cfg.get("cpa_estado") == "instalado_pendiente"
                     else "Si el caudal 24 h se dispara sin operación de mercado, la clasificación avanzará a "
@@ -973,7 +973,10 @@ def build_spec(
                 ),
                 False,
             ),
-            ("“Requiere atención”", True),
+            (
+                "“Crítico”" if cfg.get("cpa_estado") == "instalado_pendiente" else "“Requiere atención”",
+                True,
+            ),
             (".", False),
         ],
     ]

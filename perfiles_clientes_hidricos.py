@@ -28,8 +28,8 @@ VALLEDOR: Dict[str, Any] = {
     "horario_full": "22:00–03:00",
     "cpa_estado": "instalado_pendiente",
     "cpa_nota": (
-        "Hay un equipo CPA (control WES) instalado en el recinto. "
-        "Falta activarlo y programarlo; hasta entonces no hay control automático de caudal."
+        "El equipo CPA está instalado y falta activarlo y programar. "
+        "Sin ese control el recinto queda en Requiere atención."
     ),
 }
 

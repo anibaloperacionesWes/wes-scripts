@@ -36,7 +36,7 @@ TO_VISIBLE = [
     "anibal.aoperaciones@wes.cl",
 ]
 
-ASUNTO = "Lo Valledor gestión hídrica agosto 2026 — perfil mercado mayorista + CPA pendiente"
+ASUNTO = "Lo Valledor gestión hídrica agosto 2026 — REQUIERE ATENCIÓN (CPA pendiente)"
 
 ONE_PAGER = ROOT / "reports" / "Lo_Valledor" / "GESTION_HIDRICA" / (
     "One_Pager_Gestion_Hidrica_Lo_Valledor_Agosto_2026.pdf"
@@ -82,7 +82,7 @@ def enviar(*, dry_run: bool = False) -> None:
         "Lectura de cliente: mercado mayorista hortofrutícola (~300.000 m², compra L–V 17:00–14:00 "
         "del día siguiente, peak 22:00–03:00). El caudal 24 h y el 30 % en 00:00–06:59 son uso "
         "normal (lavado de producto, baños con ducha, foodtrucks), no pérdida.\n\n"
-        "Estado: En observación, porque hay un equipo CPA instalado que falta activar y programar. "
+        "Estado: Requiere atención, porque el equipo CPA está instalado y falta activarlo y programarlo. "
         "Cuando esté en servicio se reevalúa.\n\n"
         "También en Drive:\n"
         f"  • One-pager: {DRIVE_ONE}\n"

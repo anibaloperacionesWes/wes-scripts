@@ -64,7 +64,7 @@ CLIENTES = [
     (
         "Lo Valledor",
         "Lo_Valledor",
-        "En observación (CPA pendiente de activar)",
+        "Requiere atención (CPA pendiente de activar)",
         "https://drive.google.com/file/d/17koaZKFdbKLJDbS28hINsQ8F_0ffQash/view?usp=drivesdk",
         "https://drive.google.com/file/d/1UgAvHzVxjpTT95IoxMGBOsEEZD0OpBre/view?usp=drivesdk",
     ),
