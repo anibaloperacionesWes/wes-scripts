@@ -129,7 +129,7 @@ RECINTOS: Tuple[Recinto, ...] = (
         "Av. Brasil 7965, Renca",
         "Auditoria_ICCP_000017-07",
         True,
-        "Punto sí o sí. Semana completa lun 10–dom 16 con WES vs lun 17–dom 23 sin WES. "
+        "Semana completa lun 10–dom 16 con WES vs lun 17–dom 23 sin WES. "
         "Esta semana el control está off (OT 2282); no se usa 24–26. No entra al % de los 4.",
     ),
 )
@@ -633,7 +633,7 @@ def _slide_ventanas(prs, png5: Path, hora_corte: int, filas: List[dict]) -> None
     )
 
     _shape_fill(slide, 6.85, 0.92, 6.2, 1.55, RGBColor(0xFF, 0xF2, 0xCC), "", size=10)
-    _textbox(slide, 7.0, 0.98, 5.9, 0.32, "ICCP (al final) — punto sí o sí", 12, True, AZUL)
+    _textbox(slide, 7.0, 0.98, 5.9, 0.32, "ICCP (ventana distinta, no se mezcla)", 12, True, AZUL)
     _textbox(slide, 7.0, 1.32, 5.9, 0.95, "Con WES: lun 10 – dom 16 agosto\nSin WES: lun 17 – dom 23 agosto\nSemana completa. No entra al % de los 4 puntos.", 12, False, GRIS)
 
     _add_picture(slide, png5, 0.35, 2.62, 12.6, 4.55)

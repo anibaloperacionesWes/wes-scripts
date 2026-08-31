@@ -2,7 +2,7 @@
 Informe de auditoría Renca — 5 puntos en una tabla.
 
 Lo Velásquez, gimnasio, piscina e ICCO: esta semana (desde lun 24) vs semana del 17.
-ICCP (al final, punto sí o sí): lun 10–dom 16 con WES vs lun 17–dom 23 sin WES.
+ICCP (al final, no se mezcla en el % de los 4): lun 10–dom 16 con WES vs lun 17–dom 23 sin WES.
 
 Uso:
   python generar_auditoria_renca_semana_pasada_vs_esta.py
@@ -93,7 +93,7 @@ TEXTO_CONTROL = (
     "parejo (~0,55 m³/h; antes 0). Desde entonces el punto no está con control."
 )
 TEXTO_ICCP = (
-    "ICCP es punto sí o sí y va al final, con semana completa: "
+    "ICCP se informa aparte, con semana completa: "
     "lun 10–dom 16/08 con WES vs lun 17–dom 23/08 sin WES. "
     "Esta semana el control está off por OT 2282, por eso no se usa 24–26. "
     "Ahorro = (Sin WES − Con WES) / Sin WES × 100."
