@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21W</title>
+  <title>Acta de visita WES · 21X</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -365,7 +365,7 @@
         <p class="note" style="margin:6px 0 0">Visita física = en terreno. Soporte técnico a distancia = desde oficina (elige automáticamente tipo «Soporte remoto»).</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21W</div>
+        <div class="build-tag" id="form_build">WES-build-21X</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -482,7 +482,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21W";
+    var FORM_BUILD = "WES-build-21X";
     /** Motivos de falla/trabajo típicos en soporte a distancia (van en tipo_falla). */
     var TIPOS_FALLA_REMOTO = [
       "Programación de auditoría",
@@ -1371,7 +1371,7 @@
           "Visita física",
           "Soporte técnico a distancia"
         ];
-        chips(document.getElementById("motivos"), "motivo", MOTIVOS_FIJOS, true);
+        chips(document.getElementById("motivos"), "motivo", MOTIVOS_FIJOS, false);
         // Lista fija (sin EYES). No usar catalogos embebido viejo.
         var TECNOLOGIAS_FIJAS = ["CPA y CIR", "SAB", "CPA", "CIR", "On/Off"];
         chips(document.getElementById("tecnologias"), "tecnologia", TECNOLOGIAS_FIJAS, true);

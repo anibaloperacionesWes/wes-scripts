@@ -71,7 +71,7 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES · 21V')
+    .setTitle('Acta de visita WES · 21X')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -195,11 +195,11 @@ function procesarVisita(data) {
   }
   var esRemoto = esSoporteRemoto_(data);
   data.soporte_remoto = !!esRemoto;
-  if (!esRemoto && !data.firma_png) {
-    throw new Error('Firma obligatoria en visita física');
-  }
-  if (esRemoto && !data.firma_png) {
+  // Remoto: la firma queda fuera (no se valida ni se exige).
+  if (esRemoto) {
     data.firma_png = '';
+  } else if (!data.firma_png) {
+    throw new Error('Firma obligatoria en visita física');
   }
   if (!data.recibido_por) {
     if (esRemoto) {
@@ -277,7 +277,7 @@ function procesarVisita(data) {
 function getWesApiVersion() {
   return {
     ok: true,
-    version: '21V',
+    version: '21X',
     has_listar_ots: true,
     has_procesar: true,
     formulario_drive_id: FORMULARIO_HTML_DRIVE_ID
@@ -287,17 +287,29 @@ function getWesApiVersion() {
 /** Modalidad a distancia o tipo mtto Soporte remoto → no exige firma. */
 function esSoporteRemoto_(data) {
   if (!data) return false;
-  if (data.soporte_remoto === true || data.soporte_remoto === 'true' || data.soporte_remoto === 1) {
+  var flag = data.soporte_remoto;
+  if (flag === true || flag === 'true' || flag === 1 || flag === '1' || String(flag).toLowerCase() === 'si') {
     return true;
   }
   if (String(data.tipo_mtto || '') === 'Soporte remoto') return true;
   var motivos = data.motivos;
   if (typeof motivos === 'string') {
-    try { motivos = JSON.parse(motivos); } catch (e) { motivos = [motivos]; }
+    var raw = motivos;
+    try { motivos = JSON.parse(motivos); } catch (e) { motivos = raw.split(/[,;|]/); }
   }
-  if (!motivos || !motivos.length) return false;
+  if (Object.prototype.toString.call(motivos) !== '[object Array]') {
+    if (motivos && typeof motivos === 'object') {
+      try { motivos = Object.keys(motivos).map(function (k) { return motivos[k]; }); }
+      catch (e2) { motivos = []; }
+    } else {
+      motivos = [];
+    }
+  }
   for (var i = 0; i < motivos.length; i++) {
-    if (String(motivos[i]) === 'Soporte técnico a distancia') return true;
+    var m = String(motivos[i] || '').trim();
+    if (m === 'Soporte técnico a distancia' || /soporte\s+t[eé]cnico\s+a\s+distancia/i.test(m)) {
+      return true;
+    }
   }
   return false;
 }
