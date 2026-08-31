@@ -36,7 +36,7 @@ TO_VISIBLE = [
     "anibal.aoperaciones@wes.cl",
 ]
 
-ASUNTO = "Corrección — Lo Valledor gestión hídrica agosto 2026 (horario full 22:00–03:00)"
+ASUNTO = "Lo Valledor gestión hídrica agosto 2026 — perfil mercado mayorista + CPA pendiente"
 
 ONE_PAGER = ROOT / "reports" / "Lo_Valledor" / "GESTION_HIDRICA" / (
     "One_Pager_Gestion_Hidrica_Lo_Valledor_Agosto_2026.pdf"
@@ -78,11 +78,12 @@ def enviar(*, dry_run: bool = False) -> None:
 
     cuerpo = (
         "Estimados Juan y Aníbal,\n\n"
-        "Reenvío Lo Valledor (agosto 2026) con el criterio operativo corregido.\n\n"
-        "El horario full del mercado es 22:00–03:00. El 30 % medido entre 00:00 y 06:59 "
-        "no es pérdida: se solapa con esa operación y el perfil es continuo las 24 h "
-        "(~4 % por hora). Estado: Bajo control (antes En observación).\n\n"
-        "Adjunto one-pager e informe mensual.\n\n"
+        "Adjunto la versión personalizada de Lo Valledor (agosto 2026): one-pager e informe mensual.\n\n"
+        "Lectura de cliente: mercado mayorista hortofrutícola (~300.000 m², compra L–V 17:00–14:00 "
+        "del día siguiente, peak 22:00–03:00). El caudal 24 h y el 30 % en 00:00–06:59 son uso "
+        "normal (lavado de producto, baños con ducha, foodtrucks), no pérdida.\n\n"
+        "Estado: En observación, porque hay un equipo CPA instalado que falta activar y programar. "
+        "Cuando esté en servicio se reevalúa.\n\n"
         "También en Drive:\n"
         f"  • One-pager: {DRIVE_ONE}\n"
         f"  • Mensual: {DRIVE_MEN}\n\n"

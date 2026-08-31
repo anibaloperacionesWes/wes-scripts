@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenera gestión hídrica Lo Valledor (horario full 22:00–03:00)."""
+"""Regenera gestión hídrica Lo Valledor (perfil mercado mayorista + CPA pendiente)."""
 from __future__ import annotations
 
 import sys

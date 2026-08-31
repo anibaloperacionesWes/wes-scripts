@@ -50,6 +50,7 @@ from informe_gestion_hidrica_pdf import (
     render_one_pager,
     resolve_logo,
 )
+from perfiles_clientes_hidricos import aplicar_perfil_valledor
 from visitas_tecnicas_formulario import (
     VisitaTecnica,
     cargar_visitas_periodo,
@@ -175,42 +176,30 @@ CLIENTES: List[Dict[str, Any]] = [
             "sistemas distintos del colegio."
         ),
     },
-    {
-        "key": "valledor",
-        "company_id": "000002",
-        "folder": "Lo_Valledor",
-        "cliente": "Lo Valledor",
-        "sitio": "Lo Valledor",
-        "sujeto": "el recinto",
-        "node_ids": ["000002-01", "000002-03"],
-        "apply_exclusions": False,
-        "matriz_id": None,
-        "matriz_name": "",
-        "additive": True,
-        "nocturnal_explain": "mercado",
-        "kpi_label": "Consumo total",
-        "short_names": {
-            "000002-01": "P1",
-            "000002-03": "Barrio Norte",
-        },
-        "leyenda": None,
-        "chart_nota": (
-            "P1 y Barrio Norte son recintos distintos: sus consumos se suman al total del periodo."
-        ),
-        "nocturno_nota": (
-            "El volumen en 00:00–06:59 incluye el horario full del mercado (22:00–03:00). "
-            "P1 y Barrio Norte se suman porque no miden el mismo caudal."
-        ),
-        "ventana_nocturna": (
-            "En Lo Valledor el horario full del mercado es 22:00–03:00. "
-            "La ventana 00:00–06:59 se reporta como referencia y se solapa con esa "
-            "operación; no se interpreta como pérdida. "
-        ),
-        "lectura_nocturno": (
-            ". El horario full del mercado es 22:00–03:00. El volumen medido entre "
-            "las 00:00 y las 06:59 (que incluye esa operación) alcanzó "
-        ),
-    },
+    aplicar_perfil_valledor(
+        {
+            "key": "valledor",
+            "company_id": "000002",
+            "folder": "Lo_Valledor",
+            "cliente": "Lo Valledor",
+            "sitio": "Lo Valledor",
+            "sujeto": "el recinto",
+            "node_ids": ["000002-01", "000002-03"],
+            "apply_exclusions": False,
+            "matriz_id": None,
+            "matriz_name": "",
+            "additive": True,
+            "kpi_label": "Consumo total",
+            "short_names": {
+                "000002-01": "P1",
+                "000002-03": "Barrio Norte",
+            },
+            "leyenda": None,
+            "chart_nota": (
+                "P1 y Barrio Norte son recintos distintos: sus consumos se suman al total del periodo."
+            ),
+        }
+    ),
     {
         "key": "udd",
         "company_id": "000026",
@@ -488,6 +477,12 @@ def _bounds_from_data(data: dict) -> Tuple[datetime, datetime, int]:
 
 def _clasificar(cfg: dict, pct: float, evento_fuerte: bool) -> Tuple[str, str]:
     explain = cfg.get("nocturnal_explain")
+    if cfg.get("cpa_estado") == "instalado_pendiente":
+        return (
+            "EN OBSERVACIÓN",
+            "hay un equipo CPA instalado que falta activar y programar; el caudal 24 h "
+            "es coherente con un mercado mayorista hortofrutícola.",
+        )
     if explain == "wes" and pct <= 16:
         return (
             "BAJO CONTROL",
@@ -540,6 +535,18 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
     evento_fuerte = False
     hall: List[Hallazgo] = []
 
+    if cfg.get("cpa_estado") == "instalado_pendiente":
+        hall.append(
+            Hallazgo(
+                "SEGUIMIENTO",
+                "Equipo CPA pendiente de activar y programar",
+                "El control WES está instalado y aún no opera.",
+                "Activarlo y programarlo según el horario del mercado (compra hasta las 14:00, "
+                "peak 22:00–03:00). Hasta entonces se eleva la observación de este punto: "
+                "no hay control automático de caudal.",
+            )
+        )
+
     if explain == "wes":
         hall.append(
             Hallazgo(
@@ -555,11 +562,10 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
         hall.append(
             Hallazgo(
                 "INFORMATIVA",
-                f"{_fmt(round(pct), 0)} % en 00:00–06:59 es operación del mercado",
-                f"{_fmt(nocturno, 1)} m³ en la ventana estándar; el horario full es 22:00–03:00.",
-                "Lo Valledor opera de madrugada. Ese caudal es uso del recinto, no pérdida. "
-                "El perfil es continuo las 24 h (~4 % por hora). Se mantiene como línea base; "
-                "alertar solo si el patrón se dispara sin operación.",
+                "El caudal 24 h es propio de la operación hortofrutícola",
+                f"{_fmt(round(pct), 0)} % en 00:00–06:59 ({_fmt(nocturno, 1)} m³) entra en el horario de compra.",
+                "Lavado de fruta y verdura, baños con ducha, foodtrucks y recambio de camiones "
+                "explican el uso diurno y nocturno. Peak comercial 22:00–03:00. No se lee como pérdida.",
             )
         )
     elif explain == "bombas_estanques":
@@ -687,6 +693,15 @@ def _acciones(hallazgos: Sequence[Hallazgo], cfg: dict) -> List[Accion]:
                     "Operación + WES",
                 )
             )
+        elif "CPA" in h.titulo:
+            acts.append(
+                Accion(
+                    "Activar y programar el equipo CPA.",
+                    "7 días",
+                    "Poner el control en servicio alineado al horario del mercado.",
+                    "WES + operación",
+                )
+            )
         elif "WES" in h.titulo:
             acts.append(
                 Accion(
@@ -715,7 +730,24 @@ def _acciones(hallazgos: Sequence[Hallazgo], cfg: dict) -> List[Accion]:
                 )
             )
     if len(acts) < 3:
-        if cfg.get("nocturnal_explain") == "mercado":
+        if cfg.get("cpa_estado") == "instalado_pendiente":
+            acts.append(
+                Accion(
+                    "Programar el CPA con el horario de compra y el peak 22:00–03:00.",
+                    "7 días",
+                    "Que el control no corte agua durante la operación del mercado.",
+                    "WES + operación",
+                )
+            )
+            acts.append(
+                Accion(
+                    "Mantener observación del caudal 24 h hasta que el CPA esté en servicio.",
+                    "Próximo informe",
+                    "Línea base previa al control automático.",
+                    "WES + cliente",
+                )
+            )
+        elif cfg.get("nocturnal_explain") == "mercado":
             acts.append(
                 Accion(
                     "Alertar solo si el caudal 24 h se dispara sin operación de mercado.",
@@ -931,7 +963,10 @@ def build_spec(
         [
             (
                 (
+                    "Cuando el CPA esté activo y programado se reevaluará el estado. "
                     "Si el caudal 24 h se dispara sin operación de mercado, la clasificación avanzará a "
+                    if cfg.get("cpa_estado") == "instalado_pendiente"
+                    else "Si el caudal 24 h se dispara sin operación de mercado, la clasificación avanzará a "
                     if cfg.get("nocturnal_explain") == "mercado"
                     else "Si el consumo nocturno se desvía de esta referencia, aumenta o presenta "
                     "eventos sin explicación operacional, la clasificación avanzará a "
