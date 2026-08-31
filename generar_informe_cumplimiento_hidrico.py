@@ -513,13 +513,23 @@ def clasificar_cerrado(
         start_i = i + 1
         if fin_i >= 0 and start_i <= fin_i and serie[start_i][2] <= UMBRAL_CERO:
             dur = fin_i - start_i + 1
-            h0 = serie[start_i][1]
-            h1 = (serie[fin_i][1] + 1) % 24
-            if h1 == 0:
-                h1_lab = "24:00"
-            else:
-                h1_lab = f"{h1:02d}:00"
-            cerrado_txt = f"Cerrado {dur} h ({h0:02d}:00–{h1_lab}); ahora habilitado"
+            off_a, h0, _ = serie[start_i]
+            off_b, h_fin, _ = serie[fin_i]
+
+            def _stamp(off: int, hour: int, *, end: bool) -> str:
+                if end:
+                    hour_ex = hour + 1
+                    t = "24:00" if hour_ex >= 24 else f"{hour_ex:02d}:00"
+                else:
+                    t = f"{hour:02d}:00"
+                if off_a != off_b:
+                    return f"{'ayer' if off < 0 else 'hoy'} {t}"
+                return t
+
+            cerrado_txt = (
+                f"Cerrado {dur} h ({_stamp(off_a, h0, end=False)}–"
+                f"{_stamp(off_b, h_fin, end=True)}); ahora habilitado"
+            )
         elif racha == 0:
             cerrado_txt = "Abierto (hay caudal)"
         else:
