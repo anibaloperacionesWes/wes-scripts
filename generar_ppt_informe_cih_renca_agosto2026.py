@@ -12,6 +12,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -329,12 +330,39 @@ def _datos_recinto(xlsx: Path, hora_corte: int) -> dict:
 
 
 def _hora_corte_run(run_dir: Path) -> Optional[int]:
-    """Carpeta …_YYYYMMDD_HHMM → última hora completa Chile (HH-1)."""
+    """Preferir hora_corte.txt / run_meta.json; si no, carpeta …_YYYYMMDD_HHMM → HH-1."""
+    meta = run_dir / "run_meta.json"
+    if meta.is_file():
+        try:
+            data = json.loads(meta.read_text(encoding="utf-8"))
+            if "hora_corte" in data:
+                return int(data["hora_corte"])
+        except Exception:
+            pass
+    txt = run_dir / "hora_corte.txt"
+    if txt.is_file():
+        try:
+            return int(txt.read_text(encoding="utf-8").strip())
+        except Exception:
+            pass
     parts = run_dir.name.rsplit("_", 2)
     if len(parts) >= 1 and parts[-1].isdigit() and len(parts[-1]) == 4:
         hh = int(parts[-1][:2])
         return max(0, min(23, hh - 1))
     return None
+
+
+def _fecha_portada_run(run_dir: Path, fallback: datetime) -> datetime:
+    meta = run_dir / "run_meta.json"
+    if meta.is_file():
+        try:
+            data = json.loads(meta.read_text(encoding="utf-8"))
+            if data.get("hasta"):
+                d = date.fromisoformat(str(data["hasta"]))
+                return datetime(d.year, d.month, d.day, 23, 59)
+        except Exception:
+            pass
+    return fallback
 
 
 def _hora_corte_desde_mats(mats: Sequence[Sequence[float]], mid: int) -> int:
@@ -772,6 +800,7 @@ def main() -> int:
         hoy = datetime.now(ZoneInfo("America/Santiago"))
     except Exception:
         pass
+    hoy = _fecha_portada_run(run_dir, hoy)
     meses = (
         "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
         "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE",

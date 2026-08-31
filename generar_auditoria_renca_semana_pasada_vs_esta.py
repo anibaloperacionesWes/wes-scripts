@@ -6,10 +6,13 @@ ICCP (al final, punto sí o sí): lun 10–dom 16 con WES vs lun 17–dom 23 sin
 
 Uso:
   python generar_auditoria_renca_semana_pasada_vs_esta.py
+  python generar_auditoria_renca_semana_pasada_vs_esta.py --hasta 2026-08-30
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -124,6 +127,21 @@ def _ventana_homologa(ahora: datetime) -> Tuple[Tuple[date, ...], Tuple[date, ..
     dias_con = tuple(LUNES_CON + timedelta(days=i) for i in range(n))
     dias_sin = tuple(LUNES_SIN + timedelta(days=i) for i in range(n))
     return dias_con, dias_sin, hora_corte, ultimo_incompleto
+
+
+def _ventana_hasta(hasta: date) -> Tuple[Tuple[date, ...], Tuple[date, ...], int, bool]:
+    """Ventana homologada con último día completo (00:00–23:59)."""
+    if hasta >= LUNES_PROX:
+        n = min(7, (hasta - LUNES_PROX).days + 1)
+        dias_con = tuple(LUNES_PROX + timedelta(days=i) for i in range(n))
+        dias_sin = tuple(LUNES_SIN + timedelta(days=i) for i in range(n))
+        return dias_con, dias_sin, 23, False
+    if hasta < LUNES_SIN:
+        return (LUNES_CON,), (LUNES_SIN,), 23, False
+    n = min(7, (hasta - LUNES_SIN).days + 1)
+    dias_con = tuple(LUNES_CON + timedelta(days=i) for i in range(n))
+    dias_sin = tuple(LUNES_SIN + timedelta(days=i) for i in range(n))
+    return dias_con, dias_sin, 23, False
 
 
 def _fmt_rango_dias(dias: Sequence[date]) -> str:
@@ -879,9 +897,23 @@ def _word_conjunto(
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description="Auditoría Renca homologada (4 puntos + ICCP al final).")
+    ap.add_argument(
+        "--hasta",
+        type=str,
+        default=None,
+        help="Último día Chile completo (YYYY-MM-DD). Sin esto, corta a la hora actual.",
+    )
+    args = ap.parse_args()
     ahora = datetime.now(TZ_CL)
-    dias_con, dias_sin, hora_corte, _inc = _ventana_homologa(ahora)
-    ts = ahora.strftime("%Y%m%d_%H%M")
+    if args.hasta:
+        hasta = date.fromisoformat(args.hasta)
+        dias_con, dias_sin, hora_corte, _inc = _ventana_hasta(hasta)
+        ts = f"{hasta:%Y%m%d}_2359"
+        ahora = datetime(hasta.year, hasta.month, hasta.day, 23, 59, tzinfo=TZ_CL)
+    else:
+        dias_con, dias_sin, hora_corte, _inc = _ventana_homologa(ahora)
+        ts = ahora.strftime("%Y%m%d_%H%M")
     lab_con = f"Con WES {_fmt_rango_dias(dias_con)}"
     lab_sin = f"Sin WES {_fmt_rango_dias(dias_sin)}"
     per_con = Periodo(f"Con control ({dias_con[0]:%d-%m} a {dias_con[-1]:%d-%m-%Y})", tuple(dias_con))
@@ -896,6 +928,19 @@ def main() -> int:
         / f"auditoria_renca_semana_pasada_vs_esta_{ts}"
     )
     out_root.mkdir(parents=True, exist_ok=True)
+    (out_root / "hora_corte.txt").write_text(str(hora_corte), encoding="utf-8")
+    (out_root / "run_meta.json").write_text(
+        json.dumps(
+            {
+                "hasta": dias_con[-1].isoformat(),
+                "hora_corte": hora_corte,
+                "dias_con": [d.isoformat() for d in dias_con],
+                "dias_sin": [d.isoformat() for d in dias_sin],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     print(
         f"Auditoría Renca | {lab_con} vs {lab_sin} | "
         f"último día hasta {hora_corte:02d}:59 Chile | {ahora:%Y-%m-%d %H:%M}"
