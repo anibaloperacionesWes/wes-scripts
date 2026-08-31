@@ -514,8 +514,9 @@ def actualizar_sim_4g_xlsx(xlsx_path: Path) -> None:
     if "Resumen" not in wb.sheetnames:
         raise SystemExit(f"No hay hoja Resumen en {xlsx_path}")
     ws = wb["Resumen"]
-    for rng in list(ws.merged_cells.ranges):
-        ws.unmerge_cells(str(rng))
+    # El Excel viejo puede tener rangos superpuestos (A1:I1 y A1:K1);
+    # unmerge_cells falla ahí. Se limpian los merges a mano.
+    ws.merged_cells.ranges.clear()
 
     header_row = None
     for r in range(1, 8):
