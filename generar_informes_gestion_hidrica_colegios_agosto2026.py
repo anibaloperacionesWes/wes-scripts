@@ -28,6 +28,7 @@ CLIENTES: List[Dict[str, Any]] = [
         "cliente": "Renca",
         "sitio": "Colegios de Renca",
         "sujeto": "los colegios",
+        "verbo_registro": "registraron",
         "node_ids": ["000017-04", "000017-07", "000017-08"],
         "apply_exclusions": False,
         "matriz_id": None,
@@ -81,6 +82,13 @@ CLIENTES: List[Dict[str, Any]] = [
         "sitio": "Eugenio María De Hostos",
         "sujeto": "el colegio",
         "node_ids": ["000024-01"],
+        "start": "05/08/2026",
+        "end": "31/08/2026",
+        "periodo_corto": "Eugenio María De Hostos · 5 al 31 de agosto de 2026",
+        "nota_agosto": (
+            "El consumo se considera válido desde el 05/08. Los días 01 al 04 se excluyen "
+            "(lecturas de regularización). No se extrapola el resto del mes."
+        ),
         "apply_exclusions": False,
         "matriz_id": "000024-01",
         "matriz_name": "De Hostos",
@@ -95,9 +103,8 @@ CLIENTES: List[Dict[str, Any]] = [
             "El consumo nocturno corresponde al único medidor de Eugenio María De Hostos."
         ),
         "panorama_nota": (
-            "Agosto se evalúa del 1 al 31 y no se extrapola. El consumo de este colegio "
-            "se considera operativo desde el 05/08 (los días 01 al 04 pueden corresponder "
-            "a regularización)."
+            "El consumo se considera operativo desde el 05/08. Los días 01 al 04 se excluyen "
+            "porque corresponden a regularización de lecturas. No se extrapola el resto del mes."
         ),
     },
     {

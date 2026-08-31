@@ -351,6 +351,21 @@ def _fetch_node(cfg: dict, node_id: str, start_dt: datetime, end_dt: datetime) -
     }
 
 
+def _periodo_bounds(cfg: dict) -> Tuple[datetime, datetime, int]:
+    start_dt = parse_date(cfg.get("start") or START)
+    end_dt = parse_date(cfg.get("end") or END, end_of_day=True)
+    dias = (end_dt.date() - start_dt.date()).days + 1
+    return start_dt, end_dt, dias
+
+
+def _iter_days(start: datetime, end: datetime):
+    cur = datetime(start.year, start.month, start.day)
+    last = datetime(end.year, end.month, end.day)
+    while cur <= last:
+        yield cur
+        cur += timedelta(days=1)
+
+
 def fetch_cliente(cfg: dict) -> dict:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     cache = CACHE_DIR / f"{cfg['key']}.json"
@@ -362,8 +377,7 @@ def fetch_cliente(cfg: dict) -> dict:
     if not node_ids:
         node_ids = _nodos_api(cfg["company_id"], cfg["cliente"])
         cfg["node_ids"] = node_ids
-    start_dt = parse_date(START)
-    end_dt = parse_date(END, end_of_day=True)
+    start_dt, end_dt, dias = _periodo_bounds(cfg)
     results: Dict[str, dict] = {}
     workers = int(cfg.get("workers") or max(2, min(6, len(node_ids))))
     print(f"[INFO] {cfg['cliente']}: {len(node_ids)} nodos", flush=True)
@@ -415,9 +429,12 @@ def fetch_cliente(cfg: dict) -> dict:
         "nodos": ordered,
         "serie_6_meses": [{"label": a, "m3": b} for a, b in serie6],
         "price_per_m3": price,
+        "periodo_dias": dias,
+        "start_iso": start_dt.strftime("%Y-%m-%d"),
+        "end_iso": end_dt.strftime("%Y-%m-%d"),
         "kpi": {
             "entrada": entrada,
-            "promedio": entrada / PERIODO_DIAS if PERIODO_DIAS else 0.0,
+            "promedio": entrada / dias if dias else 0.0,
             "nocturno": nocturno,
             "pct_nocturno": (nocturno / entrada * 100.0) if entrada else 0.0,
             "max_m3": max_m3,
@@ -429,29 +446,34 @@ def fetch_cliente(cfg: dict) -> dict:
     return payload
 
 
-def _daily_full(nodo: dict) -> SerieDiaria:
+def _daily_full(nodo: dict, start: datetime, end: datetime) -> SerieDiaria:
     by = {d["date"]: float(d["m3"]) for d in nodo.get("daily") or []}
     fechas = []
     valores: List[Optional[float]] = []
-    cur = START_DT
-    while cur <= END_DT:
+    for cur in _iter_days(start, end):
         key = cur.strftime("%Y-%m-%d")
         fechas.append(cur)
         valores.append(by[key] if key in by else None)
-        cur += timedelta(days=1)
     return SerieDiaria(nombre=nodo["short_name"], fechas=fechas, valores=valores, lectura="")
 
 
-def _cobertura_huecos(nodo: dict) -> List[str]:
+def _cobertura_huecos(nodo: dict, start: datetime, end: datetime) -> List[str]:
     have = {d["date"] for d in nodo.get("daily") or []}
     missing = []
-    cur = START_DT
-    while cur <= END_DT:
+    for cur in _iter_days(start, end):
         key = cur.strftime("%Y-%m-%d")
         if key not in have:
             missing.append(key)
-        cur += timedelta(days=1)
     return missing
+
+
+def _bounds_from_data(data: dict) -> Tuple[datetime, datetime, int]:
+    if data.get("start_iso") and data.get("end_iso"):
+        start = datetime.strptime(data["start_iso"], "%Y-%m-%d")
+        end = datetime.strptime(data["end_iso"], "%Y-%m-%d")
+        dias = int(data.get("periodo_dias") or ((end.date() - start.date()).days + 1))
+        return start, end, dias
+    return START_DT, END_DT, PERIODO_DIAS
 
 
 def _clasificar(cfg: dict, pct: float, evento_fuerte: bool) -> Tuple[str, str]:
@@ -494,6 +516,7 @@ def _clasificar(cfg: dict, pct: float, evento_fuerte: bool) -> Tuple[str, str]:
 def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
     kpi = data["kpi"]
     nodos = data["nodos"]
+    start, end, dias = _bounds_from_data(data)
     pct = float(kpi["pct_nocturno"])
     nocturno = float(kpi["nocturno"])
     entrada = float(kpi["entrada"])
@@ -563,19 +586,19 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
     if ref is None:
         ref = max(nodos, key=lambda n: float(n["total"]))
     gaps = sorted(
-        ((len(_cobertura_huecos(n)), n) for n in nodos),
+        ((len(_cobertura_huecos(n, start, end)), n) for n in nodos),
         key=lambda t: t[0],
         reverse=True,
     )
     cover_n = gaps[0][1] if gaps and gaps[0][0] >= 3 else None
-    if cover_n is None and _cobertura_huecos(ref):
+    if cover_n is None and _cobertura_huecos(ref, start, end):
         cover_n = ref
-    if cover_n is not None and _cobertura_huecos(cover_n):
+    if cover_n is not None and _cobertura_huecos(cover_n, start, end):
         hall.append(
             Hallazgo(
                 "INFORMATIVA",
                 f"Cobertura parcial en {cover_n['short_name']}",
-                f"La serie tiene {cover_n['dias']} días con datos de {PERIODO_DIAS} del mes.",
+                f"La serie tiene {cover_n['dias']} días con datos de {dias} del periodo.",
                 "Los días sin registro no se interpolan ni se extrapolan. La menor cobertura "
                 "no representa por sí sola ausencia de consumo.",
             )
@@ -608,7 +631,7 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
                 Hallazgo(
                     "INFORMATIVA",
                     "Serie continua en el mes completo",
-                    f"{ref['short_name']} registra los {PERIODO_DIAS} días del periodo.",
+                    f"{ref['short_name']} registra los {dias} días del periodo.",
                     "Agosto se evalúa del 1 al 31 y no se extrapola. La serie queda como línea base.",
                 )
             )
@@ -677,7 +700,10 @@ def _acciones(hallazgos: Sequence[Hallazgo], cfg: dict) -> List[Accion]:
     return out
 
 
-def _series_diarias(cfg: dict, nodos: List[dict], hallazgos: Sequence[Hallazgo]) -> List[SerieDiaria]:
+def _series_diarias(
+    cfg: dict, nodos: List[dict], hallazgos: Sequence[Hallazgo], data: dict
+) -> List[SerieDiaria]:
+    start, end, _dias = _bounds_from_data(data)
     picked: List[dict] = []
     if cfg.get("matriz_id"):
         m = next((n for n in nodos if n["node_id"] == cfg["matriz_id"]), None)
@@ -697,8 +723,8 @@ def _series_diarias(cfg: dict, nodos: List[dict], hallazgos: Sequence[Hallazgo])
             break
     out = []
     for n in picked[:3]:
-        serie = _daily_full(n)
-        missing = _cobertura_huecos(n)
+        serie = _daily_full(n, start, end)
+        missing = _cobertura_huecos(n, start, end)
         if n.get("max_fecha"):
             serie.lectura = (
                 f"El máximo fue de {_fmt(n['max_m3'], 1)} m³ el {_fecha_es(n['max_fecha'])}. "
@@ -720,12 +746,19 @@ def _visitas_spec(visitas: Sequence[VisitaTecnica]) -> List[VisitaTecnicaSpec]:
         VisitaTecnicaSpec(
             fecha=v.fecha,
             tecnico=v.tecnico,
-            punto=v.punto,
+            punto=_punto_lectura(v.punto),
             motivo=v.motivo,
             diagnostico=v.diagnostico,
         )
         for v in visitas
     ]
+
+
+def _punto_lectura(nombre: str) -> str:
+    text = (nombre or "—").strip() or "—"
+    if text.isupper() and len(text) > 3:
+        return text.title()
+    return text
 
 
 def _parrafo_visitas(visitas: Sequence[VisitaTecnica]) -> List[Tuple[str, bool]]:
@@ -736,15 +769,26 @@ def _parrafo_visitas(visitas: Sequence[VisitaTecnica]) -> List[Tuple[str, bool]]
         return [
             ("En el periodo se registró una visita técnica el ", False),
             (_fecha_es(v.fecha_iso), True),
-            (f" en {v.punto} (", False),
+            (f" en {_punto_lectura(v.punto)} (", False),
             (v.motivo, True),
             ("). El detalle está en la sección de visitas técnicas.", False),
         ]
-    fechas = " y ".join(_fecha_es(v.fecha_iso) for v in visitas)
+    fechas_u: List[str] = []
+    for v in visitas:
+        lab = _fecha_es(v.fecha_iso)
+        if lab not in fechas_u:
+            fechas_u.append(lab)
+    if len(fechas_u) == 1:
+        fechas = fechas_u[0]
+    elif len(fechas_u) == 2:
+        fechas = f"{fechas_u[0]} y el {fechas_u[1]}"
+    else:
+        fechas = ", ".join(fechas_u[:-1]) + f" y el {fechas_u[-1]}"
     puntos: List[str] = []
     for v in visitas:
-        if v.punto not in puntos:
-            puntos.append(v.punto)
+        p = _punto_lectura(v.punto)
+        if p not in puntos:
+            puntos.append(p)
     punto_txt = puntos[0] if len(puntos) == 1 else ", ".join(puntos)
     return [
         (f"En el periodo se registraron {len(visitas)} visitas técnicas el ", False),
@@ -777,13 +821,15 @@ def build_spec(
     pct_txt = f"{_fmt(round(pct), 0)} %"
     max_txt = f"{_fmt(max_m3, 1)} m³" if max_fecha else "—"
     fecha_max = _fecha_es(max_fecha) if max_fecha else "—"
+    _start, _end, dias = _bounds_from_data(data)
+    verbo = cfg.get("verbo_registro") or "registró"
 
     panorama = [
         (f"En {cfg['sitio']} se registraron ", False),
         (entrada_txt, True),
         (", con un promedio de ", False),
         (f"{_fmt(promedio, 1)} m³ diarios", True),
-        (" sobre los 31 días de agosto. El mayor consumo diario ocurrió el ", False),
+        (f" sobre los {dias} días del periodo. El mayor consumo diario ocurrió el ", False),
         (fecha_max, True),
         (", con ", False),
         (max_txt, True),
@@ -791,7 +837,7 @@ def build_spec(
     ]
     lectura = [
         [
-            (f"Durante el periodo analizado {cfg['sujeto']} registró ", False),
+            (f"Durante el periodo analizado {cfg['sujeto']} {verbo} ", False),
             (entrada_txt, True),
             (". El consumo entre las 00:00 y las 06:59 alcanzó ", False),
             (noct_txt, True),
@@ -860,7 +906,7 @@ def build_spec(
             PuntoIndicador(
                 nombre=n["short_name"],
                 total=float(n["total"]),
-                promedio=float(n["total"]) / PERIODO_DIAS,
+                promedio=float(n["total"]) / dias,
                 max_m3=float(n["max_m3"]),
                 max_fecha=max_dt.strftime("%d/%m") if max_dt else "—",
                 nocturno=float(n["nocturno_m3"]),
@@ -900,12 +946,13 @@ def build_spec(
         highlight,
         cfg.get("leyenda"),
     )
-    series = _series_diarias(cfg, nodos, hallazgos)
+    series = _series_diarias(cfg, nodos, hallazgos, data)
 
     return InformeSpec(
         cliente=cfg["cliente"],
         sitio=cfg["sitio"],
-        periodo_corto=f"{cfg['sitio']} · 1 al 31 de agosto de 2026",
+        periodo_corto=cfg.get("periodo_corto")
+        or f"{cfg['sitio']} · 1 al 31 de agosto de 2026",
         footer=f"Informe mensual - {cfg['cliente']} | Agosto 2026",
         titulo_onepager="Resumen ejecutivo de gestión hídrica",
         titulo_mensual="Informe mensual de gestión hídrica",
@@ -922,7 +969,8 @@ def build_spec(
         acciones=acciones,
         conclusion=conclusion,
         lectura_ejecutiva=lectura,
-        nota_agosto="Agosto comprende 31 días. No se extrapola el consumo.",
+        nota_agosto=cfg.get("nota_agosto")
+        or "Agosto comprende 31 días. No se extrapola el consumo.",
         kpi_consumo_label=cfg.get("kpi_label") or "Consumo de entrada",
         chart_6m=chart_6m,
         chart_puntos=chart_pts,
