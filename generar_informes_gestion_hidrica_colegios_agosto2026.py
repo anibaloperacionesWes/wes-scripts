@@ -85,10 +85,25 @@ CLIENTES: List[Dict[str, Any]] = [
         "start": "05/08/2026",
         "end": "31/08/2026",
         "periodo_corto": "Eugenio María De Hostos · 5 al 31 de agosto de 2026",
+        "excluir_meses_6m": [(2026, 7)],
+        "usar_kpi_ultimo_mes_6m": True,
         "nota_agosto": (
-            "El consumo se considera válido desde el 05/08. Los días 01 al 04 se excluyen "
-            "(lecturas de regularización). No se extrapola el resto del mes."
+            "Julio de 2026 no entra en el comparativo: el sensor de pulso falló "
+            "(consumo anómalo desde el 14/07). Agosto usa solo los días sin esa anomalía "
+            "(5 al 31). No se extrapola."
         ),
+        "hallazgo_dato": {
+            "prioridad": "INFORMATIVA",
+            "titulo": "Julio se excluye por falla del sensor de pulso",
+            "dato": (
+                "El sensor registró un consumo anómalo desde el 14 de julio "
+                "(picos de ~3.000 m³/día). El hábito del colegio es ~14–30 m³/día."
+            ),
+            "lectura": (
+                "En agosto se informan solo los días sin esa anomalía (5 al 31). "
+                "Los días 3 y 4 aún arrastraban la falla. No se extrapola."
+            ),
+        },
         "apply_exclusions": False,
         "matriz_id": "000024-01",
         "matriz_name": "De Hostos",
@@ -103,8 +118,9 @@ CLIENTES: List[Dict[str, Any]] = [
             "El consumo nocturno corresponde al único medidor de Eugenio María De Hostos."
         ),
         "panorama_nota": (
-            "El consumo se considera operativo desde el 05/08. Los días 01 al 04 se excluyen "
-            "porque corresponden a regularización de lecturas. No se extrapola el resto del mes."
+            "Julio se omite por falla del sensor de pulso. Agosto se informa del 5 al 31 "
+            "(días sin el consumo anómalo; el 3 y el 4 aún arrastraban la falla). "
+            "No se extrapola el resto del mes."
         ),
     },
     {

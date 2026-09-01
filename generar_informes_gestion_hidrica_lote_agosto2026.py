@@ -359,6 +359,57 @@ def _periodo_bounds(cfg: dict) -> Tuple[datetime, datetime, int]:
     return start_dt, end_dt, dias
 
 
+_MES_ABREV_NUM = {
+    "ene": 1,
+    "feb": 2,
+    "mar": 3,
+    "abr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "ago": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dic": 12,
+}
+
+
+def _parse_lab_mes(lab: str) -> Optional[Tuple[int, int]]:
+    parts = str(lab).replace("*", "").strip().split()
+    if len(parts) != 2:
+        return None
+    mes = _MES_ABREV_NUM.get(parts[0].lower()[:3])
+    if mes is None:
+        return None
+    try:
+        yy = int(parts[1])
+    except ValueError:
+        return None
+    year = 2000 + yy if yy < 100 else yy
+    return (year, mes)
+
+
+def _aplicar_serie_6m(
+    serie: List[Tuple[str, float]],
+    excluir_meses: Optional[Sequence[Tuple[int, int]]] = None,
+    ultimo_m3: Optional[float] = None,
+    end_dt: Optional[datetime] = None,
+) -> List[Tuple[str, float]]:
+    excl = {(int(y), int(m)) for y, m in (excluir_meses or [])}
+    out: List[Tuple[str, float]] = []
+    for lab, val in serie:
+        parsed = _parse_lab_mes(lab)
+        if parsed and parsed in excl:
+            continue
+        out.append((lab, float(val)))
+    if ultimo_m3 is not None and out:
+        parsed = _parse_lab_mes(out[-1][0])
+        if end_dt is None or (parsed and parsed == (end_dt.year, end_dt.month)):
+            out[-1] = (out[-1][0], float(ultimo_m3))
+    return out
+
+
 def _iter_days(start: datetime, end: datetime):
     cur = datetime(start.year, start.month, start.day)
     last = datetime(end.year, end.month, end.day)
@@ -394,6 +445,8 @@ def fetch_cliente(cfg: dict) -> dict:
                 flush=True,
             )
     ordered = [results[nid] for nid in node_ids if nid in results]
+    excluir_meses = [tuple(x) for x in (cfg.get("excluir_meses_6m") or [])]
+    n_meses = 6 + len(excluir_meses)
     matriz_id = cfg.get("matriz_id")
     if matriz_id and not cfg["additive"]:
         ref = next(n for n in ordered if n["node_id"] == matriz_id)
@@ -401,7 +454,7 @@ def fetch_cliente(cfg: dict) -> dict:
         nocturno = float(ref["nocturno_m3"])
         max_m3 = float(ref["max_m3"])
         max_fecha = ref["max_fecha"]
-        serie6 = _serie_mensual_nodo(matriz_id, end_dt, 6)
+        serie6 = _serie_mensual_nodo(matriz_id, end_dt, n_meses)
     else:
         entrada = sum(float(n["total"]) for n in ordered)
         nocturno = sum(float(n["nocturno_m3"]) for n in ordered)
@@ -412,7 +465,7 @@ def fetch_cliente(cfg: dict) -> dict:
         labels_order: List[str] = []
         for n in ordered:
             try:
-                serie = _serie_mensual_nodo(n["node_id"], end_dt, 6)
+                serie = _serie_mensual_nodo(n["node_id"], end_dt, n_meses)
             except Exception as e:
                 print(f"[ADVERTENCIA] 6 meses {n['short_name']}: {e}", flush=True)
                 continue
@@ -423,6 +476,8 @@ def fetch_cliente(cfg: dict) -> dict:
                     by_label[lab2] = 0.0
                 by_label[lab2] += float(val)
         serie6 = [(lab, by_label[lab]) for lab in labels_order]
+    ultimo_6m = float(entrada) if cfg.get("usar_kpi_ultimo_mes_6m") else None
+    serie6 = _aplicar_serie_6m(serie6, excluir_meses, ultimo_6m, end_dt)
     price = get_water_price_per_m3(cfg["company_id"], node_ids[0], {})
     payload = {
         "cfg_key": cfg["key"],
@@ -599,6 +654,17 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
             )
         )
 
+    hd = cfg.get("hallazgo_dato") or {}
+    if hd.get("titulo"):
+        hall.append(
+            Hallazgo(
+                hd.get("prioridad") or "INFORMATIVA",
+                hd["titulo"],
+                hd.get("dato") or "",
+                hd.get("lectura") or "",
+            )
+        )
+
     if explain == "wes":
         hall.append(
             Hallazgo(
@@ -711,14 +777,25 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
                 )
             )
         else:
-            hall.append(
-                Hallazgo(
-                    "INFORMATIVA",
-                    "Serie continua en el mes completo",
-                    f"{ref['short_name']} registra los {dias} días del periodo.",
-                    "Agosto se evalúa del 1 al 31 y no se extrapola. La serie queda como línea base.",
+            if cfg.get("hallazgo_dato") or cfg.get("excluir_meses_6m") or start.day != 1:
+                hall.append(
+                    Hallazgo(
+                        "INFORMATIVA",
+                        f"Periodo informado: {dias} días válidos",
+                        f"{ref['short_name']} registra los {dias} días del recorte operativo.",
+                        cfg.get("panorama_nota")
+                        or "No se incluyen días con dato anómalo ni se extrapola el mes.",
+                    )
                 )
-            )
+            else:
+                hall.append(
+                    Hallazgo(
+                        "INFORMATIVA",
+                        "Serie continua en el mes completo",
+                        f"{ref['short_name']} registra los {dias} días del periodo.",
+                        "Agosto se evalúa del 1 al 31 y no se extrapola. La serie queda como línea base.",
+                    )
+                )
 
     return hall[:3], evento_fuerte
 
@@ -760,6 +837,15 @@ def _acciones(hallazgos: Sequence[Hallazgo], cfg: dict) -> List[Accion]:
                     "7 días",
                     "Identificar fuga, riego continuo o falla de medición.",
                     "Operación + WES",
+                )
+            )
+        elif "sensor" in h.titulo.lower() or "pulso" in h.titulo.lower():
+            acts.append(
+                Accion(
+                    "Mantener el sensor de pulso operativo y validar lecturas diarias.",
+                    "Próximo informe",
+                    "Volver a incluir todos los meses con dato válido en el comparativo.",
+                    "WES",
                 )
             )
         elif "WES" in h.titulo:
@@ -873,6 +959,8 @@ def _series_diarias(
             serie.lectura += (
                 f"Hay {len(missing)} día(s) sin dato; no se interpolan. "
             )
+        elif start.day != 1 or cfg.get("excluir_meses_6m"):
+            serie.lectura += "La serie cubre los días del periodo informado."
         else:
             serie.lectura += "La serie cubre el mes completo."
         out.append(serie)
