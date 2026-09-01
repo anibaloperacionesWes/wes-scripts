@@ -477,13 +477,44 @@ def _bounds_from_data(data: dict) -> Tuple[datetime, datetime, int]:
     return START_DT, END_DT, PERIODO_DIAS
 
 
-def _clasificar(cfg: dict, pct: float, evento_fuerte: bool) -> Tuple[str, str]:
+def _salto_mensual(data: dict) -> Optional[Tuple[float, float, float]]:
+    """(actual, mediana previa, ratio) si el mes ≥ 2,5× la mediana de los meses anteriores."""
+    serie = data.get("serie_6_meses") or []
+    if len(serie) < 3:
+        return None
+    vals = [float(x.get("m3") or 0) for x in serie]
+    actual = vals[-1]
+    prev = [v for v in vals[:-1] if v > 0]
+    if not prev:
+        return None
+    med = sorted(prev)[len(prev) // 2]
+    if med < 1:
+        return None
+    ratio = actual / med
+    if ratio < 2.5:
+        return None
+    return actual, med, ratio
+
+
+def _clasificar(
+    cfg: dict,
+    pct: float,
+    evento_fuerte: bool,
+    salto: Optional[Tuple[float, float, float]] = None,
+) -> Tuple[str, str]:
     explain = cfg.get("nocturnal_explain")
     if cfg.get("cpa_estado") == "instalado_pendiente":
         return (
             "REQUIERE ATENCIÓN",
             "el equipo CPA está instalado y falta activarlo y programarlo; sin ese control "
             "el recinto no tiene regulación automática de caudal.",
+        )
+    if salto:
+        actual, med, ratio = salto
+        return (
+            "REQUIERE ATENCIÓN",
+            f"el consumo del mes alcanzó {_fmt(actual, 0)} m³, "
+            f"{_fmt(ratio, 1)} veces la mediana de los meses previos ({_fmt(med, 0)} m³).",
         )
     if explain == "wes" and pct <= 16:
         return (
@@ -537,6 +568,7 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
     evento_fuerte = False
     hall: List[Hallazgo] = []
 
+    salto = _salto_mensual(data)
     if cfg.get("cpa_estado") == "instalado_pendiente":
         hall.append(
             Hallazgo(
@@ -545,6 +577,25 @@ def _hallazgos(cfg: dict, data: dict) -> Tuple[List[Hallazgo], bool]:
                 "El control WES está instalado y aún no opera.",
                 "Activarlo y programarlo con el peak 22:00–03:00. Sin CPA no hay "
                 "control automático de caudal: por eso el estado del periodo es Requiere atención.",
+            )
+        )
+
+    if salto:
+        actual, med, ratio = salto
+        mx = float(kpi.get("max_m3") or 0)
+        mx_f = kpi.get("max_fecha")
+        extra = (
+            f" Máximo diario {_fmt(mx, 1)} m³ el {_fecha_es(mx_f)}."
+            if mx_f
+            else ""
+        )
+        hall.append(
+            Hallazgo(
+                "ATENCIÓN",
+                f"Agosto superó {_fmt(ratio, 1)} veces la línea base",
+                f"{_fmt(actual, 0)} m³ frente a una mediana de {_fmt(med, 0)} m³ en los meses previos.",
+                "Revisar fuga, riego continuo o error de medición. No es el patrón de mar–jul."
+                + extra,
             )
         )
 
@@ -700,6 +751,15 @@ def _acciones(hallazgos: Sequence[Hallazgo], cfg: dict) -> List[Accion]:
                     "7 días",
                     "Poner el control en servicio alineado al horario del mercado.",
                     "WES + operación",
+                )
+            )
+        elif h.prioridad == "ATENCIÓN" and "línea base" in h.titulo.lower():
+            acts.append(
+                Accion(
+                    "Diagnosticar el salto de consumo de agosto.",
+                    "7 días",
+                    "Identificar fuga, riego continuo o falla de medición.",
+                    "Operación + WES",
                 )
             )
         elif "WES" in h.titulo:
@@ -891,7 +951,7 @@ def build_spec(
     max_fecha = kpi["max_fecha"]
     costo = float(kpi["costo_nocturno"])
     hallazgos, evento_fuerte = _hallazgos(cfg, data)
-    clasificacion, motivo = _clasificar(cfg, pct, evento_fuerte)
+    clasificacion, motivo = _clasificar(cfg, pct, evento_fuerte, salto=_salto_mensual(data))
     acciones = _acciones(hallazgos, cfg)
     entrada_txt = f"{_fmt(entrada, 1)} m³"
     noct_txt = f"{_fmt(nocturno, 1)} m³"
@@ -974,7 +1034,9 @@ def build_spec(
                 False,
             ),
             (
-                "“Crítico”" if cfg.get("cpa_estado") == "instalado_pendiente" else "“Requiere atención”",
+                "“Crítico”"
+                if clasificacion == "REQUIERE ATENCIÓN"
+                else "“Requiere atención”",
                 True,
             ),
             (".", False),
