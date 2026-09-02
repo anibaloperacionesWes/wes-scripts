@@ -74,6 +74,17 @@ CLIENTES: List[Dict[str, Any]] = [
         "sitio": "Fundo Zapallar",
         "sujeto": "el fundo",
         "node_ids": list(FUNDO_ZAPALLAR_NODE_IDS),
+        "start": "05/08/2026",
+        "end": "31/08/2026",
+        "periodo_corto": "Fundo Zapallar · 5 al 31 de agosto de 2026",
+        "usar_kpi_ultimo_mes_6m": True,
+        "nota_agosto": (
+            "Agosto se informa del 5 al 31. Los días 1 al 4 se excluyen y no se extrapola el mes."
+        ),
+        "panorama_nota": (
+            "El consumo se considera del 5 al 31 de agosto. Los días 1 al 4 se excluyen "
+            "y no se extrapola el resto del mes."
+        ),
         "apply_exclusions": False,
         "matriz_id": "000027-01",
         "matriz_name": "Matriz ESVAL",
