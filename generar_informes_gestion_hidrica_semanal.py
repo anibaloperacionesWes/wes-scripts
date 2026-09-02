@@ -199,7 +199,7 @@ def _hallazgos_semanal(
                 Hallazgo(
                     "INFORMATIVA",
                     "La referencia es la matriz, no la suma interna",
-                    f"La {cfg['matriz_name']} es el consumo real de {cfg['sujeto']}.",
+                    f"La {cfg['matriz_name']} es el consumo real.",
                     "Los demás medidores se leen como control interno.",
                 )
             )
