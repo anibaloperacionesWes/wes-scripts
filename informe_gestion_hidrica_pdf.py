@@ -994,6 +994,105 @@ def render_mensual(spec: InformeSpec, out_path: Path, chart_dir: Path) -> Path:
     return out_path
 
 
+def render_consolidado_semanal(
+    out_path: Path,
+    *,
+    periodo: str,
+    footer: str,
+    filas: Sequence[Sequence[str]],
+    sin_alerta: Sequence[str],
+    resumen: str,
+) -> Path:
+    """One/two-page weekly consolidado: points to review this week."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    c = canvas.Canvas(str(out_path), pagesize=LETTER)
+    logo = _logo_reader(resolve_logo())
+    col_ws = [88.0, 108.0, 58.0, 58.0, 48.0, TABLE_W - 88.0 - 108.0 - 58.0 - 58.0 - 48.0]
+    headers = ["CLIENTE", "PUNTO", "m³ SEM.", "VS PREV.", "NOCT.", "QUÉ REVISAR"]
+
+    def new_page(n: int) -> None:
+        _draw_header(c, logo)
+        _draw_footer(c, footer, n)
+
+    page = 1
+    new_page(page)
+    y = _draw_title_block(
+        c, "Seguimiento semanal consolidado", periodo, PAGE_H - 61
+    )
+    y = _section(c, "Puntos a revisar esta semana", y - 2, 15)
+    y = _draw_runs(
+        c,
+        [(resumen, False)],
+        ML,
+        y + 2,
+        CONTENT_W,
+        9,
+        BODY,
+        13,
+    )
+
+    remaining = list(filas)
+    if not remaining:
+        y = _draw_runs(
+            c,
+            [("Ningún punto cumple criterio de revisión esta semana.", False)],
+            ML,
+            y - 4,
+            CONTENT_W,
+            9,
+            BODY,
+            13,
+        )
+    else:
+        chunk: List[Sequence[str]] = []
+        first = True
+        while remaining:
+            chunk.append(remaining.pop(0))
+            # keep first page shorter so the table plus note fit
+            limit = 11 if first else 16
+            if len(chunk) >= limit or not remaining:
+                y = _draw_table(c, headers, chunk, col_ws, y - 6, font_size=7.2)
+                chunk = []
+                first = False
+                if remaining:
+                    c.showPage()
+                    page += 1
+                    new_page(page)
+                    y = _section(c, "Puntos a revisar (cont.)", PAGE_H - 58, 15)
+
+    if y < 140:
+        c.showPage()
+        page += 1
+        new_page(page)
+        y = PAGE_H - 58
+    y = _section(c, "Clientes sin puntos a revisar", y - 4, 15)
+    nota = (
+        ", ".join(sin_alerta)
+        if sin_alerta
+        else "Todos los clientes del lote tienen al menos un punto a revisar."
+    )
+    y = _draw_runs(c, [(nota, False)], ML, y + 2, CONTENT_W, 9, BODY, 13)
+    y = _draw_runs(
+        c,
+        [
+            (
+                "Este consolidado no reemplaza el informe de fin de mes. "
+                "Se envía los lunes para atacar alzas, picos o nocturno anómalo "
+                "antes del cierre.",
+                False,
+            )
+        ],
+        ML,
+        y - 8,
+        CONTENT_W,
+        8,
+        GRAY,
+        11,
+    )
+    c.save()
+    return out_path
+
+
 # re-export helpers used by the Inchcape runner
 __all__ = [
     "Hallazgo",
@@ -1011,4 +1110,5 @@ __all__ = [
     "build_chart_nocturno",
     "render_one_pager",
     "render_mensual",
+    "render_consolidado_semanal",
 ]
