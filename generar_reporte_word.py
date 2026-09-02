@@ -527,6 +527,7 @@ def get_mall_name_for_parque_arauco(node_id: str, node_name: str) -> str:
     mall_mapping = {
         # Estación
         "000025-01": "Estación",
+        "000025-02": "Estación",
         "000025-19": "Estación",
         "000025-03": "Estación",
         "000025-05": "Estación",
@@ -550,6 +551,8 @@ def get_mall_name_for_parque_arauco(node_id: str, node_name: str) -> str:
         # Curauma
         "000025-15": "Curauma",
         "000025-16": "Curauma",
+        "000025-37": "Curauma",
+        "000025-38": "Curauma",
         # Buenaventura
         "000025-17": "Buenaventura",
         "000025-18": "Buenaventura",
