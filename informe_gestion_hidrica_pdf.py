@@ -1049,7 +1049,7 @@ def render_consolidado_semanal(
         while remaining:
             chunk.append(remaining.pop(0))
             # keep first page shorter so the table plus note fit
-            limit = 11 if first else 16
+            limit = 9 if first else 14
             if len(chunk) >= limit or not remaining:
                 y = _draw_table(c, headers, chunk, col_ws, y - 6, font_size=7.2)
                 chunk = []

@@ -78,6 +78,9 @@ def _evaluar_punto(cfg: dict, nodo: dict, prev: Optional[dict]) -> Optional[Dict
     motivos: List[str] = []
     prio: Optional[str] = None
 
+    if total < 10 and cfg.get("cpa_estado") != "instalado_pendiente":
+        return None
+
     if cfg.get("cpa_estado") == "instalado_pendiente" and (es_matriz or additive):
         motivos.append("CPA instalado, falta activar")
         prio = "ATENCIÓN"
