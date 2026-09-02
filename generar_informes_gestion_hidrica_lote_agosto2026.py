@@ -459,7 +459,21 @@ def fetch_cliente(cfg: dict) -> dict:
     excluir_meses = [tuple(x) for x in (cfg.get("excluir_meses_6m") or [])]
     n_meses = 6 + len(excluir_meses)
     matriz_id = cfg.get("matriz_id")
-    if matriz_id and not cfg["additive"]:
+    if cfg.get("skip_serie_6m"):
+        if matriz_id and not cfg["additive"]:
+            ref = next(n for n in ordered if n["node_id"] == matriz_id)
+            entrada = float(ref["total"])
+            nocturno = float(ref["nocturno_m3"])
+            max_m3 = float(ref["max_m3"])
+            max_fecha = ref["max_fecha"]
+        else:
+            entrada = sum(float(n["total"]) for n in ordered)
+            nocturno = sum(float(n["nocturno_m3"]) for n in ordered)
+            top = max(ordered, key=lambda n: float(n["max_m3"] or 0))
+            max_m3 = float(top["max_m3"])
+            max_fecha = top["max_fecha"]
+        serie6 = []
+    elif matriz_id and not cfg["additive"]:
         ref = next(n for n in ordered if n["node_id"] == matriz_id)
         entrada = float(ref["total"])
         nocturno = float(ref["nocturno_m3"])
