@@ -5267,12 +5267,47 @@ def convertir_word_a_pdf(word_path: Path) -> Optional[Path]:
         except Exception as e:
             print(f"[DEBUG] comtypes falló: {e}")
         
+        # Fallback Linux/cloud: LibreOffice (soffice)
+        import shutil
+        import subprocess
+        soffice = shutil.which("soffice") or shutil.which("libreoffice")
+        if soffice:
+            try:
+                pdf_path = word_path.with_suffix(".pdf")
+                out_dir = str(word_path.parent.resolve())
+                cmd = [
+                    soffice,
+                    "--headless",
+                    "--nologo",
+                    "--nofirststartwizard",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    out_dir,
+                    str(word_path.resolve()),
+                ]
+                print(f"[INFO] Convirtiendo a PDF con LibreOffice: {word_path.name}")
+                subprocess.run(cmd, check=True, capture_output=True, timeout=180)
+                if pdf_path.exists():
+                    return pdf_path
+                # A veces LibreOffice normaliza el nombre; buscar PDF recién creado
+                candidatos = sorted(
+                    word_path.parent.glob(word_path.stem + "*.pdf"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
+                if candidatos:
+                    return candidatos[0]
+            except Exception as e:
+                print(f"[DEBUG] LibreOffice/soffice falló: {e}")
+
         # Si ninguna librería está disponible, retornar None
         print("[ADVERTENCIA] No se encontró ninguna librería para convertir Word a PDF.")
         print("[INFO] Instala una de estas opciones:")
         print("  - pip install docx2pdf (requiere Microsoft Word)")
         print("  - pip install pywin32 (para win32com)")
         print("  - pip install comtypes (alternativa)")
+        print("  - apt install libreoffice-writer-nogui (Linux/cloud)")
         
         return None
         
