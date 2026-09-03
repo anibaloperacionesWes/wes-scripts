@@ -221,7 +221,6 @@ def obtener_todos_los_nodos() -> List[Dict[str, str]]:
     print("  - Riego Fundo Zapallar (000027-05)")
     print("  - Control Nido de Aguilas (000007-09)")
     print("  - Puntos dados de baja / cliente (registro auditable): registro_puntos_deshabilitados.txt")
-    print("    (incl. 000025-09 Impulsión Falabella — sala bombas en reparación)")
     print("=" * 60)
     
     # Obtener empresas desde la API de configuración

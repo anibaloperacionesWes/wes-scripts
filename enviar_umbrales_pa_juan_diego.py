@@ -43,7 +43,6 @@ EXCLUIDOS = {
     "000025-03",  # Poniente 7
     "000025-05",  # Locales de Comida
     "000025-06",  # KFC
-    "000025-09",  # Impulsión Falabella
     "000025-14",  # Red de Incendio
     "000025-25",  # Baño N°5 Damas
     "000025-26",  # Baño N°6 Varones
@@ -150,7 +149,6 @@ def write_excel(rows: list[dict], path: Path) -> None:
         ("000025-03", "Poniente 7"),
         ("000025-05", "Locales de Comida"),
         ("000025-06", "KFC"),
-        ("000025-09", "Impulsión Falabella"),
         ("000025-14", "Red de Incendio"),
         ("000025-25", "Baño N°5 Damas"),
         ("000025-26", "Baño N°6 Varones"),
@@ -202,7 +200,7 @@ def write_word(rows: list[dict], path: Path) -> None:
         "Umbral = baseline × 1,25 (+25%). Más temprano que el +50% que usan algunos esquemas tipo SFPUC: en malls queremos avisar antes para dar tiempo de reacción.",
         "No usamos el promedio de máximos como baseline: ese valor ya es un techo alto; sumarle +25% retrasa la alerta.",
         "Ejemplo Estanque Norte (000025-01): baseline ≈ 26,2 m³/día → umbral ≈ 32,8 m³/día.",
-        "Se excluyeron 7 puntos sin data útil / fuera de alcance operativo según jefaturas de OO.MM. de los malls (Poniente 7, Locales de Comida, KFC, Impulsión Falabella, Red de Incendio, Baño Damas, Baño Varones).",
+        "Se excluyeron 6 puntos sin data útil / fuera de alcance operativo según jefaturas de OO.MM. de los malls (Poniente 7, Locales de Comida, KFC, Red de Incendio, Baño Damas, Baño Varones). Impulsión Falabella (000025-09) vuelve a incluirse: activo nuevamente.",
     ]:
         doc.add_paragraph(b, style="List Bullet")
 
@@ -261,10 +259,11 @@ def enviar(files: list[Path]) -> None:
         "Así el cliente recibe la alerta con más margen de reacción, sin esperar "
         "un exceso tan extremo como el +50%.\n\n"
         "Ejemplo Estanque Norte (000025-01): baseline ≈ 26,2 m³/día → umbral ≈ 32,8 m³/día.\n\n"
-        "Excluimos de esta propuesta 7 puntos que están en la compañía pero no son "
+        "Excluimos de esta propuesta 6 puntos que están en la compañía pero no son "
         "prioridad operativa / no tienen data útil (Poniente 7, Locales de Comida, KFC, "
-        "Impulsión Falabella, Red de Incendio, Baño Damas y Baño Varones), según el "
-        "criterio de las jefaturas de operaciones de los malls.\n\n"
+        "Red de Incendio, Baño Damas y Baño Varones), según el "
+        "criterio de las jefaturas de operaciones de los malls. "
+        "Impulsión Falabella (000025-09) se incluye: volvió a operación.\n\n"
         "Adjunto Excel (tabla limpia) y Word (explicación técnica). La idea es "
         "validarlo y revisarlo juntos; Aníbal va en copia. "
         "Este tipo de propuestas (umbrales, y más adelante controles diurnos/nocturnos "
