@@ -2,18 +2,13 @@
 Reporte de puntos con horas perdidas (huecos en la serie horaria),
 ordenado de mayor a menor, con gráficos por semana ISO.
 
-Periodo operativo 2026 (hora Chile, lunes–domingo):
-  - Semana 32: 03–09 ago
-  - Semana 33: 10–16 ago
-  - Semana 34: 17–23 ago
-  - Semana 35 parcial: 24 y 25 ago (2 primeros días)
+Periodo por defecto: lunes de la semana 32 de 2026 hasta el día de hoy (Chile).
 
 Hora perdida = hora Chile esperada sin registro en dates.measures.csv.
 Una hora con valor 0 SÍ cuenta como dato (no es hora perdida).
 
-El ranking se parte en dos:
-  - desconexión: lastUpdate de la app ≥ 2 h (mismo criterio que puntos en cero)
-  - conectado con huecos: lastUpdate fresco, pero faltan horas en la serie
+El ranking final lista puntos que hoy pierden data por desconexión
+(lastUpdate de la app ≥ 2 h).
 """
 
 from __future__ import annotations
@@ -66,24 +61,80 @@ BASE_URL = os.environ.get(
 MAX_WORKERS = max(4, int(os.environ.get("WES_HORAS_PERDIDAS_WORKERS", "24")))
 REQUEST_TIMEOUT = 25
 
-# Semanas ISO 2026 pedidas por operación.
-SEMANA_DEFS: List[Tuple[int, date, date, str]] = [
-    (32, date(2026, 8, 3), date(2026, 8, 9), "Semana 32 (03–09 ago)"),
-    (33, date(2026, 8, 10), date(2026, 8, 16), "Semana 33 (10–16 ago)"),
-    (34, date(2026, 8, 17), date(2026, 8, 23), "Semana 34 (17–23 ago)"),
-    (35, date(2026, 8, 24), date(2026, 8, 25), "Semana 35 (24–25 ago, 2 días)"),
-]
-DIA_24 = date(2026, 8, 24)
-DIA_25 = date(2026, 8, 25)
-
-COLOR_S32 = "#1F4E79"
-COLOR_S33 = "#2E86AB"
-COLOR_S34 = "#E67E22"
-COLOR_S35 = "#C0392B"
-COLOR_DIA24 = "#1F4E79"
-COLOR_DIA25 = "#C0392B"
+# Semanas ISO desde el lunes 03-08-2026 (S32) hasta hoy (se arma en configurar_periodo).
+INICIO_PERIODO = date(2026, 8, 3)
+_MESES_ES = {
+    1: "ene",
+    2: "feb",
+    3: "mar",
+    4: "abr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "ago",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dic",
+}
+COLORES_SEMANA = ["#1F4E79", "#2E86AB", "#E67E22", "#C0392B", "#7D3C98", "#16A085", "#8E44AD"]
+COLOR_S32 = COLORES_SEMANA[0]
+COLOR_S33 = COLORES_SEMANA[1]
+COLOR_S34 = COLORES_SEMANA[2]
+COLOR_S35 = COLORES_SEMANA[3]
 COLOR_DESC = "#C0392B"
 COLOR_HUECOS = "#2E86AB"
+
+SEMANA_DEFS: List[Tuple[int, date, date, str]] = []
+TODOS_LOS_DIAS: List[date] = []
+SEMANA_POR_DIA: Dict[date, int] = {}
+
+
+def _iter_days(inicio: date, fin: date) -> List[date]:
+    out: List[date] = []
+    cur = inicio
+    while cur <= fin:
+        out.append(cur)
+        cur += timedelta(days=1)
+    return out
+
+
+def _fmt_rango_corto(ini: date, fin: date) -> str:
+    if ini.month == fin.month:
+        return f"{ini.day:02d}–{fin.day:02d} {_MESES_ES[fin.month]}"
+    return f"{ini.day:02d} {_MESES_ES[ini.month]}–{fin.day:02d} {_MESES_ES[fin.month]}"
+
+
+def configurar_periodo(hoy: date) -> None:
+    """Arma semanas ISO desde INICIO_PERIODO hasta ``hoy`` (última semana parcial)."""
+    global SEMANA_DEFS, TODOS_LOS_DIAS, SEMANA_POR_DIA
+    defs: List[Tuple[int, date, date, str]] = []
+    lun = INICIO_PERIODO - timedelta(days=INICIO_PERIODO.weekday())
+    while lun <= hoy:
+        week = lun.isocalendar()[1]
+        domingo = lun + timedelta(days=6)
+        fin = min(domingo, hoy)
+        parcial = fin < domingo
+        extra = ", parcial" if parcial else ""
+        label = f"Semana {week} ({_fmt_rango_corto(lun, fin)}{extra})"
+        defs.append((week, lun, fin, label))
+        lun += timedelta(days=7)
+    SEMANA_DEFS = defs
+    TODOS_LOS_DIAS = _iter_days(INICIO_PERIODO, hoy)
+    SEMANA_POR_DIA = {}
+    for num, ini, fin, _lbl in defs:
+        for d in _iter_days(ini, fin):
+            SEMANA_POR_DIA[d] = num
+
+
+def _semanas_completas() -> List[Tuple[int, date, date, str]]:
+    return [t for t in SEMANA_DEFS if (t[2] - t[1]).days == 6]
+
+
+try:
+    configurar_periodo(datetime.now(CHILE_TZ).date())
+except Exception:
+    configurar_periodo(date.today())
 _SESSION = requests.Session()
 _ADAPTER = requests.adapters.HTTPAdapter(pool_connections=32, pool_maxsize=32, max_retries=2)
 _SESSION.mount("http://", _ADAPTER)
@@ -103,22 +154,6 @@ def _fmt_pct(part: float, total: float) -> str:
 def _trunc(texto: str, n: int = 36) -> str:
     t = (texto or "").strip()
     return t if len(t) <= n else t[: n - 1] + "…"
-
-
-def _iter_days(inicio: date, fin: date) -> List[date]:
-    out: List[date] = []
-    cur = inicio
-    while cur <= fin:
-        out.append(cur)
-        cur += timedelta(days=1)
-    return out
-
-
-TODOS_LOS_DIAS: List[date] = _iter_days(date(2026, 8, 3), date(2026, 8, 25))
-SEMANA_POR_DIA: Dict[date, int] = {}
-for num, ini, fin, _lbl in SEMANA_DEFS:
-    for d in _iter_days(ini, fin):
-        SEMANA_POR_DIA[d] = num
 
 
 def horas_esperadas_dia(dia: date, ahora_chile: datetime) -> List[int]:
@@ -415,24 +450,20 @@ def grafico_totales_semana(
     esperados: Dict[int, int],
     out: Path,
 ) -> Path:
-    labels = [
-        "S32\n03–09 ago",
-        "S33\n10–16 ago",
-        "S34\n17–23 ago",
-        "S35\n24–25 ago",
-    ]
+    labels = [f"S{n}\n{_fmt_rango_corto(ini, fin)}" for n, ini, fin, _ in SEMANA_DEFS]
     vals = [sum(r.perdidas_semana(n) for r in resultados) for n, *_ in SEMANA_DEFS]
-    colors = [COLOR_S32, COLOR_S33, COLOR_S34, COLOR_S35]
-    fig, ax = plt.subplots(figsize=(8.8, 4.6))
+    colors = [COLORES_SEMANA[i % len(COLORES_SEMANA)] for i in range(len(SEMANA_DEFS))]
+    fig, ax = plt.subplots(figsize=(max(8.8, 1.7 * len(labels)), 4.6))
     fig.patch.set_facecolor("white")
     x = range(len(labels))
     bars = ax.bar(x, vals, color=colors, width=0.62, zorder=3)
     ax.set_xticks(list(x), labels)
     ax.set_ylabel("Horas perdidas (flota)")
-    ax.set_title("Comparativa de 4 semanas — horas sin dato")
+    nsem = len(SEMANA_DEFS)
+    ax.set_title(f"Comparativa de {nsem} semanas — horas sin dato")
     ax.grid(axis="y", linestyle=":", alpha=0.5, zorder=0)
     ax.set_axisbelow(True)
-    for i, (bar, n) in enumerate(zip(bars, [32, 33, 34, 35])):
+    for bar, (n, *_rest) in zip(bars, SEMANA_DEFS):
         h = bar.get_height()
         ax.text(
             bar.get_x() + bar.get_width() / 2,
@@ -514,18 +545,21 @@ def grafico_apilado_top(
         plt.close(fig)
         return out
     labels = [_trunc(r.node_name, 22) for r in reversed(subset)]
-    s32 = [r.perdidas_semana(32) for r in reversed(subset)]
-    s33 = [r.perdidas_semana(33) for r in reversed(subset)]
-    s34 = [r.perdidas_semana(34) for r in reversed(subset)]
-    s35 = [r.perdidas_semana(35) for r in reversed(subset)]
     fig, ax = plt.subplots(figsize=(8.8, max(3.8, 0.34 * len(subset) + 1.6)))
     fig.patch.set_facecolor("white")
-    ax.barh(labels, s32, color=COLOR_S32, label="S32", zorder=3)
-    ax.barh(labels, s33, left=s32, color=COLOR_S33, label="S33", zorder=3)
-    left34 = [a + b for a, b in zip(s32, s33)]
-    ax.barh(labels, s34, left=left34, color=COLOR_S34, label="S34", zorder=3)
-    left35 = [a + b for a, b in zip(left34, s34)]
-    ax.barh(labels, s35, left=left35, color=COLOR_S35, label="S35 (2 d)", zorder=3)
+    left = [0] * len(subset)
+    rev = list(reversed(subset))
+    for i, (num, _ini, _fin, _lbl) in enumerate(SEMANA_DEFS):
+        vals = [r.perdidas_semana(num) for r in rev]
+        ax.barh(
+            labels,
+            vals,
+            left=left,
+            color=COLORES_SEMANA[i % len(COLORES_SEMANA)],
+            label=f"S{num}",
+            zorder=3,
+        )
+        left = [a + b for a, b in zip(left, vals)]
     ax.set_xlabel("Horas perdidas")
     ax.set_title(titulo)
     ax.legend(loc="lower right", fontsize=8)
@@ -537,31 +571,44 @@ def grafico_apilado_top(
     return out
 
 
-def grafico_semana35_dias(
+def grafico_dias_ultima_semana(
     items: Sequence[ResultadoNodo],
     out: Path,
     top: int = 15,
 ) -> Path:
-    subset = [r for r in items if r.perdidas_semana(35) > 0][:top]
+    if not SEMANA_DEFS:
+        return out
+    num, ini, fin, label = SEMANA_DEFS[-1]
+    dias = _iter_days(ini, fin)
+    subset = [r for r in items if r.perdidas_semana(num) > 0][:top]
     if not subset:
         fig, ax = plt.subplots(figsize=(8.8, 3.2))
-        ax.text(0.5, 0.5, "Sin horas perdidas el 24–25 ago", ha="center", va="center")
+        ax.text(0.5, 0.5, f"Sin horas perdidas en {label}", ha="center", va="center")
         ax.axis("off")
         fig.savefig(out, dpi=160, bbox_inches="tight")
         plt.close(fig)
         return out
     labels = [_trunc(r.node_name, 22) for r in reversed(subset)]
-    h24 = [r.perdidas_dia(DIA_24) for r in reversed(subset)]
-    h25 = [r.perdidas_dia(DIA_25) for r in reversed(subset)]
-    y = range(len(subset))
-    fig, ax = plt.subplots(figsize=(8.8, max(3.8, 0.36 * len(subset) + 1.6)))
+    rev = list(reversed(subset))
+    fig, ax = plt.subplots(figsize=(8.8, max(3.8, 0.38 * len(subset) + 1.8)))
     fig.patch.set_facecolor("white")
-    h = 0.38
-    ax.barh([i + h / 2 for i in y], h24, height=h, color=COLOR_DIA24, label="Lun 24 ago", zorder=3)
-    ax.barh([i - h / 2 for i in y], h25, height=h, color=COLOR_DIA25, label="Mar 25 ago (parcial)", zorder=3)
-    ax.set_yticks(list(y), labels)
+    n = len(dias)
+    h = 0.72 / max(n, 1)
+    y = list(range(len(subset)))
+    for i, dia in enumerate(dias):
+        vals = [r.perdidas_dia(dia) for r in rev]
+        offset = (i - (n - 1) / 2) * h
+        ax.barh(
+            [yi + offset for yi in y],
+            vals,
+            height=h * 0.9,
+            color=COLORES_SEMANA[i % len(COLORES_SEMANA)],
+            label=dia.strftime("%d-%m"),
+            zorder=3,
+        )
+    ax.set_yticks(y, labels)
     ax.set_xlabel("Horas perdidas")
-    ax.set_title("Semana 35 — 24 vs 25 agosto (hora Chile)")
+    ax.set_title(f"{label} — por día")
     ax.legend(loc="lower right", fontsize=8)
     ax.grid(axis="x", linestyle=":", alpha=0.5, zorder=0)
     ax.set_axisbelow(True)
@@ -653,11 +700,16 @@ def crear_reporte_word(
     esp_sem = {n: sum(r.esperadas_semana(n) for r in resultados) for n, *_ in SEMANA_DEFS}
     tot_all = sum(tot_sem.values())
     esp_all = sum(esp_sem.values())
-
-    tot_24 = sum(r.perdidas_dia(DIA_24) for r in resultados)
-    tot_25 = sum(r.perdidas_dia(DIA_25) for r in resultados)
-    esp_24 = sum(r.esperadas_dia(DIA_24) for r in resultados)
-    esp_25 = sum(r.esperadas_dia(DIA_25) for r in resultados)
+    nsem = len(SEMANA_DEFS)
+    ultima = SEMANA_DEFS[-1]
+    ultima_parcial = (ultima[2] - ultima[1]).days < 6
+    rango_txt = (
+        f"{INICIO_PERIODO.strftime('%d-%m-%Y')} a {TODOS_LOS_DIAS[-1].strftime('%d-%m-%Y')}"
+    )
+    semanas_txt = ", ".join(
+        f"S{n} ({_fmt_rango_corto(ini, fin)}{' parcial' if (fin - ini).days < 6 else ''})"
+        for n, ini, fin, _ in SEMANA_DEFS
+    )
 
     doc = Document()
     title = doc.add_heading("REPORTE DE PUNTOS CON HORAS PERDIDAS", 0)
@@ -666,7 +718,7 @@ def crear_reporte_word(
     title.runs[0].bold = True
 
     sub = doc.add_paragraph(
-        "Comparativa de 4 semanas · un gráfico por semana · "
+        f"Comparativa de {nsem} semanas · un gráfico por semana · "
         "al final, puntos con pérdida de data por desconexión"
     )
     sub.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -687,62 +739,68 @@ def crear_reporte_word(
     doc.add_paragraph(
         "Hora perdida = hora Chile esperada sin registro en la serie horaria "
         "(una hora en 0 no cuenta: el punto sí reportó). "
-        "Semanas ISO 32 (03–09 ago), 33 (10–16), 34 (17–23) y 35 parcial (24–25 ago). "
+        f"Periodo: {rango_txt} ({semanas_txt}). "
         f"Desconexión: lastUpdate de la app ≥ {HORAS_UMBRAL_CONEXION_APP:.0f} h."
     )
 
-    doc.add_heading("2. Comparativa de las 4 semanas", 1)
+    doc.add_heading(f"2. Comparativa de las {nsem} semanas", 1)
+    nota_parcial = (
+        f" S{ultima[0]} es parcial ({_fmt_rango_corto(ultima[1], ultima[2])}); "
+        "no se compara en magnitud con una semana de 168 h."
+        if ultima_parcial
+        else ""
+    )
     doc.add_paragraph(
         f"Flota: {_fmt_int(tot_all)} h perdidas de {_fmt_int(esp_all)} esperadas "
         f"({_fmt_pct(tot_all, esp_all)}). "
-        f"{n_con} de {n_total} puntos con al menos 1 h faltante. "
-        "S35 son solo 2 días; no se compara en magnitud con una semana de 168 h."
+        f"{n_con} de {n_total} puntos con al menos 1 h faltante.{nota_parcial}"
     )
     _add_picture(doc, charts["totales"], 6.4)
-    orden_sem = [tot_sem[32], tot_sem[33], tot_sem[34]]
-    if orden_sem[2] > orden_sem[0] and orden_sem[2] > orden_sem[1]:
-        tendencia = (
-            "S34 sube respecto de S32 y S33: más huecos de telemetría en la última semana completa."
-        )
-    elif orden_sem[2] < orden_sem[0] and orden_sem[2] < orden_sem[1]:
-        tendencia = (
-            "S34 cierra con menos horas perdidas que S32 y S33: mejora relativa de cobertura."
-        )
-    else:
-        tendencia = (
-            "S32, S33 y S34 se mantienen en un rango similar, sin un quiebre fuerte."
-        )
-    doc.add_paragraph(tendencia)
+    completas = _semanas_completas()
+    if len(completas) >= 3:
+        a, b, c = completas[-3], completas[-2], completas[-1]
+        va, vb, vc = tot_sem[a[0]], tot_sem[b[0]], tot_sem[c[0]]
+        if vc > va and vc > vb:
+            tendencia = (
+                f"S{c[0]} sube respecto de S{a[0]} y S{b[0]}: "
+                "más huecos de telemetría en la última semana completa."
+            )
+        elif vc < va and vc < vb:
+            tendencia = (
+                f"S{c[0]} cierra con menos horas perdidas que S{a[0]} y S{b[0]}: "
+                "mejora relativa de cobertura."
+            )
+        else:
+            tendencia = (
+                f"S{a[0]}, S{b[0]} y S{c[0]} se mantienen en un rango similar, "
+                "sin un quiebre fuerte."
+            )
+        doc.add_paragraph(tendencia)
 
-    labels_sem = {
-        32: "Semana 32 (03–09 ago)",
-        33: "Semana 33 (10–16 ago)",
-        34: "Semana 34 (17–23 ago)",
-        35: "Semana 35 (24–25 ago, 2 días)",
-    }
     doc.add_heading("3. Un gráfico por semana", 1)
     doc.add_paragraph(
         "Ranking de puntos con horas perdidas esa semana (mayor a menor). "
         "Rojo = desconectado ahora; azul = conectado con huecos."
     )
-    for num, _ini, _fin, _label in SEMANA_DEFS:
-        if num > 32:
+    primera = True
+    for num, _ini, _fin, label in SEMANA_DEFS:
+        if not primera:
             doc.add_page_break()
+        primera = False
         con = [r for r in resultados if r.perdidas_semana(num) > 0]
         n_desc = sum(1 for r in con if r.desconectado)
-        doc.add_heading(labels_sem[num], 2)
+        doc.add_heading(label, 2)
         doc.add_paragraph(
             f"{len(con)} puntos · {_fmt_int(tot_sem[num])} h de flota "
             f"({_fmt_pct(tot_sem[num], esp_sem[num])} de las esperadas) · "
             f"{n_desc} de ellos están desconectados ahora."
         )
         _add_picture(doc, charts[f"s{num}"], 6.4)
-        if num == 35:
+        if num == ultima[0] and ultima_parcial:
             doc.add_paragraph(
-                f"Lunes 24: {_fmt_int(tot_24)} h. "
-                f"Martes 25 (corte {ahora_chile.strftime('%H:%M')}): {_fmt_int(tot_25)} h."
+                f"Detalle diario de S{num} (hasta {ahora_chile.strftime('%d-%m %H:%M')} Chile)."
             )
-            _add_picture(doc, charts["s35_dias"], 6.4)
+            _add_picture(doc, charts["ultima_dias"], 6.4)
 
     doc.add_page_break()
     doc.add_heading("4. Pérdida de data por desconexión", 1)
@@ -764,20 +822,22 @@ def crear_reporte_word(
 
     doc.add_heading("5. Conclusión", 1)
     doc.add_paragraph(
-        "La comparativa de las 4 semanas muestra el volumen de horas sin dato. "
+        f"La comparativa de las {nsem} semanas muestra el volumen de horas sin dato. "
         "Los gráficos semanales ordenan los puntos de mayor a menor. "
         "La prioridad operativa está en la sección 4: puntos que hoy pierden data por desconexión."
     )
     nota = doc.add_paragraph(
         "Nota: exclusiones iguales al reporte de puntos en cero. "
-        "Fuente: GET /nodes/{id}/dates.measures.csv. S35 = 24 y 25 ago (parcial)."
+        f"Fuente: GET /nodes/{{id}}/dates.measures.csv. Periodo {rango_txt}."
     )
     nota.runs[0].font.size = Pt(8)
     nota.runs[0].italic = True
     nota.runs[0].font.color.rgb = RGBColor(120, 120, 120)
 
     stamp = ahora_chile.strftime("%Y%m%d_%H%M")
-    out = output_dir / f"Reporte_Horas_Perdidas_S32_S35_{stamp}.docx"
+    first_w = SEMANA_DEFS[0][0] if SEMANA_DEFS else 32
+    last_w = SEMANA_DEFS[-1][0] if SEMANA_DEFS else 36
+    out = output_dir / f"Reporte_Horas_Perdidas_S{first_w}_S{last_w}_{stamp}.docx"
     doc.save(str(out))
     return out
 
@@ -793,10 +853,12 @@ def serializar(resultados: Iterable[ResultadoNodo]) -> List[Dict]:
                 "companyName": r.company_name,
                 "perdidasPorDia": r.perdidas_por_dia,
                 "esperadasPorDia": r.esperadas_por_dia,
-                "s32": r.perdidas_semana(32),
-                "s33": r.perdidas_semana(33),
-                "s34": r.perdidas_semana(34),
-                "s35": r.perdidas_semana(35),
+                "semanas": {n: r.perdidas_semana(n) for n, *_ in SEMANA_DEFS},
+                "s32": r.perdidas_semana(32) if 32 in SEMANA_POR_DIA.values() else 0,
+                "s33": r.perdidas_semana(33) if 33 in SEMANA_POR_DIA.values() else 0,
+                "s34": r.perdidas_semana(34) if 34 in SEMANA_POR_DIA.values() else 0,
+                "s35": r.perdidas_semana(35) if 35 in SEMANA_POR_DIA.values() else 0,
+                "s36": r.perdidas_semana(36) if 36 in SEMANA_POR_DIA.values() else 0,
                 "total": r.perdidas_total(),
                 "lastUpdate": r.last_update,
                 "wesStatus": r.wes_status,
@@ -839,6 +901,7 @@ def main() -> int:
 
     workers = max(4, int(args.workers))
     ahora = datetime.now(CHILE_TZ)
+    configurar_periodo(ahora.date())
     output_dir = args.output_dir
     if output_dir is None:
         output_dir = Path(wes_scripts_root()) / "reports" / "Puntos_En_Cero"
@@ -847,9 +910,14 @@ def main() -> int:
     charts_dir = output_dir / "_charts_horas_perdidas"
     charts_dir.mkdir(parents=True, exist_ok=True)
 
+    semanas_txt = " / ".join(f"S{n}" for n, *_ in SEMANA_DEFS)
     print("=" * 70)
-    print("REPORTE DE HORAS PERDIDAS — S32 / S33 / S34 / S35 (2 días)")
+    print(f"REPORTE DE HORAS PERDIDAS — {semanas_txt}")
     print(f"Corte Chile: {ahora.strftime('%d-%m-%Y %H:%M')}")
+    print(
+        f"Periodo: {TODOS_LOS_DIAS[0].isoformat()} a {TODOS_LOS_DIAS[-1].isoformat()} "
+        f"({len(TODOS_LOS_DIAS)} días)"
+    )
     print("=" * 70)
 
     if args.desde_json:
@@ -891,28 +959,24 @@ def main() -> int:
     )
 
     top = max(5, int(args.top))
+    first_w = SEMANA_DEFS[0][0]
+    last_w = SEMANA_DEFS[-1][0]
     charts = {
         "totales": charts_dir / "totales_por_semana.png",
         "ranking_desconexion": charts_dir / "ranking_desconexion.png",
         "apilado_desconexion": charts_dir / "apilado_desconexion.png",
-        "s35_dias": charts_dir / "s35_24_vs_25.png",
+        "ultima_dias": charts_dir / f"ranking_s{last_w}_dias.png",
     }
-    for num in (32, 33, 34, 35):
+    for num, *_rest in SEMANA_DEFS:
         charts[f"s{num}"] = charts_dir / f"ranking_s{num}.png"
     esp_sem = {n: sum(r.esperadas_semana(n) for r in resultados) for n, *_ in SEMANA_DEFS}
     grafico_totales_semana(resultados, esp_sem, charts["totales"])
-    labels_sem = {
-        32: "Semana 32 (03–09 ago)",
-        33: "Semana 33 (10–16 ago)",
-        34: "Semana 34 (17–23 ago)",
-        35: "Semana 35 (24–25 ago, 2 días)",
-    }
-    for num in (32, 33, 34, 35):
+    for num, _ini, _fin, label in SEMANA_DEFS:
         orden = sorted(resultados, key=lambda r: r.perdidas_semana(num), reverse=True)
         grafico_ranking(
             orden,
             lambda r, n=num: r.perdidas_semana(n),
-            f"{labels_sem[num]} — horas perdidas (mayor a menor)",
+            f"{label} — horas perdidas (mayor a menor)",
             charts[f"s{num}"],
             None,
             top,
@@ -930,15 +994,15 @@ def main() -> int:
         desc,
         charts["apilado_desconexion"],
         min(top, 15),
-        "Desconectados — horas por semana (S32 a S35)",
+        f"Desconectados — horas por semana (S{first_w} a S{last_w})",
     )
-    grafico_semana35_dias(
-        sorted(resultados, key=lambda r: r.perdidas_semana(35), reverse=True),
-        charts["s35_dias"],
+    grafico_dias_ultima_semana(
+        sorted(resultados, key=lambda r: r.perdidas_semana(last_w), reverse=True),
+        charts["ultima_dias"],
         min(top, 15),
     )
 
-    json_path = output_dir / "horas_perdidas_s32_s35.json"
+    json_path = output_dir / f"horas_perdidas_s{first_w}_s{last_w}.json"
     json_path.write_text(
         json.dumps(serializar(resultados), ensure_ascii=False, indent=2),
         encoding="utf-8",
