@@ -131,14 +131,33 @@ function parseCatalogosEmbed_() {
     if (i < 0 || j < i) throw new Error('sin JSON');
     return JSON.parse(raw.substring(i, j + 1));
   } catch (e) {
-    // Fallback mínimo: el form abre igual; getCatalogos() luego puede llenar desde Sheets.
+    // Fallback: técnicos y opciones fijas (si catalogos.html quedó con Codigo pegado).
     return {
       clientes_maquinas: {},
       opciones: {
-        tecnicos: [],
-        tipos_mtto: [],
+        tecnicos: [
+          'Mauricio Orellana',
+          'Anibal Aranda',
+          'Jose Otarola',
+          'Gabriel Prieto',
+          'Mirko Lorca',
+          'Cristian Sepulveda',
+          'Salvador Cantillana',
+          'Jeans Araya',
+        ],
+        tipos_mtto: [
+          'Mtto Correctivo',
+          'Mtto Preventivo',
+          'Mtto Predictivo',
+          'Soporte remoto',
+          'Reubicacion CIR',
+          'Instalación Valvula On/Off',
+          'Instalación sistema CIR',
+          'Instalación sistema CPA',
+        ],
         motivos: ['Visita física', 'Soporte técnico a distancia'],
         tecnologias: ['CPA y CIR', 'SAB', 'CPA', 'CIR', 'On/Off'],
+        estados_checklist: ['OK', 'Observación', 'Falla', 'N/A'],
       },
       tipos_falla: {},
       contactos: {},
@@ -197,6 +216,20 @@ function buildCatalogosVivos_() {
   });
   base.clientes_maquinas = map;
   base.fuente_puntos = 'CONTACTOS_ENVIOS_ACTAS!' + sh.getName();
+  // Asegurar técnicos aunque catalogos.html esté vacío/corrupto
+  if (!base.opciones) base.opciones = {};
+  if (!base.opciones.tecnicos || !base.opciones.tecnicos.length) {
+    base.opciones.tecnicos = [
+      'Mauricio Orellana',
+      'Anibal Aranda',
+      'Jose Otarola',
+      'Gabriel Prieto',
+      'Mirko Lorca',
+      'Cristian Sepulveda',
+      'Salvador Cantillana',
+      'Jeans Araya',
+    ];
+  }
   // Contactos vivos (general = David Campos; CC = encargado del punto)
   try {
     base.contactos = leerContactosDict_();
@@ -336,7 +369,7 @@ function procesarVisita(data) {
 function getWesApiVersion() {
   return {
     ok: true,
-    version: '21Z',
+    version: '21AA',
     has_listar_ots: true,
     has_procesar: true,
     formulario_drive_id: FORMULARIO_HTML_DRIVE_ID

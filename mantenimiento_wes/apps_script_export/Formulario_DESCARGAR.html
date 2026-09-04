@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21Y</title>
+  <title>Acta de visita WES · 21AA</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -365,7 +365,7 @@
         <p class="note" style="margin:6px 0 0">Visita física = en terreno (firma obligatoria). Soporte a distancia = sin firma; tipo de falla = motivo remoto.</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21Y</div>
+        <div class="build-tag" id="form_build">WES-build-21AA</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -482,12 +482,23 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21Y";
+    var FORM_BUILD = "WES-build-21AA";
     /** Motivos de falla/trabajo típicos en soporte a distancia (van en tipo_falla). */
     var TIPOS_FALLA_REMOTO = [
       "Programación de auditoría",
       "Programación especial por requerimiento del establecimiento",
       "Validar correcto funcionamiento"
+    ];
+    /** Lista fija de técnicos (no depender de catalogos.html corrupto). */
+    var TECNICOS_FIJOS = [
+      "Mauricio Orellana",
+      "Anibal Aranda",
+      "Jose Otarola",
+      "Gabriel Prieto",
+      "Mirko Lorca",
+      "Cristian Sepulveda",
+      "Salvador Cantillana",
+      "Jeans Araya"
     ];
     var checklistHold = document.createDocumentFragment();
     var checklistUI = { cir: null, cpa: null, sab: null };
@@ -1343,7 +1354,7 @@
       const op = (c && c.opciones) || {};
       const clientes = Object.keys(c.clientes_maquinas || {}).sort();
       fillSelect(document.getElementById("cliente"), clientes);
-      fillSelect(document.getElementById("tecnico"), op.tecnicos || []);
+      fillSelect(document.getElementById("tecnico"), TECNICOS_FIJOS);
       // Lista fija: incluye Soporte remoto (no depender de catalogos viejo en Apps Script).
       var TIPOS_MTTO_FIJOS = [
         "Mtto Correctivo",
