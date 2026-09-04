@@ -452,7 +452,7 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
         build_chart_datos_perdidos(chart_path, huecos_chart, fechas)
         nota_perdidos = (
             f"{n_huecos} puntos con al menos un día sin registro "
-            f"({dias_hueco} días-punto). El número entre paréntesis es cuántos días faltan."
+            f"({dias_hueco} días-punto). La barra roja es el dato perdido."
         )
         if any(h.get("node_id") == "000022-00" for h in huecos_chart):
             nota_perdidos += (
