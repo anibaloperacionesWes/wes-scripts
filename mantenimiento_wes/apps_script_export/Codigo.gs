@@ -44,51 +44,58 @@ var PDF_SOFT = '#F7FAFD';
 var PDF_SIGN_BG = '#F8FBFE';
 
 /**
- * Carga el HTML del form desde Drive; si falla, usa el archivo local "Formulario".
- * Si alguien pega Codigo.gs por error en el TXT de Drive o en el archivo Formulario,
- * se rechaza con un mensaje claro (no "Contenido HTML incorrecto" críptico).
+ * Carga el HTML del form DESDE DRIVE (prioridad).
+ * No usa el archivo local "Formulario" si está corrupto (Codigo.gs pegado por error).
  */
 function loadFormularioTemplate_() {
   var raw = '';
+  var errDrive = '';
   try {
     raw = DriveApp.getFileById(FORMULARIO_HTML_DRIVE_ID).getBlob().getDataAsString('UTF-8') || '';
   } catch (eDrive) {
+    errDrive = String(eDrive && eDrive.message ? eDrive.message : eDrive);
     raw = '';
   }
-  if (raw && esHtmlFormulario_(raw)) {
+  if (esHtmlFormulario_(raw)) {
     return HtmlService.createTemplate(raw);
   }
-  // Fallback: archivo "Formulario" del proyecto Apps Script
+  // Fallback local SOLO si es HTML válido (si pegaste Codigo en Formulario, se salta).
   try {
     var local = HtmlService.createHtmlOutputFromFile('Formulario').getContent() || '';
     if (esHtmlFormulario_(local)) {
       return HtmlService.createTemplate(local);
     }
-    throw new Error(
-      'El archivo "Formulario" del proyecto NO es HTML (parece Codigo.gs). ' +
-        'Descargá Formulario_PEGAR y pegalo SOLO en el archivo Formulario, ' +
-        'o dejá Codigo.gs solo en el archivo Codigo. Drive ID HTML: ' +
-        FORMULARIO_HTML_DRIVE_ID
-    );
-  } catch (eLocal) {
-    if (String(eLocal).indexOf('NO es HTML') >= 0) throw eLocal;
-    throw new Error(
-      'No pude cargar el HTML del formulario. ' +
-        'Revisá que en Drive el archivo Formulario_PEGAR sea HTML (empiece con <!DOCTYPE html>) ' +
-        'y que el archivo Formulario del editor no tenga pegado el Codigo.gs. Detalle: ' +
-        eLocal
-    );
-  }
+  } catch (eLocal) {}
+  // Página de recuperación (en vez de Exception críptica)
+  var help =
+    '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1"/>' +
+    '<title>WES - restaurar formulario</title></head><body ' +
+    'style="font-family:Segoe UI,Arial,sans-serif;max-width:640px;margin:40px auto;padding:0 16px;color:#14202b">' +
+    '<h1 style="color:#1F4E79">Hay que restaurar el HTML</h1>' +
+    '<p>El link /exec no pudo leer un Formulario HTML valido.</p>' +
+    '<ol><li>Descarga el HTML: ' +
+    '<a href="https://drive.google.com/uc?export=download&id=' +
+    FORMULARIO_HTML_DRIVE_ID +
+    '">Formulario_HTML</a></li>' +
+    '<li>En Apps Script pega ese HTML en el archivo <b>Formulario</b> (debe empezar con &lt;!DOCTYPE html&gt;).</li>' +
+    '<li>El archivo <b>Codigo</b> es otro: ahi va solo el .gs.</li>' +
+    '<li>Implementar → Nueva version del mismo /exec.</li></ol>' +
+    '<p style="color:#666;font-size:13px">Drive ID: ' +
+    FORMULARIO_HTML_DRIVE_ID +
+    (errDrive ? '<br/>Detalle Drive: ' + errDrive : '') +
+    '</p></body></html>';
+  return HtmlService.createTemplate(help);
 }
 
 /** True si el texto es el HTML del acta (no Codigo.gs ni catalogos). */
 function esHtmlFormulario_(raw) {
   var s = String(raw || '').replace(/^\uFEFF/, '');
-  var head = s.substring(0, 400).toLowerCase();
+  var head = s.substring(0, 500).toLowerCase();
   if (head.indexOf('var sheet_registro_id') >= 0) return false;
   if (head.indexOf('function doget') >= 0) return false;
   if (head.indexOf('function procesarvisita') >= 0) return false;
-  if (s.indexOf('<html') < 0 && s.indexOf('<!doctype html') < 0) return false;
+  if (head.indexOf('<html') < 0 && head.indexOf('<!doctype html') < 0) return false;
   return true;
 }
 
@@ -105,20 +112,38 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES - 21Y')
+    .setTitle('Acta de visita WES · 21Z')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 
 function parseCatalogosEmbed_() {
-  var raw = HtmlService.createHtmlOutputFromFile('catalogos').getContent() || '';
-  var i = raw.indexOf('{');
-  var j = raw.lastIndexOf('}');
-  if (i < 0 || j < i) {
-    throw new Error('catalogos.html no tiene JSON válido');
+  try {
+    var raw = HtmlService.createHtmlOutputFromFile('catalogos').getContent() || '';
+    // Si catalogos quedó con Codigo.gs pegado, no sirve.
+    var head = String(raw).substring(0, 200).toLowerCase();
+    if (head.indexOf('function doget') >= 0 || head.indexOf('sheet_registro') >= 0) {
+      throw new Error('catalogos corrupto');
+    }
+    var i = raw.indexOf('{');
+    var j = raw.lastIndexOf('}');
+    if (i < 0 || j < i) throw new Error('sin JSON');
+    return JSON.parse(raw.substring(i, j + 1));
+  } catch (e) {
+    // Fallback mínimo: el form abre igual; getCatalogos() luego puede llenar desde Sheets.
+    return {
+      clientes_maquinas: {},
+      opciones: {
+        tecnicos: [],
+        tipos_mtto: [],
+        motivos: ['Visita física', 'Soporte técnico a distancia'],
+        tecnologias: ['CPA y CIR', 'SAB', 'CPA', 'CIR', 'On/Off'],
+      },
+      tipos_falla: {},
+      contactos: {},
+    };
   }
-  return JSON.parse(raw.substring(i, j + 1));
 }
 
 function getCatalogos() {
@@ -311,7 +336,7 @@ function procesarVisita(data) {
 function getWesApiVersion() {
   return {
     ok: true,
-    version: '21Y',
+    version: '21Z',
     has_listar_ots: true,
     has_procesar: true,
     formulario_drive_id: FORMULARIO_HTML_DRIVE_ID
