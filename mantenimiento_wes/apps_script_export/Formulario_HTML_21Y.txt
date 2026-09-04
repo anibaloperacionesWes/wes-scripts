@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Acta de visita WES · 21Y</title>
+  <style>
+    :root {
+      --ink: #0f2f4d;
+      --blue: #1f4e79;
+      --blue-2: #2e75b6;
+      --sky: #e7f0f8;
+      --line: #c5d5e6;
+      --amber: #fff4d6;
+      --ok: #1b7a4e;
+      --card: rgba(255,255,255,0.92);
+      --shadow: 0 10px 28px rgba(15, 47, 77, 0.10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+      color: #14202b;
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #d7e8f7 0%, transparent 55%),
+        radial-gradient(900px 420px at 100% 0%, #cfe0ef 0%, transparent 50%),
+        linear-gradient(180deg, #f3f7fb 0%, #eef3f8 100%);
+      min-height: 100vh;
+      padding: 14px;
+    }
+    .wrap { max-width: 760px; margin: 0 auto 40px; }
+    header.hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      padding: 22px 20px 18px;
+      color: #fff;
+      background:
+        linear-gradient(135deg, rgba(15,47,77,0.92), rgba(46,117,182,0.88)),
+        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+      animation: rise 0.55s ease-out;
+    }
+    header.hero h1 {
+      margin: 8px 0 4px;
+      font-size: clamp(1.55rem, 4vw, 2rem);
+      letter-spacing: -0.02em;
+      font-weight: 750;
+    }
+    header.hero .brand {
+      font-size: 0.85rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.9;
+      font-weight: 700;
+    }
+    header.hero p { margin: 0; opacity: 0.92; max-width: 36rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+      animation: rise 0.65s ease-out;
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2::before {
+      content: "";
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--blue-2);
+      box-shadow: 0 0 0 4px rgba(46,117,182,0.18);
+    }
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--blue);
+      margin: 10px 0 4px;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 1rem;
+      background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--blue-2);
+      box-shadow: 0 0 0 3px rgba(46,117,182,0.15);
+    }
+    textarea { min-height: 84px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 640px) {
+      .row, .row3 { grid-template-columns: 1fr; }
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .chip input { display: none; }
+    .chip.on {
+      background: var(--sky);
+      border-color: var(--blue-2);
+      color: var(--ink);
+      font-weight: 650;
+    }
+    .check-item {
+      display: grid;
+      grid-template-columns: 1.4fr 0.9fr 1.2fr;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px dashed #d9e4ef;
+    }
+    .check-item:last-child { border-bottom: 0; }
+    .check-item .name { font-size: 0.92rem; }
+    .check-item select { background: var(--amber); }
+    .build-tag {
+      display: inline-block;
+      margin: 6px 0 0;
+      padding: 2px 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #0b3a66;
+      background: #e8f1fb;
+      border: 1px solid #b7cce3;
+      border-radius: 6px;
+    }
+    .ot-panel { margin-top: 0; }
+    .ot-panel .ot-toolbar {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      margin: 0 0 10px;
+    }
+    .ot-panel .ot-count { font-size: 0.88rem; color: #5b6b7c; }
+    .btn-ot {
+      border: 1px solid var(--line); background: #fff; color: var(--ink);
+      border-radius: 10px; padding: 8px 10px; font-size: 0.85rem;
+      font-weight: 700; cursor: pointer;
+    }
+    .btn-ot.primary { background: var(--sky); border-color: var(--blue-2); }
+    .btn-ot.danger { color: #8a2b2b; border-color: #e2b4b4; background: #fff5f5; }
+    .ot-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .ot-table th, .ot-table td {
+      text-align: left; padding: 8px 6px; border-bottom: 1px solid #e2ebf3;
+      vertical-align: middle;
+    }
+    .ot-table th { color: #5b6b7c; font-weight: 700; font-size: 0.78rem; }
+    .ot-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 0.75rem; font-weight: 700; background: #fff3d6; color: #8a6a00;
+      border: 1px solid #ead7a0;
+    }
+    .ot-badge.abierta { background: #e8f7ef; color: #145c38; border-color: #9fd5b5; }
+    .ot-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .cierre-banner {
+      display: none; margin: 0 0 12px; padding: 12px 14px;
+      border-radius: 12px; background: #fff8e8; border: 1px solid #ead7a0;
+      color: #6a5200; font-size: 0.92rem;
+    }
+    .cierre-banner.show { display: block; }
+
+    #checklist_actions:empty { display: none !important; }
+    #checklist_actions:not(:empty) {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .chk-toggle {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .chk-toggle.open {
+      background: var(--sky);
+      border-color: var(--blue-2);
+    }
+    #checklist_slot:empty { display: none !important; }
+    #checklist_slot:not(:empty) {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #f3f8fc;
+    }
+    .check-panel {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+      margin-top: 10px;
+    }
+    #checklist_slot > .check-panel:first-child { margin-top: 0; }
+    .check-panel h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      color: var(--blue);
+    }
+    .check-panel .fold-count {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #5b738a;
+      background: var(--sky);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+      margin-left: 6px;
+    }
+    @media (max-width: 640px) {
+      .check-item { grid-template-columns: 1fr; gap: 6px; }
+    }
+    .pad-wrap {
+      border: 2px dashed var(--blue-2);
+      border-radius: 14px;
+      background: #fafcff;
+      overflow: hidden;
+      touch-action: none;
+      position: relative;
+    }
+    canvas { display: block; width: 100%; height: 200px; touch-action: none; }
+    .hint {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: #8aa0b5; pointer-events: none;
+    }
+    .hint.hide { display: none; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    button {
+      border: 0; border-radius: 12px; padding: 13px 12px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-clear { background: #eef2f7; color: #334; }
+    .btn-send {
+      background: linear-gradient(135deg, var(--blue), var(--blue-2));
+      color: #fff;
+      grid-column: 1 / -1;
+      box-shadow: 0 8px 18px rgba(31,78,121,0.25);
+    }
+    .btn-send:disabled { opacity: 0.55; }
+    .status { margin-top: 10px; min-height: 1.3em; font-size: 0.92rem; color: var(--ok); }
+    .status.err { color: #a11; }
+    .status.warn { color: #9a6b00; }
+    .ok-banner {
+      display: none;
+      margin-top: 12px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #e8f7ef;
+      border: 1px solid #9fd5b5;
+      color: #145c38;
+    }
+    .ok-banner.show { display: block; animation: rise 0.35s ease-out; }
+    .ok-banner h3 { margin: 0 0 6px; font-size: 1.05rem; }
+    .ok-banner a {
+      display: inline-block;
+      margin-top: 8px;
+      margin-right: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--blue);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+    .ok-banner .muted { color: #2f6b4d; font-size: 0.88rem; margin-top: 6px; }
+    .note {
+      font-size: 0.82rem; color: #5b6b7c; margin-top: 6px; line-height: 1.4;
+    }
+    footer { text-align: center; color: #6a7b8c; font-size: 0.75rem; margin-top: 8px; }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="brand">WES · Water Efficiency System · build 21S</div>
+      <h1>Acta de visita técnica · 21S</h1>
+      <p>Link permanente para técnicos WES. Completá en terreno, firmá y enviá el PDF al cliente (acusar recibo). Queda registrado en el Excel de fallas.</p>
+    </header>
+
+    <section class="card ot-panel" id="panelOTs">
+      <h2>OT abiertas / en curso</h2>
+      <p class="note" style="margin:0 0 10px">Auditorías o trabajos iniciados que aún no cerraste. Continuá para generar el cierre (mismo folio) o marcá cerrada.</p>
+      <div class="ot-toolbar">
+        <button type="button" class="btn-ot primary" id="btnRefreshOTs">Actualizar listado</button>
+        <span class="ot-count" id="otCount">Cargando…</span>
+      </div>
+      <div id="otListWrap"><div class="note">Cargando OT pendientes…</div></div>
+    </section>
+
+    <div class="cierre-banner" id="cierreBanner">
+      Cerrando <b id="cierreFolioTxt">OT</b> — se reutiliza el mismo folio. Completá el trabajo, firmá y enviá.
+      <button type="button" class="btn-ot" id="btnCancelCierre" style="margin-left:8px">Cancelar cierre</button>
+    </div>
+
+    <form id="form" novalidate>
+      <section class="card">
+        <h2>Datos de la instalación</h2>
+        <div class="row">
+          <div>
+            <label for="folio">N° Folio / OT</label>
+            <input id="folio" value="<?!= PROXIMO_FOLIO ?>" readonly />
+            <div class="note" id="folioNote">Un solo número automático desde 2250 (folio = OT). Si continuás una OT abierta, se reutiliza.</div>
+          </div>
+          <div>
+            <label for="tecnico">Técnico WES *</label>
+            <select id="tecnico" required></select>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="cliente">Cliente *</label>
+            <select id="cliente" required></select>
+          </div>
+          <div>
+            <label for="maquina">Máquina / sitio *</label>
+            <select id="maquina" required></select>
+          </div>
+        </div>
+        <div class="row3">
+          <div>
+            <label for="comuna">Comuna</label>
+            <input id="comuna" placeholder="Ej: Providencia" spellcheck="true" lang="es" autocomplete="address-level2" />
+          </div>
+          <div>
+            <label for="fecha">Fecha *</label>
+            <input id="fecha" type="date" required />
+          </div>
+          <div>
+            <label for="hora">Hora</label>
+            <input id="hora" type="time" />
+          </div>
+        </div>
+        <label>Modalidad *</label>
+        <div class="chips" id="motivos"></div>
+        <p class="note" style="margin:6px 0 0">Visita física = en terreno (firma obligatoria). Soporte a distancia = sin firma; tipo de falla = motivo remoto.</p>
+        <label>Tecnología instalada</label>
+        <div class="chips" id="tecnologias"></div>
+        <div class="build-tag" id="form_build">WES-build-21Y</div>
+        <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
+        <div id="checklist_actions"></div>
+        <div id="checklist_slot" aria-live="polite"></div>
+      </section>
+
+      <section class="card">
+        <h2>Diagnóstico y trabajo</h2>
+        <div class="row">
+          <div>
+            <label for="tipo_mtto">Tipo de mantenimiento *</label>
+            <select id="tipo_mtto" required></select>
+          </div>
+          <div>
+            <label for="tipo_falla" id="label_tipo_falla">Tipo de falla</label>
+            <select id="tipo_falla"></select>
+          </div>
+        </div>
+        <div id="bloqueFallaEspecifica">
+          <label for="falla_especifica">Falla específica</label>
+          <select id="falla_especifica"></select>
+        </div>
+        <label for="solucion">Solución y/o diagnóstico *</label>
+        <textarea id="solucion" required placeholder="Qué se hizo / hallazgo principal" spellcheck="true" lang="es" autocapitalize="sentences"></textarea>
+        <label for="observaciones">Observaciones</label>
+        <textarea id="observaciones" placeholder="Sugerencias, pendientes, materiales" spellcheck="true" lang="es" autocapitalize="sentences"></textarea>
+        <div class="row">
+          <div>
+            <label for="estado_visita">Estado visita</label>
+            <select id="estado_visita">
+              <option value="cerrada">cerrada</option>
+              <option value="en_curso">en_curso</option>
+              <option value="abierta">abierta</option>
+            </select>
+          </div>
+          <div>
+            <label for="lectura_medidor">Lectura medidor (auditoría)</label>
+            <input id="lectura_medidor" placeholder="Opcional" spellcheck="false" inputmode="decimal" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 id="tituloFirmaEnvio">Cliente · firma · envío PDF</h2>
+        <div class="row">
+          <div>
+            <label for="recibido_por">Nombre quien recibe</label>
+            <input id="recibido_por" autocomplete="name" placeholder="En interno puede quedar WES / oficina" spellcheck="true" lang="es" />
+          </div>
+          <div>
+            <label for="cargo">Cargo</label>
+            <input id="cargo" placeholder="Encargado mantención / JO" spellcheck="true" lang="es" />
+          </div>
+        </div>
+        <label class="chip" style="display:flex;width:100%;margin:8px 0 10px;gap:10px;align-items:flex-start">
+          <input type="checkbox" id="enviar_correo_cliente" style="margin-top:3px" />
+          <span>
+            <b>Enviar PDF por correo al cliente</b> <span style="font-weight:600;opacity:.9">(opcional)</span><br/>
+            <span style="font-size:0.85rem;opacity:.85">Marcá solo si querés notificar al cliente. Sin marcar: PDF interno + registro en Excel, sin correo.</span>
+          </span>
+        </label>
+        <div id="bloqueCorreo" style="display:none">
+          <div id="contactosBox" class="note" style="margin-bottom:10px">
+            Elegí cliente y máquina: aparecen fichas iguales (nombre · cargo · correo) para el general (ej. David Campos) y el CC del punto desde la planilla.
+          </div>
+          <div class="row">
+            <div>
+              <label for="email_cliente">TO · encargados generales</label>
+              <input id="email_cliente" type="text" placeholder="se autocompleta desde planilla (máquina vacía = general)" />
+            </div>
+            <div>
+              <label for="email_cc">CC · encargado del punto</label>
+              <input id="email_cc" type="text" placeholder="se autocompleta desde planilla (CC del colegio/sitio)" />
+            </div>
+          </div>
+          <p class="note" id="contactosHint" style="margin-top:4px">
+            Misma fuente: hoja Contactos. General sin máquina + CC de la máquina elegida (con nombre y cargo, igual que David Campos).
+          </p>
+        </div>
+        <div id="bloqueFirma">
+          <label id="labelFirma">Firma en pantalla *</label>
+          <div class="pad-wrap">
+            <div class="hint" id="hint">Firmá aquí</div>
+            <canvas id="pad" width="1000" height="400"></canvas>
+          </div>
+          <p class="note" id="notaFirma">En visita física la firma del receptor es obligatoria.</p>
+        </div>
+        <p class="note" id="notaRemotoSinFirma" style="display:none;margin:8px 0 0">
+          Soporte remoto: no se pide firma en pantalla. El PDF queda como trabajo a distancia.
+        </p>
+        <p class="note" id="notaEnvio">Por defecto: PDF interno + registro en Excel, sin correo al cliente. Marcá la casilla solo si querés enviarlo.</p>
+        <div class="actions">
+          <button type="button" class="btn-clear" id="btnClear">Borrar firma</button>
+          <button type="submit" class="btn-send" id="btnSend">Completar · PDF (interno)</button>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="ok-banner" id="okBanner">
+          <h3 id="okTitle">Listo</h3>
+          <div id="okBody"></div>
+          <div id="okLinks"></div>
+        </div>
+      </section>
+    </form>
+    <footer>WES · formulario digital de mantención · sin Google Form</footer>
+  </div>
+
+    <script>
+    const CATALOGOS = <?!= CATALOGOS_JSON ?>;
+    const state = { catalogos: null, dirty: false, contactos: {}, folioReusar: null };
+
+    /**
+     * Checklist desplegable (NO se abre solo):
+     * 1) Sin tecnología CIR/CPA/SAB/On-Off → sin botones ni paneles.
+     * 2) Con tecnología → aparecen botones cerrados.
+     * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
+     * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
+     */
+    var FORM_BUILD = "WES-build-21Y";
+    /** Motivos de falla/trabajo típicos en soporte a distancia (van en tipo_falla). */
+    var TIPOS_FALLA_REMOTO = [
+      "Programación de auditoría",
+      "Programación especial por requerimiento del establecimiento",
+      "Validar correcto funcionamiento"
+    ];
+    var checklistHold = document.createDocumentFragment();
+    var checklistUI = { cir: null, cpa: null, sab: null };
+    var checklistOpen = { cir: false, cpa: false, sab: false };
+
+    function buildChecklistUI() {
+      if (checklistUI.cir) return;
+      function one(key, label) {
+        var panel = document.createElement("div");
+        panel.className = "check-panel";
+        panel.id = "panel_" + key;
+        var h3 = document.createElement("h3");
+        h3.appendChild(document.createTextNode("Checklist " + label + " "));
+        var count = document.createElement("span");
+        count.className = "fold-count";
+        count.id = key + "_count";
+        count.textContent = "0 ítems";
+        h3.appendChild(count);
+        var list = document.createElement("div");
+        list.id = key + "_list";
+        panel.appendChild(h3);
+        panel.appendChild(list);
+        checklistHold.appendChild(panel);
+        checklistUI[key] = { panel: panel, list: list, count: count, label: label, filled: false };
+      }
+      one("cir", "CIR");
+      one("cpa", "CPA");
+      one("sab", "SAB");
+    }
+
+    function checklistListEl(prefix) {
+      buildChecklistUI();
+      var ui = checklistUI[prefix];
+      return ui ? ui.list : null;
+    }
+
+    function ensureChecklistFilled(prefix) {
+      buildChecklistUI();
+      var ui = checklistUI[prefix];
+      if (!ui || ui.filled) return;
+      var op = (state.catalogos && state.catalogos.opciones) || {};
+      checklist(ui.list, prefix, op[prefix] || [], op.estados_checklist);
+      ui.filled = true;
+    }
+
+    function parkAllChecklists() {
+      buildChecklistUI();
+      var slot = document.getElementById("checklist_slot");
+      checklistHold.appendChild(checklistUI.cir.panel);
+      checklistHold.appendChild(checklistUI.cpa.panel);
+      checklistHold.appendChild(checklistUI.sab.panel);
+      if (slot) {
+        // por si quedó basura: slot debe quedar vacío cuando nada está open
+        while (slot.firstChild) checklistHold.appendChild(slot.firstChild);
+      }
+    }
+
+    function mountOpenChecklists() {
+      var slot = document.getElementById("checklist_slot");
+      if (!slot) return;
+      parkAllChecklists();
+      ["cir", "cpa", "sab"].forEach(function (key) {
+        if (checklistOpen[key]) {
+          ensureChecklistFilled(key);
+          slot.appendChild(checklistUI[key].panel);
+        }
+      });
+    }
+
+    function setChecklistOpen(key, open) {
+      checklistOpen[key] = !!open;
+      mountOpenChecklists();
+      syncChecklistButtons();
+    }
+
+    function neededTechs() {
+      var techs = selectedChips("tecnologia").map(function (t) {
+        return String(t || "").toUpperCase();
+      });
+      var need = { cir: false, cpa: false, sab: false };
+      var i;
+      for (i = 0; i < techs.length; i++) {
+        var t = techs[i];
+        if (t.indexOf("ON/OFF") >= 0 || t.indexOf("ON / OFF") >= 0 || t === "ONOFF" || t.indexOf("ON-OFF") >= 0) {
+          need.cir = true;
+          need.cpa = true;
+          continue;
+        }
+        if (t.indexOf("CIR") >= 0) need.cir = true;
+        if (t.indexOf("CPA") >= 0) need.cpa = true;
+        if (t.indexOf("SAB") >= 0) need.sab = true;
+      }
+      return need;
+    }
+
+    function syncChecklistButtons() {
+      var actions = document.getElementById("checklist_actions");
+      var st = document.getElementById("fold_status");
+      if (!actions) return;
+      var need = neededTechs();
+      // Si ya no aplica, forzar cerrado
+      ["cir", "cpa", "sab"].forEach(function (key) {
+        if (!need[key]) checklistOpen[key] = false;
+      });
+      actions.innerHTML = "";
+      var anyNeed = need.cir || need.cpa || need.sab;
+      if (!anyNeed) {
+        mountOpenChecklists();
+        if (st) st.textContent = "Sin CIR/CPA/SAB/On-Off → sin checklist.";
+        return;
+      }
+      function addBtn(key) {
+        var ui = checklistUI[key];
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chk-toggle" + (checklistOpen[key] ? " open" : "");
+        btn.textContent = (checklistOpen[key] ? "▾ Cerrar " : "▸ Abrir ") + "checklist " + ui.label;
+        btn.addEventListener("click", function () {
+          setChecklistOpen(key, !checklistOpen[key]);
+        });
+        actions.appendChild(btn);
+      }
+      buildChecklistUI();
+      if (need.cir) addBtn("cir");
+      if (need.cpa) addBtn("cpa");
+      if (need.sab) addBtn("sab");
+      mountOpenChecklists();
+      if (st) {
+        st.textContent = "Tocá ▸ Abrir para desplegar el checklist (no se abre solo).";
+      }
+    }
+
+    function syncChecklistsPorTecnologia() {
+      // Al cambiar tecnología: botones sí/no; paneles SOLO si el usuario los abrió.
+      syncChecklistButtons();
+    }
+    window.syncChecklistsPorTecnologia = syncChecklistsPorTecnologia;
+
+    async function loadCatalogos() {
+      // Respaldo embebido; luego refresca desde CONTACTOS_ENVIOS_ACTAS (vivo)
+      state.catalogos = CATALOGOS;
+      state.contactos = (CATALOGOS && CATALOGOS.contactos) || {};
+      if (typeof google === "undefined" || !google.script || !google.script.run) return;
+      await new Promise((resolve) => {
+        google.script.run
+          .withSuccessHandler((live) => {
+            if (live && live.clientes_maquinas) {
+              state.catalogos = live;
+              if (live.contactos) state.contactos = live.contactos;
+            }
+            resolve();
+          })
+          .withFailureHandler(() => resolve())
+          .getCatalogos();
+      });
+    }
+
+    function renderContactosBox(c, cli, maq) {
+      const box = document.getElementById("contactosBox");
+      if (!box) return;
+      if (!cli) {
+        box.className = "note";
+        box.textContent = "Elegí cliente y máquina: se muestran el general (ej. David Campos) y el CC del punto, igual desde la planilla.";
+        return;
+      }
+      const cards = [];
+      const generales =
+        c && Array.isArray(c.generales) && c.generales.length
+          ? c.generales
+          : c && c.email_general
+            ? String(c.email_general)
+                .split(/[,;]+/)
+                .map((e) => e.trim())
+                .filter(Boolean)
+                .map((email, i) => ({
+                  nombre: i === 0 ? c.nombre_general || "" : "",
+                  cargo: i === 0 ? c.cargo_general || "" : "",
+                  email,
+                }))
+            : [];
+      generales.forEach((g) => {
+        if (!g || !g.email) return;
+        cards.push({
+          titulo: "TO · General",
+          nombre: g.nombre || "Encargado general",
+          cargo: g.cargo || "",
+          email: g.email,
+        });
+      });
+      const ccEmail = (c && (c.email_cc || (c.punto && c.punto.email))) || "";
+      const ccNombre =
+        (c && (c.nombre_punto || (c.punto && c.punto.nombre))) || "";
+      const ccCargo = (c && (c.cargo_punto || (c.punto && c.punto.cargo))) || "";
+      if (maq && ccEmail) {
+        cards.push({
+          titulo: "CC · Punto" + (maq ? " · " + maq : ""),
+          nombre: ccNombre || "Encargado del punto",
+          cargo: ccCargo,
+          email: ccEmail,
+        });
+      }
+      if (!cards.length) {
+        box.className = "note";
+        box.innerHTML = maq
+          ? `Sin contactos en planilla para <b>${cli}</b> / <b>${maq}</b>. Completá TO/CC manualmente.`
+          : `Elegí la máquina para cargar el CC del punto (el general de <b>${cli}</b> ya puede aparecer).`;
+        return;
+      }
+      box.className = "";
+      box.style.marginBottom = "10px";
+      // Misma ficha visual para TO (David Campos) y CC (encargado del colegio)
+      box.innerHTML = cards
+        .map(
+          (x) =>
+            `<label class="chip on" style="display:flex;width:100%;margin:0 0 8px;gap:10px;align-items:flex-start">` +
+            `<input type="checkbox" checked disabled style="margin-top:3px" />` +
+            `<div style="min-width:0">` +
+            `<div style="font-size:0.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;opacity:.75">${x.titulo}</div>` +
+            `<div style="font-size:1.05rem;font-weight:800;line-height:1.25;margin-top:2px">${x.nombre}</div>` +
+            (x.cargo
+              ? `<div style="font-size:0.9rem;opacity:.85;margin-top:1px">${x.cargo}</div>`
+              : "") +
+            `<div style="font-size:0.88rem;color:#1f4e79;margin-top:4px;word-break:break-all">${x.email}</div>` +
+            `</div></label>`
+        )
+        .join("");
+    }
+
+    function normKeyLocal(s) {
+      return String(s || "")
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9]+/g, " ")
+        .replace(/\b(ESCUELA|COLEGIO|CENTRO|EDUCACIONAL|LICEO|C E|CE)\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function buscarPuntoLocal(puntos, maquina) {
+      if (!puntos || !maquina) return null;
+      if (puntos[maquina]) return puntos[maquina];
+      const target = normKeyLocal(maquina);
+      const keys = Object.keys(puntos);
+      let best = null;
+      let bestLen = 0;
+      for (const k0 of keys) {
+        const k = normKeyLocal(k0);
+        if (!k) continue;
+        if (k === target) return puntos[k0];
+        if (k.indexOf(target) >= 0 || target.indexOf(k) >= 0) {
+          const score = Math.min(k.length, target.length);
+          if (score > bestLen) {
+            bestLen = score;
+            best = puntos[k0];
+          }
+        }
+      }
+      return best;
+    }
+
+    function aplicarContactosGuardados() {
+      const cli = document.getElementById("cliente").value.trim();
+      const maq = document.getElementById("maquina").value.trim();
+      const emailCli = document.getElementById("email_cliente");
+      const emailCc = document.getElementById("email_cc");
+      const hint = document.getElementById("contactosHint");
+      const recibido = document.getElementById("recibido_por");
+      const cargo = document.getElementById("cargo");
+      if (!cli) {
+        if (hint) hint.textContent = "Elegí cliente y máquina para autocompletar TO (general) y CC (punto).";
+        renderContactosBox(null, "", "");
+        return;
+      }
+      const applyLocal = () => {
+        const base = (state.contactos && state.contactos[cli]) || {};
+        let punto = (base.puntos && base.puntos[maq]) || {};
+        if (maq && (!punto || !punto.email_cc) && base.puntos) {
+          punto = buscarPuntoLocal(base.puntos, maq) || {};
+        }
+        if (base.email_general) emailCli.value = base.email_general;
+        if (maq && punto.email_cc) emailCc.value = punto.email_cc;
+        else if (!maq) emailCc.value = "";
+        const payload = {
+          email_general: base.email_general || "",
+          nombre_general: base.nombre_general || "",
+          cargo_general: base.cargo_general || "",
+          generales: base.generales || [],
+          email_cc: (punto && punto.email_cc) || "",
+          nombre_punto: (punto && punto.nombre) || "",
+          cargo_punto: (punto && punto.cargo) || "",
+          punto: {
+            nombre: (punto && punto.nombre) || "",
+            cargo: (punto && punto.cargo) || "",
+            email: (punto && punto.email_cc) || "",
+          },
+        };
+        renderContactosBox(payload, cli, maq);
+        if (maq && punto.nombre && recibido && !recibido.value) recibido.value = punto.nombre;
+        if (maq && punto.cargo && cargo && !cargo.value) cargo.value = punto.cargo;
+        if (hint) {
+          const parts = [];
+          if (base.nombre_general || base.email_general) {
+            parts.push("TO: " + (base.nombre_general || "General"));
+          }
+          if (maq && punto.email_cc) {
+            parts.push("CC: " + (punto.nombre || "Punto") + " <" + punto.email_cc + ">");
+          } else if (maq) {
+            parts.push("CC punto no encontrado en planilla");
+          } else {
+            parts.push("elegí máquina para CC");
+          }
+          hint.textContent = parts.join(" · ");
+        }
+      };
+      if (typeof google !== "undefined" && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler((c) => {
+            if (!c) return applyLocal();
+            if (c.email_general) emailCli.value = c.email_general;
+            if (c.email_cc) emailCc.value = c.email_cc;
+            else if (!maq) emailCc.value = "";
+            // CC del punto rellena recepción igual que se ve David Campos en TO
+            if (c.nombre_punto && recibido && !recibido.value) recibido.value = c.nombre_punto;
+            if (c.cargo_punto && cargo && !cargo.value) cargo.value = c.cargo_punto;
+            if (!state.contactos[cli]) state.contactos[cli] = { puntos: {}, generales: [] };
+            if (c.email_general) {
+              state.contactos[cli].email_general = c.email_general;
+              state.contactos[cli].nombre_general = c.nombre_general || "";
+              state.contactos[cli].cargo_general = c.cargo_general || "";
+              state.contactos[cli].generales = c.generales || [];
+            }
+            if (maq && c.email_cc) {
+              state.contactos[cli].puntos = state.contactos[cli].puntos || {};
+              state.contactos[cli].puntos[maq] = {
+                email_cc: c.email_cc,
+                nombre: c.nombre_punto || "",
+                cargo: c.cargo_punto || "",
+              };
+            }
+            renderContactosBox(c, cli, maq);
+            if (hint) {
+              const parts = [];
+              if (c.generales && c.generales.length) {
+                parts.push(
+                  "TO: " +
+                    c.generales
+                      .map((g) => (g.nombre || "General") + (g.email ? " <" + g.email + ">" : ""))
+                      .join(", ")
+                );
+              } else if (c.nombre_general || c.email_general) {
+                parts.push(
+                  "TO: " +
+                    (c.nombre_general || "General") +
+                    (c.email_general ? " <" + c.email_general + ">" : "")
+                );
+              }
+              if (c.email_cc) {
+                parts.push(
+                  "CC: " +
+                    (c.nombre_punto || "Punto") +
+                    (c.cargo_punto ? " (" + c.cargo_punto + ")" : "") +
+                    " <" +
+                    c.email_cc +
+                    ">"
+                );
+              } else if (maq) {
+                parts.push("CC punto no está en planilla");
+              }
+              hint.textContent = parts.join(" · ");
+            }
+          })
+          .withFailureHandler(applyLocal)
+          .getContactosPara(cli, maq);
+      } else {
+        applyLocal();
+      }
+    }
+
+    function fillSelect(sel, items, blank = "— seleccionar —") {
+      sel.innerHTML = "";
+      const o0 = document.createElement("option");
+      o0.value = "";
+      o0.textContent = blank;
+      sel.appendChild(o0);
+      for (const it of items) {
+        const o = document.createElement("option");
+        o.value = it;
+        o.textContent = it;
+        sel.appendChild(o);
+      }
+    }
+
+    function chips(container, name, options, multi = true) {
+      container.innerHTML = "";
+      for (const opt of options) {
+        const lab = document.createElement("label");
+        lab.className = "chip";
+        const inp = document.createElement("input");
+        inp.type = multi ? "checkbox" : "radio";
+        inp.name = name;
+        inp.value = opt;
+        if (!multi && opt === options[0]) inp.checked = true;
+        if (multi && opt === "Visita física") inp.checked = true;
+        if (inp.checked) lab.classList.add("on");
+        inp.addEventListener("change", () => {
+          if (multi) lab.classList.toggle("on", inp.checked);
+          else {
+            container.querySelectorAll(".chip").forEach((c) => c.classList.remove("on"));
+            if (inp.checked) lab.classList.add("on");
+          }
+          if (name === "tecnologia" && typeof syncChecklistsPorTecnologia === "function") {
+            try { syncChecklistsPorTecnologia(); } catch (eSync1) {}
+          }
+          if (name === "motivo" && typeof syncTipoMttoPorModalidad === "function") {
+            try { syncTipoMttoPorModalidad(); } catch (eMot) {}
+          }
+        });
+        lab.appendChild(inp);
+        lab.appendChild(document.createTextNode(" " + opt));
+        container.appendChild(lab);
+      }
+      if (name === "tecnologia" && typeof syncChecklistsPorTecnologia === "function") {
+        try { syncChecklistsPorTecnologia(); } catch (eSync2) {}
+      }
+      if (name === "motivo" && typeof syncTipoMttoPorModalidad === "function") {
+        try { syncTipoMttoPorModalidad(); } catch (eMot2) {}
+      }
+    }
+
+    /** Si modalidad = soporte a distancia → tipo mtto = Soporte remoto (más claro en el acta). */
+    function esSoporteRemoto() {
+      var motivos = selectedChips("motivo");
+      if (motivos.indexOf("Soporte técnico a distancia") >= 0) return true;
+      var sel = document.getElementById("tipo_mtto");
+      return !!(sel && sel.value === "Soporte remoto");
+    }
+
+    function syncTipoMttoPorModalidad() {
+      var sel = document.getElementById("tipo_mtto");
+      if (!sel) return;
+      var motivos = selectedChips("motivo");
+      var remoto = motivos.indexOf("Soporte técnico a distancia") >= 0;
+      if (remoto) {
+        sel.value = "Soporte remoto";
+        if (sel.value !== "Soporte remoto") {
+          // Por si el option aún no estaba en el select
+          var has = false;
+          for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === "Soporte remoto") { has = true; break; }
+          }
+          if (!has) {
+            var o = document.createElement("option");
+            o.value = "Soporte remoto";
+            o.textContent = "Soporte remoto";
+            sel.appendChild(o);
+          }
+          sel.value = "Soporte remoto";
+        }
+      } else if (sel.value === "Soporte remoto") {
+        sel.value = "";
+      }
+      syncFirmaPorModalidad();
+      syncTipoFallaPorModalidad();
+    }
+
+    /** Remoto: ocultar pad y no exigir firma. Visita física: firma obligatoria. */
+    function syncFirmaPorModalidad() {
+      var remoto = esSoporteRemoto();
+      var bloque = document.getElementById("bloqueFirma");
+      var notaR = document.getElementById("notaRemotoSinFirma");
+      var btnClear = document.getElementById("btnClear");
+      var titulo = document.getElementById("tituloFirmaEnvio");
+      if (bloque) bloque.style.display = remoto ? "none" : "";
+      if (notaR) notaR.style.display = remoto ? "" : "none";
+      if (btnClear) btnClear.style.display = remoto ? "none" : "";
+      if (titulo) {
+        titulo.textContent = remoto
+          ? "Cliente · envío PDF (soporte remoto)"
+          : "Cliente · firma · envío PDF";
+      }
+      if (remoto) {
+        state.dirty = false;
+        try {
+          if (typeof canvas !== "undefined" && canvas && ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (hint) hint.style.display = "block";
+          }
+        } catch (eClr) {}
+        var rec = document.getElementById("recibido_por");
+        if (rec && !String(rec.value || "").trim()) {
+          rec.placeholder = "Opcional en remoto (ej. contacto telefónico)";
+        }
+      }
+    }
+
+    /** Remoto: tipo_falla = motivos de soporte a distancia; se oculta falla específica. */
+    function syncTipoFallaPorModalidad() {
+      var remoto = esSoporteRemoto();
+      var sel = document.getElementById("tipo_falla");
+      var bloqueEsp = document.getElementById("bloqueFallaEspecifica");
+      var lab = document.getElementById("label_tipo_falla");
+      if (!sel) return;
+      var prev = sel.value;
+      if (remoto) {
+        if (lab) lab.textContent = "Tipo de falla / motivo remoto *";
+        fillSelect(sel, TIPOS_FALLA_REMOTO, "— seleccionar —");
+        if (TIPOS_FALLA_REMOTO.indexOf(prev) >= 0) sel.value = prev;
+        if (bloqueEsp) bloqueEsp.style.display = "none";
+        var esp = document.getElementById("falla_especifica");
+        if (esp) fillSelect(esp, [], "— N/A en remoto —");
+      } else {
+        if (lab) lab.textContent = "Tipo de falla";
+        var cat = (state.catalogos && state.catalogos.tipos_falla) || {};
+        fillSelect(sel, Object.keys(cat).sort(), "— sin falla / N/A —");
+        if (prev && Object.prototype.hasOwnProperty.call(cat, prev)) sel.value = prev;
+        if (bloqueEsp) bloqueEsp.style.display = "";
+        if (sel.onchange) sel.onchange();
+      }
+    }
+
+    function checklist(container, prefix, items, estados) {
+      if (!container) container = checklistListEl(prefix);
+      if (!container) return;
+      container.innerHTML = "";
+      items = items || [];
+      estados = estados || ["OK", "Observación", "Falla", "N/A"];
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var row = document.createElement("div");
+        row.className = "check-item";
+        var nameEl = document.createElement("div");
+        nameEl.className = "name";
+        nameEl.textContent = item;
+        var sel = document.createElement("select");
+        sel.setAttribute("data-key", item);
+        sel.setAttribute("data-prefix", prefix);
+        for (var j = 0; j < estados.length; j++) {
+          var e = estados[j];
+          var o = document.createElement("option");
+          o.value = e;
+          o.textContent = e;
+          if (e === "OK") o.selected = true;
+          sel.appendChild(o);
+        }
+        var obs = document.createElement("input");
+        obs.placeholder = "Obs. / medición";
+        obs.setAttribute("data-obs-for", item);
+        obs.setAttribute("data-prefix", prefix);
+        obs.setAttribute("spellcheck", "true");
+        obs.setAttribute("lang", "es");
+        row.appendChild(nameEl);
+        row.appendChild(sel);
+        row.appendChild(obs);
+        container.appendChild(row);
+      }
+      var ui = checklistUI[prefix];
+      var countEl = ui && ui.count ? ui.count : null;
+      if (countEl) {
+        var n = items.length;
+        countEl.textContent = n + (n === 1 ? " ítem" : " ítems");
+      }
+    }
+
+    function selectedChips(name) {
+      var out = [];
+      var nodes = document.querySelectorAll('input[name="' + name + '"]:checked');
+      for (var i = 0; i < nodes.length; i++) out.push(nodes[i].value);
+      return out;
+    }
+
+    function collectChecklist(prefix) {
+      const out = [];
+      const root = checklistListEl(prefix);
+      if (!root) return out;
+      root.querySelectorAll('select[data-prefix="' + prefix + '"]').forEach((sel) => {
+        const key = sel.getAttribute("data-key") || "";
+        let obs = "";
+        root.querySelectorAll('input[data-prefix="' + prefix + '"]').forEach((el) => {
+          if (el.getAttribute("data-obs-for") === key) obs = String(el.value || "").trim();
+        });
+        out.push({ elemento: key, estado: sel.value, obs: obs });
+      });
+      return out;
+    }
+
+    // Firma
+    const canvas = document.getElementById("pad");
+    const ctx = canvas.getContext("2d");
+    const hint = document.getElementById("hint");
+    let drawing = false;
+    let last = null;
+
+    function resizeCanvas() {
+      const ratio = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const w = Math.max(320, Math.floor(rect.width * ratio));
+      const h = Math.max(160, Math.floor(200 * ratio));
+      const prev = state.dirty ? canvas.toDataURL() : null;
+      canvas.width = w;
+      canvas.height = h;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "#12263a";
+      ctx.lineWidth = Math.max(2.2, 2.4 * ratio);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, w, h);
+      if (prev) {
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0, w, h);
+        img.src = prev;
+      }
+    }
+
+    function pos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      return {
+        x: (t.clientX - rect.left) * (canvas.width / rect.width),
+        y: (t.clientY - rect.top) * (canvas.height / rect.height),
+      };
+    }
+    function start(e) {
+      e.preventDefault();
+      drawing = true;
+      state.dirty = true;
+      hint.classList.add("hide");
+      last = pos(e);
+    }
+    function move(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      const p = pos(e);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last = p;
+    }
+    function end(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      drawing = false;
+      last = null;
+    }
+    canvas.addEventListener("mousedown", start);
+    canvas.addEventListener("mousemove", move);
+    canvas.addEventListener("mouseup", end);
+    canvas.addEventListener("mouseleave", end);
+    canvas.addEventListener("touchstart", start, { passive: false });
+    canvas.addEventListener("touchmove", move, { passive: false });
+    canvas.addEventListener("touchend", end, { passive: false });
+    // Lápiz / pointer (Windows / tablets)
+    if (window.PointerEvent) {
+      canvas.addEventListener("pointerdown", start);
+      canvas.addEventListener("pointermove", move);
+      canvas.addEventListener("pointerup", end);
+      canvas.addEventListener("pointercancel", end);
+    }
+
+    document.getElementById("btnClear").onclick = () => {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      state.dirty = false;
+      hint.classList.remove("hide");
+    };
+
+    function todayISO() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+
+    function renderOTsPendientes(list) {
+      var wrap = document.getElementById("otListWrap");
+      var count = document.getElementById("otCount");
+      if (!wrap) return;
+      list = list || [];
+      if (count) count.textContent = list.length ? (list.length + " pendiente" + (list.length === 1 ? "" : "s")) : "Ninguna pendiente";
+      if (!list.length) {
+        wrap.innerHTML = '<div class="note">No hay OT en <b>abierta</b> o <b>en_curso</b>.</div>';
+        return;
+      }
+      var html = '<table class="ot-table"><thead><tr>' +
+        '<th>OT</th><th>Cliente</th><th>Sitio</th><th>Fecha</th><th>Estado</th><th></th>' +
+        '</tr></thead><tbody>';
+      for (var i = 0; i < list.length; i++) {
+        var o = list[i];
+        var badgeCls = o.estado === "abierta" ? "ot-badge abierta" : "ot-badge";
+        html += '<tr>' +
+          '<td><b>' + o.folio + '</b></td>' +
+          '<td>' + escapeHtmlUi(o.cliente) + '</td>' +
+          '<td>' + escapeHtmlUi(o.maquina) + '</td>' +
+          '<td>' + escapeHtmlUi(o.fecha) + '</td>' +
+          '<td><span class="' + badgeCls + '">' + escapeHtmlUi(o.estado) + '</span></td>' +
+          '<td><div class="ot-actions">' +
+          '<button type="button" class="btn-ot primary" data-act="continuar" data-folio="' + o.folio + '">Continuar / cerrar</button>' +
+          '<button type="button" class="btn-ot danger" data-act="marcar" data-folio="' + o.folio + '">Marcar cerrada</button>' +
+          '</div></td></tr>';
+      }
+      html += '</tbody></table>';
+      wrap.innerHTML = html;
+      wrap.querySelectorAll("button[data-act]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var folio = btn.getAttribute("data-folio");
+          var act = btn.getAttribute("data-act");
+          if (act === "continuar") continuarOT(folio);
+          else if (act === "marcar") marcarCerradaRapido(folio);
+        });
+      });
+    }
+
+    function escapeHtmlUi(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function cargarOTsPendientes() {
+      var wrap = document.getElementById("otListWrap");
+      var count = document.getElementById("otCount");
+      if (count) count.textContent = "Cargando…";
+      if (typeof google === "undefined" || !google.script || !google.script.run) {
+        if (wrap) wrap.innerHTML = '<div class="note">Listado solo disponible en el formulario publicado (/exec).</div>';
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(renderOTsPendientes)
+        .withFailureHandler(function (err) {
+          var msg = String(err && err.message ? err.message : err);
+          // Codigo viejo sin listarOTsPendientes: no asustar ni bloquear el envío
+          if (/listarOTsPendientes|not a function|is undefined/i.test(msg)) {
+            if (wrap) {
+              wrap.innerHTML =
+                '<div class="note">Para ver OT abiertas hay que actualizar <b>Codigo</b> en Apps Script ' +
+                '(pegar Codigo + Nueva versión). El formulario igual se puede enviar.</div>';
+            }
+            if (count) count.textContent = "Requiere Codigo nuevo";
+            return;
+          }
+          if (wrap) wrap.innerHTML = '<div class="note">No pude cargar OT: ' + escapeHtmlUi(msg).slice(0, 180) + "</div>";
+          if (count) count.textContent = "Error";
+        })
+        .listarOTsPendientes();
+    }
+
+    function setModoCierre(folio, on) {
+      state.folioReusar = on ? Number(folio) : null;
+      var ban = document.getElementById("cierreBanner");
+      var txt = document.getElementById("cierreFolioTxt");
+      var note = document.getElementById("folioNote");
+      if (txt) txt.textContent = "OT " + folio;
+      if (ban) ban.classList.toggle("show", !!on);
+      if (note) {
+        note.textContent = on
+          ? ("Cierre de OT " + folio + " — no se crea folio nuevo.")
+          : "Un solo número automático desde 2250 (folio = OT). Si continuás una OT abierta, se reutiliza.";
+      }
+      var folioEl = document.getElementById("folio");
+      if (folioEl && on) folioEl.value = String(folio);
+    }
+
+    function setSelectValue(id, value) {
+      var sel = document.getElementById(id);
+      if (!sel || value == null || value === "") return;
+      var v = String(value);
+      var found = false;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === v) { found = true; break; }
+      }
+      if (!found && v) {
+        var o = document.createElement("option");
+        o.value = v;
+        o.textContent = v;
+        sel.appendChild(o);
+      }
+      sel.value = v;
+    }
+
+    async function continuarOT(folio) {
+      if (typeof google === "undefined" || !google.script || !google.script.run) return;
+      var status = document.getElementById("status");
+      if (status) { status.className = "status"; status.textContent = "Cargando OT " + folio + "…"; }
+      try {
+        var v = await new Promise(function (resolve, reject) {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(function (err) { reject(new Error(err && err.message ? err.message : String(err))); })
+            .obtenerVisitaPorFolio(Number(folio));
+        });
+        setModoCierre(v.folio, true);
+        setSelectValue("cliente", v.cliente);
+        // disparar máquinas del cliente
+        var cli = document.getElementById("cliente");
+        if (cli && cli.onchange) cli.onchange();
+        await new Promise(function (r) { setTimeout(r, 50); });
+        setSelectValue("maquina", v.maquina);
+        if (document.getElementById("maquina") && document.getElementById("maquina").onchange) {
+          document.getElementById("maquina").onchange();
+        }
+        setSelectValue("tecnico", v.tecnico);
+        setSelectValue("tipo_mtto", v.tipo_mtto);
+        setSelectValue("tipo_falla", v.tipo_falla);
+        if (document.getElementById("tipo_falla") && document.getElementById("tipo_falla").onchange) {
+          document.getElementById("tipo_falla").onchange();
+        }
+        await new Promise(function (r) { setTimeout(r, 50); });
+        setSelectValue("falla_especifica", v.falla_especifica);
+        if (v.fecha) document.getElementById("fecha").value = v.fecha;
+        if (v.comuna) document.getElementById("comuna").value = v.comuna;
+        if (v.solucion) document.getElementById("solucion").value = v.solucion;
+        if (v.observaciones) document.getElementById("observaciones").value = v.observaciones;
+        if (v.email_cliente) document.getElementById("email_cliente").value = v.email_cliente;
+        if (v.recibido_por) document.getElementById("recibido_por").value = v.recibido_por;
+        if (v.cargo) document.getElementById("cargo").value = v.cargo;
+        document.getElementById("estado_visita").value = "cerrada";
+        setModoCierre(v.folio, true);
+        if (status) { status.className = "status"; status.textContent = "OT " + v.folio + " cargada. Completá el cierre y firmá."; }
+        document.getElementById("solucion").scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (e) {
+        if (status) { status.className = "status err"; status.textContent = "No pude cargar OT: " + e.message; }
+      }
+    }
+
+    function marcarCerradaRapido(folio) {
+      if (!confirm("¿Marcar OT " + folio + " como cerrada sin generar PDF nuevo?")) return;
+      google.script.run
+        .withSuccessHandler(function () {
+          cargarOTsPendientes();
+          var status = document.getElementById("status");
+          if (status) { status.className = "status"; status.textContent = "OT " + folio + " marcada cerrada."; }
+        })
+        .withFailureHandler(function (err) {
+          alert("Error: " + (err && err.message ? err.message : err));
+        })
+        .marcarOTCerrada(Number(folio));
+    }
+
+
+    async function boot() {
+      // Fecha/hora primero: si algo falla después, el form igual queda usable.
+      try {
+        document.getElementById("fecha").value = todayISO();
+        var now0 = new Date();
+        document.getElementById("hora").value =
+          String(now0.getHours()).padStart(2, "0") + ":" + String(now0.getMinutes()).padStart(2, "0");
+      } catch (eFecha) {}
+
+      await loadCatalogos();
+      const c = state.catalogos || {};
+      const op = (c && c.opciones) || {};
+      const clientes = Object.keys(c.clientes_maquinas || {}).sort();
+      fillSelect(document.getElementById("cliente"), clientes);
+      fillSelect(document.getElementById("tecnico"), op.tecnicos || []);
+      // Lista fija: incluye Soporte remoto (no depender de catalogos viejo en Apps Script).
+      var TIPOS_MTTO_FIJOS = [
+        "Mtto Correctivo",
+        "Mtto Preventivo",
+        "Mtto Predictivo",
+        "Soporte remoto",
+        "Reubicacion CIR",
+        "Instalación Valvula On/Off",
+        "Instalación sistema CIR",
+        "Instalación sistema CPA"
+      ];
+      fillSelect(document.getElementById("tipo_mtto"), TIPOS_MTTO_FIJOS);
+      var tipoSel = document.getElementById("tipo_mtto");
+      if (tipoSel) {
+        tipoSel.addEventListener("change", function () {
+          try {
+            syncFirmaPorModalidad();
+            syncTipoFallaPorModalidad();
+          } catch (eT) {}
+        });
+      }
+      try {
+        // Solo 2 modalidades (filtrable en reportes).
+        var MOTIVOS_FIJOS = [
+          "Visita física",
+          "Soporte técnico a distancia"
+        ];
+        chips(document.getElementById("motivos"), "motivo", MOTIVOS_FIJOS, false);
+        // Lista fija (sin EYES). No usar catalogos embebido viejo.
+        var TECNOLOGIAS_FIJAS = ["CPA y CIR", "SAB", "CPA", "CIR", "On/Off"];
+        chips(document.getElementById("tecnologias"), "tecnologia", TECNOLOGIAS_FIJAS, true);
+        syncTipoMttoPorModalidad();
+      } catch (eChips) {
+        var st0 = document.getElementById("fold_status");
+        if (st0) st0.textContent = "Error chips: " + eChips;
+      }
+      try {
+        // No montar paneles al abrir: solo sync (botones si hay tech; cerrado por defecto).
+        checklistOpen.cir = false;
+        checklistOpen.cpa = false;
+        checklistOpen.sab = false;
+        syncChecklistsPorTecnologia();
+        var buildEl = document.getElementById("form_build");
+        if (buildEl) buildEl.textContent = FORM_BUILD;
+      } catch (eCheck) {
+        const st = document.getElementById("fold_status");
+        if (st) st.textContent = "Error checklist: " + eCheck;
+      }
+      try {
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+      } catch (ePad) {}
+
+      document.getElementById("cliente").onchange = () => {
+        const cli = document.getElementById("cliente").value;
+        const cat = state.catalogos;
+        fillSelect(document.getElementById("maquina"), (cat.clientes_maquinas[cli] || []));
+        document.getElementById("email_cc").value = "";
+        aplicarContactosGuardados();
+      };
+      document.getElementById("maquina").onchange = () => {
+        document.getElementById("email_cc").value = "";
+        aplicarContactosGuardados();
+      };
+      document.getElementById("tipo_falla").onchange = () => {
+        const t = document.getElementById("tipo_falla").value;
+        fillSelect(document.getElementById("falla_especifica"), (state.catalogos.tipos_falla[t] || []), "— seleccionar —");
+      };
+
+      // Cargar contactos vivos desde Sheet (sin redeploy)
+      if (typeof google !== "undefined" && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler((dict) => {
+            if (dict && typeof dict === "object") state.contactos = dict;
+          })
+          .getContactos();
+      }
+
+      var btnOt = document.getElementById("btnRefreshOTs");
+      if (btnOt) btnOt.onclick = cargarOTsPendientes;
+      var btnCancel = document.getElementById("btnCancelCierre");
+      if (btnCancel) {
+        btnCancel.onclick = function () {
+          setModoCierre(null, false);
+          var status = document.getElementById("status");
+          if (status) { status.className = "status"; status.textContent = "Cierre cancelado. El próximo envío crea folio nuevo."; }
+        };
+      }
+      cargarOTsPendientes();
+    }
+
+    function showSubmitError(msg, focusId) {
+      const status = document.getElementById("status");
+      if (status) {
+        status.className = "status err";
+        status.textContent = msg;
+        status.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      if (focusId) {
+        var el = document.getElementById(focusId);
+        if (el && el.focus) try { el.focus(); } catch (eF) {}
+      }
+    }
+
+    document.getElementById("form").onsubmit = async (ev) => {
+      ev.preventDefault();
+      const status = document.getElementById("status");
+      const btn = document.getElementById("btnSend");
+      if (!btn) return;
+
+      // Validación manual (novalidate): mensaje claro, no el popup del navegador
+      if (!document.getElementById("tecnico").value) {
+        return showSubmitError("Elegí el técnico WES.", "tecnico");
+      }
+      if (!document.getElementById("cliente").value) {
+        return showSubmitError("Elegí el cliente.", "cliente");
+      }
+      if (!document.getElementById("maquina").value) {
+        return showSubmitError("Elegí la máquina / sitio.", "maquina");
+      }
+      if (!document.getElementById("fecha").value) {
+        return showSubmitError("Completá la fecha.", "fecha");
+      }
+      if (!document.getElementById("tipo_mtto").value) {
+        return showSubmitError("Elegí el tipo de mantenimiento.", "tipo_mtto");
+      }
+      if (!document.getElementById("solucion").value.trim()) {
+        return showSubmitError("Completá solución / diagnóstico.", "solucion");
+      }
+      var remoto = esSoporteRemoto();
+      if (remoto && !document.getElementById("tipo_falla").value) {
+        return showSubmitError(
+          "En soporte remoto elegí el tipo de falla / motivo (auditoría, requerimiento o validación).",
+          "tipo_falla"
+        );
+      }
+      if (!remoto && !state.dirty) {
+        return showSubmitError("Falta la firma en pantalla (firmá con mouse o dedo en el recuadro).", "pad");
+      }
+      var enviarMail = !!document.getElementById("enviar_correo_cliente").checked;
+      var emailCli = document.getElementById("email_cliente").value.trim();
+      if (enviarMail && !emailCli) {
+        return showSubmitError("Completá el correo del cliente o desmarcá «Enviar PDF por correo».", "email_cliente");
+      }
+
+      status.className = "status";
+      status.textContent = "Procesando… enviando acta (puede tardar unos segundos).";
+      const payload = {
+        cliente: document.getElementById("cliente").value.trim(),
+        maquina: document.getElementById("maquina").value.trim(),
+        comuna: document.getElementById("comuna").value.trim(),
+        fecha: document.getElementById("fecha").value,
+        hora: document.getElementById("hora").value,
+        tecnico: document.getElementById("tecnico").value,
+        ot: "", // se iguala al folio en el servidor
+        folio_reusar: state.folioReusar || "",
+        motivos: selectedChips("motivo"),
+        tecnologias: selectedChips("tecnologia"),
+        tipo_mtto: document.getElementById("tipo_mtto").value,
+        tipo_falla: document.getElementById("tipo_falla").value,
+        falla_especifica: remoto
+          ? ""
+          : document.getElementById("falla_especifica").value,
+        solucion: document.getElementById("solucion").value.trim(),
+        observaciones: document.getElementById("observaciones").value.trim(),
+        estado_visita: document.getElementById("estado_visita").value,
+        lectura_medidor: document.getElementById("lectura_medidor").value.trim(),
+        recibido_por: document.getElementById("recibido_por").value.trim(),
+        cargo: document.getElementById("cargo").value.trim(),
+        enviar_correo_cliente: !!document.getElementById("enviar_correo_cliente").checked,
+        trabajo_interno: !document.getElementById("enviar_correo_cliente").checked,
+        email_cliente: document.getElementById("email_cliente").value.trim(),
+        email_cc: document.getElementById("email_cc").value.trim(),
+        soporte_remoto: !!remoto,
+        firma_png: remoto ? "" : canvas.toDataURL("image/png"),
+        checklist_cir: collectChecklist("cir"),
+        checklist_cpa: collectChecklist("cpa"),
+        checklist_sab: collectChecklist("sab"),
+      };
+      if (remoto && !payload.recibido_por) {
+        payload.recibido_por = "Soporte remoto (sin firma presencial)";
+        document.getElementById("recibido_por").value = payload.recibido_por;
+      }
+      if (!payload.enviar_correo_cliente && !payload.recibido_por) {
+        payload.recibido_por = "WES interno / oficina";
+        document.getElementById("recibido_por").value = payload.recibido_por;
+      }
+      btn.disabled = true;
+      const okBanner = document.getElementById("okBanner");
+      const okTitle = document.getElementById("okTitle");
+      const okBody = document.getElementById("okBody");
+      const okLinks = document.getElementById("okLinks");
+      okBanner.classList.remove("show");
+      try {
+        const info = await new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler((err) => reject(new Error(err && err.message ? err.message : String(err))))
+            .procesarVisita(payload);
+        });
+        if (!info || !info.ok) throw new Error((info && info.error) || "Error al procesar");
+
+        const mailOk = !!info.email_ok;
+        const interno = !payload.enviar_correo_cliente;
+        const folioTxt = info.folio ? `Folio <b>${info.folio}</b> · ` : '';
+        okTitle.textContent = mailOk
+          ? "✓ Listo: PDF generado y correo enviado"
+          : interno
+            ? "✓ Listo: PDF interno (sin correo al cliente)"
+            : "✓ PDF generado (correo pendiente)";
+        okBody.innerHTML =
+          `<div>${folioTxt}Cliente: <b>${payload.cliente}</b> · Sitio: <b>${payload.maquina}</b></div>` +
+          `<div>Excel: fila <b>${info.excel_row}</b></div>` +
+          (mailOk
+            ? `<div class="muted">Revisá la bandeja de <b>${payload.email_cliente}</b> (y spam). Asunto: Acta de visita · Acusar recibo.</div>`
+            : interno
+              ? `<div class="muted">Trabajo interno: no se envió correo al cliente. El PDF quedó registrado.</div>`
+              : `<div class="muted">Correo no enviado: ${info.email_skip || "sin SMTP"}. El PDF igual quedó guardado.</div>`);
+        if (info.folio) {
+          document.getElementById("folio").value = String(info.folio);
+        }
+        setModoCierre(null, false);
+        cargarOTsPendientes();
+        okLinks.innerHTML = "";
+        if (info.pdf_url) {
+          const a = document.createElement("a");
+          a.href = info.pdf_url;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "Abrir / descargar PDF";
+          okLinks.appendChild(a);
+        }
+        if (info.drive_link) {
+          const a = document.createElement("a");
+          a.href = info.drive_link;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "Ver en Drive";
+          okLinks.appendChild(a);
+        }
+        okBanner.classList.add("show");
+        okBanner.scrollIntoView({ behavior: "smooth", block: "center" });
+        status.textContent = mailOk
+          ? `Confirmado: correo enviado a ${payload.email_cliente}`
+          : interno
+            ? "PDF interno listo (sin correo al cliente)"
+            : `PDF listo. Correo: ${info.email_skip || "no enviado"}`;
+        status.className = mailOk || interno ? "status" : "status warn";
+      } catch (err) {
+        var raw = String(err && err.message ? err.message : err);
+        var msg = raw;
+        if (/procesarVisita\s+is not a function/i.test(raw)) {
+          msg = "Codigo en Apps Script no tiene procesarVisita. Pegá Codigo completo + Nueva versión.";
+        } else if (/listarOTsPendientes/i.test(raw)) {
+          msg = "Error del listado OT (no del envío). Refrescá e intentá de nuevo. Si sigue: pegá Codigo + Nueva versión.";
+        } else if (/is not a function/i.test(raw)) {
+          msg = "Codigo desactualizado o mal pegado (" + raw.slice(0, 120) + "). Pegá Codigo + Nueva versión.";
+        } else {
+          msg = raw;
+        }
+        status.textContent = "No se pudo enviar: " + msg;
+        status.className = "status err";
+        status.scrollIntoView({ behavior: "smooth", block: "center" });
+        try { console.error("WES submit error", raw); } catch (eC) {}
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    function syncEnvioCorreoUI() {
+      const on = document.getElementById("enviar_correo_cliente").checked;
+      const bloque = document.getElementById("bloqueCorreo");
+      const email = document.getElementById("email_cliente");
+      const btn = document.getElementById("btnSend");
+      const nota = document.getElementById("notaEnvio");
+      const chip = document.getElementById("enviar_correo_cliente").closest("label");
+      if (bloque) {
+        bloque.style.display = on ? "" : "none";
+        bloque.style.opacity = "1";
+      }
+      if (email) email.required = on;
+      if (btn) btn.textContent = on ? "Completar · PDF · Enviar" : "Completar · PDF (interno)";
+      if (nota) {
+        nota.textContent = on
+          ? "Al completar: PDF + correo al cliente (acusar recibo) + fila en Excel."
+          : "Por defecto / sin casilla: PDF interno + registro en Excel, sin correo al cliente.";
+      }
+      if (chip) chip.classList.toggle("on", on);
+    }
+
+    boot().catch((e) => {
+      document.getElementById("status").textContent = String(e);
+      document.getElementById("status").className = "status err";
+    }).then(() => {
+      const chk = document.getElementById("enviar_correo_cliente");
+      if (chk) {
+        chk.addEventListener("change", syncEnvioCorreoUI);
+        syncEnvioCorreoUI();
+      }
+    });
+  </script>
+</body>
+</html>
