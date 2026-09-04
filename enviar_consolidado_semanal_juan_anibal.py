@@ -67,8 +67,8 @@ def enviar(
     mostrar = atacar[:6]
     if mostrar:
         lista = "\n".join(
-            f"  • {r['cliente']} — {r['punto']}: {r['revisar']} "
-            f"({r['m3']} m³, noct {r['noct']}, {r['wow']} vs prev.)"
+            f"  • {r['cliente']} — {r['punto']} [{r.get('control') or 'SIN CONTROL'}]: "
+            f"{r['revisar']} ({r['m3']} m³, noct {r['noct']}, {r['wow']} vs prev.)"
             for r in mostrar
         )
         if len(atacar) > 6:
@@ -79,7 +79,9 @@ def enviar(
     cuerpo = (
         "Estimados Juan y Aníbal,\n\n"
         f"Semana {periodo}. Para atacar ahora — no reemplaza el cierre mensual.\n\n"
-        f"Atacar esta semana ({len(atacar)}):\n"
+        f"Atacar esta semana ({len(atacar)}). "
+        "CON CONTROL = tiene CPA/WES (si sube, el equipo no evitó el aumento). "
+        "SIN CONTROL = no hay corte automático.\n\n"
         f"{lista}\n\n"
         f"El PDF adjunto trae el detalle y {n_seg} punto(s) en seguimiento "
         "(no urgentes; conviene mirarlos si hay tiempo).\n"

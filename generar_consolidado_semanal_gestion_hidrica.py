@@ -33,6 +33,7 @@ from generar_informes_gestion_hidrica_semanal import (
     _wow,
 )
 from informe_gestion_hidrica_pdf import render_consolidado_semanal
+from puntos_control_hidrico import estado_control, nota_red_cliente
 
 PRIO_ORDEN = {"ATENCIÓN": 0, "SEGUIMIENTO": 1}
 
@@ -81,18 +82,26 @@ def _fila(
     total: float,
     pct: float,
     wow: Optional[float],
+    prev_t: float = 0.0,
+    lectura: str = "",
 ) -> Dict[str, Any]:
     wow_txt = "—"
     if wow is not None:
         wow_txt = f"+{_fmt(wow, 0)} %" if wow >= 0 else f"−{_fmt(abs(wow), 0)} %"
+    etiqueta, detalle, tiene = estado_control(cfg, nodo.get("node_id"))
     return {
         "prio": prio,
         "cliente": cfg["cliente"],
         "punto": nodo.get("short_name") or nodo.get("node_id"),
         "node_id": nodo.get("node_id"),
         "m3": _fmt(total, 1),
+        "prev_m3": _fmt(prev_t, 1) if prev_t else "—",
         "wow": wow_txt,
         "noct": f"{_fmt(round(pct), 0)} %",
+        "control": etiqueta,
+        "control_detalle": detalle,
+        "tiene_control": tiene,
+        "lectura": lectura,
         "revisar": "; ".join(motivos),
         "orden": (PRIO_ORDEN.get(prio, 9), -total),
         "total": total,
@@ -126,23 +135,33 @@ def _evaluar_punto(cfg: dict, nodo: dict, prev: Optional[dict]) -> Optional[Dict
     ):
         return None
 
+    etiqueta, detalle, tiene = estado_control(cfg, nodo.get("node_id"))
+    red = nota_red_cliente(cfg, nodo.get("node_id"), tiene)
+
     nombre = (nodo.get("short_name") or "").lower()
     infra_noct = any(k in nombre for k in ("estanque", "pozo"))
     noct_ok = additive or es_matriz or not cfg.get("matriz_id")
     if noct_ok and explain not in ("wes", "mercado") and not infra_noct:
         if round(pct) >= 35:
-            motivos.append(f"Revisar consumo 22–06 h ({_fmt(round(pct), 0)} % nocturno)")
+            if tiene:
+                motivos.append("Verificar que el corte deje la madrugada cerca de 0")
+            else:
+                motivos.append("Revisar caudal 22–06 h; evaluar instalar o activar control")
             prio = "ATENCIÓN"
         elif round(pct) >= 25 and explain not in ("bombas_estanques", "piscina") and total >= 50:
-            motivos.append(f"Revisar consumo 22–06 h ({_fmt(round(pct), 0)} % nocturno)")
+            if tiene:
+                motivos.append("Verificar programación y umbral del corte")
+            else:
+                motivos.append("Revisar caudal 22–06 h")
             prio = prio or "SEGUIMIENTO"
 
-    if wow is not None and wow >= 40 and total >= 50:
-        motivos.append(f"Confirmar alza de {_fmt(wow, 0)} % vs semana previa")
-        prio = "ATENCIÓN"
-    elif wow is not None and wow >= 25 and total >= 80:
-        motivos.append(f"Confirmar alza de {_fmt(wow, 0)} % vs semana previa")
-        prio = prio or "SEGUIMIENTO"
+    if wow is not None and wow >= 25 and total >= 50:
+        if tiene:
+            motivos.append("Revisar si el CPA/WES cortó; si cortó, el extra es diurno")
+            prio = "ATENCIÓN"
+        elif wow >= 40 or (wow >= 25 and total >= 80):
+            motivos.append("Confirmar uso vs fuga (no hay corte que lo contenga)")
+            prio = "ATENCIÓN" if wow >= 40 else (prio or "SEGUIMIENTO")
 
     if avg > 0 and mx >= max(3.0 * avg, 20.0) and (wow is None or wow >= 0):
         when = _fecha_corta(str(nodo.get("max_fecha") or ""))
@@ -152,7 +171,42 @@ def _evaluar_punto(cfg: dict, nodo: dict, prev: Optional[dict]) -> Optional[Dict
 
     if not motivos or not prio:
         return None
-    return _fila(cfg, nodo, prio=prio, motivos=motivos, total=total, pct=pct, wow=wow)
+
+    if wow is not None and wow >= 25:
+        if tiene:
+            lectura = (
+                f"Alza de {_fmt(wow, 0)} % CON CONTROL activo. "
+                "El equipo no evitó el aumento: revisar si el corte operó o si el extra es diurno."
+            )
+        else:
+            lectura = (
+                f"Alza de {_fmt(wow, 0)} % SIN CONTROL. El aumento corre sin corte automático."
+            )
+            if red:
+                lectura += " " + red
+    elif tiene and round(pct) >= 25:
+        lectura = (
+            f"Nocturno {_fmt(round(pct), 0)} % CON CONTROL. "
+            "El corte debería dejar la madrugada cerca de 0."
+        )
+    elif round(pct) >= 25:
+        lectura = f"Nocturno {_fmt(round(pct), 0)} % SIN CONTROL."
+        if red:
+            lectura += " " + red
+    else:
+        lectura = f"{etiqueta}: {detalle}."
+
+    return _fila(
+        cfg,
+        nodo,
+        prio=prio,
+        motivos=motivos,
+        total=total,
+        pct=pct,
+        wow=wow,
+        prev_t=prev_t,
+        lectura=lectura,
+    )
 
 
 def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict], bool]:
@@ -183,6 +237,11 @@ def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict],
                     total=total,
                     pct=pct,
                     wow=wow,
+                    prev_t=prev_t,
+                    lectura=(
+                        "CPA instalado y no habilitado: el recinto opera sin control. "
+                        "El caudal de madrugada incluye el peak 22:00–03:00 del mercado."
+                    ),
                 )
             )
         else:
@@ -191,6 +250,9 @@ def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict],
                     f["revisar"] = cpa_txt + "; " + f["revisar"]
                     f["prio"] = "ATENCIÓN"
                     f["orden"] = (0, f["orden"][1])
+                    f["lectura"] = (
+                        "CPA instalado y no habilitado: el recinto opera sin control."
+                    )
     return filas, bool(filas)
 
 
@@ -223,11 +285,19 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
     revisables.sort(key=lambda r: r["orden"])
     atencion = [r for r in revisables if r["prio"] == "ATENCIÓN"]
     seguimiento = [r for r in revisables if r["prio"] != "ATENCIÓN"]
-    n_cli = len({r["cliente"] for r in revisables})
-    resumen = (
-        "Atacar = acción ahora (alza fuerte, nocturno alto o CPA). "
-        "Seguimiento = no urgente."
-    )
+    n_sin_ctrl = sum(1 for r in atencion if not r.get("tiene_control"))
+    n_con_ctrl = sum(1 for r in atencion if r.get("tiene_control"))
+    if atencion:
+        resumen = (
+            f"De los {len(atencion)} a atacar: {n_sin_ctrl} sin control y "
+            f"{n_con_ctrl} con control. Una alza CON CONTROL significa que el "
+            "CPA/WES no la evitó; una alza SIN CONTROL corre sin corte."
+        )
+    else:
+        resumen = (
+            "Atacar = acción ahora. Diferenciar siempre si el punto tiene control "
+            "(CPA/WES) o no."
+        )
     periodo = f"Semana {_rango_es(start, end)}  ·  vs {_rango_es(prev_start, prev_end)}"
     footer = f"Consolidado semanal | {_rango_es(start, end)}"
     out_dir = Path("reports") / "CONSOLIDADO" / "SEMANAL"

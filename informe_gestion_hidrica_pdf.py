@@ -1004,7 +1004,7 @@ def render_consolidado_semanal(
     sin_alerta: Sequence[str],
     resumen: str,
 ) -> Path:
-    """Consolidado semanal: primero lo que hay que atacar, después el seguimiento."""
+    """Consolidado semanal en ~3 páginas: atacar (con/sin control) y seguimiento."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(out_path), pagesize=LETTER)
     logo = _logo_reader(resolve_logo())
@@ -1023,6 +1023,7 @@ def render_consolidado_semanal(
         n_ok=len(sin_alerta),
         top=y,
     )
+    y = _draw_leyenda_control(c, y)
     y = _draw_runs(c, [(resumen, False)], ML, y + 2, CONTENT_W, 8.5, GRAY, 12)
 
     y = _section(c, "Atacar esta semana", y - 4, 15)
@@ -1040,13 +1041,27 @@ def render_consolidado_semanal(
     else:
         y, page = _draw_prioridad_cards(c, atencion, y, page, new_page, footer)
 
-    if y < 200:
-        c.showPage()
-        page += 1
-        new_page(page)
-        y = PAGE_H - 58
-
-    y = _section(c, "Seguimiento", y - 6, 15)
+    c.showPage()
+    page += 1
+    new_page(page)
+    y = PAGE_H - 58
+    y = _section(c, "Seguimiento", y, 15)
+    y = _draw_runs(
+        c,
+        [
+            (
+                "No son urgentes. La columna CONTROL indica si el punto tiene CPA/WES: "
+                "un nocturno alto CON CONTROL pide revisar el corte; SIN CONTROL es caudal libre.",
+                False,
+            )
+        ],
+        ML,
+        y + 2,
+        CONTENT_W,
+        8.5,
+        GRAY,
+        12,
+    )
     if not seguimiento:
         y = _draw_runs(
             c,
@@ -1061,12 +1076,12 @@ def render_consolidado_semanal(
     else:
         y, page = _draw_seguimiento_table(c, seguimiento, y, page, new_page)
 
-    if y < 130:
+    if y < 150:
         c.showPage()
         page += 1
         new_page(page)
         y = PAGE_H - 58
-    y = _section(c, "Clientes sin puntos a revisar", y - 4, 15)
+    y = _section(c, "Clientes sin puntos a revisar", y - 6, 15)
     nota = (
         ", ".join(sin_alerta)
         if sin_alerta
@@ -1078,7 +1093,7 @@ def render_consolidado_semanal(
         [
             (
                 "Este consolidado no reemplaza el informe de fin de mes. "
-                "Se envía los lunes. El correo lista solo lo de Atacar.",
+                "Se envía los lunes. El correo lista solo lo de Atacar, indicando con/sin control.",
                 False,
             )
         ],
@@ -1091,6 +1106,47 @@ def render_consolidado_semanal(
     )
     c.save()
     return out_path
+
+
+def _draw_leyenda_control(c: canvas.Canvas, top: float) -> float:
+    h = 52
+    y = top - h
+    half = TABLE_W / 2
+    c.setFillColor(KPI_BG)
+    c.rect(TABLE_X, y, TABLE_W, h, fill=1, stroke=0)
+    c.setStrokeColor(HexColor("#BFD7E3"))
+    c.setLineWidth(0.5)
+    c.rect(TABLE_X, y, TABLE_W, h, fill=0, stroke=1)
+    c.setStrokeColor(white)
+    c.line(TABLE_X + half, y + 6, TABLE_X + half, y + h - 6)
+
+    bloques = [
+        (
+            TABLE_X + 10,
+            HexColor("#1E8449"),
+            "CON CONTROL",
+            "Tiene CPA/WES activo. Si el consumo sube, el equipo no evitó el aumento: "
+            "revisar corte, ventana o uso diurno.",
+        ),
+        (
+            TABLE_X + half + 10,
+            HexColor("#C0392B"),
+            "SIN CONTROL",
+            "No hay corte automático (o el CPA no está habilitado). "
+            "Si sube, el aumento corre libre.",
+        ),
+    ]
+    for x, color, titulo, cuerpo in bloques:
+        c.setFillColor(color)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(x, y + h - 14, titulo)
+        y_txt = y + h - 26
+        for line in _wrap(cuerpo, "Helvetica", 7.2, half - 22):
+            c.setFillColor(BODY)
+            c.setFont("Helvetica", 7.2)
+            c.drawString(x, y_txt, line)
+            y_txt -= 10
+    return y - 8
 
 
 def _draw_consolidado_kpis(c: canvas.Canvas, n_att: int, n_seg: int, n_ok: int, top: float) -> float:
@@ -1121,6 +1177,17 @@ def _draw_consolidado_kpis(c: canvas.Canvas, n_att: int, n_seg: int, n_ok: int, 
     return y - 10
 
 
+def _draw_control_badge(c: canvas.Canvas, etiqueta: str, x: float, y: float) -> None:
+    con = etiqueta == "CON CONTROL"
+    bg = HexColor("#1E8449") if con else HexColor("#C0392B")
+    w = 78 if con else 72
+    c.setFillColor(bg)
+    c.roundRect(x - w, y - 3, w, 12, 2, fill=1, stroke=0)
+    c.setFillColor(white)
+    c.setFont("Helvetica-Bold", 6.5)
+    c.drawCentredString(x - w / 2, y, etiqueta)
+
+
 def _draw_prioridad_cards(
     c: canvas.Canvas,
     filas: Sequence[Dict[str, str]],
@@ -1130,18 +1197,36 @@ def _draw_prioridad_cards(
     footer: str,
 ) -> Tuple[float, int]:
     x0 = TABLE_X
+    drawn_on_page = 0
     for i, r in enumerate(filas, 1):
+        limit = 2 if page == 1 else 3
         title = f"{r['cliente']}  ·  {r['punto']}"
-        meta = f"{r['m3']} m³   {r['wow']} vs prev.   noct. {r['noct']}"
-        title_lines = _wrap(title, "Helvetica-Bold", 9, TABLE_W - 52)
-        body_lines = _wrap(r["revisar"], "Helvetica", 8, TABLE_W - 52)
-        inner_h = 14 + 12 * len(title_lines) + 11 + 11 * len(body_lines)
-        inner_h = max(inner_h, 46)
-        if y - inner_h < 48:
+        prev = r.get("prev_m3") or "—"
+        meta = (
+            f"{r['m3']} m³ esta semana   vs {prev} m³   {r['wow']}   noct. {r['noct']}"
+        )
+        paso = r.get("lectura") or ""
+        hacer = r.get("revisar") or ""
+        title_lines = _wrap(title, "Helvetica-Bold", 9.5, TABLE_W - 130)
+        meta_lines = _wrap(meta, "Helvetica", 7.5, TABLE_W - 52)
+        paso_lines = _wrap("Qué pasó: " + paso, "Helvetica", 8, TABLE_W - 52)
+        hacer_lines = _wrap("Qué hacer: " + hacer, "Helvetica", 8, TABLE_W - 52)
+        inner_h = (
+            16
+            + 12 * len(title_lines)
+            + 11 * len(meta_lines)
+            + 12 * len(paso_lines)
+            + 12 * len(hacer_lines)
+            + 10
+        )
+        inner_h = max(inner_h, 88)
+        need_break = (y - inner_h < 52) or (drawn_on_page >= limit)
+        if need_break:
             c.showPage()
             page += 1
             new_page(page)
-            y = PAGE_H - 58
+            y = _section(c, "Atacar esta semana (cont.)", PAGE_H - 58, 15)
+            drawn_on_page = 0
         y0 = y - inner_h
         c.setFillColor(HALLAZGO_BG if i % 2 == 0 else HALLAZGO_BG_ALT)
         c.rect(x0, y0, TABLE_W, inner_h, fill=1, stroke=0)
@@ -1150,21 +1235,29 @@ def _draw_prioridad_cards(
         c.setFillColor(white)
         c.setFont("Helvetica-Bold", 14)
         c.drawCentredString(x0 + 24, y0 + inner_h / 2 - 4, str(i))
-        ty = y0 + inner_h - 14
-        c.setFont("Helvetica-Bold", 9)
+        ty = y0 + inner_h - 16
+        c.setFont("Helvetica-Bold", 9.5)
         for line in title_lines:
             c.drawString(x0 + 42, ty, line)
             ty -= 12
+        _draw_control_badge(c, str(r.get("control") or "SIN CONTROL"), x0 + TABLE_W - 10, y0 + inner_h - 16)
         c.setFont("Helvetica", 7.5)
         c.setFillColor(HexColor("#D6EAF8"))
-        c.drawString(x0 + 42, ty, meta)
-        ty -= 12
-        c.setFillColor(white)
-        c.setFont("Helvetica", 8)
-        for line in body_lines:
+        for line in meta_lines:
             c.drawString(x0 + 42, ty, line)
             ty -= 11
-        y = y0 - 3
+        ty -= 2
+        c.setFillColor(HexColor("#F9E79F"))
+        c.setFont("Helvetica", 8)
+        for line in paso_lines:
+            c.drawString(x0 + 42, ty, line)
+            ty -= 12
+        c.setFillColor(white)
+        for line in hacer_lines:
+            c.drawString(x0 + 42, ty, line)
+            ty -= 12
+        y = y0 - 6
+        drawn_on_page += 1
     return y - 8, page
 
 
@@ -1175,14 +1268,25 @@ def _draw_seguimiento_table(
     page: int,
     new_page,
 ) -> Tuple[float, int]:
-    col_ws = [82.0, 100.0, 54.0, 54.0, 44.0, TABLE_W - 82.0 - 100.0 - 54.0 - 54.0 - 44.0]
-    headers = ["CLIENTE", "PUNTO", "m³ SEM.", "VS PREV.", "NOCT.", "QUÉ REVISAR"]
-    rows = [[r["cliente"], r["punto"], r["m3"], r["wow"], r["noct"], r["revisar"]] for r in filas]
+    col_ws = [72.0, 86.0, 78.0, 50.0, 48.0, 40.0, TABLE_W - 72.0 - 86.0 - 78.0 - 50.0 - 48.0 - 40.0]
+    headers = ["CLIENTE", "PUNTO", "CONTROL", "m³ SEM.", "VS PREV.", "NOCT.", "QUÉ REVISAR"]
+    rows = [
+        [
+            r["cliente"],
+            r["punto"],
+            r.get("control") or "—",
+            r["m3"],
+            r["wow"],
+            r["noct"],
+            r["revisar"],
+        ]
+        for r in filas
+    ]
     remaining = list(rows)
     first = True
     while remaining:
         chunk = []
-        limit = 10 if first else 14
+        limit = 8 if first else 12
         while remaining and len(chunk) < limit:
             chunk.append(remaining.pop(0))
         if y < 160 and not first:
@@ -1190,12 +1294,12 @@ def _draw_seguimiento_table(
             page += 1
             new_page(page)
             y = _section(c, "Seguimiento (cont.)", PAGE_H - 58, 15)
-        elif y < 200 and first:
+        elif y < 180 and first:
             c.showPage()
             page += 1
             new_page(page)
             y = _section(c, "Seguimiento", PAGE_H - 58, 15)
-        y = _draw_table(c, headers, chunk, col_ws, y - 4, font_size=7.2)
+        y = _draw_table(c, headers, chunk, col_ws, y - 4, font_size=7.0)
         first = False
         if remaining:
             c.showPage()
