@@ -18,6 +18,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 from matplotlib.patches import Patch
 from PIL import Image as PILImage
 from reportlab.lib.colors import Color, HexColor, white
@@ -769,6 +770,73 @@ def build_chart_nocturno(
     return path
 
 
+def build_chart_datos_perdidos(
+    path: Path,
+    filas: Sequence[dict],
+    fechas: Sequence[datetime],
+) -> Path:
+    """Heatmap lun–dom: navy = hay lectura, rojo = día sin dato."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not filas or not fechas:
+        fig, ax = plt.subplots(figsize=(8.4, 1.6), dpi=160)
+        ax.axis("off")
+        ax.text(0.5, 0.5, "Sin huecos esta semana", ha="center", va="center", color="#677681")
+        fig.savefig(path, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        return path
+
+    dias_lbl = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+    xlabels = [f"{dias_lbl[d.weekday()]} {d.day}" for d in fechas]
+    ylabels = []
+    for f in filas:
+        lab = str(f.get("label") or f.get("punto") or "—")
+        if len(lab) > 34:
+            lab = lab[:32] + "…"
+        n_miss = int(f.get("n_missing") or 0)
+        ylabels.append(f"{lab}  ({n_miss})")
+
+    mat = [[1.0 if t else 0.0 for t in (f.get("tiene") or [])] for f in filas]
+    n_rows = len(mat)
+    n_cols = len(fechas)
+    fig_h = max(2.35, min(6.4, 1.15 + 0.38 * n_rows))
+    fig, ax = plt.subplots(figsize=(8.4, fig_h), dpi=160)
+    cmap = ListedColormap(["#C0392B", "#003B64"])
+    ax.imshow(mat, aspect="auto", cmap=cmap, vmin=0, vmax=1, interpolation="nearest")
+    ax.set_xticks(range(n_cols))
+    ax.set_xticklabels(xlabels, fontsize=8)
+    ax.set_yticks(range(n_rows))
+    ax.set_yticklabels(ylabels, fontsize=8)
+    ax.set_xticks([x - 0.5 for x in range(n_cols + 1)], minor=True)
+    ax.set_yticks([y - 0.5 for y in range(n_rows + 1)], minor=True)
+    ax.grid(which="minor", color="white", linestyle="-", linewidth=1.6)
+    ax.tick_params(which="minor", bottom=False, left=False)
+    ax.tick_params(colors="#677681", length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_title(
+        "Días con y sin dato esta semana",
+        fontsize=10,
+        fontweight="bold",
+        color="#003B64",
+        pad=10,
+    )
+    ax.legend(
+        handles=[
+            Patch(facecolor="#003B64", edgecolor="none", label="Hay lectura"),
+            Patch(facecolor="#C0392B", edgecolor="none", label="Sin dato"),
+        ],
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.12),
+        ncol=2,
+        frameon=False,
+        fontsize=8,
+    )
+    fig.tight_layout()
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return path
+
+
 def build_chart_diario(path: Path, serie: SerieDiaria) -> Path:
     fig, ax = plt.subplots(figsize=(8.4, 1.55), dpi=160)
     xs = serie.fechas
@@ -1004,8 +1072,11 @@ def render_consolidado_semanal(
     seguimiento: Sequence[Dict[str, str]],
     sin_alerta: Sequence[str],
     resumen: str,
+    chart_perdidos: Optional[Path] = None,
+    nota_perdidos: str = "",
+    n_perdidos: int = 0,
 ) -> Path:
-    """3 páginas: sin control (WES), aviso al cliente, seguimiento."""
+    """4 páginas: sin control (WES), aviso al cliente, datos perdidos, seguimiento."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(out_path), pagesize=LETTER)
     logo = _logo_reader(resolve_logo())
@@ -1079,6 +1150,33 @@ def render_consolidado_semanal(
         y, page = _draw_prioridad_cards(
             c, avisos, y, page, new_page, footer, seccion="Aviso al cliente (cont.)"
         )
+
+    c.showPage()
+    page += 1
+    new_page(page)
+    y = _section(c, "Datos perdidos esta semana", PAGE_H - 58, 15)
+    intro = (
+        "Puntos con al menos un día sin registro (lunes a domingo). "
+        "Azul = hay lectura. Rojo = sin dato; no se interpola."
+    )
+    y = _draw_runs(c, [(intro, False)], ML, y + 2, CONTENT_W, 8.5, GRAY, 12)
+    if chart_perdidos is not None and Path(chart_perdidos).is_file():
+        n = max(1, min(14, int(n_perdidos or 8)))
+        chart_h = min(380.0, max(240.0, 70.0 + 28.0 * n))
+        y = _draw_image(c, Path(chart_perdidos), y - 2, chart_h)
+    else:
+        y = _draw_runs(
+            c,
+            [("Todos los puntos del lote tienen los 7 días de la semana.", False)],
+            ML,
+            y + 2,
+            CONTENT_W,
+            9,
+            BODY,
+            13,
+        )
+    if nota_perdidos:
+        y = _draw_runs(c, [(nota_perdidos, False)], ML, y - 2, CONTENT_W, 8, BODY, 12)
 
     c.showPage()
     page += 1
@@ -1373,6 +1471,7 @@ __all__ = [
     "build_chart_6_meses",
     "build_chart_puntos",
     "build_chart_nocturno",
+    "build_chart_datos_perdidos",
     "render_one_pager",
     "render_mensual",
     "render_consolidado_semanal",
