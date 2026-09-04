@@ -37,6 +37,15 @@ from informe_gestion_hidrica_pdf import render_consolidado_semanal
 PRIO_ORDEN = {"ATENCIÓN": 0, "SEGUIMIENTO": 1}
 
 
+def _fecha_corta(iso: Optional[str]) -> str:
+    if not iso:
+        return ""
+    try:
+        return datetime.strptime(str(iso)[:10], "%Y-%m-%d").strftime("%d/%m")
+    except ValueError:
+        return ""
+
+
 def clientes_seguimiento() -> List[dict]:
     out: List[dict] = []
     seen = set()
@@ -63,60 +72,16 @@ def _nodo_por_id(data: dict, node_id: str) -> Optional[dict]:
     return None
 
 
-def _evaluar_punto(cfg: dict, nodo: dict, prev: Optional[dict]) -> Optional[Dict[str, Any]]:
-    total = float(nodo.get("total") or 0)
-    noct = float(nodo.get("nocturno_m3") or 0)
-    pct = (noct / total * 100.0) if total else 0.0
-    prev_t = float(prev.get("total") or 0) if prev else 0.0
-    wow = _wow(total, prev_t)
-    dias = max(int(nodo.get("dias") or 7), 1)
-    avg = total / dias
-    mx = float(nodo.get("max_m3") or 0)
-    es_matriz = nodo.get("node_id") == cfg.get("matriz_id")
-    additive = bool(cfg.get("additive"))
-    explain = cfg.get("nocturnal_explain")
-    motivos: List[str] = []
-    prio: Optional[str] = None
-
-    if total < 10 and cfg.get("cpa_estado") != "instalado_pendiente":
-        return None
-
-    if cfg.get("cpa_estado") == "instalado_pendiente" and (es_matriz or additive):
-        motivos.append("CPA instalado, falta activar")
-        prio = "ATENCIÓN"
-
-    noct_ok = True
-    if not additive and not es_matriz:
-        noct_ok = False
-
-    if noct_ok:
-        if pct >= 35:
-            motivos.append(f"nocturno {_fmt(round(pct), 0)} %")
-            prio = "ATENCIÓN"
-        elif pct >= 18:
-            if explain in ("wes", "mercado"):
-                pass
-            elif explain == "bombas_estanques":
-                motivos.append(f"nocturno {_fmt(round(pct), 0)} % (bombas/estanques)")
-                prio = prio or "SEGUIMIENTO"
-            else:
-                motivos.append(f"nocturno {_fmt(round(pct), 0)} %")
-                prio = prio or "SEGUIMIENTO"
-
-    if wow is not None and wow >= 25:
-        motivos.append(f"subió {_fmt(wow, 0)} % vs semana previa")
-        prio = "ATENCIÓN"
-    elif wow is not None and wow >= 15:
-        motivos.append(f"subió {_fmt(wow, 0)} % vs semana previa")
-        prio = prio or "SEGUIMIENTO"
-
-    if avg > 0 and mx >= max(2.5 * avg, 8.0):
-        motivos.append(f"pico {_fmt(mx, 1)} m³")
-        prio = prio or "SEGUIMIENTO"
-
-    if not motivos or not prio:
-        return None
-
+def _fila(
+    cfg: dict,
+    nodo: dict,
+    *,
+    prio: str,
+    motivos: List[str],
+    total: float,
+    pct: float,
+    wow: Optional[float],
+) -> Dict[str, Any]:
     wow_txt = "—"
     if wow is not None:
         wow_txt = f"+{_fmt(wow, 0)} %" if wow >= 0 else f"−{_fmt(abs(wow), 0)} %"
@@ -124,21 +89,108 @@ def _evaluar_punto(cfg: dict, nodo: dict, prev: Optional[dict]) -> Optional[Dict
         "prio": prio,
         "cliente": cfg["cliente"],
         "punto": nodo.get("short_name") or nodo.get("node_id"),
+        "node_id": nodo.get("node_id"),
         "m3": _fmt(total, 1),
         "wow": wow_txt,
         "noct": f"{_fmt(round(pct), 0)} %",
         "revisar": "; ".join(motivos),
         "orden": (PRIO_ORDEN.get(prio, 9), -total),
+        "total": total,
     }
+
+
+def _evaluar_punto(cfg: dict, nodo: dict, prev: Optional[dict]) -> Optional[Dict[str, Any]]:
+    total = float(nodo.get("total") or 0)
+    noct = float(nodo.get("nocturno_m3") or 0)
+    pct = (noct / total * 100.0) if total else 0.0
+    prev_t = float(prev.get("total") or 0) if prev else 0.0
+    prev_dias = int(prev.get("dias") or 0) if prev else 0
+    dias = int(nodo.get("dias") or 0)
+    wow = _wow(total, prev_t) if prev_dias >= 5 and dias >= 5 and prev_t >= 20 else None
+    avg = total / max(dias, 1)
+    mx = float(nodo.get("max_m3") or 0)
+    es_matriz = nodo.get("node_id") == cfg.get("matriz_id")
+    additive = bool(cfg.get("additive"))
+    explain = cfg.get("nocturnal_explain")
+    motivos: List[str] = []
+    prio: Optional[str] = None
+
+    if total < 20 or dias < 5:
+        return None
+    # Encadenados (Zapallar / Inchcape): solo la matriz. COPEC sí informa interiores.
+    if (
+        not additive
+        and cfg.get("matriz_id")
+        and not es_matriz
+        and explain in ("bombas_estanques", "wes")
+    ):
+        return None
+
+    nombre = (nodo.get("short_name") or "").lower()
+    infra_noct = any(k in nombre for k in ("estanque", "pozo"))
+    noct_ok = additive or es_matriz or not cfg.get("matriz_id")
+    if noct_ok and explain not in ("wes", "mercado") and not infra_noct:
+        if round(pct) >= 35:
+            motivos.append(f"Revisar consumo 22–06 h ({_fmt(round(pct), 0)} % nocturno)")
+            prio = "ATENCIÓN"
+        elif round(pct) >= 25 and explain not in ("bombas_estanques", "piscina") and total >= 50:
+            motivos.append(f"Revisar consumo 22–06 h ({_fmt(round(pct), 0)} % nocturno)")
+            prio = prio or "SEGUIMIENTO"
+
+    if wow is not None and wow >= 40 and total >= 50:
+        motivos.append(f"Confirmar alza de {_fmt(wow, 0)} % vs semana previa")
+        prio = "ATENCIÓN"
+    elif wow is not None and wow >= 25 and total >= 80:
+        motivos.append(f"Confirmar alza de {_fmt(wow, 0)} % vs semana previa")
+        prio = prio or "SEGUIMIENTO"
+
+    if avg > 0 and mx >= max(3.0 * avg, 20.0) and (wow is None or wow >= 0):
+        when = _fecha_corta(str(nodo.get("max_fecha") or ""))
+        extra = f" el {when}" if when else ""
+        motivos.append(f"Revisar día pico ({_fmt(mx, 1)} m³{extra})")
+        prio = prio or "SEGUIMIENTO"
+
+    if not motivos or not prio:
+        return None
+    return _fila(cfg, nodo, prio=prio, motivos=motivos, total=total, pct=pct, wow=wow)
 
 
 def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict], bool]:
     filas: List[dict] = []
-    for nodo in data.get("nodos") or []:
+    nodos = list(data.get("nodos") or [])
+    for nodo in nodos:
         prev = _nodo_por_id(data_prev, nodo["node_id"])
         fila = _evaluar_punto(cfg, nodo, prev)
         if fila:
             filas.append(fila)
+    if cfg.get("cpa_estado") == "instalado_pendiente" and nodos:
+        top = max(nodos, key=lambda n: float(n.get("total") or 0))
+        top_id = top.get("node_id")
+        cpa_txt = "Activar el CPA (instalado, aún no habilitado)"
+        if not any(f.get("node_id") == top_id for f in filas):
+            total = float(top.get("total") or 0)
+            noct = float(top.get("nocturno_m3") or 0)
+            pct = (noct / total * 100.0) if total else 0.0
+            prev = _nodo_por_id(data_prev, top_id)
+            prev_t = float(prev.get("total") or 0) if prev else 0.0
+            wow = _wow(total, prev_t)
+            filas.append(
+                _fila(
+                    cfg,
+                    top,
+                    prio="ATENCIÓN",
+                    motivos=[cpa_txt],
+                    total=total,
+                    pct=pct,
+                    wow=wow,
+                )
+            )
+        else:
+            for f in filas:
+                if f.get("node_id") == top_id and "CPA" not in f["revisar"]:
+                    f["revisar"] = cpa_txt + "; " + f["revisar"]
+                    f["prio"] = "ATENCIÓN"
+                    f["orden"] = (0, f["orden"][1])
     return filas, bool(filas)
 
 
@@ -169,14 +221,12 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
             print(f"  {base['cliente']}: sin alerta", flush=True)
 
     revisables.sort(key=lambda r: r["orden"])
-    table = [
-        [r["cliente"], r["punto"], r["m3"], r["wow"], r["noct"], r["revisar"]]
-        for r in revisables
-    ]
+    atencion = [r for r in revisables if r["prio"] == "ATENCIÓN"]
+    seguimiento = [r for r in revisables if r["prio"] != "ATENCIÓN"]
     n_cli = len({r["cliente"] for r in revisables})
     resumen = (
-        f"{len(revisables)} punto(s) a revisar en {n_cli} cliente(s). "
-        f"{len(sin_alerta)} cliente(s) sin alerta esta semana."
+        "Atacar = acción ahora (alza fuerte, nocturno alto o CPA). "
+        "Seguimiento = no urgente."
     )
     periodo = f"Semana {_rango_es(start, end)}  ·  vs {_rango_es(prev_start, prev_end)}"
     footer = f"Consolidado semanal | {_rango_es(start, end)}"
@@ -188,7 +238,8 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
         out,
         periodo=periodo,
         footer=footer,
-        filas=table,
+        atencion=atencion,
+        seguimiento=seguimiento,
         sin_alerta=sin_alerta,
         resumen=resumen,
     )

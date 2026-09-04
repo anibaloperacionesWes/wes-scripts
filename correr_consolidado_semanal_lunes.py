@@ -12,7 +12,8 @@ Automatización Cursor (igual que puntos en cero diario):
     Genera el PDF consolidado de la semana lunes–domingo anterior, súbelo a
     Drive (CONSOLIDADO/SEMANAL) y envíalo a juanlopez@wes.cl y
     anibal.aoperaciones@wes.cl. No enviar a Diego. El correo debe listar
-    los puntos a revisar. Si un cliente falla, seguir con el resto.
+    solo los puntos a ATACAR esta semana (ATENCIÓN). El PDF incluye el
+    seguimiento. Si un cliente falla, seguir con el resto.
 
 Uso:
   python correr_consolidado_semanal_lunes.py

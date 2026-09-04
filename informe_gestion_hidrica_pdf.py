@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import matplotlib
 
@@ -999,16 +999,15 @@ def render_consolidado_semanal(
     *,
     periodo: str,
     footer: str,
-    filas: Sequence[Sequence[str]],
+    atencion: Sequence[Dict[str, str]],
+    seguimiento: Sequence[Dict[str, str]],
     sin_alerta: Sequence[str],
     resumen: str,
 ) -> Path:
-    """One/two-page weekly consolidado: points to review this week."""
+    """Consolidado semanal: primero lo que hay que atacar, después el seguimiento."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(out_path), pagesize=LETTER)
     logo = _logo_reader(resolve_logo())
-    col_ws = [88.0, 108.0, 58.0, 58.0, 48.0, TABLE_W - 88.0 - 108.0 - 58.0 - 58.0 - 48.0]
-    headers = ["CLIENTE", "PUNTO", "m³ SEM.", "VS PREV.", "NOCT.", "QUÉ REVISAR"]
 
     def new_page(n: int) -> None:
         _draw_header(c, logo)
@@ -1016,51 +1015,53 @@ def render_consolidado_semanal(
 
     page = 1
     new_page(page)
-    y = _draw_title_block(
-        c, "Seguimiento semanal consolidado", periodo, PAGE_H - 61
-    )
-    y = _section(c, "Puntos a revisar esta semana", y - 2, 15)
-    y = _draw_runs(
+    y = _draw_title_block(c, "Qué atacar esta semana", periodo, PAGE_H - 61)
+    y = _draw_consolidado_kpis(
         c,
-        [(resumen, False)],
-        ML,
-        y + 2,
-        CONTENT_W,
-        9,
-        BODY,
-        13,
+        n_att=len(atencion),
+        n_seg=len(seguimiento),
+        n_ok=len(sin_alerta),
+        top=y,
     )
+    y = _draw_runs(c, [(resumen, False)], ML, y + 2, CONTENT_W, 8.5, GRAY, 12)
 
-    remaining = list(filas)
-    if not remaining:
+    y = _section(c, "Atacar esta semana", y - 4, 15)
+    if not atencion:
         y = _draw_runs(
             c,
-            [("Ningún punto cumple criterio de revisión esta semana.", False)],
+            [("Ningún punto en atención esta semana.", False)],
             ML,
-            y - 4,
+            y + 2,
             CONTENT_W,
             9,
             BODY,
             13,
         )
     else:
-        chunk: List[Sequence[str]] = []
-        first = True
-        while remaining:
-            chunk.append(remaining.pop(0))
-            # keep first page shorter so the table plus note fit
-            limit = 9 if first else 14
-            if len(chunk) >= limit or not remaining:
-                y = _draw_table(c, headers, chunk, col_ws, y - 6, font_size=7.2)
-                chunk = []
-                first = False
-                if remaining:
-                    c.showPage()
-                    page += 1
-                    new_page(page)
-                    y = _section(c, "Puntos a revisar (cont.)", PAGE_H - 58, 15)
+        y, page = _draw_prioridad_cards(c, atencion, y, page, new_page, footer)
 
-    if y < 140:
+    if y < 200:
+        c.showPage()
+        page += 1
+        new_page(page)
+        y = PAGE_H - 58
+
+    y = _section(c, "Seguimiento", y - 6, 15)
+    if not seguimiento:
+        y = _draw_runs(
+            c,
+            [("Sin puntos adicionales de seguimiento.", False)],
+            ML,
+            y + 2,
+            CONTENT_W,
+            9,
+            BODY,
+            13,
+        )
+    else:
+        y, page = _draw_seguimiento_table(c, seguimiento, y, page, new_page)
+
+    if y < 130:
         c.showPage()
         page += 1
         new_page(page)
@@ -1072,13 +1073,12 @@ def render_consolidado_semanal(
         else "Todos los clientes del lote tienen al menos un punto a revisar."
     )
     y = _draw_runs(c, [(nota, False)], ML, y + 2, CONTENT_W, 9, BODY, 13)
-    y = _draw_runs(
+    _draw_runs(
         c,
         [
             (
                 "Este consolidado no reemplaza el informe de fin de mes. "
-                "Se envía los lunes para atacar alzas, picos o nocturno anómalo "
-                "antes del cierre.",
+                "Se envía los lunes. El correo lista solo lo de Atacar.",
                 False,
             )
         ],
@@ -1091,6 +1091,118 @@ def render_consolidado_semanal(
     )
     c.save()
     return out_path
+
+
+def _draw_consolidado_kpis(c: canvas.Canvas, n_att: int, n_seg: int, n_ok: int, top: float) -> float:
+    h = 44
+    y = top - h
+    col_w = TABLE_W / 3
+    items = [
+        (str(n_att), "A atacar esta semana", HexColor("#C0392B")),
+        (str(n_seg), "En seguimiento", HexColor("#B9770E")),
+        (str(n_ok), "Clientes sin alerta", HexColor("#1E8449")),
+    ]
+    c.setFillColor(KPI_BG)
+    c.rect(TABLE_X, y, TABLE_W, h, fill=1, stroke=0)
+    c.setStrokeColor(HexColor("#BFD7E3"))
+    c.setLineWidth(0.5)
+    c.rect(TABLE_X, y, TABLE_W, h, fill=0, stroke=1)
+    for i, (val, lab, color) in enumerate(items):
+        cx = TABLE_X + i * col_w + col_w / 2
+        if i:
+            c.setStrokeColor(white)
+            c.line(TABLE_X + i * col_w, y, TABLE_X + i * col_w, y + h)
+        c.setFillColor(color)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawCentredString(cx, y + 22, val)
+        c.setFillColor(GRAY)
+        c.setFont("Helvetica", 7.5)
+        c.drawCentredString(cx, y + 8, lab)
+    return y - 10
+
+
+def _draw_prioridad_cards(
+    c: canvas.Canvas,
+    filas: Sequence[Dict[str, str]],
+    y: float,
+    page: int,
+    new_page,
+    footer: str,
+) -> Tuple[float, int]:
+    x0 = TABLE_X
+    for i, r in enumerate(filas, 1):
+        title = f"{r['cliente']}  ·  {r['punto']}"
+        meta = f"{r['m3']} m³   {r['wow']} vs prev.   noct. {r['noct']}"
+        title_lines = _wrap(title, "Helvetica-Bold", 9, TABLE_W - 52)
+        body_lines = _wrap(r["revisar"], "Helvetica", 8, TABLE_W - 52)
+        inner_h = 14 + 12 * len(title_lines) + 11 + 11 * len(body_lines)
+        inner_h = max(inner_h, 46)
+        if y - inner_h < 48:
+            c.showPage()
+            page += 1
+            new_page(page)
+            y = PAGE_H - 58
+        y0 = y - inner_h
+        c.setFillColor(HALLAZGO_BG if i % 2 == 0 else HALLAZGO_BG_ALT)
+        c.rect(x0, y0, TABLE_W, inner_h, fill=1, stroke=0)
+        c.setFillColor(PRIO_ATENCION)
+        c.rect(x0, y0, 6, inner_h, fill=1, stroke=0)
+        c.setFillColor(white)
+        c.setFont("Helvetica-Bold", 14)
+        c.drawCentredString(x0 + 24, y0 + inner_h / 2 - 4, str(i))
+        ty = y0 + inner_h - 14
+        c.setFont("Helvetica-Bold", 9)
+        for line in title_lines:
+            c.drawString(x0 + 42, ty, line)
+            ty -= 12
+        c.setFont("Helvetica", 7.5)
+        c.setFillColor(HexColor("#D6EAF8"))
+        c.drawString(x0 + 42, ty, meta)
+        ty -= 12
+        c.setFillColor(white)
+        c.setFont("Helvetica", 8)
+        for line in body_lines:
+            c.drawString(x0 + 42, ty, line)
+            ty -= 11
+        y = y0 - 3
+    return y - 8, page
+
+
+def _draw_seguimiento_table(
+    c: canvas.Canvas,
+    filas: Sequence[Dict[str, str]],
+    y: float,
+    page: int,
+    new_page,
+) -> Tuple[float, int]:
+    col_ws = [82.0, 100.0, 54.0, 54.0, 44.0, TABLE_W - 82.0 - 100.0 - 54.0 - 54.0 - 44.0]
+    headers = ["CLIENTE", "PUNTO", "m³ SEM.", "VS PREV.", "NOCT.", "QUÉ REVISAR"]
+    rows = [[r["cliente"], r["punto"], r["m3"], r["wow"], r["noct"], r["revisar"]] for r in filas]
+    remaining = list(rows)
+    first = True
+    while remaining:
+        chunk = []
+        limit = 10 if first else 14
+        while remaining and len(chunk) < limit:
+            chunk.append(remaining.pop(0))
+        if y < 160 and not first:
+            c.showPage()
+            page += 1
+            new_page(page)
+            y = _section(c, "Seguimiento (cont.)", PAGE_H - 58, 15)
+        elif y < 200 and first:
+            c.showPage()
+            page += 1
+            new_page(page)
+            y = _section(c, "Seguimiento", PAGE_H - 58, 15)
+        y = _draw_table(c, headers, chunk, col_ws, y - 4, font_size=7.2)
+        first = False
+        if remaining:
+            c.showPage()
+            page += 1
+            new_page(page)
+            y = _section(c, "Seguimiento (cont.)", PAGE_H - 58, 15)
+    return y, page
 
 
 # re-export helpers used by the Inchcape runner

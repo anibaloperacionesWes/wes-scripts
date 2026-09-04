@@ -62,27 +62,32 @@ def enviar(
         raise FileNotFoundError(f"No existe {pdf}")
     print(f"[OK] {pdf.name} ({pdf.stat().st_size // 1024} KB)")
 
-    if filas:
+    atacar = [r for r in filas if r.get("prio") == "ATENCIÓN"]
+    n_seg = sum(1 for r in filas if r.get("prio") == "SEGUIMIENTO")
+    mostrar = atacar[:6]
+    if mostrar:
         lista = "\n".join(
             f"  • {r['cliente']} — {r['punto']}: {r['revisar']} "
             f"({r['m3']} m³, noct {r['noct']}, {r['wow']} vs prev.)"
-            for r in filas
+            for r in mostrar
         )
+        if len(atacar) > 6:
+            lista += f"\n  • … y {len(atacar) - 6} más en el PDF."
     else:
-        lista = "  • Ningún punto cumple criterio de revisión esta semana."
+        lista = "  • Ningún punto para atacar esta semana."
     ok = ", ".join(sin_alerta) if sin_alerta else "—"
     cuerpo = (
         "Estimados Juan y Aníbal,\n\n"
-        f"Consolidado de seguimiento SEMANAL ({periodo}).\n"
-        "No reemplaza el informe de fin de mes: indica qué puntos revisar "
-        "esta semana para atacar alzas, picos o nocturno anómalo antes del cierre.\n\n"
-        "Puntos a revisar:\n"
+        f"Semana {periodo}. Para atacar ahora — no reemplaza el cierre mensual.\n\n"
+        f"Atacar esta semana ({len(atacar)}):\n"
         f"{lista}\n\n"
-        f"Sin alerta: {ok}\n\n"
+        f"El PDF adjunto trae el detalle y {n_seg} punto(s) en seguimiento "
+        "(no urgentes; conviene mirarlos si hay tiempo).\n"
+        f"Clientes sin alerta: {ok}\n\n"
         + (f"También en Drive:\n  • {drive}\n\n" if drive else "")
-        + "Saludos cordiales,\nSistema WES\n"
+        + "Saludos cordiales,\nAgente IA WES\n"
     )
-    asunto = f"Consolidado semanal gestión hídrica — {periodo} — puntos a revisar"
+    asunto = f"WES · Semana {periodo} · {len(atacar)} punto(s) a atacar"
 
     if dry_run:
         print(f"\n[DRY-RUN] Asunto: {asunto}")
