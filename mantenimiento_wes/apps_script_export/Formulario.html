@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21AA</title>
+  <title>Acta de visita WES · 21AB</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -333,7 +333,17 @@
           </div>
           <div>
             <label for="tecnico">Técnico WES *</label>
-            <select id="tecnico" required></select>
+            <select id="tecnico" required>
+              <option value="">— seleccionar —</option>
+              <option value="Mauricio Orellana">Mauricio Orellana</option>
+              <option value="Anibal Aranda">Anibal Aranda</option>
+              <option value="Jose Otarola">Jose Otarola</option>
+              <option value="Gabriel Prieto">Gabriel Prieto</option>
+              <option value="Mirko Lorca">Mirko Lorca</option>
+              <option value="Cristian Sepulveda">Cristian Sepulveda</option>
+              <option value="Salvador Cantillana">Salvador Cantillana</option>
+              <option value="Jeans Araya">Jeans Araya</option>
+            </select>
           </div>
         </div>
         <div class="row">
@@ -365,7 +375,7 @@
         <p class="note" style="margin:6px 0 0">Visita física = en terreno (firma obligatoria). Soporte a distancia = sin firma; tipo de falla = motivo remoto.</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21AA</div>
+        <div class="build-tag" id="form_build">WES-build-21AB</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -482,7 +492,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21AA";
+    var FORM_BUILD = "WES-build-21AB";
     /** Motivos de falla/trabajo típicos en soporte a distancia (van en tipo_falla). */
     var TIPOS_FALLA_REMOTO = [
       "Programación de auditoría",
@@ -879,17 +889,29 @@
     }
 
     function fillSelect(sel, items, blank = "— seleccionar —") {
+      if (!sel) return;
+      items = items || [];
       sel.innerHTML = "";
       const o0 = document.createElement("option");
       o0.value = "";
       o0.textContent = blank;
       sel.appendChild(o0);
-      for (const it of items) {
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        if (it === undefined || it === null || it === "") continue;
         const o = document.createElement("option");
         o.value = it;
         o.textContent = it;
         sel.appendChild(o);
       }
+    }
+
+    function ensureTecnicosSelect() {
+      var sel = document.getElementById("tecnico");
+      if (!sel) return;
+      // Si ya hay opciones hardcodeadas (>1), no borrar salvo que pedamos refill.
+      if (sel.options && sel.options.length > 1) return;
+      fillSelect(sel, TECNICOS_FIJOS);
     }
 
     function chips(container, name, options, multi = true) {
@@ -1341,6 +1363,8 @@
 
 
     async function boot() {
+      // Técnicos YA vienen en el HTML; reforzar antes de cualquier await.
+      try { ensureTecnicosSelect(); } catch (eTec0) {}
       // Fecha/hora primero: si algo falla después, el form igual queda usable.
       try {
         document.getElementById("fecha").value = todayISO();
@@ -1349,11 +1373,14 @@
           String(now0.getHours()).padStart(2, "0") + ":" + String(now0.getMinutes()).padStart(2, "0");
       } catch (eFecha) {}
 
-      await loadCatalogos();
+      try {
+        await loadCatalogos();
+      } catch (eCat) {}
       const c = state.catalogos || {};
       const op = (c && c.opciones) || {};
       const clientes = Object.keys(c.clientes_maquinas || {}).sort();
       fillSelect(document.getElementById("cliente"), clientes);
+      // Siempre lista fija de técnicos (no vaciar con catalogos vacío).
       fillSelect(document.getElementById("tecnico"), TECNICOS_FIJOS);
       // Lista fija: incluye Soporte remoto (no depender de catalogos viejo en Apps Script).
       var TIPOS_MTTO_FIJOS = [
