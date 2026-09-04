@@ -856,7 +856,7 @@ def build_chart_datos_perdidos(
     ax2.set_yticks(y, labels=ylabels, fontsize=8)
     ax2.invert_yaxis()
     ax2.set_xlabel("Días de la semana", fontsize=8, fontweight="bold")
-    ax2.set_xlim(0, n_cols)
+    ax2.set_xlim(0, n_cols + 0.85)
     ax2.set_xticks(range(n_cols + 1))
     ax2.set_title(
         "Cobertura por punto (7 días)",
@@ -879,14 +879,17 @@ def build_chart_datos_perdidos(
                 fontweight="bold",
                 color="#C0392B",
             )
-    ax2.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.18),
+    fig.legend(
+        handles=[
+            Patch(facecolor="#003B64", edgecolor="none", label="Días con dato"),
+            Patch(facecolor="#C0392B", edgecolor="none", label="Días sin dato"),
+        ],
+        loc="lower center",
         ncol=2,
         frameon=False,
         fontsize=8,
     )
-    fig.tight_layout()
+    fig.subplots_adjust(hspace=0.40, bottom=0.11, left=0.22, right=0.97, top=0.93)
     fig.savefig(path, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return path
