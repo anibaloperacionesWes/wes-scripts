@@ -71,7 +71,7 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES · 21X')
+    .setTitle('Acta de visita WES · 21Y')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -277,7 +277,7 @@ function procesarVisita(data) {
 function getWesApiVersion() {
   return {
     ok: true,
-    version: '21X',
+    version: '21Y',
     has_listar_ots: true,
     has_procesar: true,
     formulario_drive_id: FORMULARIO_HTML_DRIVE_ID

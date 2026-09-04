@@ -14,8 +14,8 @@ https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd
 
 | Archivo | Cómo llega al /exec |
 |---------|---------------------|
-| **Formulario** (HTML) | `loadFormularioTemplate_()` lee Drive en cada `doGet`. Subir TXT → refrescar form. Build HTML actual: **21S**. |
-| **Codigo** (.gs) | Pegar en Apps Script + **Nueva versión** del `/exec`. API actual en repo/Drive: **21T**. |
+| **Formulario** (HTML) | `loadFormularioTemplate_()` lee Drive en cada `doGet`. Subir TXT → refrescar form. Build HTML actual: **21Y**. |
+| **Codigo** (.gs) | Pegar en Apps Script + **Nueva versión** del `/exec`. API actual en repo/Drive: **21Y**. |
 
 ### TXT Drive
 
@@ -31,7 +31,7 @@ Ctrl+F en Apps Script → Codigo:
 
 - `procesarVisita`
 - `listarOTsPendientes`
-- `getWesApiVersion` (debe devolver `version: 21T`)
+- `getWesApiVersion` (debe devolver `version: 21Y`)
 - `getRange(found.row, 1, 1, row.length)` ← fix cierre OT
 
 ## Funciones clave
