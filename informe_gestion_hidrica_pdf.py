@@ -772,124 +772,67 @@ def build_chart_nocturno(
 def build_chart_datos_perdidos(
     path: Path,
     filas: Sequence[dict],
-    fechas: Sequence[datetime],
+    fechas: Sequence[datetime] | None = None,
+    *,
+    titulo: str = "",
 ) -> Path:
-    """Barras lun–dom: puntos sin dato cada día + días perdidos por punto."""
+    """Barras horizontales de horas perdidas, mayor a menor.
+
+    Rojo = desconectado ahora. Azul = conectado con huecos.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    if not filas or not fechas:
+    if not filas:
         fig, ax = plt.subplots(figsize=(8.4, 1.6), dpi=160)
         ax.axis("off")
-        ax.text(0.5, 0.5, "Sin huecos esta semana", ha="center", va="center", color="#677681")
+        ax.text(0.5, 0.5, "Sin horas perdidas esta semana", ha="center", va="center", color="#677681")
         fig.savefig(path, bbox_inches="tight", facecolor="white")
         plt.close(fig)
         return path
 
-    dias_lbl = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
-    xlabels = [f"{dias_lbl[d.weekday()]} {d.day}" for d in fechas]
-    n_cols = len(fechas)
-    por_dia = [0] * n_cols
-    for f in filas:
-        for i, t in enumerate(f.get("tiene") or []):
-            if i < n_cols and not t:
-                por_dia[i] += 1
-
-    ylabels = []
-    n_con: List[int] = []
-    n_sin: List[int] = []
-    for f in filas:
-        lab = str(f.get("label") or f.get("punto") or "—")
-        if len(lab) > 34:
-            lab = lab[:32] + "…"
-        miss = int(f.get("n_missing") or 0)
-        ylabels.append(lab)
-        n_sin.append(miss)
-        n_con.append(max(0, n_cols - miss))
-
+    color_off = "#E15759"
+    color_on = "#4C78A8"
+    labels = [str(f.get("label") or "—") for f in filas]
+    horas = [float(f.get("horas") or 0) for f in filas]
+    colors = [color_off if f.get("desconectado") else color_on for f in filas]
     n_rows = len(filas)
-    fig_h = max(4.8, min(6.6, 3.15 + 0.32 * n_rows))
-    fig, (ax1, ax2) = plt.subplots(
-        2,
-        1,
-        figsize=(8.4, fig_h),
-        dpi=160,
-        gridspec_kw={"height_ratios": [1.05, 1.45], "hspace": 0.42},
-    )
-
-    bars = ax1.bar(xlabels, por_dia, width=0.62, color="#C0392B", edgecolor="none")
-    ax1.set_ylabel("Puntos sin dato", fontsize=8, fontweight="bold")
-    ax1.set_title(
-        "Puntos sin registro por día",
-        fontsize=10,
-        fontweight="bold",
-        color="#003B64",
-        pad=8,
-    )
-    _style_axes(ax1)
-    top = max(por_dia) if any(por_dia) else 1
-    ax1.set_ylim(0, top + 1)
-    ax1.set_yticks(list(range(0, top + 2)))
-    for bar, v in zip(bars, por_dia):
-        if v <= 0:
-            continue
-        ax1.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height(),
-            str(v),
-            ha="center",
-            va="bottom",
-            fontsize=8,
-            fontweight="bold",
+    fig_h = max(3.4, min(8.2, 1.35 + 0.38 * n_rows))
+    fig, ax = plt.subplots(figsize=(8.6, fig_h), dpi=160)
+    y = list(range(n_rows))
+    ax.barh(y, horas, color=colors, height=0.72, edgecolor="none")
+    ax.set_yticks(y, labels=labels, fontsize=8.5)
+    ax.invert_yaxis()
+    ax.set_xlabel("Horas perdidas", fontsize=9)
+    xmax = max(horas) * 1.22 if horas else 1
+    ax.set_xlim(0, xmax)
+    tit = (titulo + "\n" if titulo else "") + "Horas perdidas (mayor a menor)"
+    ax.set_title(tit, fontsize=11, fontweight="bold", color="#1F4E79", pad=10)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#C5D3DA")
+    ax.spines["bottom"].set_color("#C5D3DA")
+    ax.tick_params(colors="#4A5560", labelsize=8)
+    ax.grid(axis="x", color="#E6EEF2", linewidth=0.7)
+    ax.grid(axis="y", visible=False)
+    ax.set_axisbelow(True)
+    for yi, v in zip(y, horas):
+        ax.text(
+            v + xmax * 0.012,
+            yi,
+            f"{int(round(v))} h",
+            va="center",
+            fontsize=8.5,
             color="#20313D",
         )
-
-    y = list(range(n_rows))
-    ax2.barh(y, n_con, color="#003B64", height=0.62, edgecolor="none", label="Días con dato")
-    ax2.barh(
-        y,
-        n_sin,
-        left=n_con,
-        color="#C0392B",
-        height=0.62,
-        edgecolor="none",
-        label="Días sin dato",
-    )
-    ax2.set_yticks(y, labels=ylabels, fontsize=8)
-    ax2.invert_yaxis()
-    ax2.set_xlabel("Días de la semana", fontsize=8, fontweight="bold")
-    ax2.set_xlim(0, n_cols + 0.85)
-    ax2.set_xticks(range(n_cols + 1))
-    ax2.set_title(
-        "Cobertura por punto (7 días)",
-        fontsize=10,
-        fontweight="bold",
-        color="#003B64",
-        pad=8,
-    )
-    _style_axes(ax2)
-    ax2.grid(axis="x", color="#E6EEF2", linewidth=0.6)
-    ax2.grid(axis="y", visible=False)
-    for yi, con, sin in zip(y, n_con, n_sin):
-        if sin:
-            ax2.text(
-                con + sin + 0.08,
-                yi,
-                str(sin),
-                va="center",
-                fontsize=8,
-                fontweight="bold",
-                color="#C0392B",
-            )
-    fig.legend(
+    ax.legend(
         handles=[
-            Patch(facecolor="#003B64", edgecolor="none", label="Días con dato"),
-            Patch(facecolor="#C0392B", edgecolor="none", label="Días sin dato"),
+            Patch(facecolor=color_off, edgecolor="none", label="Desconectado"),
+            Patch(facecolor=color_on, edgecolor="none", label="Conectado (huecos)"),
         ],
-        loc="lower center",
-        ncol=2,
+        loc="lower right",
         frameon=False,
-        fontsize=8,
+        fontsize=8.5,
     )
-    fig.subplots_adjust(hspace=0.40, bottom=0.11, left=0.22, right=0.97, top=0.93)
+    fig.tight_layout()
     fig.savefig(path, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return path
@@ -1133,6 +1076,7 @@ def render_consolidado_semanal(
     chart_perdidos: Optional[Path] = None,
     nota_perdidos: str = "",
     n_perdidos: int = 0,
+    titulo_perdidos: str = "",
 ) -> Path:
     """4 páginas: sin control (WES), aviso al cliente, datos perdidos, seguimiento."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1212,20 +1156,20 @@ def render_consolidado_semanal(
     c.showPage()
     page += 1
     new_page(page)
-    y = _section(c, "Datos perdidos esta semana", PAGE_H - 58, 15)
-    intro = (
-        "Barras de la semana (lunes a domingo): cuántos puntos quedaron sin registro "
-        "cada día, y cuántos días faltan en cada punto. Rojo = sin dato; no se interpola."
+    y = _section(c, titulo_perdidos or "Datos perdidos esta semana", PAGE_H - 58, 15)
+    intro = nota_perdidos or (
+        "Horas sin registro en la flota del consolidado. "
+        "Rojo = desconectado ahora. Azul = conectado con huecos."
     )
-    y = _draw_runs(c, [(intro, False)], ML, y + 2, CONTENT_W, 8.5, GRAY, 12)
+    y = _draw_runs(c, [(intro, False)], ML, y + 2, CONTENT_W, 8.5, BODY, 12)
     if chart_perdidos is not None and Path(chart_perdidos).is_file():
-        n = max(1, min(14, int(n_perdidos or 8)))
-        chart_h = min(460.0, max(320.0, 220.0 + 22.0 * n))
-        y = _draw_image(c, Path(chart_perdidos), y - 2, chart_h)
+        n = max(1, min(25, int(n_perdidos or 8)))
+        chart_h = min(500.0, max(260.0, 90.0 + 22.0 * n))
+        y = _draw_image(c, Path(chart_perdidos), y - 4, chart_h)
     else:
         y = _draw_runs(
             c,
-            [("Todos los puntos del lote tienen los 7 días de la semana.", False)],
+            [("Sin horas perdidas esta semana en el lote.", False)],
             ML,
             y + 2,
             CONTENT_W,
@@ -1233,8 +1177,6 @@ def render_consolidado_semanal(
             BODY,
             13,
         )
-    if nota_perdidos:
-        y = _draw_runs(c, [(nota_perdidos, False)], ML, y - 2, CONTENT_W, 8, BODY, 12)
 
     c.showPage()
     page += 1

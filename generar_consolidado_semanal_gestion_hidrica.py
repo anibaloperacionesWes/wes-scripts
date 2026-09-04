@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+import requests
 
 from generar_informes_gestion_hidrica_cduc_agosto2026 import CLIENTES as CLIENTES_CDUC
 from generar_informes_gestion_hidrica_colegios_agosto2026 import CLIENTES as CLIENTES_COLEGIOS
@@ -25,7 +28,7 @@ from generar_informes_gestion_hidrica_copec_agosto2026 import CLIENTES as CLIENT
 from generar_informes_gestion_hidrica_fleming_agosto2026 import CLIENTES as CLIENTES_FLEMING
 from generar_informes_gestion_hidrica_lote_agosto2026 import CLIENTES as CLIENTES_LOTE
 from generar_informes_gestion_hidrica_lote_agosto2026 import (
-    _cobertura_huecos,
+    CACHE_DIR,
     _fmt,
     _iter_days,
     fetch_cliente,
@@ -37,7 +40,15 @@ from generar_informes_gestion_hidrica_semanal import (
     _semana_previa,
     _wow,
 )
+from generar_reporte_word import acl_node_base_url
 from informe_gestion_hidrica_pdf import build_chart_datos_perdidos, render_consolidado_semanal
+from puntos_control_hidrico import estado_control, nota_red_cliente
+from reporte_puntos_en_cero import (
+    HORAS_UMBRAL_CONEXION_APP,
+    _CHILE_TZ,
+    obtener_estado_conexion_nodo,
+)
+from control_nocturno import _dt_local_from_csv_time, _value_by_time_last_row
 from puntos_control_hidrico import estado_control, nota_red_cliente
 
 PRIO_ORDEN = {"ATENCIÓN": 0, "AVISO": 1, "SEGUIMIENTO": 2}
@@ -339,51 +350,128 @@ def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict],
     return filas, bool(filas)
 
 
-MAX_HUECOS_CHART = 14
-
-_CLIENTE_CORTO = {
-    "Alexander Fleming": "Fleming",
-    "Nido de Águilas": "Nido",
-    "AGUNSA Intermodal": "AGUNSA Int.",
-    "AGUNSA Lampa": "AGUNSA Lampa",
-    "Fundo Zapallar": "Zapallar",
-    "Club Providencia": "Providencia",
-}
-
-
-def _label_cobertura(cliente: str, punto: str) -> str:
-    if (punto or "").strip().lower() == (cliente or "").strip().lower():
-        return _CLIENTE_CORTO.get(cliente, cliente)
-    corto = _CLIENTE_CORTO.get(cliente, cliente)
-    return f"{corto} · {punto}"
+MAX_HUECOS_CHART = 20
+_MES_ABREV = (
+    "ene",
+    "feb",
+    "mar",
+    "abr",
+    "may",
+    "jun",
+    "jul",
+    "ago",
+    "sep",
+    "oct",
+    "nov",
+    "dic",
+)
 
 
-def _fila_cobertura(cfg: dict, nodo: dict, start: datetime, end: datetime) -> Optional[dict]:
-    missing = _cobertura_huecos(nodo, start, end)
-    if not missing:
-        return None
+def _label_semana_iso(start: datetime, end: datetime) -> str:
+    _iso_y, iso_w, _ = start.isocalendar()
+    return (
+        f"Semana {iso_w} — {start.day:02d} {_MES_ABREV[start.month - 1]} – "
+        f"{end.day:02d} {_MES_ABREV[end.month - 1]} {end.year}"
+    )
+
+
+def _label_horas_punto(nombre: str, node_id: str, max_name: int = 28) -> str:
+    name = (nombre or node_id or "—").strip()
+    if len(name) > max_name:
+        name = name[: max_name - 1] + "..."
+    return f"{name} ({node_id})"
+
+
+def _csv_horas_dia(node_id: str, dia: datetime) -> int:
+    cache = CACHE_DIR / "csv_hours" / f"{node_id}_{dia.strftime('%Y%m%d')}.txt"
+    if cache.is_file():
+        try:
+            return int(cache.read_text(encoding="utf-8").strip() or "0")
+        except ValueError:
+            pass
+    url = f"{acl_node_base_url()}/nodes/{node_id}/dates.measures.csv"
+    ds = dia.strftime("%d%m%Y")
+    n = 0
+    try:
+        r = requests.get(url, params=[("start", ds), ("end", ds)], timeout=25)
+        if r.status_code == 200 and r.text.strip():
+            hours = set()
+            for ts in _value_by_time_last_row(r.text):
+                dt = _dt_local_from_csv_time(ts)
+                if dt is not None and dt.date() == dia.date():
+                    hours.add(int(dt.hour))
+            n = len(hours)
+    except Exception:
+        n = 0
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text(str(n), encoding="utf-8")
+    return n
+
+
+def _horas_perdidas_nodo(nodo: dict, start: datetime, end: datetime) -> int:
     have = {d["date"] for d in nodo.get("daily") or []}
-    tiene = []
+    esperadas = 0
+    presentes = 0
     for cur in _iter_days(start, end):
-        tiene.append(cur.strftime("%Y-%m-%d") in have)
-    punto = nodo.get("short_name") or nodo.get("node_id")
-    return {
-        "cliente": cfg["cliente"],
-        "punto": punto,
-        "node_id": nodo.get("node_id"),
-        "label": _label_cobertura(cfg["cliente"], str(punto)),
-        "tiene": tiene,
-        "missing": missing,
-        "n_missing": len(missing),
-    }
+        esperadas += 24
+        key = cur.strftime("%Y-%m-%d")
+        if key not in have:
+            continue
+        presentes += _csv_horas_dia(str(nodo.get("node_id")), cur)
+    return max(0, esperadas - presentes)
 
 
-def _recoger_huecos(cfg: dict, data: dict, start: datetime, end: datetime) -> List[dict]:
+def _desconectado_ahora(node_id: str) -> bool:
+    st = obtener_estado_conexion_nodo(node_id)
+    last = st.get("lastUpdate")
+    if last is None:
+        return True
+    now = datetime.now(_CHILE_TZ)
+    if getattr(last, "tzinfo", None) is None:
+        last = last.replace(tzinfo=_CHILE_TZ)
+    return (now - last).total_seconds() >= HORAS_UMBRAL_CONEXION_APP * 3600
+
+
+def _filas_horas_perdidas(nodos: List[dict], start: datetime, end: datetime) -> List[dict]:
+    lost: Dict[str, int] = {}
+
+    def _one(nodo: dict) -> Tuple[str, int]:
+        nid = str(nodo.get("node_id"))
+        return nid, _horas_perdidas_nodo(nodo, start, end)
+
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        futs = {ex.submit(_one, n): n for n in nodos}
+        for fut in as_completed(futs):
+            nid, hrs = fut.result()
+            lost[nid] = hrs
+
+    cand = [n for n in nodos if lost.get(str(n.get("node_id")), 0) >= 1]
+    estado: Dict[str, bool] = {}
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        futs = {
+            ex.submit(_desconectado_ahora, str(n.get("node_id"))): str(n.get("node_id"))
+            for n in cand
+        }
+        for fut in as_completed(futs):
+            nid = futs[fut]
+            try:
+                estado[nid] = bool(fut.result())
+            except Exception:
+                estado[nid] = True
+
     out: List[dict] = []
-    for nodo in data.get("nodos") or []:
-        fila = _fila_cobertura(cfg, nodo, start, end)
-        if fila:
-            out.append(fila)
+    for n in cand:
+        nid = str(n.get("node_id"))
+        nombre = n.get("node_name") or n.get("short_name") or nid
+        out.append(
+            {
+                "node_id": nid,
+                "horas": lost[nid],
+                "desconectado": estado.get(nid, True),
+                "label": _label_horas_punto(str(nombre), nid),
+            }
+        )
+    out.sort(key=lambda r: (-float(r["horas"]), r["label"]))
     return out
 
 
@@ -396,7 +484,7 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
     )
     revisables: List[dict] = []
     sin_alerta: List[str] = []
-    huecos: List[dict] = []
+    nodos_flota: List[dict] = []
     for base in clientes_seguimiento():
         cfg = _cfg_semana(base, start, end)
         cfg_prev = _cfg_semana(base, prev_start, prev_end)
@@ -406,7 +494,7 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
         except Exception as e:
             print(f"[ADVERTENCIA] {base['cliente']}: {e}", flush=True)
             continue
-        huecos.extend(_recoger_huecos(base, data, start, end))
+        nodos_flota.extend(data.get("nodos") or [])
         filas, hay = evaluar_cliente(base, data, data_prev)
         if hay:
             revisables.extend(filas)
@@ -427,18 +515,28 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
         if r.get("tipo") == "MONITOREO"
         or (r.get("tipo") == "AVISO" and r.get("prio") == "SEGUIMIENTO")
     ]
-    huecos.sort(key=lambda h: (-int(h["n_missing"]), h["cliente"], h["punto"]))
-    huecos_chart = huecos[:MAX_HUECOS_CHART]
-    n_huecos = len(huecos)
-    dias_hueco = sum(int(h["n_missing"]) for h in huecos)
+    print("[INFO] Horas perdidas de la semana...", flush=True)
+    filas_all = _filas_horas_perdidas(nodos_flota, start, end)
+    n_nodos = len(nodos_flota)
+    n_dias = (end.date() - start.date()).days + 1
+    horas_esperadas = n_nodos * n_dias * 24
+    horas_flota = sum(int(round(float(f["horas"]))) for f in filas_all)
+    n_desc = sum(1 for f in filas_all if f.get("desconectado"))
+    pct = (100.0 * horas_flota / horas_esperadas) if horas_esperadas else 0.0
+    pct_txt = f"{pct:.1f}".replace(".", ",")
+    titulo_sem = _label_semana_iso(start, end)
+    filas_horas = filas_all[:MAX_HUECOS_CHART]
+    nota_perdidos = (
+        f"{len(filas_all)} puntos · {horas_flota} h de flota "
+        f"({pct_txt}% de las esperadas) · {n_desc} de ellos están desconectados ahora."
+    )
     resumen = (
         "De los 5, solo Lo Valledor está realmente sin control (CPA no opera). "
         "Raimundo Tupper también está sin control (visita hoy, punto bien). "
         "El resto es aviso al cliente, no falla de control."
     )
-    if n_huecos:
-        resumen += f" {n_huecos} punto(s) con días sin dato esta semana."
-    nota_perdidos = ""
+    if filas_horas:
+        resumen += f" {len(filas_horas)} punto(s) con horas perdidas esta semana."
     chart_path: Optional[Path] = None
     periodo = f"Semana {_rango_es(start, end)}  ·  vs {_rango_es(prev_start, prev_end)}"
     footer = f"Consolidado semanal | {_rango_es(start, end)}"
@@ -446,19 +544,10 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
     out = out_dir / (
         f"Consolidado_Semanal_{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}.pdf"
     )
-    if huecos_chart:
-        fechas = list(_iter_days(start, end))
+    if filas_horas:
         chart_path = out_dir / "_charts" / "datos_perdidos.png"
-        build_chart_datos_perdidos(chart_path, huecos_chart, fechas)
-        nota_perdidos = (
-            f"{n_huecos} puntos con al menos un día sin registro "
-            f"({dias_hueco} días-punto). La barra roja es el dato perdido."
-        )
-        if any(h.get("node_id") == "000022-00" for h in huecos_chart):
-            nota_perdidos += (
-                " Fleming 29/08: falla de sensor de pulso (cambio a ultrasonido)."
-            )
-        print(f"[INFO] Datos perdidos: {n_huecos} punto(s), {dias_hueco} días-punto", flush=True)
+        build_chart_datos_perdidos(chart_path, filas_horas, titulo=titulo_sem)
+        print(f"[INFO] Datos perdidos: {nota_perdidos}", flush=True)
     render_consolidado_semanal(
         out,
         periodo=periodo,
@@ -470,7 +559,8 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
         resumen=resumen,
         chart_perdidos=chart_path,
         nota_perdidos=nota_perdidos,
-        n_perdidos=len(huecos_chart),
+        n_perdidos=len(filas_horas),
+        titulo_perdidos=titulo_sem,
     )
     print(f"[OK] {out}", flush=True)
     return out, revisables, sin_alerta
