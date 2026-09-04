@@ -1459,7 +1459,7 @@ def _draw_horas_perdidas_table(
     remaining = list(rows)
     first = True
     while remaining:
-        chunk = remaining[:8] if first else remaining[:12]
+        chunk = remaining[:12] if first else remaining[:12]
         remaining = remaining[len(chunk) :]
         if y < 140 and not first:
             c.showPage()
