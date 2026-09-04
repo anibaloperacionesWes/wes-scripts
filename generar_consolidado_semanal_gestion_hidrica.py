@@ -341,6 +341,22 @@ def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict],
 
 MAX_HUECOS_CHART = 14
 
+_CLIENTE_CORTO = {
+    "Alexander Fleming": "Fleming",
+    "Nido de Águilas": "Nido",
+    "AGUNSA Intermodal": "AGUNSA Int.",
+    "AGUNSA Lampa": "AGUNSA Lampa",
+    "Fundo Zapallar": "Zapallar",
+    "Club Providencia": "Providencia",
+}
+
+
+def _label_cobertura(cliente: str, punto: str) -> str:
+    if (punto or "").strip().lower() == (cliente or "").strip().lower():
+        return _CLIENTE_CORTO.get(cliente, cliente)
+    corto = _CLIENTE_CORTO.get(cliente, cliente)
+    return f"{corto} · {punto}"
+
 
 def _fila_cobertura(cfg: dict, nodo: dict, start: datetime, end: datetime) -> Optional[dict]:
     missing = _cobertura_huecos(nodo, start, end)
@@ -355,7 +371,7 @@ def _fila_cobertura(cfg: dict, nodo: dict, start: datetime, end: datetime) -> Op
         "cliente": cfg["cliente"],
         "punto": punto,
         "node_id": nodo.get("node_id"),
-        "label": f"{cfg['cliente']} · {punto}",
+        "label": _label_cobertura(cfg["cliente"], str(punto)),
         "tiene": tiene,
         "missing": missing,
         "n_missing": len(missing),

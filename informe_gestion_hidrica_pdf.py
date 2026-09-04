@@ -1162,7 +1162,7 @@ def render_consolidado_semanal(
     y = _draw_runs(c, [(intro, False)], ML, y + 2, CONTENT_W, 8.5, GRAY, 12)
     if chart_perdidos is not None and Path(chart_perdidos).is_file():
         n = max(1, min(14, int(n_perdidos or 8)))
-        chart_h = min(380.0, max(240.0, 70.0 + 28.0 * n))
+        chart_h = min(430.0, max(280.0, 110.0 + 38.0 * n))
         y = _draw_image(c, Path(chart_perdidos), y - 2, chart_h)
     else:
         y = _draw_runs(
