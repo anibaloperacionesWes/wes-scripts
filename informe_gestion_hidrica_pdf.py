@@ -1050,8 +1050,7 @@ def render_consolidado_semanal(
         c,
         [
             (
-                "No son urgentes. La columna CONTROL indica si el punto tiene CPA/WES: "
-                "un nocturno alto CON CONTROL pide revisar el corte; SIN CONTROL es caudal libre.",
+                "No son urgentes. Cada fila trae la observación operativa (control, sensor o visita).",
                 False,
             )
         ],
@@ -1125,15 +1124,14 @@ def _draw_leyenda_control(c: canvas.Canvas, top: float) -> float:
             TABLE_X + 10,
             HexColor("#1E8449"),
             "CON CONTROL",
-            "Tiene CPA/WES activo. Si el consumo sube, el equipo no evitó el aumento: "
-            "revisar corte, ventana o uso diurno.",
+            "Tiene equipo CPA/WES. Si falta activarlo, hay que programarlo. "
+            "Si ya opera y el consumo sube, el corte no evitó el aumento.",
         ),
         (
             TABLE_X + half + 10,
             HexColor("#C0392B"),
             "SIN CONTROL",
-            "No hay corte automático (o el CPA no está habilitado). "
-            "Si sube, el aumento corre libre.",
+            "No hay CPA/WES en el punto. Si el consumo sube, el aumento corre libre.",
         ),
     ]
     for x, color, titulo, cuerpo in bloques:

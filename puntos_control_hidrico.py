@@ -6,8 +6,9 @@ Fuente principal: Excel de horarios de corte
 Si el Excel no está en el entorno, se usa el inventario operativo conocido
 (mismos IDs que el reporte de control nocturno).
 
-Un punto CON CONTROL tiene corte automático de caudal (CPA/WES programado).
-Lo Valledor tiene el equipo instalado pero no habilitado → SIN CONTROL.
+Un punto CON CONTROL tiene equipo CPA/WES (instalado). Aunque falte
+activarlo, cuenta como con control: el recinto ya tiene la máquina.
+Lo Valledor (P1) tiene CPA instalado → CON CONTROL.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ CONTROL_NOCTURNO_IDS: FrozenSet[str] = frozenset(
         "000008-11",
         "000008-12",
         "000008-14",
+        "000002-01",
         "000012-06",
         "000017-04",
         "000017-07",
@@ -86,11 +88,11 @@ def estado_control(cfg: dict, node_id: Optional[str]) -> Tuple[str, str, bool]:
     """
     Returns (etiqueta, detalle, tiene_control_activo).
 
-    CPA instalado y no habilitado cuenta como SIN CONTROL.
+    CPA instalado (aunque falte activar) cuenta como CON CONTROL.
     """
     nid = str(node_id or "").strip()
     if cfg.get("cpa_estado") == "instalado_pendiente":
-        return "SIN CONTROL", "CPA instalado, no habilitado", False
+        return "CON CONTROL", "CPA instalado, pendiente de activar", True
     if nid and nid in ids_con_control():
         return "CON CONTROL", "CPA/WES activo", True
     if cfg.get("nocturnal_explain") == "wes" and nid == (cfg.get("matriz_id") or ""):

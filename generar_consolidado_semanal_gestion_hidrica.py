@@ -37,6 +37,36 @@ from puntos_control_hidrico import estado_control, nota_red_cliente
 
 PRIO_ORDEN = {"ATENCIÓN": 0, "SEGUIMIENTO": 1}
 
+# Notas de operación (anulan la lectura automática del punto).
+NOTAS_PUNTO: Dict[str, Dict[str, str]] = {
+    "000022-00": {
+        "lectura": "Problema de monitoreo (sensor de pulso). Hay que cambiar a ultrasonido.",
+        "revisar": "Cambiar monitoreo: pulso → ultrasonido",
+    },
+    "000009-06": {
+        "lectura": "Matriz Principal no tiene control CPA.",
+        "revisar": "Sin control CPA",
+    },
+    "000021-03": {
+        "lectura": "Punto bien. Visita técnica hoy.",
+        "revisar": "Visita hoy",
+    },
+}
+
+
+def _aplicar_notas(filas: List[dict]) -> List[dict]:
+    out: List[dict] = []
+    for f in filas:
+        nota = NOTAS_PUNTO.get(str(f.get("node_id") or ""))
+        if nota:
+            f = dict(f)
+            if nota.get("lectura"):
+                f["lectura"] = nota["lectura"]
+            if nota.get("revisar"):
+                f["revisar"] = nota["revisar"]
+        out.append(f)
+    return out
+
 
 def _fecha_corta(iso: Optional[str]) -> str:
     if not iso:
@@ -220,7 +250,11 @@ def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict],
     if cfg.get("cpa_estado") == "instalado_pendiente" and nodos:
         top = max(nodos, key=lambda n: float(n.get("total") or 0))
         top_id = top.get("node_id")
-        cpa_txt = "Activar el CPA (instalado, aún no habilitado)"
+        cpa_txt = "Activar y programar el CPA (peak 22:00–03:00)"
+        lectura_cpa = (
+            "Tiene control: CPA instalado. Falta activarlo y programarlo. "
+            "El peak del mercado es 22:00–03:00."
+        )
         if not any(f.get("node_id") == top_id for f in filas):
             total = float(top.get("total") or 0)
             noct = float(top.get("nocturno_m3") or 0)
@@ -238,10 +272,7 @@ def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict],
                     pct=pct,
                     wow=wow,
                     prev_t=prev_t,
-                    lectura=(
-                        "CPA instalado y no habilitado: el recinto opera sin control. "
-                        "El caudal de madrugada incluye el peak 22:00–03:00 del mercado."
-                    ),
+                    lectura=lectura_cpa,
                 )
             )
         else:
@@ -250,9 +281,7 @@ def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict],
                     f["revisar"] = cpa_txt + "; " + f["revisar"]
                     f["prio"] = "ATENCIÓN"
                     f["orden"] = (0, f["orden"][1])
-                    f["lectura"] = (
-                        "CPA instalado y no habilitado: el recinto opera sin control."
-                    )
+                    f["lectura"] = lectura_cpa
     return filas, bool(filas)
 
 
@@ -283,6 +312,7 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
             print(f"  {base['cliente']}: sin alerta", flush=True)
 
     revisables.sort(key=lambda r: r["orden"])
+    revisables = _aplicar_notas(revisables)
     atencion = [r for r in revisables if r["prio"] == "ATENCIÓN"]
     seguimiento = [r for r in revisables if r["prio"] != "ATENCIÓN"]
     n_sin_ctrl = sum(1 for r in atencion if not r.get("tiene_control"))
