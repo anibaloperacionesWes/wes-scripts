@@ -1,19 +1,19 @@
 /**
  * Formulario permanente de acta de visita WES (Apps Script Web App).
  *
- * Después de Implementar → Aplicación web (acceso: Cualquiera),
+ * Después de Implementar -> Aplicación web (acceso: Cualquiera),
  * el link /exec queda fijo para técnicos.
  */
 
 var SHEET_REGISTRO_ID = '1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM';
 var SHEET_DATOS = 'Datos';
-/** Excel/Sheet de contactos To/CC (Cliente · punto). */
+/** Excel/Sheet de contactos To/CC (Cliente - punto). */
 var SHEET_CONTACTOS_ID = '1Tpjm1eXRXKuKvxachtbYVr9503wICJdsYDTjkbm__o8';
 var SHEET_CONTACTOS_NOMBRE = 'Contactos';
 var CARPETA_TECNICOS = 'Tecnicos_WES_Formulario';
 /**
  * G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes
- * (código / formulario / auxiliares — no las actas PDF del terreno)
+ * (código / formulario / auxiliares - no las actas PDF del terreno)
  */
 var CARPETA_MANTENIMIENTO_WES_ID = '150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX';
 /** Tecnicos_WES_Formulario (dentro de mantenimiento wes). */
@@ -53,7 +53,7 @@ function loadFormularioTemplate_() {
       return HtmlService.createTemplate(raw);
     }
   } catch (e) {
-    // Sin acceso a Drive o archivo movido → fallback local
+    // Sin acceso a Drive o archivo movido -> fallback local
   }
   return HtmlService.createTemplateFromFile('Formulario');
 }
@@ -71,7 +71,7 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES · 21Y')
+    .setTitle('Acta de visita WES - 21Y')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -97,7 +97,7 @@ function getCatalogos() {
 }
 
 /**
- * Puntos oficiales: CONTACTOS_ENVIOS_ACTAS → Clientes_catalogo
+ * Puntos oficiales: CONTACTOS_ENVIOS_ACTAS -> Clientes_catalogo
  * (NO Base1 del Registro: ahí quedan nombres viejos, ej. RENCA).
  */
 function buildCatalogosVivos_() {
@@ -233,7 +233,7 @@ function procesarVisita(data) {
   );
 
   var carpeta = asegurarCarpetaActas_(data.cliente, data.fecha);
-  // Firma solo en memoria → va dentro del PDF; no se guarda PNG suelto en Drive.
+  // Firma solo en memoria -> va dentro del PDF; no se guarda PNG suelto en Drive.
   // Soporte remoto: sin firma (blob null).
   var firmaBlob = data.firma_png ? firmaBlobDesdeDataUrl_(data.firma_png) : null;
   var pdfFile = generarYGuardarPdf_(carpeta, stem, data, firmaBlob);
@@ -263,10 +263,10 @@ function procesarVisita(data) {
     trabajo_interno: !!data.trabajo_interno,
     cierre_ot: esCierre,
     message: emailInfo.ok
-      ? 'Folio ' + folio + ' · PDF generado y correo enviado a ' + emailInfo.to.join(', ')
+      ? 'Folio ' + folio + ' - PDF generado y correo enviado a ' + emailInfo.to.join(', ')
       : data.trabajo_interno
-        ? 'Folio ' + folio + ' · PDF interno (sin correo al cliente)'
-        : 'Folio ' + folio + ' · PDF generado. Correo: ' + (emailInfo.skip || 'pendiente'),
+        ? 'Folio ' + folio + ' - PDF interno (sin correo al cliente)'
+        : 'Folio ' + folio + ' - PDF generado. Correo: ' + (emailInfo.skip || 'pendiente'),
   };
 }
 
@@ -284,7 +284,7 @@ function getWesApiVersion() {
   };
 }
 
-/** Modalidad a distancia o tipo mtto Soporte remoto → no exige firma. */
+/** Modalidad a distancia o tipo mtto Soporte remoto -> no exige firma. */
 function esSoporteRemoto_(data) {
   if (!data) return false;
   var flag = data.soporte_remoto;
@@ -381,7 +381,7 @@ function obtenerVisitaPorFolio(folio) {
   throw new Error('No encontré folio ' + folio);
 }
 
-/** Cierre rápido: solo cambia Estado visita → cerrada (sin nuevo PDF). */
+/** Cierre rápido: solo cambia Estado visita -> cerrada (sin nuevo PDF). */
 function marcarOTCerrada(folio) {
   folio = Number(folio);
   var found = encontrarFilaPorFolio_(folio);
@@ -452,7 +452,7 @@ function updateSheetByFolio_(folio, data, pdfLink) {
     anio,
     mes,
   ];
-  // getRange(row, col, numRows, numColumns) — NO usar found.row como numRows.
+  // getRange(row, col, numRows, numColumns) - NO usar found.row como numRows.
   sh.getRange(found.row, 1, 1, row.length).setValues([row]);
   return found.row;
 }
@@ -620,24 +620,24 @@ function generarYGuardarPdf_(carpeta, stem, data, firmaBlob) {
   appendPdfHeader_(body);
   appendPdfMetaTable_(body, data);
   appendPdfSection_(body, 'Solución y/o diagnóstico');
-  appendPdfBodyText_(body, data.solucion || '—');
+  appendPdfBodyText_(body, data.solucion || '-');
   if (data.observaciones) {
     appendPdfSection_(body, 'Observaciones');
     appendPdfBodyText_(body, data.observaciones);
   }
 
-  appendPdfSection_(body, 'Checklist CIR — eléctrico / electrónico');
+  appendPdfSection_(body, 'Checklist CIR - eléctrico / electrónico');
   appendChecklistTable_(body, data.checklist_cir);
-  appendPdfSection_(body, 'Checklist CPA — hídrico / cámara');
+  appendPdfSection_(body, 'Checklist CPA - hídrico / cámara');
   appendChecklistTable_(body, data.checklist_cpa);
   appendPdfSection_(body, 'Checklist SAB (si aplica)');
   appendChecklistTable_(body, data.checklist_sab);
 
-  appendPdfSection_(body, 'Recepción del cliente · acuse de recibo');
+  appendPdfSection_(body, 'Recepción del cliente - acuse de recibo');
   appendPdfBodyText_(
     body,
     'Se solicita al cliente acusar recibo de esta acta respondiendo el correo ' +
-      'con la frase «Acuso recibo» o firmando digitalmente abajo. ' +
+      'con la frase "Acuso recibo" o firmando digitalmente abajo. ' +
       'La constancia queda registrada en el sistema de análisis WES.'
   );
   appendPdfFirmaBlock_(body, data, firmaBlob);
@@ -685,7 +685,7 @@ function appendPdfHeader_(body) {
     .setForegroundColor('#FFFFFF')
     .setAlignment(DocumentApp.HorizontalAlignment.CENTER);
   title.setSpacingBefore(4).setSpacingAfter(0);
-  var sub = c1.appendParagraph('Sociedad Tecnológica WES SpA · www.wes.cl');
+  var sub = c1.appendParagraph('Sociedad Tecnológica WES SpA - www.wes.cl');
   sub
     .setFontSize(9)
     .setForegroundColor('#D6E6F5')
@@ -697,13 +697,13 @@ function appendPdfHeader_(body) {
 
 function appendPdfMetaTable_(body, data) {
   var rows = [
-    ['Folio / OT', String(data.folio || data.ot || '—'), 'Estado', String(data.estado_visita || '—')],
-    ['Cliente', String(data.cliente || '—'), 'Máquina / sitio', String(data.maquina || '—')],
-    ['Comuna', String(data.comuna || '—'), 'Fecha', String(data.fecha || '—')],
-    ['Hora', String(data.hora || '—'), 'Técnico WES', String(data.tecnico || '—')],
-    ['Lectura medidor', String(data.lectura_medidor || '—'), 'Tipo mtto', String(data.tipo_mtto || '—')],
+    ['Folio / OT', String(data.folio || data.ot || '-'), 'Estado', String(data.estado_visita || '-')],
+    ['Cliente', String(data.cliente || '-'), 'Máquina / sitio', String(data.maquina || '-')],
+    ['Comuna', String(data.comuna || '-'), 'Fecha', String(data.fecha || '-')],
+    ['Hora', String(data.hora || '-'), 'Técnico WES', String(data.tecnico || '-')],
+    ['Lectura medidor', String(data.lectura_medidor || '-'), 'Tipo mtto', String(data.tipo_mtto || '-')],
     ['Motivo/modalidad', joinList_(data.motivos), 'Tecnología', joinList_(data.tecnologias)],
-    ['Tipo falla', String(data.tipo_falla || '—'), 'Falla específica', String(data.falla_especifica || '—')],
+    ['Tipo falla', String(data.tipo_falla || '-'), 'Falla específica', String(data.falla_especifica || '-')],
   ];
   var table = body.appendTable(rows.map(function (r) {
     return [r[0], r[1], r[2], r[3]];
@@ -739,7 +739,7 @@ function styleMetaValueCell_(cell) {
   cell.setPaddingTop(4).setPaddingBottom(4).setPaddingLeft(5).setPaddingRight(5);
   var val = cell.getText();
   cell.clear();
-  var para = cell.appendParagraph(val || '—');
+  var para = cell.appendParagraph(val || '-');
   para.setBold(false).setFontSize(9).setForegroundColor(PDF_INK);
   para.setSpacingBefore(0).setSpacingAfter(0);
 }
@@ -754,7 +754,7 @@ function appendPdfSection_(body, title) {
 }
 
 function appendPdfBodyText_(body, text) {
-  var p = body.appendParagraph(String(text || '—'));
+  var p = body.appendParagraph(String(text || '-'));
   p.setFontSize(10).setForegroundColor(PDF_INK).setSpacingBefore(0).setSpacingAfter(4);
 }
 
@@ -762,14 +762,14 @@ function appendChecklistTable_(body, items) {
   var data = [['Elemento', 'Estado', 'Obs. / medición']];
   var list = items || [];
   if (!list.length) {
-    data.push(['—', '—', '—']);
+    data.push(['-', '-', '-']);
   } else {
     for (var i = 0; i < list.length; i++) {
       var it = list[i] || {};
       data.push([
         String(it.elemento || ''),
         String(it.estado || ''),
-        String(it.obs || '—'),
+        String(it.obs || '-'),
       ]);
     }
   }
@@ -803,8 +803,8 @@ function appendChecklistTable_(body, items) {
 function appendPdfFirmaBlock_(body, data, firmaBlob) {
   var table = body.appendTable([
     [
-      'Recibido por: ' + (data.recibido_por || '—'),
-      'Cargo: ' + (data.cargo || '—'),
+      'Recibido por: ' + (data.recibido_por || '-'),
+      'Cargo: ' + (data.cargo || '-'),
     ],
     ['', ''],
   ]);
@@ -837,7 +837,7 @@ function appendPdfFirmaBlock_(body, data, firmaBlob) {
       img.setWidth(220);
       img.setHeight(70);
     } else if (esSoporteRemoto_(data)) {
-      cFirma.appendParagraph('Soporte remoto — sin firma presencial')
+      cFirma.appendParagraph('Soporte remoto - sin firma presencial')
         .setFontSize(9)
         .setForegroundColor(PDF_MUTED)
         .setItalic(true);
@@ -852,7 +852,7 @@ function appendPdfFirmaBlock_(body, data, firmaBlob) {
   cMeta.clear();
   var gen = Utilities.formatDate(new Date(), 'America/Santiago', 'dd/MM/yyyy HH:mm');
   var lines = [
-    'Correo cliente: ' + (data.email_cliente || '—'),
+    'Correo cliente: ' + (data.email_cliente || '-'),
     'Generado: ' + gen,
     'Documento digital WES',
   ];
@@ -873,7 +873,7 @@ function appendPdfFirmaBlock_(body, data, firmaBlob) {
 
 function appendPdfFooter_(body) {
   var p = body.appendParagraph(
-    'WES · Estrecho de Magallanes 1481, Renca · +569 7559 5695 / +569 8198 1426 · www.wes.cl'
+    'WES - Estrecho de Magallanes 1481, Renca - +569 7559 5695 / +569 8198 1426 - www.wes.cl'
   );
   p.setFontSize(8)
     .setForegroundColor(PDF_MUTED)
@@ -883,7 +883,7 @@ function appendPdfFooter_(body) {
 }
 
 function joinList_(arr) {
-  if (!arr || !arr.length) return '—';
+  if (!arr || !arr.length) return '-';
   return arr.join(', ');
 }
 
@@ -940,13 +940,13 @@ function enviarCorreo_(data, pdfFile) {
   }
   var cc = splitEmails_(data.email_cc);
   var subject =
-    'WES · Acta folio ' +
+    'WES - Acta folio ' +
     (data.folio || '') +
-    ' — ' +
+    ' - ' +
     (data.cliente || 'Cliente') +
     ' / ' +
     (data.maquina || 'sitio') +
-    ' · Acusar recibo';
+    ' - Acusar recibo';
   var html =
     '<div style="margin:0;padding:0;background:#eef3f8">' +
     '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef3f8;padding:20px 12px">' +
@@ -957,7 +957,7 @@ function enviarCorreo_(data, pdfFile) {
     '<div style="font-size:20px;font-weight:750;margin-top:4px">Acta de visita técnica</div>' +
     '<div style="font-size:13px;opacity:0.92;margin-top:4px">Folio ' +
     escapeHtml_(data.folio || '') +
-    ' · ' +
+    ' - ' +
     escapeHtml_(data.cliente || '') +
     ' / ' +
     escapeHtml_(data.maquina || '') +
@@ -976,16 +976,16 @@ function enviarCorreo_(data, pdfFile) {
     ').</p>' +
     '<div style="background:#e7f0f8;border-left:4px solid #1f4e79;padding:12px 14px;margin:14px 0;border-radius:0 10px 10px 0">' +
     'Solicitamos por favor <b>ACUSAR RECIBO</b> de esta acta respondiendo este correo ' +
-    'con la frase «Acuso recibo» (puede indicar nombre y cargo).</div>' +
+    'con la frase "Acuso recibo" (puede indicar nombre y cargo).</div>' +
     '<p style="margin:0 0 8px">Quien recibió en terreno: <b>' +
-    escapeHtml_(data.recibido_por || '—') +
+    escapeHtml_(data.recibido_por || '-') +
     '</b>' +
     (data.cargo ? ' (' + escapeHtml_(data.cargo) + ')' : '') +
     '.</p>' +
-    '<p style="margin:16px 0 0;color:#445566;font-size:13px">Quedamos atentos.<br/>— Sociedad Tecnológica WES SpA<br/>www.wes.cl</p>' +
+    '<p style="margin:16px 0 0;color:#445566;font-size:13px">Quedamos atentos.<br/>- Sociedad Tecnológica WES SpA<br/>www.wes.cl</p>' +
     '</td></tr>' +
     '<tr><td style="background:#f7fafd;padding:12px 22px;font-size:11px;color:#445566;border-top:1px solid #c5d5e6">' +
-    'Estrecho de Magallanes 1481, Renca · +569 7559 5695 / +569 8198 1426' +
+    'Estrecho de Magallanes 1481, Renca - +569 7559 5695 / +569 8198 1426' +
     '</td></tr>' +
     '</table></td></tr></table></div>';
 
@@ -1037,7 +1037,7 @@ function getContactosPara(cliente, maquina) {
     var hit = buscarPuntoParecido_(base.puntos, maq);
     if (hit) punto = hit;
   }
-  // Generales del cliente (máquina vacía) SIEMPRE — ej. David Campos en CORMUP
+  // Generales del cliente (máquina vacía) SIEMPRE - ej. David Campos en CORMUP
   var generalesDetalle = (base.generales && base.generales.length)
     ? base.generales.slice()
     : [];
@@ -1093,7 +1093,7 @@ function buscarPuntoParecido_(puntos, maquina) {
   for (i = 0; i < keys.length; i++) {
     if (normKey_(keys[i]) === target) return puntos[keys[i]];
   }
-  // 2) contiene (ej. CENTRO EDUCACIONAL VALLE HERMOSO ↔ C.E. VALLE HERMOSO)
+  // 2) contiene (ej. CENTRO EDUCACIONAL VALLE HERMOSO <-> C.E. VALLE HERMOSO)
   var best = null;
   var bestLen = 0;
   for (i = 0; i < keys.length; i++) {
@@ -1221,7 +1221,7 @@ function leerContactosDict_() {
           puntos: {},
         };
       }
-      // Máquina vacía = siempre va (gerente / corporación / SLEP) — ej. David Campos
+      // Máquina vacía = siempre va (gerente / corporación / SLEP) - ej. David Campos
       if (!maq && (rol === 'general' || rol === 'to' || rol === 'cc' || !rol)) {
         var gIdx = -1;
         for (var gi = 0; gi < out[cli].generales.length; gi++) {
