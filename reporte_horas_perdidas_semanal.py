@@ -105,6 +105,30 @@ def _fmt_rango_corto(ini: date, fin: date) -> str:
     return f"{ini.day:02d} {_MESES_ES[ini.month]}–{fin.day:02d} {_MESES_ES[fin.month]}"
 
 
+def _fmt_rango_titulo(ini: date, fin: date) -> str:
+    """Rango con mes y año, para el título de cada gráfico semanal."""
+    if ini.year == fin.year and ini.month == fin.month:
+        return f"{ini.day:02d}–{fin.day:02d} {_MESES_ES[fin.month]} {fin.year}"
+    if ini.year == fin.year:
+        return (
+            f"{ini.day:02d} {_MESES_ES[ini.month]} – "
+            f"{fin.day:02d} {_MESES_ES[fin.month]} {fin.year}"
+        )
+    return (
+        f"{ini.day:02d} {_MESES_ES[ini.month]} {ini.year} – "
+        f"{fin.day:02d} {_MESES_ES[fin.month]} {fin.year}"
+    )
+
+
+def _titulo_semana(num: int, ini: date, fin: date) -> str:
+    extra = " (parcial)" if (fin - ini).days < 6 else ""
+    return f"Semana {num} — {_fmt_rango_titulo(ini, fin)}{extra}"
+
+
+def _semanas_recientes_primero() -> List[Tuple[int, date, date, str]]:
+    return list(reversed(SEMANA_DEFS))
+
+
 def configurar_periodo(hoy: date) -> None:
     """Arma semanas ISO desde INICIO_PERIODO hasta ``hoy`` (última semana parcial)."""
     global SEMANA_DEFS, TODOS_LOS_DIAS, SEMANA_POR_DIA
@@ -114,9 +138,7 @@ def configurar_periodo(hoy: date) -> None:
         week = lun.isocalendar()[1]
         domingo = lun + timedelta(days=6)
         fin = min(domingo, hoy)
-        parcial = fin < domingo
-        extra = ", parcial" if parcial else ""
-        label = f"Semana {week} ({_fmt_rango_corto(lun, fin)}{extra})"
+        label = _titulo_semana(week, lun, fin)
         defs.append((week, lun, fin, label))
         lun += timedelta(days=7)
     SEMANA_DEFS = defs
@@ -450,7 +472,7 @@ def grafico_totales_semana(
     esperados: Dict[int, int],
     out: Path,
 ) -> Path:
-    labels = [f"S{n}\n{_fmt_rango_corto(ini, fin)}" for n, ini, fin, _ in SEMANA_DEFS]
+    labels = [f"S{n}\n{_fmt_rango_titulo(ini, fin)}" for n, ini, fin, _ in SEMANA_DEFS]
     vals = [sum(r.perdidas_semana(n) for r in resultados) for n, *_ in SEMANA_DEFS]
     colors = [COLORES_SEMANA[i % len(COLORES_SEMANA)] for i in range(len(SEMANA_DEFS))]
     fig, ax = plt.subplots(figsize=(max(8.8, 1.7 * len(labels)), 4.6))
@@ -608,7 +630,7 @@ def grafico_dias_ultima_semana(
         )
     ax.set_yticks(y, labels)
     ax.set_xlabel("Horas perdidas")
-    ax.set_title(f"{label} — por día")
+    ax.set_title(f"{label}\nHoras perdidas por día")
     ax.legend(loc="lower right", fontsize=8)
     ax.grid(axis="x", linestyle=":", alpha=0.5, zorder=0)
     ax.set_axisbelow(True)
@@ -718,7 +740,8 @@ def crear_reporte_word(
     title.runs[0].bold = True
 
     sub = doc.add_paragraph(
-        f"Comparativa de {nsem} semanas · un gráfico por semana · "
+        f"Comparativa de {nsem} semanas · un gráfico por semana "
+        "(de la más nueva a la más vieja) · "
         "al final, puntos con pérdida de data por desconexión"
     )
     sub.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -777,13 +800,15 @@ def crear_reporte_word(
             )
         doc.add_paragraph(tendencia)
 
-    doc.add_heading("3. Un gráfico por semana", 1)
+    doc.add_heading("3. Un gráfico por semana (más nueva → más vieja)", 1)
     doc.add_paragraph(
-        "Ranking de puntos con horas perdidas esa semana (mayor a menor). "
+        "Ranking de puntos con horas perdidas esa semana (mayor a menor), "
+        "de la semana más reciente a la más antigua. "
+        "El título de cada gráfico indica las fechas que comprende. "
         "Rojo = desconectado ahora; azul = conectado con huecos."
     )
     primera = True
-    for num, _ini, _fin, label in SEMANA_DEFS:
+    for num, _ini, _fin, label in _semanas_recientes_primero():
         if not primera:
             doc.add_page_break()
         primera = False
@@ -798,7 +823,8 @@ def crear_reporte_word(
         _add_picture(doc, charts[f"s{num}"], 6.4)
         if num == ultima[0] and ultima_parcial:
             doc.add_paragraph(
-                f"Detalle diario de S{num} (hasta {ahora_chile.strftime('%d-%m %H:%M')} Chile)."
+                f"Detalle diario de {label} "
+                f"(hasta {ahora_chile.strftime('%d-%m %H:%M')} Chile)."
             )
             _add_picture(doc, charts["ultima_dias"], 6.4)
 
@@ -823,7 +849,8 @@ def crear_reporte_word(
     doc.add_heading("5. Conclusión", 1)
     doc.add_paragraph(
         f"La comparativa de las {nsem} semanas muestra el volumen de horas sin dato. "
-        "Los gráficos semanales ordenan los puntos de mayor a menor. "
+        "Los gráficos semanales van de la más nueva a la más vieja, "
+        "con las fechas de cada semana en el título, y ordenan los puntos de mayor a menor. "
         "La prioridad operativa está en la sección 4: puntos que hoy pierden data por desconexión."
     )
     nota = doc.add_paragraph(
@@ -976,7 +1003,7 @@ def main() -> int:
         grafico_ranking(
             orden,
             lambda r, n=num: r.perdidas_semana(n),
-            f"{label} — horas perdidas (mayor a menor)",
+            f"{label}\nHoras perdidas (mayor a menor)",
             charts[f"s{num}"],
             None,
             top,
