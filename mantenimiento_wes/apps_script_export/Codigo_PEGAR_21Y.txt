@@ -45,17 +45,51 @@ var PDF_SIGN_BG = '#F8FBFE';
 
 /**
  * Carga el HTML del form desde Drive; si falla, usa el archivo local "Formulario".
+ * Si alguien pega Codigo.gs por error en el TXT de Drive o en el archivo Formulario,
+ * se rechaza con un mensaje claro (no "Contenido HTML incorrecto" críptico).
  */
 function loadFormularioTemplate_() {
+  var raw = '';
   try {
-    var raw = DriveApp.getFileById(FORMULARIO_HTML_DRIVE_ID).getBlob().getDataAsString('UTF-8');
-    if (raw && raw.indexOf('<html') >= 0) {
-      return HtmlService.createTemplate(raw);
-    }
-  } catch (e) {
-    // Sin acceso a Drive o archivo movido -> fallback local
+    raw = DriveApp.getFileById(FORMULARIO_HTML_DRIVE_ID).getBlob().getDataAsString('UTF-8') || '';
+  } catch (eDrive) {
+    raw = '';
   }
-  return HtmlService.createTemplateFromFile('Formulario');
+  if (raw && esHtmlFormulario_(raw)) {
+    return HtmlService.createTemplate(raw);
+  }
+  // Fallback: archivo "Formulario" del proyecto Apps Script
+  try {
+    var local = HtmlService.createHtmlOutputFromFile('Formulario').getContent() || '';
+    if (esHtmlFormulario_(local)) {
+      return HtmlService.createTemplate(local);
+    }
+    throw new Error(
+      'El archivo "Formulario" del proyecto NO es HTML (parece Codigo.gs). ' +
+        'Descargá Formulario_PEGAR y pegalo SOLO en el archivo Formulario, ' +
+        'o dejá Codigo.gs solo en el archivo Codigo. Drive ID HTML: ' +
+        FORMULARIO_HTML_DRIVE_ID
+    );
+  } catch (eLocal) {
+    if (String(eLocal).indexOf('NO es HTML') >= 0) throw eLocal;
+    throw new Error(
+      'No pude cargar el HTML del formulario. ' +
+        'Revisá que en Drive el archivo Formulario_PEGAR sea HTML (empiece con <!DOCTYPE html>) ' +
+        'y que el archivo Formulario del editor no tenga pegado el Codigo.gs. Detalle: ' +
+        eLocal
+    );
+  }
+}
+
+/** True si el texto es el HTML del acta (no Codigo.gs ni catalogos). */
+function esHtmlFormulario_(raw) {
+  var s = String(raw || '').replace(/^\uFEFF/, '');
+  var head = s.substring(0, 400).toLowerCase();
+  if (head.indexOf('var sheet_registro_id') >= 0) return false;
+  if (head.indexOf('function doget') >= 0) return false;
+  if (head.indexOf('function procesarvisita') >= 0) return false;
+  if (s.indexOf('<html') < 0 && s.indexOf('<!doctype html') < 0) return false;
+  return true;
 }
 
 function doGet() {
