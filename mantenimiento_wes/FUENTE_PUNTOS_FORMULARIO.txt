@@ -1,0 +1,20 @@
+Puntos (Cliente + Máquina) del formulario — fuente ÚNICA
+========================================================
+Archivo: CONTACTOS_ENVIOS_ACTAS
+Hoja:    Clientes_catalogo
+Windows: G:\Mi unidad\Agente WES\wes-scripts\mantenimiento wes\CONTACTOS_ENVIOS_ACTAS
+Drive:   https://docs.google.com/spreadsheets/d/1Tpjm1eXRXKuKvxachtbYVr9503wICJdsYDTjkbm__o8/edit
+
+Hojas útiles en ese Excel (el resto se puede borrar):
+  • Clientes_catalogo = puntos del formulario
+  • Contactos = emails TO/CC
+No hace falta copiar esto al FORMULARIO_MANTENCION ni al Registro.
+
+NO uses Base1 del Registro de fallas para editar puntos de clientes que
+ya están en este catálogo (ahí quedan nombres viejos, ej. RENCA).
+
+Fallas (tipo / específica): Registro de fallas · Base3
+  https://docs.google.com/spreadsheets/d/1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM/edit
+
+Sync: 2026-08-20 17:30
+Pares catálogo: 120 · extras historial (clientes nuevos): 35

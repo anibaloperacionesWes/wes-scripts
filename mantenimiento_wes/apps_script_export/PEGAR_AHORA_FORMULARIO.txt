@@ -1,0 +1,16 @@
+Formulario visitas técnicas — estado 21T
+========================================
+
+Formulario (HTML) se actualiza solo desde Drive (build 21S).
+Codigo (servidor) en Drive está en 21T — hay que tenerlo pegado + Nueva versión.
+
+Formulario oficial:
+https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+
+Si falla cierre OT ("rango 1775 filas"):
+1) Pegá Codigo: https://drive.google.com/file/d/111G4RIplGujgMnJk2_x9Pgc0bzw1WUt6/view?usp=drivesdk
+2) Ctrl+F: getRange(found.row, 1, 1, row.length)
+3) Nueva versión del /exec AKfycbx5DTdd...
+4) Refrescá el form
+
+Doc completo: mantenimiento_wes/FORMULARIO_VISITAS_TECNICAS.md

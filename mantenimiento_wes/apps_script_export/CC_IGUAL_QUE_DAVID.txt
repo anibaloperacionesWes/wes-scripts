@@ -1,0 +1,34 @@
+CC del punto = misma ficha que David Campos
+==========================================
+
+Qué cambia
+----------
+Al elegir cliente + máquina, el formulario muestra fichas iguales:
+
+  TO · General
+  David Campos
+  Gerente de Servicios Esenciales
+  dcampos.henriquez@cormup.cl
+
+  CC · Punto · <máquina>
+  MARIA PAZ FUENTEALBA   (ejemplo)
+  ADMINISTRADORA
+  MFUENTEALBA.AVALOS@REDUCA.CL
+
+También rellena TO/CC y propone Nombre/Cargo de quien recibe con el CC del punto.
+
+Archivos a pegar en Apps Script (editor del proyecto del link oficial)
+----------------------------------------------------------------------
+1) Codigo     ← contenido de Codigo_PEGAR_EN_APPS_SCRIPT.txt
+   Drive: https://drive.google.com/file/d/1S8ReX495JEI9u9LaywcQcaNTi4FiZSod/view?usp=drivesdk
+
+2) Formulario ← contenido de Formulario_PEGAR_EN_APPS_SCRIPT.txt
+   Drive: https://drive.google.com/file/d/10GJmiRjXJuxyAPVBzJEMu9a5K6KLJQbw/view?usp=drivesdk
+
+Luego: Implementar → Administrar implementaciones → editar la del /exec oficial
+→ Nueva versión (NO crear “Nueva implementación”).
+
+Link oficial (no cambiar):
+https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+
+Probar: CORMUP + cualquier colegio → debe verse David + el CC de ese colegio.
