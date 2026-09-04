@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21X</title>
+  <title>Acta de visita WES · 21Y</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -365,7 +365,7 @@
         <p class="note" style="margin:6px 0 0">Visita física = en terreno (firma obligatoria). Soporte a distancia = sin firma; tipo de falla = motivo remoto.</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21X</div>
+        <div class="build-tag" id="form_build">WES-build-21Y</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -419,14 +419,14 @@
             <input id="cargo" placeholder="Encargado mantención / JO" spellcheck="true" lang="es" />
           </div>
         </div>
-        <label class="chip on" style="display:flex;width:100%;margin:8px 0 10px;gap:10px;align-items:flex-start">
-          <input type="checkbox" id="enviar_correo_cliente" checked style="margin-top:3px" />
+        <label class="chip" style="display:flex;width:100%;margin:8px 0 10px;gap:10px;align-items:flex-start">
+          <input type="checkbox" id="enviar_correo_cliente" style="margin-top:3px" />
           <span>
-            <b>Enviar PDF por correo al cliente</b><br/>
-            <span style="font-size:0.85rem;opacity:.85">Desmarcá esto en trabajos internos de oficina (no se reporta al cliente).</span>
+            <b>Enviar PDF por correo al cliente</b> <span style="font-weight:600;opacity:.9">(opcional)</span><br/>
+            <span style="font-size:0.85rem;opacity:.85">Marcá solo si querés notificar al cliente. Sin marcar: PDF interno + registro en Excel, sin correo.</span>
           </span>
         </label>
-        <div id="bloqueCorreo">
+        <div id="bloqueCorreo" style="display:none">
           <div id="contactosBox" class="note" style="margin-bottom:10px">
             Elegí cliente y máquina: aparecen fichas iguales (nombre · cargo · correo) para el general (ej. David Campos) y el CC del punto desde la planilla.
           </div>
@@ -455,10 +455,10 @@
         <p class="note" id="notaRemotoSinFirma" style="display:none;margin:8px 0 0">
           Soporte remoto: no se pide firma en pantalla. El PDF queda como trabajo a distancia.
         </p>
-        <p class="note" id="notaEnvio">Al enviar se genera el PDF, se manda al correo del cliente pidiendo acusar recibo, y se registra la fila en el Excel de análisis.</p>
+        <p class="note" id="notaEnvio">Por defecto: PDF interno + registro en Excel, sin correo al cliente. Marcá la casilla solo si querés enviarlo.</p>
         <div class="actions">
           <button type="button" class="btn-clear" id="btnClear">Borrar firma</button>
-          <button type="submit" class="btn-send" id="btnSend">Completar · PDF · Enviar</button>
+          <button type="submit" class="btn-send" id="btnSend">Completar · PDF (interno)</button>
         </div>
         <div class="status" id="status"></div>
         <div class="ok-banner" id="okBanner">
@@ -482,7 +482,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21X";
+    var FORM_BUILD = "WES-build-21Y";
     /** Motivos de falla/trabajo típicos en soporte a distancia (van en tipo_falla). */
     var TIPOS_FALLA_REMOTO = [
       "Programación de auditoría",
@@ -1620,13 +1620,16 @@
       const btn = document.getElementById("btnSend");
       const nota = document.getElementById("notaEnvio");
       const chip = document.getElementById("enviar_correo_cliente").closest("label");
-      if (bloque) bloque.style.opacity = on ? "1" : "0.45";
+      if (bloque) {
+        bloque.style.display = on ? "" : "none";
+        bloque.style.opacity = "1";
+      }
       if (email) email.required = on;
       if (btn) btn.textContent = on ? "Completar · PDF · Enviar" : "Completar · PDF (interno)";
       if (nota) {
         nota.textContent = on
           ? "Al completar: PDF + correo al cliente (acusar recibo) + fila en Excel."
-          : "Trabajo interno: PDF + registro en Excel, sin correo al cliente.";
+          : "Por defecto / sin casilla: PDF interno + registro en Excel, sin correo al cliente.";
       }
       if (chip) chip.classList.toggle("on", on);
     }
