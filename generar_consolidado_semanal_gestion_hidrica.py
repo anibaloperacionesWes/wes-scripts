@@ -35,35 +35,84 @@ from generar_informes_gestion_hidrica_semanal import (
 from informe_gestion_hidrica_pdf import render_consolidado_semanal
 from puntos_control_hidrico import estado_control, nota_red_cliente
 
-PRIO_ORDEN = {"ATENCIÓN": 0, "SEGUIMIENTO": 1}
+PRIO_ORDEN = {"ATENCIÓN": 0, "AVISO": 1, "SEGUIMIENTO": 2}
 
-# Notas de operación (anulan la lectura automática del punto).
+# Puntos que OPERAN sin control (WES actúa). El resto de alzas es aviso al cliente.
+SIN_CONTROL_REAL = {"000002-01", "000002-03", "000021-03"}
+
 NOTAS_PUNTO: Dict[str, Dict[str, str]] = {
+    "000002-01": {
+        "tipo": "SIN CONTROL",
+        "prio": "ATENCIÓN",
+        "lectura": (
+            "Está SIN CONTROL: el CPA está instalado pero no opera. "
+            "Hay que activarlo y programarlo (peak 22:00–03:00)."
+        ),
+        "revisar": "Activar y programar el CPA",
+    },
+    "000021-03": {
+        "tipo": "SIN CONTROL",
+        "prio": "SEGUIMIENTO",
+        "lectura": "Está SIN CONTROL. Punto bien. Visita técnica hoy.",
+        "revisar": "Visita hoy",
+    },
     "000022-00": {
-        "lectura": "Problema de monitoreo (sensor de pulso). Hay que cambiar a ultrasonido.",
+        "tipo": "MONITOREO",
+        "prio": "SEGUIMIENTO",
+        "lectura": "Problema de monitoreo (sensor de pulso). Cambiar a ultrasonido.",
         "revisar": "Cambiar monitoreo: pulso → ultrasonido",
     },
     "000009-06": {
-        "lectura": "Matriz Principal no tiene control CPA.",
-        "revisar": "Sin control CPA",
-    },
-    "000021-03": {
-        "lectura": "Punto bien. Visita técnica hoy.",
-        "revisar": "Visita hoy",
+        "tipo": "AVISO",
+        "prio": "SEGUIMIENTO",
+        "lectura": "Matriz Principal no tiene CPA. Aviso al cliente.",
+        "revisar": "Aviso al cliente: sin CPA",
     },
 }
 
 
-def _aplicar_notas(filas: List[dict]) -> List[dict]:
+def _aplicar_lectura_operativa(filas: List[dict]) -> List[dict]:
+    """Lo Valledor y Tupper = sin control. El resto de alzas = aviso al cliente."""
     out: List[dict] = []
     for f in filas:
-        nota = NOTAS_PUNTO.get(str(f.get("node_id") or ""))
+        f = dict(f)
+        nid = str(f.get("node_id") or "")
+        nota = NOTAS_PUNTO.get(nid)
         if nota:
-            f = dict(f)
-            if nota.get("lectura"):
-                f["lectura"] = nota["lectura"]
-            if nota.get("revisar"):
-                f["revisar"] = nota["revisar"]
+            f["tipo"] = nota["tipo"]
+            f["control"] = nota["tipo"] if nota["tipo"] != "AVISO" else "AVISO CLIENTE"
+            if nota["tipo"] == "AVISO":
+                f["control"] = "AVISO CLIENTE"
+            f["prio"] = nota.get("prio", f["prio"])
+            f["lectura"] = nota["lectura"]
+            f["revisar"] = nota["revisar"]
+            f["tiene_control"] = nota["tipo"] not in ("SIN CONTROL", "AVISO")
+            f["orden"] = (PRIO_ORDEN.get(f["prio"], 9), -float(f.get("total") or 0))
+            out.append(f)
+            continue
+        if f.get("prio") == "ATENCIÓN" and nid not in SIN_CONTROL_REAL:
+            wow = f.get("wow") or "—"
+            f["tipo"] = "AVISO"
+            f["prio"] = "AVISO"
+            f["control"] = "AVISO CLIENTE"
+            f["tiene_control"] = False
+            f["lectura"] = (
+                f"Aviso al cliente: consumo {wow} vs semana previa "
+                f"({f.get('m3')} m³ vs {f.get('prev_m3')} m³). "
+                "Informar al recinto para que confirme uso o evento."
+            )
+            extra = []
+            if "pico" in (f.get("revisar") or "").lower():
+                # keep peak date if the auto text had it
+                for part in (f.get("revisar") or "").split(";"):
+                    if "pico" in part.lower():
+                        extra.append(part.strip())
+            f["revisar"] = "Avisar al cliente el alza" + (
+                f"; {extra[0]}" if extra else ""
+            )
+            f["orden"] = (PRIO_ORDEN["AVISO"], -float(f.get("total") or 0))
+        else:
+            f.setdefault("tipo", "SIN CONTROL" if nid in SIN_CONTROL_REAL else f.get("control"))
         out.append(f)
     return out
 
@@ -252,8 +301,8 @@ def evaluar_cliente(cfg: dict, data: dict, data_prev: dict) -> Tuple[List[dict],
         top_id = top.get("node_id")
         cpa_txt = "Activar y programar el CPA (peak 22:00–03:00)"
         lectura_cpa = (
-            "Tiene control: CPA instalado. Falta activarlo y programarlo. "
-            "El peak del mercado es 22:00–03:00."
+            "Está SIN CONTROL: el CPA está instalado pero no opera. "
+            "Hay que activarlo y programarlo (peak 22:00–03:00)."
         )
         if not any(f.get("node_id") == top_id for f in filas):
             total = float(top.get("total") or 0)
@@ -312,22 +361,22 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
             print(f"  {base['cliente']}: sin alerta", flush=True)
 
     revisables.sort(key=lambda r: r["orden"])
-    revisables = _aplicar_notas(revisables)
-    atencion = [r for r in revisables if r["prio"] == "ATENCIÓN"]
-    seguimiento = [r for r in revisables if r["prio"] != "ATENCIÓN"]
-    n_sin_ctrl = sum(1 for r in atencion if not r.get("tiene_control"))
-    n_con_ctrl = sum(1 for r in atencion if r.get("tiene_control"))
-    if atencion:
-        resumen = (
-            f"De los {len(atencion)} a atacar: {n_sin_ctrl} sin control y "
-            f"{n_con_ctrl} con control. Una alza CON CONTROL significa que el "
-            "CPA/WES no la evitó; una alza SIN CONTROL corre sin corte."
-        )
-    else:
-        resumen = (
-            "Atacar = acción ahora. Diferenciar siempre si el punto tiene control "
-            "(CPA/WES) o no."
-        )
+    revisables = _aplicar_lectura_operativa(revisables)
+    sin_control = [r for r in revisables if r.get("tipo") == "SIN CONTROL"]
+    avisos = [
+        r for r in revisables if r.get("tipo") == "AVISO" and r.get("prio") == "AVISO"
+    ]
+    seguimiento = [
+        r
+        for r in revisables
+        if r.get("tipo") == "MONITOREO"
+        or (r.get("tipo") == "AVISO" and r.get("prio") == "SEGUIMIENTO")
+    ]
+    resumen = (
+        "De los 5, solo Lo Valledor está realmente sin control (CPA no opera). "
+        "Raimundo Tupper también está sin control (visita hoy, punto bien). "
+        "El resto es aviso al cliente, no falla de control."
+    )
     periodo = f"Semana {_rango_es(start, end)}  ·  vs {_rango_es(prev_start, prev_end)}"
     footer = f"Consolidado semanal | {_rango_es(start, end)}"
     out_dir = Path("reports") / "CONSOLIDADO" / "SEMANAL"
@@ -338,7 +387,8 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
         out,
         periodo=periodo,
         footer=footer,
-        atencion=atencion,
+        sin_control=sin_control,
+        avisos=avisos,
         seguimiento=seguimiento,
         sin_alerta=sin_alerta,
         resumen=resumen,

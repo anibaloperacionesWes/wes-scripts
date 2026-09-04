@@ -88,11 +88,11 @@ def estado_control(cfg: dict, node_id: Optional[str]) -> Tuple[str, str, bool]:
     """
     Returns (etiqueta, detalle, tiene_control_activo).
 
-    CPA instalado (aunque falte activar) cuenta como CON CONTROL.
+    CPA instalado y no operando cuenta como SIN CONTROL.
     """
     nid = str(node_id or "").strip()
     if cfg.get("cpa_estado") == "instalado_pendiente":
-        return "CON CONTROL", "CPA instalado, pendiente de activar", True
+        return "SIN CONTROL", "CPA instalado, no opera", False
     if nid and nid in ids_con_control():
         return "CON CONTROL", "CPA/WES activo", True
     if cfg.get("nocturnal_explain") == "wes" and nid == (cfg.get("matriz_id") or ""):

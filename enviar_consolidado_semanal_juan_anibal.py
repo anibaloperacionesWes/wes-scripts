@@ -62,34 +62,37 @@ def enviar(
         raise FileNotFoundError(f"No existe {pdf}")
     print(f"[OK] {pdf.name} ({pdf.stat().st_size // 1024} KB)")
 
-    atacar = [r for r in filas if r.get("prio") == "ATENCIÓN"]
+    atacar = [r for r in filas if r.get("tipo") == "SIN CONTROL" and r.get("prio") == "ATENCIÓN"]
+    avisos = [r for r in filas if r.get("tipo") == "AVISO" and r.get("prio") == "AVISO"]
     n_seg = sum(1 for r in filas if r.get("prio") == "SEGUIMIENTO")
-    mostrar = atacar[:6]
-    if mostrar:
-        lista = "\n".join(
-            f"  • {r['cliente']} — {r['punto']} [{r.get('control') or 'SIN CONTROL'}]: "
-            f"{r['revisar']} ({r['m3']} m³, noct {r['noct']}, {r['wow']} vs prev.)"
-            for r in mostrar
-        )
-        if len(atacar) > 6:
-            lista += f"\n  • … y {len(atacar) - 6} más en el PDF."
-    else:
-        lista = "  • Ningún punto para atacar esta semana."
+    lineas = []
+    if atacar:
+        lineas.append("Sin control (WES actúa):")
+        for r in atacar:
+            lineas.append(
+                f"  • {r['cliente']} — {r['punto']}: {r['revisar']} "
+                f"({r['m3']} m³, {r['wow']} vs prev.)"
+            )
+    if avisos:
+        lineas.append("Aviso al cliente:")
+        for r in avisos:
+            lineas.append(
+                f"  • {r['cliente']} — {r['punto']}: {r['revisar']} "
+                f"({r['m3']} m³, {r['wow']} vs prev.)"
+            )
+    lista = "\n".join(lineas) if lineas else "  • Nada para esta semana."
     ok = ", ".join(sin_alerta) if sin_alerta else "—"
     cuerpo = (
         "Estimados Juan y Aníbal,\n\n"
-        f"Semana {periodo}. Para atacar ahora — no reemplaza el cierre mensual.\n\n"
-        f"Atacar esta semana ({len(atacar)}). "
-        "CON CONTROL = tiene CPA/WES (si sube, el equipo no evitó el aumento). "
-        "SIN CONTROL = no hay corte automático.\n\n"
+        f"Semana {periodo}. No reemplaza el cierre mensual.\n\n"
+        "SIN CONTROL = WES actúa. AVISO AL CLIENTE = informar el alza al recinto.\n\n"
         f"{lista}\n\n"
-        f"El PDF adjunto trae el detalle y {n_seg} punto(s) en seguimiento "
-        "(no urgentes; conviene mirarlos si hay tiempo).\n"
+        f"El PDF trae el detalle y {n_seg} punto(s) en seguimiento.\n"
         f"Clientes sin alerta: {ok}\n\n"
         + (f"También en Drive:\n  • {drive}\n\n" if drive else "")
         + "Saludos cordiales,\nAgente IA WES\n"
     )
-    asunto = f"WES · Semana {periodo} · {len(atacar)} punto(s) a atacar"
+    asunto = f"WES · Semana {periodo} · {len(atacar)} sin control, {len(avisos)} aviso(s)"
 
     if dry_run:
         print(f"\n[DRY-RUN] Asunto: {asunto}")

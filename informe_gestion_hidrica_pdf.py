@@ -999,12 +999,13 @@ def render_consolidado_semanal(
     *,
     periodo: str,
     footer: str,
-    atencion: Sequence[Dict[str, str]],
+    sin_control: Sequence[Dict[str, str]],
+    avisos: Sequence[Dict[str, str]],
     seguimiento: Sequence[Dict[str, str]],
     sin_alerta: Sequence[str],
     resumen: str,
 ) -> Path:
-    """Consolidado semanal en ~3 páginas: atacar (con/sin control) y seguimiento."""
+    """3 páginas: sin control (WES), aviso al cliente, seguimiento."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(out_path), pagesize=LETTER)
     logo = _logo_reader(resolve_logo())
@@ -1018,19 +1019,20 @@ def render_consolidado_semanal(
     y = _draw_title_block(c, "Qué atacar esta semana", periodo, PAGE_H - 61)
     y = _draw_consolidado_kpis(
         c,
-        n_att=len(atencion),
-        n_seg=len(seguimiento),
-        n_ok=len(sin_alerta),
+        n_att=len(sin_control),
+        n_seg=len(avisos),
+        n_ok=len(seguimiento),
         top=y,
+        labels=("Sin control", "Avisos al cliente", "Seguimiento"),
     )
     y = _draw_leyenda_control(c, y)
     y = _draw_runs(c, [(resumen, False)], ML, y + 2, CONTENT_W, 8.5, GRAY, 12)
 
-    y = _section(c, "Atacar esta semana", y - 4, 15)
-    if not atencion:
+    y = _section(c, "Sin control — WES actúa", y - 4, 15)
+    if not sin_control:
         y = _draw_runs(
             c,
-            [("Ningún punto en atención esta semana.", False)],
+            [("Ningún punto sin control esta semana.", False)],
             ML,
             y + 2,
             CONTENT_W,
@@ -1039,7 +1041,44 @@ def render_consolidado_semanal(
             13,
         )
     else:
-        y, page = _draw_prioridad_cards(c, atencion, y, page, new_page, footer)
+        y, page = _draw_prioridad_cards(
+            c, sin_control, y, page, new_page, footer, seccion="Sin control (cont.)"
+        )
+
+    c.showPage()
+    page += 1
+    new_page(page)
+    y = _section(c, "Aviso al cliente", PAGE_H - 58, 15)
+    y = _draw_runs(
+        c,
+        [
+            (
+                "Alzas para informar al recinto. No son puntos sin control.",
+                False,
+            )
+        ],
+        ML,
+        y + 2,
+        CONTENT_W,
+        8.5,
+        GRAY,
+        12,
+    )
+    if not avisos:
+        y = _draw_runs(
+            c,
+            [("Sin avisos al cliente esta semana.", False)],
+            ML,
+            y + 2,
+            CONTENT_W,
+            9,
+            BODY,
+            13,
+        )
+    else:
+        y, page = _draw_prioridad_cards(
+            c, avisos, y, page, new_page, footer, seccion="Aviso al cliente (cont.)"
+        )
 
     c.showPage()
     page += 1
@@ -1048,12 +1087,7 @@ def render_consolidado_semanal(
     y = _section(c, "Seguimiento", y, 15)
     y = _draw_runs(
         c,
-        [
-            (
-                "No son urgentes. Cada fila trae la observación operativa (control, sensor o visita).",
-                False,
-            )
-        ],
+        [("Fleming: cambio de sensor. COPEC matriz: aviso sin CPA.", False)],
         ML,
         y + 2,
         CONTENT_W,
@@ -1092,7 +1126,7 @@ def render_consolidado_semanal(
         [
             (
                 "Este consolidado no reemplaza el informe de fin de mes. "
-                "Se envía los lunes. El correo lista solo lo de Atacar, indicando con/sin control.",
+                "Se envía los lunes. El correo lista el sin control y los avisos al cliente.",
                 False,
             )
         ],
@@ -1122,16 +1156,17 @@ def _draw_leyenda_control(c: canvas.Canvas, top: float) -> float:
     bloques = [
         (
             TABLE_X + 10,
-            HexColor("#1E8449"),
-            "CON CONTROL",
-            "Tiene equipo CPA/WES. Si falta activarlo, hay que programarlo. "
-            "Si ya opera y el consumo sube, el corte no evitó el aumento.",
+            HexColor("#C0392B"),
+            "SIN CONTROL",
+            "WES actúa: el CPA no está operando (o no hay). "
+            "Esta semana: Lo Valledor y Raimundo Tupper.",
         ),
         (
             TABLE_X + half + 10,
-            HexColor("#C0392B"),
-            "SIN CONTROL",
-            "No hay CPA/WES en el punto. Si el consumo sube, el aumento corre libre.",
+            HexColor("#B9770E"),
+            "AVISO AL CLIENTE",
+            "El consumo subió: informar al recinto. "
+            "No se lee como punto sin control.",
         ),
     ]
     for x, color, titulo, cuerpo in bloques:
@@ -1147,14 +1182,25 @@ def _draw_leyenda_control(c: canvas.Canvas, top: float) -> float:
     return y - 8
 
 
-def _draw_consolidado_kpis(c: canvas.Canvas, n_att: int, n_seg: int, n_ok: int, top: float) -> float:
+def _draw_consolidado_kpis(
+    c: canvas.Canvas,
+    n_att: int,
+    n_seg: int,
+    n_ok: int,
+    top: float,
+    labels: Tuple[str, str, str] = (
+        "A atacar esta semana",
+        "En seguimiento",
+        "Clientes sin alerta",
+    ),
+) -> float:
     h = 44
     y = top - h
     col_w = TABLE_W / 3
     items = [
-        (str(n_att), "A atacar esta semana", HexColor("#C0392B")),
-        (str(n_seg), "En seguimiento", HexColor("#B9770E")),
-        (str(n_ok), "Clientes sin alerta", HexColor("#1E8449")),
+        (str(n_att), labels[0], HexColor("#C0392B")),
+        (str(n_seg), labels[1], HexColor("#B9770E")),
+        (str(n_ok), labels[2], HexColor("#1E8449")),
     ]
     c.setFillColor(KPI_BG)
     c.rect(TABLE_X, y, TABLE_W, h, fill=1, stroke=0)
@@ -1176,13 +1222,17 @@ def _draw_consolidado_kpis(c: canvas.Canvas, n_att: int, n_seg: int, n_ok: int, 
 
 
 def _draw_control_badge(c: canvas.Canvas, etiqueta: str, x: float, y: float) -> None:
-    con = etiqueta == "CON CONTROL"
-    bg = HexColor("#1E8449") if con else HexColor("#C0392B")
-    w = 78 if con else 72
+    pal = {
+        "SIN CONTROL": (HexColor("#C0392B"), 78),
+        "AVISO CLIENTE": (HexColor("#B9770E"), 88),
+        "MONITOREO": (HexColor("#087EAE"), 72),
+        "CON CONTROL": (HexColor("#1E8449"), 78),
+    }
+    bg, w = pal.get(etiqueta, (HexColor("#5D6D7E"), max(72, 6.2 * len(etiqueta))))
     c.setFillColor(bg)
     c.roundRect(x - w, y - 3, w, 12, 2, fill=1, stroke=0)
     c.setFillColor(white)
-    c.setFont("Helvetica-Bold", 6.5)
+    c.setFont("Helvetica-Bold", 6.2)
     c.drawCentredString(x - w / 2, y, etiqueta)
 
 
@@ -1193,11 +1243,12 @@ def _draw_prioridad_cards(
     page: int,
     new_page,
     footer: str,
+    seccion: str = "Atacar esta semana (cont.)",
 ) -> Tuple[float, int]:
     x0 = TABLE_X
     drawn_on_page = 0
     for i, r in enumerate(filas, 1):
-        limit = 2 if page == 1 else 3
+        limit = 2 if page == 1 else 4
         title = f"{r['cliente']}  ·  {r['punto']}"
         prev = r.get("prev_m3") or "—"
         meta = (
@@ -1223,7 +1274,7 @@ def _draw_prioridad_cards(
             c.showPage()
             page += 1
             new_page(page)
-            y = _section(c, "Atacar esta semana (cont.)", PAGE_H - 58, 15)
+            y = _section(c, seccion, PAGE_H - 58, 15)
             drawn_on_page = 0
         y0 = y - inner_h
         c.setFillColor(HALLAZGO_BG if i % 2 == 0 else HALLAZGO_BG_ALT)
