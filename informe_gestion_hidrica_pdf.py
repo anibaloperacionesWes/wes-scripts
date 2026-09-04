@@ -1077,8 +1077,9 @@ def render_consolidado_semanal(
     nota_perdidos: str = "",
     n_perdidos: int = 0,
     titulo_perdidos: str = "",
+    filas_perdidos: Sequence[Dict[str, str]] = (),
 ) -> Path:
-    """4 páginas: sin control (WES), aviso al cliente, datos perdidos, seguimiento."""
+    """Sin control, avisos, horas perdidas (gráfico + tabla) y seguimiento."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(out_path), pagesize=LETTER)
     logo = _logo_reader(resolve_logo())
@@ -1166,6 +1167,32 @@ def render_consolidado_semanal(
         n = max(1, min(25, int(n_perdidos or 8)))
         chart_h = min(500.0, max(260.0, 90.0 + 22.0 * n))
         y = _draw_image(c, Path(chart_perdidos), y - 4, chart_h)
+
+    if filas_perdidos:
+        c.showPage()
+        page += 1
+        new_page(page)
+        y = _section(c, "Puntos con horas perdidas", PAGE_H - 58, 15)
+        y = _draw_runs(
+            c,
+            [
+                (
+                    "La lectura se completa solo si hay causa conocida. "
+                    "Sin conexión no es un fallo del medidor: si el recinto está "
+                    "desenergizado, el WES no puede guardar datos ni monitorear.",
+                    False,
+                )
+            ],
+            ML,
+            y + 2,
+            CONTENT_W,
+            8.5,
+            GRAY,
+            12,
+        )
+        y, page = _draw_horas_perdidas_table(
+            c, filas_perdidos, y, page, new_page
+        )
     else:
         y = _draw_runs(
             c,
@@ -1406,6 +1433,47 @@ def _draw_prioridad_cards(
         y = y0 - 6
         drawn_on_page += 1
     return y - 8, page
+
+
+def _draw_horas_perdidas_table(
+    c: canvas.Canvas,
+    filas: Sequence[Dict[str, str]],
+    y: float,
+    page: int,
+    new_page,
+) -> Tuple[float, int]:
+    col_ws = [118.0, 48.0, 82.0, TABLE_W - 118.0 - 48.0 - 82.0]
+    headers = ["PUNTO", "HORAS", "ESTADO", "LECTURA"]
+    rows = []
+    for r in filas:
+        estado = "SIN CONEXIÓN" if r.get("desconectado") else "HUECOS"
+        hrs = f"{int(round(float(r.get('horas') or 0)))} h"
+        rows.append(
+            [
+                str(r.get("punto") or r.get("label") or "—"),
+                hrs,
+                estado,
+                str(r.get("lectura") or "—"),
+            ]
+        )
+    remaining = list(rows)
+    first = True
+    while remaining:
+        chunk = remaining[:8] if first else remaining[:12]
+        remaining = remaining[len(chunk) :]
+        if y < 140 and not first:
+            c.showPage()
+            page += 1
+            new_page(page)
+            y = _section(c, "Puntos con horas perdidas (cont.)", PAGE_H - 58, 15)
+        y = _draw_table(c, headers, chunk, col_ws, y - 4, font_size=7.5)
+        first = False
+        if remaining:
+            c.showPage()
+            page += 1
+            new_page(page)
+            y = _section(c, "Puntos con horas perdidas (cont.)", PAGE_H - 58, 15)
+    return y, page
 
 
 def _draw_seguimiento_table(

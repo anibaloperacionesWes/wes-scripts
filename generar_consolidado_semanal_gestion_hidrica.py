@@ -49,7 +49,6 @@ from reporte_puntos_en_cero import (
     obtener_estado_conexion_nodo,
 )
 from control_nocturno import _dt_local_from_csv_time, _value_by_time_last_row
-from puntos_control_hidrico import estado_control, nota_red_cliente
 
 PRIO_ORDEN = {"ATENCIÓN": 0, "AVISO": 1, "SEGUIMIENTO": 2}
 
@@ -85,6 +84,27 @@ NOTAS_PUNTO: Dict[str, Dict[str, str]] = {
         "revisar": "Aviso al cliente: sin CPA",
     },
 }
+
+# Lectura conocida de horas perdidas. El resto de huecos queda sin causa.
+NOTAS_HORAS: Dict[str, Dict[str, Any]] = {
+    "000008-08": {
+        "desconectado": True,
+        "lectura": (
+            "Visita 4/09: recinto desenergizado. "
+            "Sin energía el WES no guarda datos ni puede monitorear."
+        ),
+    },
+    "000022-00": {
+        "lectura": (
+            "Sensor de pulso: los huecos son de monitoreo. Cambiar a ultrasonido."
+        ),
+    },
+}
+
+LECTURA_SIN_CONEXION = (
+    "Sin conexión. En terreno suele ser recinto desenergizado: "
+    "sin energía el WES no guarda datos ni puede monitorear."
+)
 
 
 def _aplicar_lectura_operativa(filas: List[dict]) -> List[dict]:
@@ -466,12 +486,34 @@ def _filas_horas_perdidas(nodos: List[dict], start: datetime, end: datetime) -> 
         out.append(
             {
                 "node_id": nid,
+                "punto": str(nombre),
                 "horas": lost[nid],
                 "desconectado": estado.get(nid, True),
                 "label": _label_horas_punto(str(nombre), nid),
+                "lectura": "—",
             }
         )
     out.sort(key=lambda r: (-float(r["horas"]), r["label"]))
+    return out
+
+
+def _aplicar_lectura_horas(filas: List[dict]) -> List[dict]:
+    """Completa la lectura solo si hay causa conocida, o si está sin conexión."""
+    out: List[dict] = []
+    for f in filas:
+        f = dict(f)
+        nid = str(f.get("node_id") or "")
+        nota = NOTAS_HORAS.get(nid)
+        if nota:
+            if "desconectado" in nota:
+                f["desconectado"] = bool(nota["desconectado"])
+            f["lectura"] = nota["lectura"]
+        elif f.get("desconectado"):
+            f["lectura"] = LECTURA_SIN_CONEXION
+        else:
+            f["lectura"] = "—"
+        out.append(f)
+    out.sort(key=lambda r: (-float(r["horas"]), r.get("label") or ""))
     return out
 
 
@@ -516,7 +558,7 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
         or (r.get("tipo") == "AVISO" and r.get("prio") == "SEGUIMIENTO")
     ]
     print("[INFO] Horas perdidas de la semana...", flush=True)
-    filas_all = _filas_horas_perdidas(nodos_flota, start, end)
+    filas_all = _aplicar_lectura_horas(_filas_horas_perdidas(nodos_flota, start, end))
     n_nodos = len(nodos_flota)
     n_dias = (end.date() - start.date()).days + 1
     horas_esperadas = n_nodos * n_dias * 24
@@ -561,6 +603,7 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
         nota_perdidos=nota_perdidos,
         n_perdidos=len(filas_horas),
         titulo_perdidos=titulo_sem,
+        filas_perdidos=filas_horas,
     )
     print(f"[OK] {out}", flush=True)
     return out, revisables, sin_alerta
