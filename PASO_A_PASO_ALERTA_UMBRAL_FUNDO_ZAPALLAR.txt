@@ -1,0 +1,177 @@
+================================================================================
+PASO A PASO — Alerta de umbral Fundo Zapallar (000027)
+Correo de notificación: anibal.aoperaciones@wes.cl
+Fecha de referencia: 01/09/2026
+================================================================================
+
+API base (Swagger / curl):
+  http://104.248.53.141:7001/wes/api/acl-entities/v1
+
+Regla de umbral usada:
+  Baseline = promedio diario últimos ~90 días (03/06/2026 – 31/08/2026)
+  EXCLUIDO del baseline: 30/07/2026 – 04/08/2026 (consumo anómalo)
+  Umbral = baseline × 1,25 (+25 %)
+  Disparo: cuando el acumulado del DÍA supera el umbral (cualquier hora)
+
+Fuera de alcance:
+  000027-05  Riego  → cerrado / no considerado
+
+
+--------------------------------------------------------------------------------
+1. UMBRALES A CARGAR (8 puntos activos)
+--------------------------------------------------------------------------------
+
+  Nodo         Punto                              Umbral (m³/día)
+  -----------  ---------------------------------  ---------------
+  000027-01    Matriz ESVAL                       102.7
+  000027-02    Estanque Inferior                   96.5
+  000027-03    Etapa N°5                           32.4
+  000027-04    Etapa N°1 al 4                      65.4
+  000027-06    Etapa N°1                           20.3
+  000027-07    Etapa N°2                           25.7
+  000027-08    Etapa N°3                           41.3   ← prioridad (evento anómalo)
+  000027-09    Riego Llenado Estanque ESVAL         0.7   ← umbral muy bajo; puede dar ruido
+
+
+================================================================================
+PASO A — Cargar umbral (threshold)
+================================================================================
+
+En Swagger:
+  Método:  PUT
+  Nombre:  Agregar configuración de Threshold de alerta un nodo existente
+  Ruta:    /configuration/companies/{companyId}/nodes/{nodeId}/threshold
+
+Parámetros:
+  companyId  = 000027
+  nodeId     = (el punto, ej. 000027-08)
+
+Nombre del body:  thresholdRequest
+
+Contenido del body (ejemplo Etapa N°3):
+{
+  "threshold": "41.3"
+}
+
+Repetir por cada nodeId con su valor de la tabla de arriba.
+
+
+================================================================================
+PASO B — Agregar correo a la alerta
+================================================================================
+
+IMPORTANTE: el tipo de alerta es siempre FILTRATION (no LEAK).
+
+  FILTRATION  → alerta de consumo / umbral diario + correos  ← ESTA
+  LEAK        → otro esquema de fuga (en Zapallar no está configurada)
+
+En Swagger (si la alerta ya existe — caso habitual):
+  Método:  PUT
+  Nombre:  Agregar usuario o un grupo de usuarios a una alerta existente
+  Ruta:    /configuration/companies/{companyId}/alert/nodes/{nodeId}
+
+Si el punto NO tiene alerta todavía:
+  Método:  POST
+  Nombre:  Crear una nueva alerta de configuración a un nodo existente
+  (misma ruta)
+
+Parámetros:
+  companyId  = 000027
+  nodeId     = (el punto, ej. 000027-01)
+
+Nombre del body:  addAlertRequest
+
+Contenido del body (igual para todos los puntos):
+{
+  "alertType": "FILTRATION",
+  "notifyTo": [
+    "anibal.aoperaciones@wes.cl"
+  ]
+}
+
+Notas:
+  - El "string" del ejemplo de Swagger es solo placeholder: reemplazarlo por el correo.
+  - El PUT AGREGA el correo; no borra los destinatarios del cliente (LGA) que ya están.
+  - NO hace falta tener los nodos 000027-* en allowedNodes del usuario para recibir el mail.
+    Acceso en la app (allowedNodes) y suscripción al correo (notifyTo) son cosas distintas.
+
+
+================================================================================
+PASO C — Verificar
+================================================================================
+
+--- C1) Ver umbrales ---
+  Método:  GET
+  Nombre:  Obtener la información de configuración de una empresa mediante su companyId
+  Ruta:    /companies/{companyId}
+  companyId = 000027
+
+  En cada nodo mirar:
+    configuration.threshold
+  - "0"     → umbral NO activo
+  - "41.3"  → umbral activo (ejemplo)
+
+--- C2) Ver correos suscritos ---
+  Método:  GET
+  Nombre:  Obtener la información de alertas existentes de una empresa
+  Ruta:    /companies/{companyId}/node/{nodeId}/alert/{type}/information
+
+  companyId = 000027
+  nodeId    = ej. 000027-01
+  type      = FILTRATION   ← siempre FILTRATION para esta alerta
+
+  En la respuesta buscar en receiverList:
+    "email": "anibal.aoperaciones@wes.cl"
+
+
+================================================================================
+ORDEN RECOMENDADO DE EJECUCIÓN
+================================================================================
+
+  1) Paso A en los 8 puntos (umbrales)
+  2) Paso B en los 8 puntos (correo Aníbal) — prioridad 000027-08 y luego 000027-01
+  3) Paso C verificación GET
+
+Estado conocido al 01/09/2026 (consulta API):
+  - Umbrales: cargados en 000027-01..04 y 000027-06..08 (000027-09 aún en 0)
+  - Correo Aníbal: solo confirmado en 000027-01 Matriz ESVAL
+  - Pendiente Paso B en: 000027-02, 03, 04, 06, 07, 08, 09
+
+
+================================================================================
+CHECKLIST FINAL
+================================================================================
+
+  [ ] Umbrales != 0 en los 8 puntos activos
+  [ ] 000027-05 sin tocar
+  [ ] anibal.aoperaciones@wes.cl en receiverList de los 8 puntos
+  [ ] Correos LGA / cliente conservados
+  [ ] Prioridad operativa: 000027-08 Etapa N°3 (umbral 41.3 m³/d)
+
+
+================================================================================
+CÓMO FUNCIONA EN LA PRÁCTICA
+================================================================================
+
+  - Compara el consumo acumulado del día contra el umbral.
+  - Si en cualquier hora se supera → correo ese mismo día.
+  - No espera fin de mes ni revisión manual de reportes.
+  - Ejemplo: con umbral 41.3 en Etapa N°3, el pico ~199 m³/d del 01/08
+    habría disparado alerta el mismo día.
+
+
+================================================================================
+DÓNDE SE REVISA DESPUÉS (APP vs SWAGGER)
+================================================================================
+
+  Umbral cargado / correos suscritos  → Swagger (GET arriba) — NO hay menú
+                                          documentado en la app Monitoreo WES
+  Historial de alertas disparadas     → App Monitoreo WES → Fundo Zapallar
+                                          → punto → Alertas
+  Consumo del día vs umbral           → App Monitoreo WES → punto → Consumo
+  Portal interno WES                  → https://dashboard.wes.cl
+
+
+================================================================================
+Fin del documento
+================================================================================
