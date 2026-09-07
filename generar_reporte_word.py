@@ -5267,12 +5267,42 @@ def convertir_word_a_pdf(word_path: Path) -> Optional[Path]:
         except Exception as e:
             print(f"[DEBUG] comtypes falló: {e}")
         
+        # Fallback Linux/Cloud: LibreOffice headless (soffice)
+        try:
+            import shutil
+            soffice = shutil.which("soffice") or shutil.which("libreoffice")
+            if soffice:
+                pdf_path = word_path.with_suffix(".pdf")
+                subprocess.run(
+                    [
+                        soffice,
+                        "--headless",
+                        "--nologo",
+                        "--nofirststartwizard",
+                        "--convert-to",
+                        "pdf",
+                        "--outdir",
+                        str(word_path.parent),
+                        str(word_path),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                if pdf_path.exists():
+                    return pdf_path
+            else:
+                print("[ADVERTENCIA] No se encontró LibreOffice/soffice para convertir Word a PDF.")
+        except Exception as e:
+            print(f"[DEBUG] LibreOffice/soffice falló: {e}")
+
         # Si ninguna librería está disponible, retornar None
         print("[ADVERTENCIA] No se encontró ninguna librería para convertir Word a PDF.")
         print("[INFO] Instala una de estas opciones:")
         print("  - pip install docx2pdf (requiere Microsoft Word)")
         print("  - pip install pywin32 (para win32com)")
         print("  - pip install comtypes (alternativa)")
+        print("  - apt install libreoffice-writer-nogui (Linux/Cloud)")
         
         return None
         
