@@ -68,8 +68,8 @@ NOTAS_PUNTO: Dict[str, Dict[str, str]] = {
     "000021-03": {
         "tipo": "SIN CONTROL",
         "prio": "SEGUIMIENTO",
-        "lectura": "Está SIN CONTROL. Punto bien. Visita técnica hoy.",
-        "revisar": "Visita hoy",
+        "lectura": "Está SIN CONTROL. Punto bien. Visita técnica 4/09.",
+        "revisar": "Visita 4/09",
     },
     "000022-00": {
         "tipo": "MONITOREO",
@@ -574,7 +574,7 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
     )
     resumen = (
         "De los 5, solo Lo Valledor está realmente sin control (CPA no opera). "
-        "Raimundo Tupper también está sin control (visita hoy, punto bien). "
+        "Raimundo Tupper también está sin control (visita 4/09, punto bien). "
         "El resto es aviso al cliente, no falla de control."
     )
     if filas_horas:
