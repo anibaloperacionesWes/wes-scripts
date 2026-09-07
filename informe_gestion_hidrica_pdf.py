@@ -1283,8 +1283,8 @@ def _draw_leyenda_control(c: canvas.Canvas, top: float) -> float:
             TABLE_X + 10,
             HexColor("#C0392B"),
             "SIN CONTROL",
-            "WES actúa: el CPA no está operando (o no hay). "
-            "Esta semana: Lo Valledor y Raimundo Tupper.",
+            "WES actúa: el CPA no está operando. "
+            "CORMUP E. de la Barra, Alicura y Likankura son solo monitoreo.",
         ),
         (
             TABLE_X + half + 10,
@@ -1351,6 +1351,7 @@ def _draw_control_badge(c: canvas.Canvas, etiqueta: str, x: float, y: float) -> 
         "SIN CONTROL": (HexColor("#C0392B"), 78),
         "AVISO CLIENTE": (HexColor("#B9770E"), 88),
         "MONITOREO": (HexColor("#087EAE"), 72),
+        "SOLO MONITOREO": (HexColor("#087EAE"), 92),
         "CON CONTROL": (HexColor("#1E8449"), 78),
     }
     bg, w = pal.get(etiqueta, (HexColor("#5D6D7E"), max(72, 6.2 * len(etiqueta))))

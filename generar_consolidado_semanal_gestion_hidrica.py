@@ -42,7 +42,7 @@ from generar_informes_gestion_hidrica_semanal import (
 )
 from generar_reporte_word import acl_node_base_url
 from informe_gestion_hidrica_pdf import build_chart_datos_perdidos, render_consolidado_semanal
-from puntos_control_hidrico import estado_control, nota_red_cliente
+from puntos_control_hidrico import es_solo_monitoreo, estado_control, nota_red_cliente
 from reporte_puntos_en_cero import (
     HORAS_UMBRAL_CONEXION_APP,
     _CHILE_TZ,
@@ -124,6 +124,31 @@ def _aplicar_lectura_operativa(filas: List[dict]) -> List[dict]:
             f["revisar"] = nota["revisar"]
             f["tiene_control"] = nota["tipo"] not in ("SIN CONTROL", "AVISO")
             f["orden"] = (PRIO_ORDEN.get(f["prio"], 9), -float(f.get("total") or 0))
+            out.append(f)
+            continue
+        if es_solo_monitoreo(nid):
+            revisar = (f.get("revisar") or "").lower()
+            has_pico = "pico" in revisar
+            if not str(f.get("wow") or "").startswith("+") and not has_pico:
+                continue
+            extra = [
+                part.strip()
+                for part in (f.get("revisar") or "").split(";")
+                if "pico" in part.lower()
+            ]
+            f["tipo"] = "AVISO"
+            f["prio"] = "AVISO"
+            f["control"] = "AVISO CLIENTE"
+            f["tiene_control"] = False
+            f["lectura"] = (
+                f"Aviso al cliente: consumo {f.get('wow') or '—'} vs semana previa "
+                f"({f.get('m3')} m³ vs {f.get('prev_m3')} m³). "
+                "Este recinto CORMUP es solo monitoreo (sin CPA): no es un punto sin control."
+            )
+            f["revisar"] = "Avisar al cliente el alza" + (
+                f"; {extra[0]}" if extra else ""
+            )
+            f["orden"] = (PRIO_ORDEN["AVISO"], -float(f.get("total") or 0))
             out.append(f)
             continue
         if f.get("prio") == "ATENCIÓN" and nid not in SIN_CONTROL_REAL:
@@ -252,11 +277,19 @@ def _evaluar_punto(cfg: dict, nodo: dict, prev: Optional[dict]) -> Optional[Dict
 
     etiqueta, detalle, tiene = estado_control(cfg, nodo.get("node_id"))
     red = nota_red_cliente(cfg, nodo.get("node_id"), tiene)
+    solo_monitoreo = es_solo_monitoreo(nodo.get("node_id"))
 
     nombre = (nodo.get("short_name") or "").lower()
     infra_noct = any(k in nombre for k in ("estanque", "pozo"))
     noct_ok = additive or es_matriz or not cfg.get("matriz_id")
-    if noct_ok and explain not in ("wes", "mercado") and not infra_noct:
+    # Solo monitoreo (CORMUP E. de la Barra, Alicura, Likankura): el nocturno
+    # no se lee como falla de control. Si hay alza, va como aviso al cliente.
+    if (
+        noct_ok
+        and explain not in ("wes", "mercado")
+        and not infra_noct
+        and not solo_monitoreo
+    ):
         if round(pct) >= 35:
             if tiene:
                 motivos.append("Verificar que el corte deje la madrugada cerca de 0")
@@ -292,6 +325,11 @@ def _evaluar_punto(cfg: dict, nodo: dict, prev: Optional[dict]) -> Optional[Dict
             lectura = (
                 f"Alza de {_fmt(wow, 0)} % CON CONTROL activo. "
                 "El equipo no evitó el aumento: revisar si el corte operó o si el extra es diurno."
+            )
+        elif solo_monitoreo:
+            lectura = (
+                f"Aviso al cliente: consumo +{_fmt(wow, 0)} % vs semana previa. "
+                "Este recinto CORMUP es solo monitoreo (sin CPA): no es un punto sin control."
             )
         else:
             lectura = (
@@ -547,7 +585,11 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
 
     revisables.sort(key=lambda r: r["orden"])
     revisables = _aplicar_lectura_operativa(revisables)
-    sin_control = [r for r in revisables if r.get("tipo") == "SIN CONTROL"]
+    sin_control = [
+        r
+        for r in revisables
+        if r.get("tipo") == "SIN CONTROL" and not es_solo_monitoreo(r.get("node_id"))
+    ]
     avisos = [
         r for r in revisables if r.get("tipo") == "AVISO" and r.get("prio") == "AVISO"
     ]
@@ -572,10 +614,15 @@ def generar_consolidado(start: datetime, end: datetime) -> Tuple[Path, List[dict
         f"{len(filas_all)} puntos · {horas_flota} h de flota "
         f"({pct_txt}% de las esperadas) · {n_desc} de ellos están desconectados ahora."
     )
-    resumen = (
-        "De los 5, solo Lo Valledor está realmente sin control (CPA no opera). "
-        "Raimundo Tupper también está sin control (visita 4/09, punto bien). "
-        "El resto es aviso al cliente, no falla de control."
+    if sin_control:
+        nombres_sc = "; ".join(f"{r['cliente']} · {r['punto']}" for r in sin_control)
+        resumen = f"Sin control (WES actúa): {nombres_sc}."
+    else:
+        resumen = "Ningún punto sin control esta semana."
+    resumen += (
+        " En CORMUP, E. de la Barra, Alicura y Likankura son solo monitoreo "
+        "(sin CPA): no se leen como sin control. "
+        "El resto de alzas es aviso al cliente."
     )
     if filas_horas:
         resumen += f" {len(filas_horas)} punto(s) con horas perdidas esta semana."

@@ -16,9 +16,18 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Dict, FrozenSet, Optional, Tuple
 
+# CORMUP: tres establecimientos con WES solo para monitoreo (sin CPA/control).
+# No se leen como “sin control” (WES no actúa: no hay máquina que activar).
+SOLO_MONITOREO_IDS: FrozenSet[str] = frozenset(
+    {
+        "000008-02",  # Eduardo de la Barra
+        "000008-08",  # Alicura
+        "000008-13",  # Likankura
+    }
+)
+
 # Inventario de respaldo: IDs WES con horario de corte (control nocturno).
-# CORMUP 000008-02 (E. de la Barra), 000008-08 (Alicura) y 000008-13
-# (Likankura) no están: esos colegios operan sin control.
+# Los tres CORMUP de SOLO_MONITOREO_IDS no están: no tienen control.
 CONTROL_NOCTURNO_IDS: FrozenSet[str] = frozenset(
     {
         "000006-01",
@@ -84,15 +93,22 @@ def ids_con_control() -> FrozenSet[str]:
     return CONTROL_NOCTURNO_IDS
 
 
+def es_solo_monitoreo(node_id: Optional[str]) -> bool:
+    return str(node_id or "").strip() in SOLO_MONITOREO_IDS
+
+
 def estado_control(cfg: dict, node_id: Optional[str]) -> Tuple[str, str, bool]:
     """
     Returns (etiqueta, detalle, tiene_control_activo).
 
     CPA instalado y no operando cuenta como SIN CONTROL.
+    Recintos CORMUP solo-monitoreo no son SIN CONTROL.
     """
     nid = str(node_id or "").strip()
     if cfg.get("cpa_estado") == "instalado_pendiente":
         return "SIN CONTROL", "CPA instalado, no opera", False
+    if es_solo_monitoreo(nid):
+        return "SOLO MONITOREO", "Solo monitoreo, sin CPA", False
     if nid and nid in ids_con_control():
         return "CON CONTROL", "CPA/WES activo", True
     if cfg.get("nocturnal_explain") == "wes" and nid == (cfg.get("matriz_id") or ""):
@@ -103,6 +119,8 @@ def estado_control(cfg: dict, node_id: Optional[str]) -> Tuple[str, str, bool]:
 def nota_red_cliente(cfg: dict, node_id: Optional[str], tiene: bool) -> str:
     """Si el cliente tiene otros puntos con control y este no, lo dice."""
     if tiene:
+        return ""
+    if es_solo_monitoreo(node_id):
         return ""
     ids = ids_con_control()
     siblings = [n for n in (cfg.get("node_ids") or []) if n in ids and n != node_id]
