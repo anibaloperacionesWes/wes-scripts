@@ -8,3 +8,6 @@ gmail_oauth/token_drive.pickle
 gmail_oauth/*.pickle
 gmail_oauth/client_secret_*.json
 gmail_oauth/_prueba*
+
+# Estado local de borradores de correo (Cloud Agent / PC)
+logs/borradores_correo/
