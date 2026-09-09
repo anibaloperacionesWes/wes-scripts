@@ -4,11 +4,13 @@ Envía el informe de cumplimiento hídrico (PDF + Word + CSV) a Mauricio y Aníb
 Uso:
   python enviar_informe_cumplimiento_hidrico.py
   python enviar_informe_cumplimiento_hidrico.py --dir reports/control_nocturno/cumplimiento_hidrico_YYYYMMDD_...
+  python enviar_informe_cumplimiento_hidrico.py --drive-pdf URL --drive-docx URL --drive-csv URL
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import os
 import smtplib
 import sys
@@ -17,20 +19,18 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
 SMTP_USUARIO = "agente.ia@wes.cl"
 SMTP_SERVIDOR = "smtp.gmail.com"
 SMTP_PUERTO = 587
+CHILE = ZoneInfo("America/Santiago")
 
 DESTINATARIOS = [
     "mauricioorellana@wes.cl",
     "anibal.aoperaciones@wes.cl",
 ]
-
-DRIVE_PDF = "https://drive.google.com/file/d/1lb7-vo_ECkDhWx3tP7IzOOiSJdJFPWeG/view?usp=drivesdk"
-DRIVE_DOCX = "https://docs.google.com/document/d/1_3OH9SC6YD2_8zeGgz1SJKQfVao_qFvq/edit?usp=drivesdk"
-DRIVE_CSV = "https://drive.google.com/file/d/1L7PhK7Ls0Ivpb1LtX-q9a1DCaOXdWgwa/view?usp=drivesdk"
 
 
 def _smtp_password() -> str:
@@ -75,6 +75,93 @@ def _archivos(out_dir: Path) -> list[Path]:
     return files
 
 
+def _leer_filas(out_dir: Path) -> list[dict[str, str]]:
+    csvs = list(out_dir.glob("cumplimiento_hidrico_*.csv"))
+    if not csvs:
+        return []
+    with csvs[0].open(encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f, delimiter=";"))
+
+
+def _fila(rows: list[dict[str, str]], node_id: str) -> dict[str, str] | None:
+    for row in rows:
+        if row.get("node_id") == node_id:
+            return row
+    return None
+
+
+def _linea_especial(row: dict[str, str] | None, etiqueta: str, node_id: str) -> str:
+    if not row:
+        return f"- {etiqueta} ({node_id}): sin datos en el CSV."
+    cumple = "Cumple" if row.get("cumple") == "SI" else "No cumple"
+    obs = (row.get("observacion") or "").strip().rstrip(".")
+    cerrado = (row.get("tiempo_cerrado") or "").strip()
+    retraso = (row.get("retraso_corte") or "").strip()
+    bits: list[str] = []
+    if obs:
+        bits.append(obs)
+    if retraso and retraso not in {"—", "-"} and retraso not in obs:
+        bits.append(retraso)
+    if (
+        cerrado
+        and cerrado not in {"—", "-"}
+        and "Abierto" not in cerrado
+        and cerrado not in obs
+    ):
+        bits.append(cerrado)
+    if cumple.lower() not in (obs or "").lower():
+        bits.append(cumple)
+    return f"- {etiqueta} ({node_id}): {'; '.join(bits)}."
+
+
+def _cuerpo(
+    fecha: str,
+    rows: list[dict[str, str]],
+    drive_pdf: str,
+    drive_docx: str,
+    drive_csv: str,
+) -> str:
+    total = len(rows)
+    cumplen = sum(1 for r in rows if r.get("cumple") == "SI")
+    no_cumplen = total - cumplen
+    nombres_no = [r.get("punto") or r.get("node_id") or "" for r in rows if r.get("cumple") != "SI"]
+    lista_no = ", ".join(nombres_no) if nombres_no else "ninguno"
+
+    derco = _linea_especial(
+        _fila(rows, "000012-06"), "Derco Matriz Principal", "000012-06"
+    )
+    gym = _linea_especial(_fila(rows, "000017-05"), "GYM Renca", "000017-05")
+    icco = _linea_especial(_fila(rows, "000017-08"), "ICCO Renca", "000017-08")
+
+    drive_lines = []
+    if drive_pdf:
+        drive_lines.append(f"- PDF: {drive_pdf}")
+    if drive_docx:
+        drive_lines.append(f"- Word: {drive_docx}")
+    if drive_csv:
+        drive_lines.append(f"- CSV: {drive_csv}")
+    bloque_drive = ""
+    if drive_lines:
+        bloque_drive = "\nTambién está en Drive:\n" + "\n".join(drive_lines) + "\n"
+
+    return f"""Estimados Mauricio y Aníbal,
+
+Adjunto el informe de cumplimiento hídrico del {fecha}, cruzando la planilla de
+horarios de habilitación de agua con el caudal horario WES.
+
+Resumen:
+- {total} puntos revisados. {cumplen} cumplen y {no_cumplen} no cumplen (se toleran hasta 2 h de retraso de válvula).
+{derco}
+{gym}
+{icco}
+
+Puntos que no cumplen: {lista_no}.
+{bloque_drive}
+Saludos,
+Sistema WES
+"""
+
+
 def main() -> int:
     if sys.platform == "win32":
         for s in (sys.stdout, sys.stderr):
@@ -85,39 +172,18 @@ def main() -> int:
 
     ap = argparse.ArgumentParser(description="Enviar informe de cumplimiento hídrico")
     ap.add_argument("--dir", type=Path, default=None)
+    ap.add_argument("--drive-pdf", default="")
+    ap.add_argument("--drive-docx", default="")
+    ap.add_argument("--drive-csv", default="")
     args = ap.parse_args()
 
     out_dir = args.dir.resolve() if args.dir else _ultimo_dir()
     adjuntos = _archivos(out_dir)
-    fecha = datetime.now().strftime("%d-%m-%Y")
+    rows = _leer_filas(out_dir)
+    fecha = datetime.now(CHILE).strftime("%d-%m-%Y")
 
     asunto = f"Informe de cumplimiento hídrico (habilitación / corte) — {fecha}"
-    cuerpo = f"""Estimados Mauricio y Aníbal,
-
-Adjunto el informe de cumplimiento hídrico del {fecha}, cruzando la planilla de
-horarios de habilitación de agua con el caudal horario WES.
-
-Resumen:
-- 32 puntos revisados. 22 cumplen y 10 no cumplen (se toleran hasta 2 h de retraso de válvula).
-- Derco Matriz Principal (000012-06): mínimo nocturno de guardias 0,40 m³/h vs histórico 0,43
-  (límite +25 % = 0,54). Cumple.
-- GYM Renca (000017-05): mínimo nocturno 0,21 m³/h vs histórico 0,16 (límite +25 % = 0,20).
-  No cumple: supera el 25 % del histórico (máx. 0,28 m³/h).
-- ICCO Renca (000017-08): corte programado 20:00, cerró 22:00 (retraso 2 h) y se mantuvo
-  cerrado 8 h (22:00–06:00). Hoy está habilitado (ALTA hasta 20:00). Cumple.
-
-Puntos que no cumplen: Raimundo Tupper, Antonio Hermida, Carlos Fernández Peña,
-Erasmo Escala, Matilde Huici Navas, Lo Valledor P1, Carmela Carvajal, Lastarria,
-ICCP y GYM Renca.
-
-También está en Drive:
-- PDF: {DRIVE_PDF}
-- Word: {DRIVE_DOCX}
-- CSV: {DRIVE_CSV}
-
-Saludos,
-Sistema WES
-"""
+    cuerpo = _cuerpo(fecha, rows, args.drive_pdf, args.drive_docx, args.drive_csv)
 
     msg = MIMEMultipart()
     msg["From"] = SMTP_USUARIO
@@ -139,6 +205,9 @@ Sistema WES
     print(f"[INFO] Enviando desde {SMTP_USUARIO}")
     print(f"[INFO] Para: {', '.join(DESTINATARIOS)}")
     print(f"[INFO] Adjuntos: {', '.join(p.name for p in adjuntos)}")
+    print("--- cuerpo ---")
+    print(cuerpo)
+    print("---")
     with smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO) as server:
         server.starttls()
         server.login(SMTP_USUARIO, _smtp_password())
