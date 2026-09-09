@@ -457,6 +457,9 @@ def _slide_resumen_malls(
     )
 
 
+RESIDUALES_CERO = {"000025-32", "000025-33"}  # Pasillo técnico / ARROW: caudal residual
+
+
 def _puntos_cero_recientes(by: Dict[str, Dict[str, Any]], d0: date, d1: date) -> List[str]:
     lineas: List[str] = []
     dias = _rango(d0, d1)
@@ -466,10 +469,67 @@ def _puntos_cero_recientes(by: Dict[str, Dict[str, Any]], d0: date, d1: date) ->
             daily = (by.get(nid) or {}).get("daily") or {}
             vals = [float(daily.get(d.isoformat(), 0.0) or 0.0) for d in dias]
             if vals and all(v <= 0.05 for v in vals):
-                ceros.append(f"{_nombre(nid)} ({nid})")
+                extra = " · residual, no es alerta" if nid in RESIDUALES_CERO else ""
+                ceros.append(f"{_nombre(nid)} ({nid}){extra}")
         if ceros:
             lineas.append(f"{mall['code']}: {', '.join(ceros)}")
     return lineas
+
+
+def _hechos_estos_dias(
+    by: Dict[str, Dict[str, Any]],
+    n06: Dict[str, Dict[str, float]],
+    d0: date,
+    d1: date,
+) -> List[str]:
+    """Picos/caídas diarias materiales en la ventana reciente (no ruido de 1 m³)."""
+    hechos: List[str] = []
+    dias = _rango(d0, d1)
+    for mall in MALLS:
+        for nid in mall["nodes"]:
+            if nid in RESIDUALES_CERO:
+                continue
+            daily = (by.get(nid) or {}).get("daily") or {}
+            vals = [(d, float(daily.get(d.isoformat(), 0.0) or 0.0)) for d in dias]
+            xs = [v for _, v in vals]
+            if not xs:
+                continue
+            med = sorted(xs)[len(xs) // 2]
+            if med < 8:
+                continue
+            dmax, vmax = max(vals, key=lambda t: t[1])
+            dmin, vmin = min(vals, key=lambda t: t[1])
+            if vmax >= med * 1.7 and vmax >= 40:
+                hechos.append(
+                    f"{mall['code']} {_nombre(nid)}: pico {dmax:%d/%m} {fn(vmax, 0)} m³ "
+                    f"(mediana ventana {fn(med, 0)})."
+                )
+            if vmin <= max(med * 0.15, 8) and med >= 40:
+                hechos.append(
+                    f"{mall['code']} {_nombre(nid)}: caída {dmin:%d/%m} {fn(vmin, 1)} m³ "
+                    f"(mediana ventana {fn(med, 0)}). Revisar dato/corte."
+                )
+            nserie = n06.get(nid) or {}
+            nvals = [(d, float(nserie.get(d.isoformat(), 0.0) or 0.0)) for d in dias]
+            if nvals:
+                nmed = sorted(v for _, v in nvals)[len(nvals) // 2]
+                dn, nv = max(nvals, key=lambda t: t[1])
+                if nmed >= 4 and nv >= nmed * 1.8 and nv >= 12:
+                    hechos.append(
+                        f"{mall['code']} {_nombre(nid)}: noche 00–06 {dn:%d/%m} {fn(nv, 1)} m³ "
+                        f"(mediana {fn(nmed, 1)})."
+                    )
+    cae = [h for h in hechos if "caída" in h]
+    pico = [h for h in hechos if "pico" in h]
+    noc = [h for h in hechos if "noche" in h]
+    out: List[str] = []
+    for grupo in (cae, pico, noc):
+        for h in grupo:
+            if h not in out:
+                out.append(h)
+        if len(out) >= 6:
+            break
+    return out[:6]
 
 
 def _slide_antecedentes(
@@ -499,8 +559,9 @@ def _slide_antecedentes(
     for nid in NODOS_CLAVE_NOCHE:
         act = sum((n06.get(nid) or {}).get(d.isoformat(), 0.0) for d in _rango(*s_act))
         prev = sum((n06.get(nid) or {}).get(d.isoformat(), 0.0) for d in _rango(*s_prev))
-        if prev > 0.5 and act > prev * 1.25:
+        if prev > 4 and act > 8 and act > prev * 1.25:
             noc_alta.append(f"{_nombre(nid)} noche {fn(act, 1)} vs {fn(prev, 1)} m³ ({_delta_txt(act, prev)})")
+    hechos = _hechos_estos_dias(by, n06, ante0, ante1)
 
     _caja(sl, 0.22, 1.12, 6.35, 2.55, fill=(255, 249, 235), line=GOLD)
     _tb(sl, 0.38, 1.18, 6.05, 0.26, [("AHORA  ·  CONEXIÓN", 12, True, GOLD)])
@@ -524,9 +585,10 @@ def _slide_antecedentes(
         )
 
     _caja(sl, 0.22, 3.80, 12.88, 1.55, fill=LIGHT, line=TEAL)
-    _tb(sl, 0.38, 3.86, 12.55, 0.24, [("NOCHE 00–06  ·  SEMANA ACTUAL VS PREVIA", 12, True, TEAL)])
-    if noc_alta:
-        _tb(sl, 0.38, 4.14, 12.55, 1.10, [(f"•  {t}", 13, False, NAVY) for t in noc_alta[:4]])
+    _tb(sl, 0.38, 3.86, 12.55, 0.24, [("HECHOS DE ESTOS DÍAS  ·  PICOS, CAÍDAS Y NOCHE", 12, True, TEAL)])
+    mix = hechos + [t for t in noc_alta if all(t.split(" noche")[0] not in h for h in hechos)]
+    if mix:
+        _tb(sl, 0.38, 4.14, 12.55, 1.10, [(f"•  {t}", 13, False, NAVY) for t in mix[:4]])
     else:
         _tb(
             sl,
@@ -534,7 +596,7 @@ def _slide_antecedentes(
             4.14,
             12.55,
             1.10,
-            [("Sin alzas de madrugada > 25 % en los puntos clave respecto de la semana previa.", 13, False, NAVY)],
+            [("Sin picos/caídas materiales ni alzas de madrugada > 25 % en puntos clave.", 13, False, NAVY)],
         )
 
     _caja(sl, 0.22, 5.48, 12.88, 1.78, fill=(255, 249, 235), line=GOLD)
