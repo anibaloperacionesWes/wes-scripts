@@ -97,7 +97,7 @@ ANTECEDENTES_FIJOS: List[Tuple[str, str]] = [
     ),
     (
         "MAM",
-        "Placa Bancaria sube desde 18/06. Falabella reactivado 11/08 (antes sala de bombas en reparación / fuera de puntos en cero).",
+        "El mall se alimenta por Placa Bancaria o por Falabella: cuando se inyecta una, se corta la otra. Falabella reactivado 11/08.",
     ),
     (
         "MAQ",
@@ -458,6 +458,9 @@ def _slide_resumen_malls(
 
 
 RESIDUALES_CERO = {"000025-32", "000025-33"}  # Pasillo técnico / ARROW: caudal residual
+PLACA = "000025-08"
+FALABELLA = "000025-09"
+DIA_ES = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
 
 def _puntos_cero_recientes(by: Dict[str, Dict[str, Any]], d0: date, d1: date) -> List[str]:
@@ -476,18 +479,82 @@ def _puntos_cero_recientes(by: Dict[str, Dict[str, Any]], d0: date, d1: date) ->
     return lineas
 
 
+def _median_daily(daily: Dict[str, float], dias: List[date]) -> float:
+    xs = [float(daily.get(d.isoformat(), 0.0) or 0.0) for d in dias]
+    if not xs:
+        return 0.0
+    return sorted(xs)[len(xs) // 2]
+
+
+def _mam_cambio_alimentacion(by: Dict[str, Dict[str, Any]], d0: date, d1: date) -> List[str]:
+    """Placa y Falabella son fuentes alternativas del mall: una sube y la otra baja el mismo día."""
+    dias = _rango(d0, d1)
+    placa = (by.get(PLACA) or {}).get("daily") or {}
+    fala = (by.get(FALABELLA) or {}).get("daily") or {}
+    med_p = _median_daily(placa, dias)
+    med_f = _median_daily(fala, dias)
+    cambios: List[Tuple[date, float, float]] = []
+    for d in dias:
+        vp = float(placa.get(d.isoformat(), 0.0) or 0.0)
+        vf = float(fala.get(d.isoformat(), 0.0) or 0.0)
+        a_falabella = med_p >= 40 and vp <= max(med_p * 0.2, 10) and vf >= max(med_f * 1.4, med_f + 20)
+        a_placa = med_f >= 20 and vf <= max(med_f * 0.2, 8) and vp >= max(med_p * 1.2, med_p + 20)
+        if a_falabella or a_placa:
+            cambios.append((d, vp, vf))
+    if not cambios:
+        return []
+    d, vp, vf = cambios[-1]
+    via = "Falabella" if vf > vp else "Placa Bancaria"
+    extra = ""
+    if len(cambios) > 1:
+        extra = f" En la ventana también se ve el {cambios[0][0]:%d/%m}."
+    return [
+        (
+            f"MAM: el mall se alimenta por Placa Bancaria o por Falabella "
+            f"(cuando se inyecta una, se corta la otra). El {d:%d/%m} sale por {via}: "
+            f"Placa {fn(vp, 1)} m³ (típico {fn(med_p, 0)}) y Falabella {fn(vf, 0)} m³ "
+            f"(típico {fn(med_f, 0)}). No son dos fallas.{extra}"
+        )
+    ]
+
+
 def _hechos_estos_dias(
     by: Dict[str, Dict[str, Any]],
     n06: Dict[str, Dict[str, float]],
     d0: date,
     d1: date,
 ) -> List[str]:
-    """Picos/caídas diarias materiales en la ventana reciente (no ruido de 1 m³)."""
-    hechos: List[str] = []
+    """Hechos de la ventana, en lenguaje operativo (no banderas sueltas de pico/caída)."""
     dias = _rango(d0, d1)
+    skip = set(RESIDUALES_CERO) | {PLACA, FALABELLA}
+    hechos: List[str] = list(_mam_cambio_alimentacion(by, d0, d1))
+
+    def _vals(nid: str) -> List[Tuple[date, float]]:
+        daily = (by.get(nid) or {}).get("daily") or {}
+        return [(d, float(daily.get(d.isoformat(), 0.0) or 0.0)) for d in dias]
+
+    pizza = _vals("000025-07")
+    if pizza:
+        med = sorted(v for _, v in pizza)[len(pizza) // 2]
+        dmax, vmax = max(pizza, key=lambda t: t[1])
+        if vmax >= max(med * 2.0, 30):
+            hechos.append(
+                f"MAE Pizza Hut: {dmax:%d/%m} {fn(vmax, 0)} m³ frente a un día típico de {fn(med, 0)}. "
+                f"El local varía mucho (días de 3 m³ y días de 40). Es día fuerte de local, no un incidente de esta semana."
+            )
+    sur = _vals("000025-19")
+    if sur:
+        med = sorted(v for _, v in sur)[len(sur) // 2]
+        dmax, vmax = max(sur, key=lambda t: t[1])
+        if vmax >= med * 1.5 and vmax >= 50:
+            hechos.append(
+                f"MAE Estanque Sur: {DIA_ES[dmax.weekday()]} {dmax:%d/%m} {fn(vmax, 0)} m³ (típico {fn(med, 0)}). "
+                f"Encaja con ocupación de mall (viernes/sábado altos); no se lee como corte ni como cero."
+            )
+
     for mall in MALLS:
         for nid in mall["nodes"]:
-            if nid in RESIDUALES_CERO:
+            if nid in skip or nid in ("000025-07", "000025-19"):
                 continue
             daily = (by.get(nid) or {}).get("daily") or {}
             vals = [(d, float(daily.get(d.isoformat(), 0.0) or 0.0)) for d in dias]
@@ -501,13 +568,13 @@ def _hechos_estos_dias(
             dmin, vmin = min(vals, key=lambda t: t[1])
             if vmax >= med * 1.7 and vmax >= 40:
                 hechos.append(
-                    f"{mall['code']} {_nombre(nid)}: pico {dmax:%d/%m} {fn(vmax, 0)} m³ "
-                    f"(mediana ventana {fn(med, 0)})."
+                    f"{mall['code']} {_nombre(nid)}: día alto {dmax:%d/%m} {fn(vmax, 0)} m³ "
+                    f"(típico {fn(med, 0)})."
                 )
             if vmin <= max(med * 0.15, 8) and med >= 40:
                 hechos.append(
-                    f"{mall['code']} {_nombre(nid)}: caída {dmin:%d/%m} {fn(vmin, 1)} m³ "
-                    f"(mediana ventana {fn(med, 0)}). Revisar dato/corte."
+                    f"{mall['code']} {_nombre(nid)}: {dmin:%d/%m} {fn(vmin, 1)} m³ "
+                    f"frente a un típico de {fn(med, 0)}. Revisar si hubo corte o dato incompleto."
                 )
             nserie = n06.get(nid) or {}
             nvals = [(d, float(nserie.get(d.isoformat(), 0.0) or 0.0)) for d in dias]
@@ -516,20 +583,14 @@ def _hechos_estos_dias(
                 dn, nv = max(nvals, key=lambda t: t[1])
                 if nmed >= 4 and nv >= nmed * 1.8 and nv >= 12:
                     hechos.append(
-                        f"{mall['code']} {_nombre(nid)}: noche 00–06 {dn:%d/%m} {fn(nv, 1)} m³ "
-                        f"(mediana {fn(nmed, 1)})."
+                        f"{mall['code']} {_nombre(nid)}: noche 00–06 del {dn:%d/%m} {fn(nv, 1)} m³ "
+                        f"(típico {fn(nmed, 1)})."
                     )
-    cae = [h for h in hechos if "caída" in h]
-    pico = [h for h in hechos if "pico" in h]
-    noc = [h for h in hechos if "noche" in h]
     out: List[str] = []
-    for grupo in (cae, pico, noc):
-        for h in grupo:
-            if h not in out:
-                out.append(h)
-        if len(out) >= 6:
-            break
-    return out[:6]
+    for h in hechos:
+        if h not in out:
+            out.append(h)
+    return out[:5]
 
 
 def _slide_antecedentes(
@@ -555,12 +616,6 @@ def _slide_antecedentes(
             mall = next((m["code"] for m in MALLS if nid in m["nodes"]), "?")
             desc.append(f"{mall} {_nombre(nid)} · lastUpdate {rec.get('antiguedad')}")
     ceros = _puntos_cero_recientes(by, ante0, ante1)
-    noc_alta: List[str] = []
-    for nid in NODOS_CLAVE_NOCHE:
-        act = sum((n06.get(nid) or {}).get(d.isoformat(), 0.0) for d in _rango(*s_act))
-        prev = sum((n06.get(nid) or {}).get(d.isoformat(), 0.0) for d in _rango(*s_prev))
-        if prev > 4 and act > 8 and act > prev * 1.25:
-            noc_alta.append(f"{_nombre(nid)} noche {fn(act, 1)} vs {fn(prev, 1)} m³ ({_delta_txt(act, prev)})")
     hechos = _hechos_estos_dias(by, n06, ante0, ante1)
 
     _caja(sl, 0.22, 1.12, 6.35, 2.55, fill=(255, 249, 235), line=GOLD)
@@ -584,31 +639,31 @@ def _slide_antecedentes(
             [("Ningún punto operativo del deck acumula cero todos los días de la ventana.", 13, False, NAVY)],
         )
 
-    _caja(sl, 0.22, 3.80, 12.88, 1.55, fill=LIGHT, line=TEAL)
-    _tb(sl, 0.38, 3.86, 12.55, 0.24, [("HECHOS DE ESTOS DÍAS  ·  PICOS, CAÍDAS Y NOCHE", 12, True, TEAL)])
-    mix = hechos + [t for t in noc_alta if all(t.split(" noche")[0] not in h for h in hechos)]
+    _caja(sl, 0.22, 3.80, 12.88, 2.05, fill=LIGHT, line=TEAL)
+    _tb(sl, 0.38, 3.86, 12.55, 0.24, [("CÓMO LEER ESTOS DÍAS", 12, True, TEAL)])
+    mix = hechos[:4]
     if mix:
-        _tb(sl, 0.38, 4.14, 12.55, 1.10, [(f"•  {t}", 13, False, NAVY) for t in mix[:4]])
+        _tb(sl, 0.38, 4.12, 12.55, 1.62, [(f"•  {t}", 12, False, NAVY) for t in mix], space_after=4)
     else:
         _tb(
             sl,
             0.38,
-            4.14,
+            4.12,
             12.55,
-            1.10,
-            [("Sin picos/caídas materiales ni alzas de madrugada > 25 % en puntos clave.", 13, False, NAVY)],
+            1.62,
+            [("Sin hechos materiales en la ventana (más allá de la variación habitual de cada recinto).", 13, False, NAVY)],
         )
 
-    _caja(sl, 0.22, 5.48, 12.88, 1.78, fill=(255, 249, 235), line=GOLD)
-    _tb(sl, 0.38, 5.54, 12.55, 0.24, [("CONTEXTO DEL PPT (SIGUE VIGENTE)", 12, True, GOLD)])
+    _caja(sl, 0.22, 5.98, 12.88, 1.28, fill=(255, 249, 235), line=GOLD)
+    _tb(sl, 0.38, 6.02, 12.55, 0.22, [("CONTEXTO DEL PPT (SIGUE VIGENTE)", 11, True, GOLD)])
     _tb(
         sl,
         0.38,
-        5.82,
+        6.24,
         12.55,
-        1.32,
-        [(f"•  {cod} — {txt}", 11, False, NAVY) for cod, txt in ANTECEDENTES_FIJOS],
-        space_after=2,
+        0.96,
+        [(f"•  {cod} — {txt}", 10, False, NAVY) for cod, txt in ANTECEDENTES_FIJOS],
+        space_after=1,
     )
 
 
@@ -635,6 +690,14 @@ def _hallazgos_mall(
         f"Semana {s_act[0]:%d/%m}–{s_act[1]:%d/%m}: {fn(act, 0)} m³ (prom. {fn(act / dias_act, 1)} m³/día) · Δ vs previa {_delta_txt(act, prev)}.",
         f"Mayor aporte de la semana: {_nombre(top)} ({top}) con {fn(top_v, 0)} m³.",
     ]
+    if mall["code"] == "MAM":
+        mam = _mam_cambio_alimentacion(by, s_prev[0], s_act[1])
+        lines.insert(
+            1,
+            mam[0]
+            if mam
+            else "El recinto se alimenta por Placa Bancaria o por Falabella: cuando se inyecta una, se corta la otra. No se leen como dos fallas el mismo día.",
+        )
     noche_ids = [n for n in mall["nodes"] if n in NODOS_CLAVE_NOCHE]
     if noche_ids:
         partes = []
@@ -722,7 +785,7 @@ def _slide_propuestas(prs, hasta: date) -> None:
     )
     filas = [
         ("MAE", "Mantener controles Norte (desde 05/08) y Pizza Hut (desde 01/07). Umbrales 24 h: Norte 40 · Sur 35 · Pizza 50 · Baños 10 m³/día."),
-        ("MAM", "On/off a revisar en Placa. Falabella activo desde 11/08: umbral 140 m³/día. Placa 290 · Ripley según operativo."),
+        ("MAM", "El mall se alimenta por Placa o por Falabella (cuando se inyecta una, se corta la otra). Umbrales 24 h: Placa 290 · Falabella 140 m³/día. Sin on/off hasta ver la noche de la línea que esté inyectando."),
         ("MAQ", "Proponer on/off 00–06 en Matriz Principal. Umbral 24 h Matriz 240 m³/día. Alim. Baños no es el punto de control."),
         ("BOM", "Mantener on/off SI500 (desde 17/07). Umbrales: SI500 145 · SI300 45 m³/día."),
         ("AEB", "Proponer on/off 00–06 en Anillo Plaza y Matriz 1° piso. Umbrales: Anillo 22 · Matriz 75 m³/día."),
