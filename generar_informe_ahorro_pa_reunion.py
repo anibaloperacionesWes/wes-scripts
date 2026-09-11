@@ -10,12 +10,18 @@ Destaca lo demostrable:
 
   python3 generar_informe_ahorro_pa_reunion.py
   python3 generar_informe_ahorro_pa_reunion.py --hasta 08/09/2026
+
+Salida (no pisa la revisión):
+  Informe_ahorro_PA_reunion_<fecha>_onepage.docx
+  Informe_ahorro_PA_reunion_<fecha>_extendido.docx
+  Informe_ahorro_PA_reunion_<fecha>_revision.docx  (copia de la versión completa)
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from datetime import date, datetime, timedelta
@@ -228,9 +234,9 @@ def _set_run(run, text: str, *, size=11, bold=False, color=NAVY, name="Calibri")
     run.font.name = name
 
 
-def _p_lead(doc: Document, lead: str, rest: str, *, size=11) -> None:
+def _p_lead(doc: Document, lead: str, rest: str, *, size=11, space_after=8) -> None:
     p = doc.add_paragraph()
-    p.paragraph_format.space_after = Pt(8)
+    p.paragraph_format.space_after = Pt(space_after)
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -238,9 +244,9 @@ def _p_lead(doc: Document, lead: str, rest: str, *, size=11) -> None:
     _set_run(p.add_run(" " + rest), " " + rest, size=size, bold=False, color=NAVY)
 
 
-def _p(doc: Document, text: str, *, size=11, bold=False, color=NAVY, justify=True) -> None:
+def _p(doc: Document, text: str, *, size=11, bold=False, color=NAVY, justify=True, space_after=6) -> None:
     p = doc.add_paragraph()
-    p.paragraph_format.space_after = Pt(6)
+    p.paragraph_format.space_after = Pt(space_after)
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
     if justify:
@@ -280,11 +286,11 @@ def _tabla(doc: Document, headers: List[str], rows: List[List[str]], col_w: List
     return tbl
 
 
-def chart_barras_ahorro(path: Path, filas: List[Tuple[str, float, str]]) -> None:
+def chart_barras_ahorro(path: Path, filas: List[Tuple[str, float, str]], *, alto: float = 3.6) -> None:
     labels = [a for a, _, _ in filas]
     vals = [b for _, b, _ in filas]
     cols = ["#2E7D32" if t == "logrado" else "#C9A227" for _, _, t in filas]
-    fig, ax = plt.subplots(figsize=(9.2, 3.6), dpi=150)
+    fig, ax = plt.subplots(figsize=(9.2, alto), dpi=150)
     y = np.arange(len(labels))
     ax.barh(y, vals, color=cols, zorder=3)
     ax.set_yticks(y)
@@ -342,75 +348,130 @@ def _word_a_pdf(docx_path: Path) -> Path | None:
     return None
 
 
-def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
-    CHARTS.mkdir(parents=True, exist_ok=True)
-    sur = ctx["sur"]
-    norte = ctx["norte"]
-    pizza = ctx["pizza"]
-    bom = ctx["bom"]
-    maq = ctx["maq"]
-    pak = ctx["pak"]
-    pak_nom = ctx["pak_nom"]
-
-    # Pizza Hut ya está en cero 01:00–05:00: el control se cita como evidencia, no como $.
-    logrado_mes = sur["ahorro_mes"] + norte["ahorro_mes"] + bom["ahorro_mes"]
-    propuesto_mes = maq["ahorro_mes"] + pak["ahorro_mes"]
-    total_mes = logrado_mes + propuesto_mes
-    logrado_acum = sur["ahorro_acum"] + norte["ahorro_acum"] + bom["ahorro_acum"]
-
-    filas_chart = [
-        (f"MAE Estanque Sur\n(presostatos 10/06)", sur["ahorro_mes"], "logrado"),
-        (f"MAE Estanque Norte\n(control 05/08)", norte["ahorro_mes"], "logrado"),
-        (f"Buenaventura SI500\n(control 17/07)", bom["ahorro_mes"], "logrado"),
-        (f"Quilicura Matriz\n(propuesta 01–05 → 0)", maq["ahorro_mes"], "propuesto"),
-        (f"Kennedy {pak_nom}\n(propuesta 01–05 → 0)", pak["ahorro_mes"], "propuesto"),
-    ]
-    p_bar = CHARTS / "ahorro_mensual_barras.png"
-    chart_barras_ahorro(p_bar, filas_chart)
-    p_sur = CHARTS / "mae_sur_antes_despues.png"
-    chart_antes_despues(
-        p_sur,
-        "MAE Estanque Sur — m³/día (mediana)",
-        sur["pre"],
-        sur["post"],
-        "Antes 10/06",
-        "Después 11/06",
-    )
-    p_norte = CHARTS / "mae_norte_antes_despues.png"
-    chart_antes_despues(
-        p_norte,
-        "MAE Estanque Norte — m³ 01:00–05:00 (mediana)",
-        norte["pre"],
-        norte["post"],
-        "Antes 05/08",
-        "Con corte 00:30",
-    )
-    p_bom = CHARTS / "bom_noche_antes_despues.png"
-    chart_antes_despues(
-        p_bom,
-        "Buenaventura SI500 — m³ 01:00–05:00 (mediana)",
-        bom["pre"],
-        bom["post"],
-        "Antes 17/07",
-        "Con corte 00:30",
-    )
-
+def _nuevo_doc(*, margen: float = 1.8) -> Document:
     doc = Document()
     sec = doc.sections[0]
-    sec.top_margin = Cm(1.8)
-    sec.bottom_margin = Cm(1.6)
-    sec.left_margin = Cm(1.8)
-    sec.right_margin = Cm(1.8)
+    sec.page_width = Cm(21.0)
+    sec.page_height = Cm(29.7)
+    sec.top_margin = Cm(margen)
+    sec.bottom_margin = Cm(max(1.2, margen - 0.2))
+    sec.left_margin = Cm(margen)
+    sec.right_margin = Cm(margen)
     add_logo_to_header(doc)
+    return doc
 
-    t = doc.add_paragraph()
-    t.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    _set_run(t.add_run("WES  ·  Parque Arauco"), "WES  ·  Parque Arauco", size=12, bold=True, color=GOLD)
+
+def _totales(ctx: Dict[str, Any]) -> Dict[str, float]:
+    sur, norte, bom, maq, pak = ctx["sur"], ctx["norte"], ctx["bom"], ctx["maq"], ctx["pak"]
+    logrado_mes = sur["ahorro_mes"] + norte["ahorro_mes"] + bom["ahorro_mes"]
+    propuesto_mes = maq["ahorro_mes"] + pak["ahorro_mes"]
+    return {
+        "logrado_mes": logrado_mes,
+        "propuesto_mes": propuesto_mes,
+        "total_mes": logrado_mes + propuesto_mes,
+        "logrado_acum": sur["ahorro_acum"] + norte["ahorro_acum"] + bom["ahorro_acum"],
+    }
+
+
+def _filas_resumen(ctx: Dict[str, Any], tot: Dict[str, float]) -> List[List[str]]:
+    sur, norte, bom, maq, pak, pak_nom = (
+        ctx["sur"],
+        ctx["norte"],
+        ctx["bom"],
+        ctx["maq"],
+        ctx["pak"],
+        ctx["pak_nom"],
+    )
+    return [
+        [
+            "MAE Estanque Sur — presostatos 10/06",
+            "Logrado",
+            f"{fn(sur['pre'], 0)} → {fn(sur['post'], 0)} m³/día",
+            fn(sur["ahorro_mes"], 0),
+            clp(sur["ahorro_mes"]),
+            f"{fn(sur['ahorro_acum'], 0)} m³ ({clp(sur['ahorro_acum'])})",
+        ],
+        [
+            "MAE Estanque Norte — corte 00:30 (01:00–05:00)",
+            "Logrado (a cero)",
+            f"{fn(norte['pre'], 1)} → {fn(norte['post'], 1)} m³",
+            fn(norte["ahorro_mes"], 0),
+            clp(norte["ahorro_mes"]),
+            f"{fn(norte['ahorro_acum'], 0)} m³ ({clp(norte['ahorro_acum'])})",
+        ],
+        [
+            "MAE Pizza Hut — corte 01/07",
+            "Operativo (no suma $)",
+            "01:00–05:00 ya en cero",
+            "—",
+            "—",
+            "Control puesto; el día alto es ocupación de local",
+        ],
+        [
+            "Buenaventura SI500 — corte 00:30 (01:00–05:00)",
+            "Logrado (a cero)",
+            f"{fn(bom['pre'], 1)} → {fn(bom['post'], 1)} m³",
+            fn(bom["ahorro_mes"], 0),
+            clp(bom["ahorro_mes"]),
+            f"{fn(bom['ahorro_acum'], 0)} m³ ({clp(bom['ahorro_acum'])})",
+        ],
+        [
+            "Quilicura Matriz — corte 00:30 (01:00–05:00)",
+            "Propuesta (a cero)",
+            f"noche típica {fn(maq['noche'], 1)} m³ → 0",
+            fn(maq["ahorro_mes"], 0),
+            clp(maq["ahorro_mes"]),
+            "Aún no operativo",
+        ],
+        [
+            f"Kennedy {pak_nom} — corte 00:30 (01:00–05:00)",
+            "Propuesta (a cero)",
+            f"noche típica {fn(pak['noche'], 1)} m³ → 0",
+            fn(pak["ahorro_mes"], 0),
+            clp(pak["ahorro_mes"]),
+            "Aún no operativo",
+        ],
+        [
+            "Total logrado",
+            "Operativo",
+            "MAE + Buenaventura",
+            fn(tot["logrado_mes"], 0),
+            clp(tot["logrado_mes"]),
+            f"{fn(tot['logrado_acum'], 0)} m³ ({clp(tot['logrado_acum'])})",
+        ],
+        [
+            "Total si se aprueban MAQ + PAK",
+            "Logrado + propuesto",
+            "Cuatro recintos",
+            fn(tot["total_mes"], 0),
+            clp(tot["total_mes"]),
+            "Proyección a 30 días de operación",
+        ],
+    ]
+
+
+def _bloque_onepage(
+    doc: Document,
+    ctx: Dict[str, Any],
+    tot: Dict[str, float],
+    hasta: date,
+    p_bar: Path,
+    *,
+    compact: bool,
+) -> None:
+    sz = 10 if compact else 11
+    sp = 3 if compact else 6
+    pak_nom = ctx["pak_nom"]
+
+    tag = doc.add_paragraph()
+    tag.paragraph_format.space_after = Pt(0)
+    _set_run(tag.add_run("WES  ·  Parque Arauco  ·  One-pager"), "WES  ·  Parque Arauco  ·  One-pager", size=11, bold=True, color=GOLD)
     h = doc.add_paragraph()
+    h.paragraph_format.space_after = Pt(4 if compact else 8)
     _set_run(
         h.add_run("Informe de ahorro y propuestas de control"),
         "Informe de ahorro y propuestas de control",
-        size=22,
+        size=18 if compact else 22,
         bold=True,
         color=NAVY,
     )
@@ -418,125 +479,116 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         doc,
         f"Documento para reunión. Período de datos 01/05/2026 – {hasta:%d/%m/%Y}. "
         f"Tarifa de referencia ${fn(TARIFA_CLP_M3, 0)}/m³ (la misma del PPT de 7 malls).",
-        size=11,
+        size=sz,
+        space_after=sp,
     )
     _p(
         doc,
         "El corte se activa a las 00:30. La noche que se demuestra —y la que tiene que ir a cero— "
         "es de 01:00 a 05:00.",
-        size=11,
+        size=sz,
+        space_after=sp,
     )
     _p(
         doc,
         "Entre 00:00 y 00:30 el medidor todavía registra agua: es el tramo anterior al corte, "
         "no consumo de noche.",
-        size=11,
+        size=sz,
+        space_after=sp,
     )
 
-    _h(doc, "1. Lo que hay que demostrar en la reunión", 1)
-    _p(doc, "En este orden:")
+    _h(doc, "Lo que hay que demostrar en la reunión", 1)
+    _p(doc, "En este orden:", size=sz, space_after=sp)
     _p_lead(
         doc,
         "Ya operativo — Estación y Buenaventura.",
         "Estanque Sur bajó el día completo (presostatos 10/06). Estanque Norte y San Ignacio 500 "
         "pasaron de consumo nocturno a cero entre 01:00 y 05:00.",
+        size=sz,
+        space_after=sp + 2,
     )
     _p_lead(
         doc,
         "A copiar — Quilicura y Kennedy.",
         "El mismo corte se propone en Matriz Principal y en Bazar Gourmet. Esa noche hoy no es cero; "
         "esa es la proyección.",
+        size=sz,
+        space_after=sp + 2,
     )
     _p_lead(
         doc,
         "Pendiente — Maipú.",
         "No hay on/off que sumar todavía. Estamos a la espera de concretar la relocalización de "
         "Pasillo 1 Arrow y la instalación del punto 6 (Pasillo 2), según la propuesta enviada a Don Miguel.",
+        size=sz,
+        space_after=sp + 2,
     )
 
-    _h(doc, "2. Resumen ejecutivo (m³/mes y $)", 1)
+    _h(doc, "Resumen ejecutivo (m³/mes y $)", 1)
     _tabla(
         doc,
         ["Recinto / acción", "Estado", "Base", "Ahorro m³/mes", "$/mes", "Acumulado a la fecha"],
-        [
-            [
-                "MAE Estanque Sur — presostatos 10/06",
-                "Logrado",
-                f"{fn(sur['pre'], 0)} → {fn(sur['post'], 0)} m³/día",
-                fn(sur["ahorro_mes"], 0),
-                clp(sur["ahorro_mes"]),
-                f"{fn(sur['ahorro_acum'], 0)} m³ ({clp(sur['ahorro_acum'])})",
-            ],
-            [
-                "MAE Estanque Norte — corte 00:30 (01:00–05:00)",
-                "Logrado (a cero)",
-                f"{fn(norte['pre'], 1)} → {fn(norte['post'], 1)} m³",
-                fn(norte["ahorro_mes"], 0),
-                clp(norte["ahorro_mes"]),
-                f"{fn(norte['ahorro_acum'], 0)} m³ ({clp(norte['ahorro_acum'])})",
-            ],
-            [
-                "MAE Pizza Hut — corte 01/07",
-                "Operativo (no suma $)",
-                "01:00–05:00 ya en cero",
-                "—",
-                "—",
-                "Control puesto; el día alto es ocupación de local",
-            ],
-            [
-                "Buenaventura SI500 — corte 00:30 (01:00–05:00)",
-                "Logrado (a cero)",
-                f"{fn(bom['pre'], 1)} → {fn(bom['post'], 1)} m³",
-                fn(bom["ahorro_mes"], 0),
-                clp(bom["ahorro_mes"]),
-                f"{fn(bom['ahorro_acum'], 0)} m³ ({clp(bom['ahorro_acum'])})",
-            ],
-            [
-                "Quilicura Matriz — corte 00:30 (01:00–05:00)",
-                "Propuesta (a cero)",
-                f"noche típica {fn(maq['noche'], 1)} m³ → 0",
-                fn(maq["ahorro_mes"], 0),
-                clp(maq["ahorro_mes"]),
-                "Aún no operativo",
-            ],
-            [
-                f"Kennedy {pak_nom} — corte 00:30 (01:00–05:00)",
-                "Propuesta (a cero)",
-                f"noche típica {fn(pak['noche'], 1)} m³ → 0",
-                fn(pak["ahorro_mes"], 0),
-                clp(pak["ahorro_mes"]),
-                "Aún no operativo",
-            ],
-            [
-                "Total logrado",
-                "Operativo",
-                "MAE + Buenaventura",
-                fn(logrado_mes, 0),
-                clp(logrado_mes),
-                f"{fn(logrado_acum, 0)} m³ ({clp(logrado_acum)})",
-            ],
-            [
-                "Total si se aprueban MAQ + PAK",
-                "Logrado + propuesto",
-                "Cuatro recintos",
-                fn(total_mes, 0),
-                clp(total_mes),
-                "Proyección a 30 días de operación",
-            ],
-        ],
+        _filas_resumen(ctx, tot),
     )
     if p_bar.is_file():
-        doc.add_picture(str(p_bar), width=Inches(6.3))
+        doc.add_picture(str(p_bar), width=Inches(6.15 if compact else 6.3))
         cap = doc.add_paragraph()
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        cap.paragraph_format.space_after = Pt(4)
         _set_run(
             cap.add_run("Verde = ya operativo (01:00–05:00 a cero). Dorado = propuesta, misma ventana a cero."),
             "Verde = ya operativo (01:00–05:00 a cero). Dorado = propuesta, misma ventana a cero.",
-            size=9,
+            size=8 if compact else 9,
             color=GRAY,
         )
+    _p(
+        doc,
+        f"Pedido: corte 00:30 (01:00–05:00 a cero) en Matriz Quilicura y {pak_nom} Kennedy "
+        f"({fn(tot['propuesto_mes'], 0)} m³/mes · {clp(tot['propuesto_mes'])}). "
+        "Maipú: validar Arrow + punto 6 y la gatera. El detalle recinto por recinto está en el reporte extendido.",
+        size=sz,
+        bold=True,
+        space_after=2,
+    )
 
-    _h(doc, "3. Mall Arauco Estación (MAE) — ahorro ya logrado", 1)
+
+def _bloque_extendido(
+    doc: Document,
+    ctx: Dict[str, Any],
+    tot: Dict[str, float],
+    hasta: date,
+    charts: Dict[str, Path],
+) -> None:
+    sur = ctx["sur"]
+    norte = ctx["norte"]
+    bom = ctx["bom"]
+    maq = ctx["maq"]
+    pak = ctx["pak"]
+    pak_nom = ctx["pak_nom"]
+    p_sur = charts["sur"]
+    p_norte = charts["norte"]
+    p_bom = charts["bom"]
+
+    tag = doc.add_paragraph()
+    tag.paragraph_format.space_after = Pt(0)
+    _set_run(tag.add_run("WES  ·  Parque Arauco  ·  Reporte extendido"), "WES  ·  Parque Arauco  ·  Reporte extendido", size=12, bold=True, color=GOLD)
+    h = doc.add_paragraph()
+    _set_run(
+        h.add_run("Informe de ahorro — detalle recinto por recinto"),
+        "Informe de ahorro — detalle recinto por recinto",
+        size=20,
+        bold=True,
+        color=NAVY,
+    )
+    _p(
+        doc,
+        f"Complemento del one-pager. Período 01/05/2026 – {hasta:%d/%m/%Y}. "
+        f"Logrado {fn(tot['logrado_mes'], 0)} m³/mes ({clp(tot['logrado_mes'])}). "
+        f"Si se aprueban Quilicura y Kennedy: +{fn(tot['propuesto_mes'], 0)} m³/mes "
+        f"({clp(tot['propuesto_mes'])}).",
+    )
+
+    _h(doc, "1. Mall Arauco Estación (MAE) — ahorro ya logrado", 1)
     _p(
         doc,
         f"Estanque Sur es el caso más limpio para la reunión: el 10/06 se repararon los presostatos. "
@@ -574,7 +626,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         bold=True,
     )
 
-    _h(doc, "4. Buenaventura / San Ignacio (BOM) — ahorro ya logrado", 1)
+    _h(doc, "2. Buenaventura / San Ignacio (BOM) — ahorro ya logrado", 1)
     _p(
         doc,
         f"San Ignacio 500 tiene corte nocturno desde el 17/07, armado a las 00:30. Entre 01:00 y "
@@ -599,7 +651,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         bold=True,
     )
 
-    _h(doc, "5. Mall Arauco Quilicura (MAQ) — propuesta de control", 1)
+    _h(doc, "3. Mall Arauco Quilicura (MAQ) — propuesta de control", 1)
     _p(
         doc,
         f"La Matriz Principal concentra el recinto. Desde el 22/06 el día se duplicó y se sostuvo; "
@@ -614,12 +666,9 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         f"({clp(maq['ahorro_mes'])}). No se resta residual: el control nocturno es ir a cero.",
         bold=True,
     )
-    _p(
-        doc,
-        f"Umbral 24 h a activar: Matriz Principal {fn(UMBRAL_MAQ_DIA, 0)} m³/día.",
-    )
+    _p(doc, f"Umbral 24 h a activar: Matriz Principal {fn(UMBRAL_MAQ_DIA, 0)} m³/día.")
 
-    _h(doc, "6. Parque Arauco Kennedy (PAK) — propuesta de control", 1)
+    _h(doc, "4. Parque Arauco Kennedy (PAK) — propuesta de control", 1)
     _p(
         doc,
         "La cadena no se suma a la cabecera del mall: Sandía Antigua y Sandía Nueva alimentan "
@@ -640,7 +689,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         f"Bazar Gourmet {fn(UMBRAL_PAK_BAZAR_DIA, 0)} · DL Kennedy {fn(UMBRAL_PAK_KEN_DIA, 0)} m³/día.",
     )
 
-    _h(doc, "7. Mall Arauco Maipú (MAM) — a la espera de concretar", 1)
+    _h(doc, "5. Mall Arauco Maipú (MAM) — a la espera de concretar", 1)
     _p(
         doc,
         "Maipú no entra en esta lámina como ahorro de on/off. Placa Bancaria y Falabella son "
@@ -667,20 +716,18 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         cap = doc.add_paragraph()
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         _set_run(
-            cap.add_run(
-                "Propuesta MAM: relocalizar Pasillo 1 Arrow e instalar el punto 6 en Pasillo 2."
-            ),
+            cap.add_run("Propuesta MAM: relocalizar Pasillo 1 Arrow e instalar el punto 6 en Pasillo 2."),
             "Propuesta MAM: relocalizar Pasillo 1 Arrow e instalar el punto 6 en Pasillo 2.",
             size=9,
             color=GRAY,
         )
 
-    _h(doc, "8. Pedido concreto de la reunión", 1)
+    _h(doc, "6. Pedido concreto de la reunión", 1)
     _p(
         doc,
         f"Se pide aprobar el mismo corte (se arma a las 00:30; 01:00–05:00 a cero) en "
         f"(a) Matriz Principal de Quilicura y (b) {pak_nom} de Kennedy. "
-        f"Con eso se proyectan {fn(propuesto_mes, 0)} m³/mes adicionales ({clp(propuesto_mes)}). "
+        f"Con eso se proyectan {fn(tot['propuesto_mes'], 0)} m³/mes adicionales ({clp(tot['propuesto_mes'])}). "
         "Junto con el corte, activar los umbrales 24 h de este informe.",
         bold=True,
     )
@@ -694,12 +741,12 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
 
     _h(doc, "Cómo responder en la reunión", 1)
     bullets = [
-        f"¿Cuánto se demuestra ya? {fn(logrado_mes, 0)} m³/mes ({clp(logrado_mes)}), MAE + Buenaventura. "
+        f"¿Cuánto se demuestra ya? {fn(tot['logrado_mes'], 0)} m³/mes ({clp(tot['logrado_mes'])}), MAE + Buenaventura. "
         f"Casi todo es Estanque Sur + SI500 a cero en 01:00–05:00. Acumulado a {hasta:%d/%m}: "
-        f"{fn(logrado_acum, 0)} m³ ({clp(logrado_acum)}).",
-        f"¿Cuánto más si aprueban Quilicura y Kennedy? {fn(propuesto_mes, 0)} m³/mes "
-        f"({clp(propuesto_mes)}), pasando esa misma ventana a cero. Suma total {fn(total_mes, 0)} m³/mes "
-        f"({clp(total_mes)}).",
+        f"{fn(tot['logrado_acum'], 0)} m³ ({clp(tot['logrado_acum'])}).",
+        f"¿Cuánto más si aprueban Quilicura y Kennedy? {fn(tot['propuesto_mes'], 0)} m³/mes "
+        f"({clp(tot['propuesto_mes'])}), pasando esa misma ventana a cero. Suma total {fn(tot['total_mes'], 0)} m³/mes "
+        f"({clp(tot['total_mes'])}).",
         "¿Por qué no restan 2 m³ de residual? Porque el control nocturno es ir a cero. Esos ~2 m³ "
         "son el tramo 00:00–00:30, antes de que el corte quede armado. No es noche.",
         "¿Por qué Quilicura? La Matriz concentra el mall y 01:00–05:00 se quedó alta desde junio. El corte es el mismo que ya corre en SI500.",
@@ -713,11 +760,83 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         _set_run(p.add_run(b), b, size=11, color=NAVY)
 
+
+def build_docs(ctx: Dict[str, Any], hasta: date) -> List[Path]:
+    """Genera one-pager y extendido. No pisa la versión de revisión."""
+    CHARTS.mkdir(parents=True, exist_ok=True)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    path = OUT_DIR / f"Informe_ahorro_PA_reunion_{hasta.strftime('%Y%m%d')}.docx"
-    doc.save(str(path))
-    print(f"[OK] Word {path}", flush=True)
-    return path
+    tot = _totales(ctx)
+    sur, norte, bom, maq, pak, pak_nom = (
+        ctx["sur"],
+        ctx["norte"],
+        ctx["bom"],
+        ctx["maq"],
+        ctx["pak"],
+        ctx["pak_nom"],
+    )
+    filas_chart = [
+        (f"MAE Estanque Sur\n(presostatos 10/06)", sur["ahorro_mes"], "logrado"),
+        (f"MAE Estanque Norte\n(control 05/08)", norte["ahorro_mes"], "logrado"),
+        (f"Buenaventura SI500\n(control 17/07)", bom["ahorro_mes"], "logrado"),
+        (f"Quilicura Matriz\n(propuesta 01–05 → 0)", maq["ahorro_mes"], "propuesto"),
+        (f"Kennedy {pak_nom}\n(propuesta 01–05 → 0)", pak["ahorro_mes"], "propuesto"),
+    ]
+    p_bar = CHARTS / "ahorro_mensual_barras.png"
+    chart_barras_ahorro(p_bar, filas_chart, alto=2.7)
+    p_sur = CHARTS / "mae_sur_antes_despues.png"
+    chart_antes_despues(
+        p_sur,
+        "MAE Estanque Sur — m³/día (mediana)",
+        sur["pre"],
+        sur["post"],
+        "Antes 10/06",
+        "Después 11/06",
+    )
+    p_norte = CHARTS / "mae_norte_antes_despues.png"
+    chart_antes_despues(
+        p_norte,
+        "MAE Estanque Norte — m³ 01:00–05:00 (mediana)",
+        norte["pre"],
+        norte["post"],
+        "Antes 05/08",
+        "Con corte 00:30",
+    )
+    p_bom = CHARTS / "bom_noche_antes_despues.png"
+    chart_antes_despues(
+        p_bom,
+        "Buenaventura SI500 — m³ 01:00–05:00 (mediana)",
+        bom["pre"],
+        bom["post"],
+        "Antes 17/07",
+        "Con corte 00:30",
+    )
+    charts = {"sur": p_sur, "norte": p_norte, "bom": p_bom}
+
+    stamp = hasta.strftime("%Y%m%d")
+    original = OUT_DIR / f"Informe_ahorro_PA_reunion_{stamp}.docx"
+    revision = OUT_DIR / f"Informe_ahorro_PA_reunion_{stamp}_revision.docx"
+    if original.is_file() and not revision.is_file():
+        shutil.copy2(original, revision)
+        print(f"[OK] Revisión conservada {revision}", flush=True)
+
+    one = OUT_DIR / f"Informe_ahorro_PA_reunion_{stamp}_onepage.docx"
+    doc_one = _nuevo_doc(margen=1.35)
+    _bloque_onepage(doc_one, ctx, tot, hasta, p_bar, compact=True)
+    doc_one.save(str(one))
+    print(f"[OK] One-pager {one}", flush=True)
+
+    ext = OUT_DIR / f"Informe_ahorro_PA_reunion_{stamp}_extendido.docx"
+    doc_ext = _nuevo_doc(margen=1.8)
+    _bloque_extendido(doc_ext, ctx, tot, hasta, charts)
+    doc_ext.save(str(ext))
+    print(f"[OK] Extendido {ext}", flush=True)
+    return [one, ext, revision if revision.is_file() else original]
+
+
+def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
+    """Compat: devuelve el one-pager (la revisión no se pisa)."""
+    paths = build_docs(ctx, hasta)
+    return paths[0]
 
 
 def main() -> int:
@@ -832,16 +951,12 @@ def main() -> int:
         fn(pak["ahorro_mes"], 0),
         flush=True,
     )
-    docx = build_doc(ctx, hasta)
-    pdf = _word_a_pdf(docx)
-    if pdf:
-        print(f"[OK] PDF {pdf}", flush=True)
-    else:
-        print("[AVISO] No hay LibreOffice; se entrega Word (Drive lo abre).", flush=True)
+    paths = build_docs(ctx, hasta)
+    print("[AVISO] No hay LibreOffice; se entrega Word (Drive lo abre).", flush=True)
     print("\n=== SALIDA ===")
-    print(docx)
-    if pdf:
-        print(pdf)
+    for p in paths:
+        if p.is_file():
+            print(p)
     return 0
 
 
