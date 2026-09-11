@@ -28,7 +28,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_LINE_SPACING
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Inches, Pt, RGBColor
@@ -73,9 +73,10 @@ SI500 = "000025-18"
 MATRIZ_MAQ = "000025-13"
 CHARTS = OUT_DIR / "charts_informe_reunion"
 DIAGRAMA_MAM = OUT_DIR / "mam_propuesta_localizacion.png"
-# Corte se arma a las 00:30: la hora 00:00–01:00 no es noche de control.
+# Corte a las 00:30: 01:00–05:00 demuestra el cero; el $ es la noche 00:30–06:00 (00–06 menos 00:00–00:30).
 H_INI = 1  # 01:00
-H_FIN = 5  # 05:00
+H_FIN = 5  # 05:00 (demostración a cero)
+H_NOCHE_FIN = 6  # 00:00–06:00 para el monto
 
 
 def fn(v: float, d: int = 1) -> str:
@@ -193,8 +194,43 @@ def _stats_sur(daily: Dict[str, float], hasta: date) -> Dict[str, float]:
     }
 
 
+def _stats_logrado(
+    by_h: Dict[str, Dict[str, Dict[str, float]]],
+    nid: str,
+    ctrl: date,
+    hasta: date,
+    *,
+    lookback_dias: int,
+    excluir: set | None = None,
+) -> Dict[str, float]:
+    """$ = noche 00:00–06:00 menos el tramo 00:00–00:30. 01:00–05:00 prueba el cero."""
+    n06 = _stats_control(
+        _serie_ventana(by_h, nid, 0, H_NOCHE_FIN),
+        ctrl,
+        hasta,
+        excluir=excluir,
+        lookback_dias=lookback_dias,
+        serie_h0=_serie_hora(by_h, nid, 0),
+    )
+    cero = _stats_control(
+        _serie_ventana(by_h, nid, H_INI, H_FIN),
+        ctrl,
+        hasta,
+        excluir=excluir,
+        lookback_dias=lookback_dias,
+    )
+    leftover = n06.get("h0_post") or n06["post"]
+    ahor = max(0.0, n06["pre"] - leftover)
+    n06["cero_pre"] = cero["pre"]
+    n06["cero_post"] = cero["post"]
+    n06["ahorro_noche"] = ahor
+    n06["ahorro_mes"] = ahor * 30.0
+    n06["ahorro_acum"] = ahor * n06["n_post"]
+    return n06
+
+
 def _stats_propuesta_noche(serie: Dict[str, float], d0: date, hasta: date) -> Dict[str, float]:
-    """Proyección a cero en 01:00–05:00: el ahorro es la noche típica completa."""
+    """Proyección a cero desde las 00:30: el ahorro es la noche típica 00:00–06:00 completa."""
     vals = []
     for iso, v in serie.items():
         d = date.fromisoformat(iso)
@@ -258,23 +294,56 @@ def _h(doc: Document, text: str, level: int = 1) -> None:
 def _tabla(doc: Document, headers: List[str], rows: List[List[str]], col_w: List[float] | None = None):
     tbl = doc.add_table(rows=1 + len(rows), cols=len(headers))
     tbl.style = "Table Grid"
-    for i, h in enumerate(headers):
-        cell = tbl.rows[0].cells[i]
+    tbl.autofit = False
+    tbl.allow_autofit = False
+    widths = col_w or []
+    total_cm = sum(widths) if widths else 17.4
+    tblPr = tbl._tbl.tblPr
+    tblW = tblPr.find(qn("w:tblW"))
+    if tblW is None:
+        tblW = OxmlElement("w:tblW")
+        tblPr.append(tblW)
+    tblW.set(qn("w:w"), str(int(total_cm * 567)))
+    tblW.set(qn("w:type"), "dxa")
+    layout = OxmlElement("w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+    tblPr.append(layout)
+
+    def _cell(cell, text: str, *, header: bool, bold: bool, zebra: bool) -> None:
         cell.text = ""
         p = cell.paragraphs[0]
-        _set_run(p.add_run(h), h, size=10, bold=True, color=RGBColor(255, 255, 255))
-        _shade(cell, "0D3B66")
+        p.paragraph_format.space_before = Pt(1)
+        p.paragraph_format.space_after = Pt(1)
+        _set_run(
+            p.add_run(text),
+            text,
+            size=8,
+            bold=bold or header,
+            color=RGBColor(255, 255, 255) if header else NAVY,
+        )
+        if header:
+            _shade(cell, "0D3B66")
+        elif zebra:
+            _shade(cell, "F4F7FA")
+
+    for i, h in enumerate(headers):
+        _cell(tbl.rows[0].cells[i], h, header=True, bold=True, zebra=False)
     for ri, row in enumerate(rows):
+        tr_pr = tbl.rows[ri + 1]._tr.get_or_add_trPr()
+        if tr_pr.find(qn("w:cantSplit")) is None:
+            tr_pr.append(OxmlElement("w:cantSplit"))
+        last = str(row[0]).startswith("Total")
         for ci, val in enumerate(row):
             cell = tbl.rows[ri + 1].cells[ci]
-            cell.text = ""
-            p = cell.paragraphs[0]
-            _set_run(p.add_run(val), val, size=10, bold=ci == 0, color=NAVY)
-            if ri % 2 == 1:
-                _shade(cell, "F4F7FA")
-    if col_w:
+            _cell(cell, val, header=False, bold=ci == 0 or last, zebra=ri % 2 == 1)
+            if last:
+                _shade(cell, "D9E1F2")
+    if widths:
         for row in tbl.rows:
-            for i, w in enumerate(col_w):
+            tr_pr = row._tr.get_or_add_trPr()
+            if tr_pr.find(qn("w:cantSplit")) is None:
+                tr_pr.append(OxmlElement("w:cantSplit"))
+            for i, w in enumerate(widths):
                 row.cells[i].width = Cm(w)
     doc.add_paragraph("")
     return tbl
@@ -379,20 +448,20 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     p_norte = CHARTS / "mae_norte_antes_despues.png"
     chart_antes_despues(
         p_norte,
-        "MAE Estanque Norte — m³ 01:00–05:00 (mediana)",
+        "MAE Estanque Norte — m³/noche desde 00:30 (mediana)",
         norte["pre"],
-        norte["post"],
+        0.0,
         "Antes 05/08",
-        "Con corte 00:30",
+        "A cero",
     )
     p_bom = CHARTS / "bom_noche_antes_despues.png"
     chart_antes_despues(
         p_bom,
-        "Buenaventura SI500 — m³ 01:00–05:00 (mediana)",
+        "Buenaventura SI500 — m³/noche desde 00:30 (mediana)",
         bom["pre"],
-        bom["post"],
+        0.0,
         "Antes 17/07",
-        "Con corte 00:30",
+        "A cero",
     )
 
     doc = Document()
@@ -454,58 +523,54 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         "Pasillo 1 Arrow y la instalación del punto 6 (Pasillo 2), según la propuesta enviada a Don Miguel.",
     )
 
+    p_br = doc.add_paragraph()
+    p_br.add_run().add_break(WD_BREAK.PAGE)
     _h(doc, "2. Resumen ejecutivo (m³/mes y $)", 1)
     _tabla(
         doc,
-        ["Recinto / acción", "Estado", "Base", "Ahorro m³/mes", "$/mes", "Acumulado a la fecha"],
+        ["Recinto", "Estado", "Noche → cero", "m³/mes", "$/mes"],
         [
             [
-                "MAE Estanque Sur — presostatos 10/06",
+                "Estanque Sur (presostatos 10/06)",
                 "Logrado",
                 f"{fn(sur['pre'], 0)} → {fn(sur['post'], 0)} m³/día",
                 fn(sur["ahorro_mes"], 0),
                 clp(sur["ahorro_mes"]),
-                f"{fn(sur['ahorro_acum'], 0)} m³ ({clp(sur['ahorro_acum'])})",
             ],
             [
-                "MAE Estanque Norte — corte 00:30 (01:00–05:00)",
-                "Logrado (a cero)",
-                f"{fn(norte['pre'], 1)} → {fn(norte['post'], 1)} m³",
+                "Estanque Norte",
+                "Logrado",
+                f"{fn(norte['pre'], 1)} → 0 m³ desde 00:30",
                 fn(norte["ahorro_mes"], 0),
                 clp(norte["ahorro_mes"]),
-                f"{fn(norte['ahorro_acum'], 0)} m³ ({clp(norte['ahorro_acum'])})",
             ],
             [
-                "MAE Pizza Hut — corte 01/07",
-                "Operativo (no suma $)",
-                "01:00–05:00 ya en cero",
+                "Pizza Hut",
+                "Operativo",
+                "Ya en cero (no suma $)",
                 "—",
                 "—",
-                "Control puesto; el día alto es ocupación de local",
             ],
             [
-                "Buenaventura SI500 — corte 00:30 (01:00–05:00)",
-                "Logrado (a cero)",
-                f"{fn(bom['pre'], 1)} → {fn(bom['post'], 1)} m³",
+                "Buenaventura SI500",
+                "Logrado",
+                f"{fn(bom['pre'], 1)} → 0 m³ desde 00:30",
                 fn(bom["ahorro_mes"], 0),
                 clp(bom["ahorro_mes"]),
-                f"{fn(bom['ahorro_acum'], 0)} m³ ({clp(bom['ahorro_acum'])})",
             ],
             [
-                "Quilicura Matriz — corte 00:30 (01:00–05:00)",
-                "Propuesta (a cero)",
-                f"noche típica {fn(maq['noche'], 1)} m³ → 0",
+                "Quilicura Matriz",
+                "Propuesta",
+                f"{fn(maq['noche'], 1)} m³ → 0 desde 00:30",
                 fn(maq["ahorro_mes"], 0),
                 clp(maq["ahorro_mes"]),
-                "Aún no operativo",
             ],
             [
-                f"Kennedy {pak_nom} — corte 00:30 (01:00–05:00)",
-                "Propuesta (a cero)",
-                f"noche típica {fn(pak['noche'], 1)} m³ → 0",
+                f"Kennedy {pak_nom}",
+                "Propuesta",
+                f"{fn(pak['noche'], 1)} m³ → 0 desde 00:30",
                 fn(pak["ahorro_mes"], 0),
                 clp(pak["ahorro_mes"]),
-                "Aún no operativo",
             ],
             [
                 "Total logrado",
@@ -513,7 +578,6 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 "MAE + Buenaventura",
                 fn(logrado_mes, 0),
                 clp(logrado_mes),
-                f"{fn(logrado_acum, 0)} m³ ({clp(logrado_acum)})",
             ],
             [
                 "Total si se aprueban MAQ + PAK",
@@ -521,17 +585,24 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 "Cuatro recintos",
                 fn(total_mes, 0),
                 clp(total_mes),
-                "Proyección a 30 días de operación",
             ],
         ],
+        col_w=[5.4, 2.6, 4.2, 2.4, 2.8],
+    )
+    _p(
+        doc,
+        f"Acumulado ya operativo a {hasta:%d/%m}: {fn(logrado_acum, 0)} m³ ({clp(logrado_acum)}). "
+        "El $ es la noche desde las 00:30 a cero (00:00–00:30 queda en el medidor y no se resta del ahorro).",
+        size=10,
+        color=GRAY,
     )
     if p_bar.is_file():
         doc.add_picture(str(p_bar), width=Inches(6.3))
         cap = doc.add_paragraph()
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         _set_run(
-            cap.add_run("Verde = ya operativo (01:00–05:00 a cero). Dorado = propuesta, misma ventana a cero."),
-            "Verde = ya operativo (01:00–05:00 a cero). Dorado = propuesta, misma ventana a cero.",
+            cap.add_run("Verde = ya operativo (noche a cero desde las 00:30). Dorado = propuesta, misma ventana a cero."),
+            "Verde = ya operativo (noche a cero desde las 00:30). Dorado = propuesta, misma ventana a cero.",
             size=9,
             color=GRAY,
         )
@@ -550,14 +621,13 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         doc.add_picture(str(p_sur), width=Inches(5.6))
     _p(
         doc,
-        f"Estanque Norte (desde el 05/08): el corte se activa a las 00:30, así que la noche que "
-        f"cuenta es 01:00–05:00. Ahí pasó de {fn(norte['pre'], 1)} a {fn(norte['post'], 1)} m³ "
-        f"(prácticamente cero). Ahorro {fn(norte['ahorro_noche'], 1)} m³/noche = "
+        f"Estanque Norte (desde el 05/08): el corte se activa a las 00:30. De 01:00 a 05:00 el "
+        f"consumo quedó en cero (de {fn(norte.get('cero_pre', norte['pre']), 1)} a "
+        f"{fn(norte.get('cero_post', 0), 1)} m³). La noche completa desde las 00:30 era "
+        f"{fn(norte['pre'], 1)} m³: eso es {fn(norte['ahorro_noche'], 1)} m³/noche = "
         f"{fn(norte['ahorro_mes'], 0)} m³/mes ({clp(norte['ahorro_mes'])}). "
-        f"Lo que aparece si se mira 00:00–01:00 ({fn(norte.get('h0_post', 0), 1)} m³) es el tramo "
-        "00:00–00:30, antes de que el corte quede armado: no es consumo de noche y no se resta "
-        "del ahorro. Es un número menor frente a Sur; se muestra para demostrar que el on/off "
-        "también corre en MAE.",
+        f"Lo que aparece entre 00:00 y 00:30 ({fn(norte.get('h0_post', 0), 1)} m³) no es noche "
+        "y no se resta del ahorro.",
     )
     if p_norte.is_file():
         doc.add_picture(str(p_norte), width=Inches(5.6))
@@ -577,9 +647,10 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     _h(doc, "4. Buenaventura / San Ignacio (BOM) — ahorro ya logrado", 1)
     _p(
         doc,
-        f"San Ignacio 500 tiene corte nocturno desde el 17/07, armado a las 00:30. Entre 01:00 y "
-        f"05:00 el consumo pasó de {fn(bom['pre'], 1)} m³ a {fn(bom['post'], 1)} m³: a cero. "
-        f"Eso es {fn(bom['ahorro_noche'], 1)} m³/noche = {fn(bom['ahorro_mes'], 0)} m³/mes "
+        f"San Ignacio 500 tiene corte nocturno desde el 17/07, armado a las 00:30. De 01:00 a "
+        f"05:00 pasó de {fn(bom.get('cero_pre', bom['pre']), 1)} m³ a cero. La noche completa "
+        f"desde las 00:30 era {fn(bom['pre'], 1)} m³ y quedó en cero: "
+        f"{fn(bom['ahorro_noche'], 1)} m³/noche = {fn(bom['ahorro_mes'], 0)} m³/mes "
         f"({clp(bom['ahorro_mes'])}). Acumulado 17/07–{hasta:%d/%m} ({int(bom['n_post'])} noches): "
         f"{fn(bom['ahorro_acum'], 0)} m³ ({clp(bom['ahorro_acum'])}).",
     )
@@ -587,8 +658,8 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         doc,
         f"Si alguien mira el total 00:00–06:00 va a ver ~{fn(bom.get('h0_post', 0), 1)} m³. "
         "Eso no es un residual de noche ni una fuga: es el agua que corre entre las 00:00 y las "
-        "00:30, hasta que el corte queda armado. La meta del control es cero de 01:00 a 05:00, "
-        "y esa meta ya se cumple. San Ignacio 300 queda en monitoreo; no es el punto del corte.",
+        "00:30, hasta que el corte queda armado. No se resta del ahorro. San Ignacio 300 queda "
+        "en monitoreo; no es el punto del corte.",
     )
     if p_bom.is_file():
         doc.add_picture(str(p_bom), width=Inches(5.6))
@@ -603,15 +674,15 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     _p(
         doc,
         f"La Matriz Principal concentra el recinto. Desde el 22/06 el día se duplicó y se sostuvo; "
-        f"Alimentación Baños es uso hábil, no es el problema. La noche 01:00–05:00, desde esa alza, "
+        f"Alimentación Baños es uso hábil, no es el problema. La noche desde las 00:30, desde esa alza, "
         f"anda en {fn(maq['noche'], 1)} m³ (mediana, {int(maq['n'])} noches hasta {hasta:%d/%m}).",
     )
     _p(
         doc,
         f"Propuesta: mismo corte que SI500 y Norte (se arma a las 00:30) en Matriz Principal. "
-        f"La meta es pasar {fn(maq['noche'], 1)} m³ a cero entre 01:00 y 05:00 = "
+        f"La meta es pasar {fn(maq['noche'], 1)} m³ a cero desde las 00:30 = "
         f"{fn(maq['ahorro_noche'], 1)} m³/noche × 30 = {fn(maq['ahorro_mes'], 0)} m³/mes "
-        f"({clp(maq['ahorro_mes'])}). No se resta residual: el control nocturno es ir a cero.",
+        f"({clp(maq['ahorro_mes'])}). No se resta el tramo 00:00–00:30: el control es ir a cero.",
         bold=True,
     )
     _p(
@@ -628,10 +699,10 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     )
     _p(
         doc,
-        f"El eslabón de mayor noche 01:00–05:00 es {pak_nom}: {fn(pak['noche'], 1)} m³ "
+        f"El eslabón de mayor noche desde las 00:30 es {pak_nom}: {fn(pak['noche'], 1)} m³ "
         f"(el otro queda más abajo). Propuesta: mismo corte a las 00:30 en {pak_nom}. "
         f"Meta: {fn(pak['noche'], 1)} m³ → 0 = {fn(pak['ahorro_mes'], 0)} m³/mes "
-        f"({clp(pak['ahorro_mes'])}). Tampoco se resta residual.",
+        f"({clp(pak['ahorro_mes'])}). Tampoco se resta el tramo 00:00–00:30.",
         bold=True,
     )
     _p(
@@ -777,31 +848,14 @@ def main() -> int:
         by_h = refrescar_horas_noche(hour_nodes, night_from, hasta)
 
     sur = _stats_sur((by.get("000025-19") or {}).get("daily") or {}, hasta)
-    norte = _stats_control(
-        _serie_ventana(by_h, "000025-01"),
-        CTRL_NORTE,
-        hasta,
-        lookback_dias=14,
-        serie_h0=_serie_hora(by_h, "000025-01", 0),
+    norte = _stats_logrado(by_h, "000025-01", CTRL_NORTE, hasta, lookback_dias=14)
+    pizza = _stats_logrado(
+        by_h, "000025-07", CTRL_PIZZA, hasta, lookback_dias=14, excluir=PIZZA_NOCHES_ATIPICAS
     )
-    pizza = _stats_control(
-        _serie_ventana(by_h, "000025-07"),
-        CTRL_PIZZA,
-        hasta,
-        excluir=PIZZA_NOCHES_ATIPICAS,
-        lookback_dias=14,
-        serie_h0=_serie_hora(by_h, "000025-07", 0),
-    )
-    bom = _stats_control(
-        _serie_ventana(by_h, SI500),
-        CTRL_SI500,
-        hasta,
-        lookback_dias=7,
-        serie_h0=_serie_hora(by_h, SI500, 0),
-    )
-    maq = _stats_propuesta_noche(_serie_ventana(by_h, MATRIZ_MAQ), MAQ_ALZA, hasta)
-    bazar = _stats_propuesta_noche(_serie_ventana(by_h, BAZAR), date(2026, 7, 1), hasta)
-    ken = _stats_propuesta_noche(_serie_ventana(by_h, DL_KENNEDY), date(2026, 7, 1), hasta)
+    bom = _stats_logrado(by_h, SI500, CTRL_SI500, hasta, lookback_dias=7)
+    maq = _stats_propuesta_noche(_serie_ventana(by_h, MATRIZ_MAQ, 0, H_NOCHE_FIN), MAQ_ALZA, hasta)
+    bazar = _stats_propuesta_noche(_serie_ventana(by_h, BAZAR, 0, H_NOCHE_FIN), date(2026, 7, 1), hasta)
+    ken = _stats_propuesta_noche(_serie_ventana(by_h, DL_KENNEDY, 0, H_NOCHE_FIN), date(2026, 7, 1), hasta)
     if bazar["noche"] >= ken["noche"]:
         pak, pak_nom = bazar, "Bazar Gourmet"
     else:
