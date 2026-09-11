@@ -6,6 +6,8 @@ Genera:
   - Informe_Mensual_Bupa_Antofagasta_....pdf
 
 Periodo por defecto: desde el inicio del monitoreo (23/07/2026) hasta hoy.
+Gráfica comparativa de meses: solo desde junio 2026 (sin meses previos).
+Sin referencias a riego (no aplica en clínica).
 
 Uso:
   python generar_informes_gestion_hidrica_bupa_antofagasta.py
@@ -19,6 +21,7 @@ import sys
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from typing import List
 
 if sys.platform == "win32":
     try:
@@ -28,10 +31,19 @@ if sys.platform == "win32":
         pass
 
 import generar_informes_gestion_hidrica_lote_agosto2026 as lote
-from informe_gestion_hidrica_pdf import render_mensual, render_one_pager
+from informe_gestion_hidrica_pdf import (
+    Accion,
+    Hallazgo,
+    InformeSpec,
+    build_chart_6_meses,
+    render_mensual,
+    render_one_pager,
+)
 
 DEFAULT_START = "23/07/2026"
 FOLDER = "Bupa_Antofagasta"
+# Comparativo mensual: solo desde junio 2026 en adelante.
+MES_INICIO_GRAFICO = (2026, 6)
 
 _MESES = {
     1: "enero",
@@ -51,6 +63,80 @@ _MESES = {
 
 def _fecha_larga(d: datetime) -> str:
     return f"{d.day} de {_MESES[d.month]} de {d.year}"
+
+
+def _sin_riego(texto: str) -> str:
+    """Bupa no tiene riego: limpia redacción genérica del lote Zapallar."""
+    reemplazos = [
+        ("horarios de riego, llenado o uso nocturno", "horarios de llenado o uso nocturno"),
+        ("horarios de uso, riego o llenado", "horarios de uso o llenado"),
+        ("fuga, riego continuo o falla", "fuga o falla"),
+        ("fuga, riego continuo o error", "fuga o error"),
+        ("riego, llenado o uso", "llenado o uso"),
+        ("riego o llenado", "llenado"),
+        ("riego continuo o ", ""),
+        ("riego, ", ""),
+        (" riego", ""),
+        ("Riego", "Uso"),
+        ("riego", "uso"),
+    ]
+    out = texto
+    for a, b in reemplazos:
+        out = out.replace(a, b)
+    return out
+
+
+def _limpiar_hallazgos(hallazgos: List[Hallazgo]) -> List[Hallazgo]:
+    return [
+        Hallazgo(
+            prioridad=h.prioridad,
+            titulo=_sin_riego(h.titulo),
+            detalle=_sin_riego(h.detalle),
+            lectura=_sin_riego(h.lectura),
+        )
+        for h in hallazgos
+    ]
+
+
+def _limpiar_acciones(acciones: List[Accion]) -> List[Accion]:
+    cleaned: List[Accion] = []
+    for a in acciones:
+        cleaned.append(
+            Accion(
+                accion=_sin_riego(a.accion),
+                plazo=a.plazo,
+                objetivo=_sin_riego(a.objetivo),
+                responsable=a.responsable,
+            )
+        )
+    # Asegurar acciones típicas de clínica sin riego.
+    if not any("nocturno" in a.accion.lower() or "llenado" in a.accion.lower() for a in cleaned):
+        cleaned.insert(
+            0,
+            Accion(
+                "Confirmar horarios de llenado o uso nocturno.",
+                "7 días",
+                "Separar consumo programado de posibles pérdidas.",
+                "Administración / operación",
+            ),
+        )
+    return cleaned[:3]
+
+
+def _meses_antes_de_junio(end_dt: datetime) -> List[tuple]:
+    """Meses a excluir del comparativo para dejar solo desde junio 2026."""
+    y, m = MES_INICIO_GRAFICO
+    excl: List[tuple] = []
+    # Excluye desde ~1 año atrás hasta el mes anterior a junio 2026.
+    cy, cm = end_dt.year, end_dt.month
+    for _ in range(18):
+        if (cy, cm) < (y, m):
+            excl.append((cy, cm))
+        cm -= 1
+        if cm == 0:
+            cm = 12
+            cy -= 1
+    return excl
 
 
 def _cfg(start: str, end: str) -> dict:
@@ -76,6 +162,8 @@ def _cfg(start: str, end: str) -> dict:
         "end": end,
         "periodo_corto": periodo_corto,
         "usar_kpi_ultimo_mes_6m": False,
+        # Solo meses desde junio 2026 en la gráfica comparativa.
+        "excluir_meses_6m": _meses_antes_de_junio(end_dt),
         "nota_agosto": (
             f"El periodo se informa del {start_dt.strftime('%d/%m/%Y')} "
             f"al {end_dt.strftime('%d/%m/%Y')} (desde el inicio del monitoreo). "
@@ -89,7 +177,6 @@ def _cfg(start: str, end: str) -> dict:
         "matriz_id": "000029-09",
         "matriz_name": "Medidor Principal Sanitaria",
         "additive": False,
-        # Sin perfil condominio: redacción genérica de clínica (no “condominio/Zapallar”).
         "nocturnal_explain": None,
         "kpi_label": "Consumo de entrada",
         "short_names": {
@@ -114,6 +201,58 @@ def _cfg(start: str, end: str) -> dict:
     }
 
 
+def _ajustar_spec_clinica(spec: InformeSpec, data: dict, label_periodo: str, cfg: dict) -> InformeSpec:
+    pct = float(data["kpi"]["pct_nocturno"])
+    motivo = (
+        f"consumo nocturno del {pct:.0f} % sobre la entrada (Medidor Principal Sanitaria) "
+        "que requiere seguimiento y validación frente a la operación habitual de la clínica "
+        "(salas de bomba e impulsiones internas)."
+    )
+    hallazgos = _limpiar_hallazgos(list(spec.hallazgos))
+    acciones = _limpiar_acciones(list(spec.acciones))
+
+    # Rehacer gráfica 6m solo con meses desde junio (por si el cache trae más).
+    charts = Path("reports") / FOLDER / "GESTION_HIDRICA" / "_charts"
+    charts.mkdir(parents=True, exist_ok=True)
+    labels: List[str] = []
+    vals: List[float] = []
+    for item in data.get("serie_6_meses") or []:
+        lab = str(item["label"])
+        parsed = lote._parse_lab_mes(lab)
+        if parsed and parsed < MES_INICIO_GRAFICO:
+            continue
+        labels.append(lab.replace("*", "").split()[0].capitalize())
+        vals.append(float(item["m3"]))
+    chart_6m = spec.chart_6m
+    if labels:
+        chart_6m = build_chart_6_meses(charts / f"{cfg['key']}_6m.png", labels, vals)
+
+    # Limpiar "riego" también en conclusiones / lectura ejecutiva.
+    conclusion = [
+        [(_sin_riego(t), b) for t, b in para]
+        for para in (spec.conclusion or [])
+    ]
+    lectura = [
+        [(_sin_riego(t), b) for t, b in para]
+        for para in (spec.lectura_ejecutiva or [])
+    ]
+
+    kwargs = dict(
+        footer=f"Informe de gestión hídrica - {cfg['cliente']} | {label_periodo}",
+        titulo_onepager="Resumen ejecutivo de gestión hídrica",
+        titulo_mensual="Informe mensual de gestión hídrica",
+        hallazgos=hallazgos,
+        acciones=acciones,
+        conclusion=conclusion,
+        lectura_ejecutiva=lectura,
+        chart_6m=chart_6m,
+    )
+    if pct >= 18:
+        kwargs["clasificacion"] = "EN OBSERVACIÓN"
+        kwargs["motivo"] = motivo
+    return replace(spec, **kwargs)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Gestión hídrica Bupa Antofagasta (formato Zapallar)")
     ap.add_argument("--start", default=DEFAULT_START, help="dd/mm/aaaa")
@@ -130,7 +269,6 @@ def main() -> int:
     periodo_tag = f"{start_dt:%Y%m%d}_{end_dt:%Y%m%d}"
     label_periodo = f"{start_dt:%d/%m/%Y}–{end_dt:%d/%m/%Y}"
 
-    # Cache propio para no mezclar con el lote de agosto.
     lote.CACHE_DIR = Path("/tmp/gh_bupa_antofagasta")
     cache_file = lote.CACHE_DIR / f"{cfg['key']}.json"
     if cache_file.exists():
@@ -139,26 +277,25 @@ def main() -> int:
     print("=" * 70)
     print("GESTIÓN HÍDRICA — Bupa Antofagasta (formato Fundo Zapallar)")
     print(f"Periodo: {args.start} → {args.end}")
+    print("Gráfica mensual: desde junio 2026")
+    print("Sin referencias a riego")
     print(f"Nodos: {', '.join(cfg['node_ids'])}")
     print("=" * 70)
 
     data = lote.fetch_cliente(cfg)
+    # Forzar comparativo solo desde junio 2026 (evita meses anteriores al inicio).
+    data["serie_6_meses"] = [
+        item
+        for item in (data.get("serie_6_meses") or [])
+        if (lote._parse_lab_mes(str(item["label"])) or (9999, 12)) >= MES_INICIO_GRAFICO
+    ]
+    print(
+        "[INFO] Meses en comparativo:",
+        ", ".join(i["label"] for i in data.get("serie_6_meses") or []) or "(sin datos)",
+        flush=True,
+    )
     spec = lote.build_spec(cfg, data, visitas=[])
-    # Redacción clínica (evitar textos de condominio/Zapallar).
-    pct = float(data["kpi"]["pct_nocturno"])
-    motivo = (
-        f"consumo nocturno del {pct:.0f} % sobre la entrada (Medidor Principal Sanitaria) "
-        "que requiere seguimiento y validación frente a la operación habitual de la clínica "
-        "(salas de bomba e impulsiones internas)."
-    )
-    if pct >= 18:
-        spec = replace(spec, clasificacion="EN OBSERVACIÓN", motivo=motivo)
-    spec = replace(
-        spec,
-        footer=f"Informe de gestión hídrica - {cfg['cliente']} | {label_periodo}",
-        titulo_onepager="Resumen ejecutivo de gestión hídrica",
-        titulo_mensual="Informe mensual de gestión hídrica",
-    )
+    spec = _ajustar_spec_clinica(spec, data, label_periodo, cfg)
 
     out_dir = Path("reports") / FOLDER / "GESTION_HIDRICA"
     charts = out_dir / "_charts"
