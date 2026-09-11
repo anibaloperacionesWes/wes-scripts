@@ -4258,6 +4258,7 @@ def generate_aggregated_report(
     parallel_node_fetch: bool = False,
     max_parallel_workers: int = 4,
     company_folder_override: Optional[str] = None,
+    conservar_portada_estandar: bool = False,
 ) -> Path:
     """
     Genera un reporte agregado Word que sintetiza estadísticas de múltiples nodos.
@@ -4265,6 +4266,9 @@ def generate_aggregated_report(
 
     parallel_node_fetch: si True, descarga medidas/alertas de cada nodo en paralelo
         (acelera el agregado; si la API falla por carga, usar False o bajar max_parallel_workers).
+    conservar_portada_estandar: si True y el cliente usa formato extendido de fin de mes,
+        mantiene resumen + comparación + narrativa de la portada estándar y aplica el
+        cuerpo extendido (evolución diaria, día mayor, nocturno real) desde ahí en adelante.
     """
     start_dt = parse_date(start_date)
     end_dt = parse_date(end_date, end_of_day=True)
@@ -4401,6 +4405,8 @@ def generate_aggregated_report(
     from agregado_extendido_extra import es_agregado_extendido
 
     es_agregado_fmt = es_agregado_extendido(company_id)
+    # Portada estándar + cuerpo extendido (p. ej. Bupa Antofagasta).
+    portada_estandar = bool(conservar_portada_estandar and es_agregado_fmt)
     nodo_estanque_inferior = "000027-02" if es_fundo_zapallar else None
     
     # Si no se especificó fuente_agua_id pero es Fundo Zapallar, usar ESVAL como fuente
@@ -4564,7 +4570,7 @@ def generate_aggregated_report(
             if es_fundo_zapallar
             else (
                 "Consumo total del periodo por punto de monitoreo"
-                if es_agregado_fmt
+                if es_agregado_fmt and not portada_estandar
                 else "Consumo total por punto de monitoreo"
             )
         )
@@ -4652,7 +4658,7 @@ def generate_aggregated_report(
         summary_para.add_run(f"Consumo total agregado: {format_number_chilean(total_consumption, 1)} m³.\n")
         summary_para.add_run(f"Consumo promedio por punto: {format_number_chilean(avg_consumption_per_node, 1)} m³.\n")
     summary_para.add_run(f"Total de alertas registradas: {total_alerts}.\n")
-    if not es_agregado_fmt and sum_promedio_alerta > 0:
+    if (not es_agregado_fmt or portada_estandar) and sum_promedio_alerta > 0:
         summary_para.add_run(f"Promedio de alerta agregado: {format_number_chilean(sum_promedio_alerta, 1)} m³/h.\n")
         summary_para.add_run(f"Proyección diaria de consumo nocturno agregada: {format_number_chilean(sum_proyeccion_24h, 1)} m³/día.\n")
     
@@ -4665,7 +4671,7 @@ def generate_aggregated_report(
                 "Matriz ESVAL es la entrada al fundo (referencia de consumo real); "
                 "estanques y etapas son mediciones aguas abajo y no deben sumarse al total."
             )
-        elif es_agregado_fmt:
+        elif es_agregado_fmt and not portada_estandar:
             comp_texto = (
                 "Consumo acumulado de cada punto en el periodo (suma de todos los días analizados)."
             )
@@ -4693,7 +4699,7 @@ def generate_aggregated_report(
                 f"por eso no se suman entre sí ni con ESVAL — el máximo del gráfico es Matriz ESVAL, "
                 f"no la suma de barras, que no representa un consumo adicional."
             )
-        elif es_agregado_fmt:
+        elif es_agregado_fmt and not portada_estandar:
             from agregado_extendido_extra import narrativa_consumo_total_extendido
 
             narrative = narrativa_consumo_total_extendido(company_id, consumer_nodes_for_narrative)
