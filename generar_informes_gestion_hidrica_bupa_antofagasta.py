@@ -145,12 +145,13 @@ def main() -> int:
     data = lote.fetch_cliente(cfg)
     spec = lote.build_spec(cfg, data, visitas=[])
     # Redacción clínica (evitar textos de condominio/Zapallar).
+    pct = float(data["kpi"]["pct_nocturno"])
     motivo = (
-        "consumo nocturno del 24 % sobre la entrada (Medidor Principal Sanitaria) "
+        f"consumo nocturno del {pct:.0f} % sobre la entrada (Medidor Principal Sanitaria) "
         "que requiere seguimiento y validación frente a la operación habitual de la clínica "
         "(salas de bomba e impulsiones internas)."
     )
-    if float(data["kpi"]["pct_nocturno"]) >= 18:
+    if pct >= 18:
         spec = replace(spec, clasificacion="EN OBSERVACIÓN", motivo=motivo)
     spec = replace(
         spec,
