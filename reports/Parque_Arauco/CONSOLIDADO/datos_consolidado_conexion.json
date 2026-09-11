@@ -1,0 +1,191 @@
+{
+  "000025-09": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:14:00-03:00",
+    "horas": 0.021844664444444446,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-19": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005181320555555556,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-33": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005181647222222222,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-08": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005189946666666666,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-32": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005190396944444444,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-13": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.0051904352777777775,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-10": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:14:00-03:00",
+    "horas": 0.02185754222222222,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-04": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:14:00-03:00",
+    "horas": 0.021857688055555553,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-34": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005191225833333334,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-01": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:12:00-03:00",
+    "horas": 0.055191495,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-07": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:12:00-03:00",
+    "horas": 0.05519174388888889,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-18": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005194923888888889,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-17": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.0051951675,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-11": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:14:00-03:00",
+    "horas": 0.021866886388888892,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-37": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005201674722222222,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-12": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005203620833333334,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-38": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.0052103819444444446,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-20": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005211571388888889,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-23": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:14:00-03:00",
+    "horas": 0.021878461666666668,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-27": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005212905555555555,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-21": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005213179166666667,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-24": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005213276944444445,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-22": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:14:00-03:00",
+    "horas": 0.021880511666666665,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-35": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:14:00-03:00",
+    "horas": 0.021885310555555558,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-28": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:14:00-03:00",
+    "horas": 0.0218863075,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-29": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005219746666666666,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  },
+  "000025-36": {
+    "wesStatus": "ON",
+    "lastUpdate": "2026-09-09T16:15:00-03:00",
+    "horas": 0.005220561388888889,
+    "desconectado": false,
+    "antiguedad": "menos de 1 h"
+  }
+}
