@@ -69,6 +69,7 @@ OUT_DIR = ROOT / "reports" / "Parque_Arauco" / "CONSOLIDADO"
 CHARTS = OUT_DIR / "charts_consolidado"
 JSON_DAILY = OUT_DIR / "datos_consolidado_diario.json"
 JSON_NIGHT = OUT_DIR / "datos_consolidado_noches.json"
+JSON_HOURS = OUT_DIR / "datos_consolidado_horas_noche.json"
 JSON_CONN = OUT_DIR / "datos_consolidado_conexion.json"
 
 DESDE_HIST = date(2026, 5, 1)
@@ -267,6 +268,41 @@ def refrescar_noches(nodos: List[str], d0: date, d1: date) -> Dict[str, Dict[str
                     print(f"  {i}/{len(pendientes)} noches", flush=True)
     JSON_NIGHT.write_text(json.dumps({"hourly": hourly}, ensure_ascii=False, indent=2), encoding="utf-8")
     return hourly
+
+
+def refrescar_horas_noche(nodos: List[str], d0: date, d1: date) -> Dict[str, Dict[str, Dict[str, float]]]:
+    """Perfil 00–06 hora Chile por día (para ventana 01:00–05:00 del corte a las 00:30)."""
+    by_h: Dict[str, Dict[str, Dict[str, float]]] = {n: {} for n in nodos}
+    if JSON_HOURS.is_file():
+        try:
+            prev = json.loads(JSON_HOURS.read_text(encoding="utf-8")).get("by_h") or {}
+            for n in nodos:
+                by_h[n] = dict(prev.get(n) or {})
+        except Exception:
+            pass
+    pendientes: List[Tuple[str, date]] = []
+    for nid in nodos:
+        for d in _rango(d0, d1):
+            rec = by_h[nid].get(d.isoformat()) or {}
+            if "1" not in rec and 1 not in rec:
+                pendientes.append((nid, d))
+    print(f"[INFO] Horas 00–06 a descargar: {len(pendientes)}", flush=True)
+
+    def _uno(nid: str, d: date) -> Tuple[str, str, Dict[str, float]]:
+        serie = get_hourly_measures_for_day(nid, datetime(d.year, d.month, d.day)) or []
+        rec = {str(int(h)): round(float(v), 3) for h, v in serie if 0 <= int(h) < 7}
+        return nid, d.isoformat(), rec
+
+    if pendientes:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futs = [pool.submit(_uno, nid, d) for nid, d in pendientes]
+            for i, fut in enumerate(as_completed(futs), 1):
+                nid, iso, rec = fut.result()
+                by_h.setdefault(nid, {})[iso] = rec
+                if i % 20 == 0 or i == len(pendientes):
+                    print(f"  {i}/{len(pendientes)} horas-noche", flush=True)
+    JSON_HOURS.write_text(json.dumps({"by_h": by_h}, ensure_ascii=False, indent=2), encoding="utf-8")
+    return by_h
 
 
 def refrescar_conexion(nodos: List[str]) -> Dict[str, Dict[str, Any]]:

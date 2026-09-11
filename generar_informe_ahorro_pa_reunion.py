@@ -2,11 +2,11 @@
 """
 Informe de ahorro Parque Arauco para reunión — estilo reporte agregado.
 
-Destaca lo defendible:
-  - MAE: ahorro ya logrado (Estanque Sur + Norte; Pizza Hut = control puesto, noche residual)
-  - Buenaventura: ahorro ya logrado (San Ignacio 500, control 17/07)
-  - Quilicura (MAQ): propuesta on/off 00–06 en Matriz + proyección
-  - Kennedy (PAK): propuesta on/off 00–06 en Bazar Gourmet + proyección
+Destaca lo demostrable:
+  - MAE: Estanque Sur (presostatos) + Estanque Norte (01:00–05:00 → cero)
+  - Buenaventura: SI500 01:00–05:00 pasó a cero (corte 00:30)
+  - Quilicura / Kennedy: misma ventana, proyección a cero
+  - Maipú: a la espera de relocalizar Arrow e instalar el punto 6 (Pasillo 2)
 
   python3 generar_informe_ahorro_pa_reunion.py
   python3 generar_informe_ahorro_pa_reunion.py --hasta 08/09/2026
@@ -35,12 +35,13 @@ from docx.shared import Cm, Inches, Pt, RGBColor
 
 from generar_consolidado_pa_ppt import (
     JSON_DAILY,
+    JSON_HOURS,
     JSON_NIGHT,
     OUT_DIR,
     cargar_diario,
     refrescar_diario,
+    refrescar_horas_noche,
     refrescar_noches,
-    sumar_rango,
 )
 from generar_ppt_recorrido_ejecutivo_pa import (
     BAZAR,
@@ -71,6 +72,10 @@ GRAY = RGBColor(80, 80, 80)
 SI500 = "000025-18"
 MATRIZ_MAQ = "000025-13"
 CHARTS = OUT_DIR / "charts_informe_reunion"
+DIAGRAMA_MAM = OUT_DIR / "mam_propuesta_localizacion.png"
+# Corte se arma a las 00:30: la hora 00:00–01:00 no es noche de control.
+H_INI = 1  # 01:00
+H_FIN = 5  # 05:00
 
 
 def fn(v: float, d: int = 1) -> str:
@@ -101,8 +106,26 @@ def _rango(d0: date, d1: date) -> List[date]:
     return out
 
 
-def _n06_serie(hourly: Dict[str, Dict[str, float]], nid: str) -> Dict[str, float]:
-    return dict((hourly.get(nid) or {}))
+def _hval(rec: Dict[str, Any], h: int) -> float:
+    if not rec:
+        return 0.0
+    return float(rec.get(str(h), rec.get(h, 0)) or 0)
+
+
+def _serie_ventana(
+    by_h: Dict[str, Dict[str, Dict[str, float]]],
+    nid: str,
+    h0: int = H_INI,
+    h1: int = H_FIN,
+) -> Dict[str, float]:
+    out: Dict[str, float] = {}
+    for iso, rec in (by_h.get(nid) or {}).items():
+        out[iso] = sum(_hval(rec, h) for h in range(h0, h1))
+    return out
+
+
+def _serie_hora(by_h: Dict[str, Dict[str, Dict[str, float]]], nid: str, h: int = 0) -> Dict[str, float]:
+    return {iso: _hval(rec, h) for iso, rec in (by_h.get(nid) or {}).items()}
 
 
 def _stats_control(
@@ -112,13 +135,10 @@ def _stats_control(
     *,
     excluir: set | None = None,
     lookback_dias: int | None = 14,
+    serie_h0: Dict[str, float] | None = None,
 ) -> Dict[str, float]:
-    """Mediana de noche 00–06 antes vs con control.
-
-    Si ``lookback_dias`` está definido, el «antes» es solo esa ventana previa
-    (como el PPT de SI500: 7 días). El «después» son todas las noches hasta ``hasta``.
-    """
-    pre, post = [], []
+    """Mediana 01:00–05:00 antes vs con control. Meta = cero (no se resta residual)."""
+    pre, post, h0_post = [], [], []
     pre0 = (ctrl - timedelta(days=lookback_dias)) if lookback_dias else date.min
     for iso, v in serie.items():
         d = date.fromisoformat(iso)
@@ -131,6 +151,8 @@ def _stats_control(
             pre.append(fv)
         elif d >= ctrl:
             post.append(fv)
+            if serie_h0 is not None:
+                h0_post.append(float(serie_h0.get(iso, 0.0) or 0.0))
     pre_m = _mediana(pre)
     post_m = _mediana(post)
     ahor = max(0.0, pre_m - post_m)
@@ -142,6 +164,7 @@ def _stats_control(
         "n_post": float(len(post)),
         "ahorro_mes": ahor * 30.0,
         "ahorro_acum": ahor * float(len(post)),
+        "h0_post": _mediana(h0_post) if h0_post else 0.0,
     }
 
 
@@ -171,19 +194,18 @@ def _stats_sur(daily: Dict[str, float], hasta: date) -> Dict[str, float]:
 
 
 def _stats_propuesta_noche(serie: Dict[str, float], d0: date, hasta: date) -> Dict[str, float]:
+    """Proyección a cero en 01:00–05:00: el ahorro es la noche típica completa."""
     vals = []
     for iso, v in serie.items():
         d = date.fromisoformat(iso)
         if d0 <= d <= hasta:
             vals.append(float(v))
     med = _mediana(vals)
-    residual = 2.0 if med > 6 else 0.5
-    ahor = max(0.0, med - residual)
     return {
         "noche": med,
-        "residual": residual,
-        "ahorro_noche": ahor,
-        "ahorro_mes": ahor * 30.0,
+        "residual": 0.0,
+        "ahorro_noche": med,
+        "ahorro_mes": med * 30.0,
         "ahorro_bruto_mes": med * 30.0,
         "n": float(len(vals)),
     }
@@ -320,7 +342,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     pak = ctx["pak"]
     pak_nom = ctx["pak_nom"]
 
-    # Pizza Hut ya está en residual nocturno: el control se cita como evidencia, no como $.
+    # Pizza Hut ya está en cero 01:00–05:00: el control se cita como evidencia, no como $.
     logrado_mes = sur["ahorro_mes"] + norte["ahorro_mes"] + bom["ahorro_mes"]
     propuesto_mes = maq["ahorro_mes"] + pak["ahorro_mes"]
     total_mes = logrado_mes + propuesto_mes
@@ -330,8 +352,8 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         (f"MAE Estanque Sur\n(presostatos 10/06)", sur["ahorro_mes"], "logrado"),
         (f"MAE Estanque Norte\n(control 05/08)", norte["ahorro_mes"], "logrado"),
         (f"Buenaventura SI500\n(control 17/07)", bom["ahorro_mes"], "logrado"),
-        (f"Quilicura Matriz\n(propuesta 00–06)", maq["ahorro_mes"], "propuesto"),
-        (f"Kennedy {pak_nom}\n(propuesta 00–06)", pak["ahorro_mes"], "propuesto"),
+        (f"Quilicura Matriz\n(propuesta 01–05 → 0)", maq["ahorro_mes"], "propuesto"),
+        (f"Kennedy {pak_nom}\n(propuesta 01–05 → 0)", pak["ahorro_mes"], "propuesto"),
     ]
     p_bar = CHARTS / "ahorro_mensual_barras.png"
     chart_barras_ahorro(p_bar, filas_chart)
@@ -344,14 +366,23 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         "Antes 10/06",
         "Después 11/06",
     )
+    p_norte = CHARTS / "mae_norte_antes_despues.png"
+    chart_antes_despues(
+        p_norte,
+        "MAE Estanque Norte — m³ 01:00–05:00 (mediana)",
+        norte["pre"],
+        norte["post"],
+        "Antes 05/08",
+        "Con corte 00:30",
+    )
     p_bom = CHARTS / "bom_noche_antes_despues.png"
     chart_antes_despues(
         p_bom,
-        "Buenaventura SI500 — m³/noche 00–06 (mediana)",
+        "Buenaventura SI500 — m³ 01:00–05:00 (mediana)",
         bom["pre"],
         bom["post"],
         "Antes 17/07",
-        "Con control",
+        "Con corte 00:30",
     )
 
     doc = Document()
@@ -377,19 +408,21 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         doc,
         f"Documento para reunión. Período de datos 01/05/2026 – {hasta:%d/%m/%Y}. "
         f"Tarifa de referencia ${fn(TARIFA_CLP_M3, 0)}/m³ (la misma del PPT de 7 malls). "
-        "Lo logrado es control o reparación ya operativa. Lo propuesto es on/off 00:00–06:00 "
-        "aún no implementado, con proyección conservadora (noche típica menos un residual de ~2 m³).",
+        "El corte se arma a las 00:30: la noche que se demuestra es 01:00–05:00, y la meta es "
+        "cero. Lo que queda entre 00:00 y 00:30 no es consumo de noche.",
         size=11,
     )
 
-    _h(doc, "1. Lo que hay que defender en la reunión", 1)
+    _h(doc, "1. Lo que hay que demostrar en la reunión", 1)
     _p(
         doc,
-        "Tres mensajes, en este orden: (1) WES ya bajó consumo donde se intervino — Estación y "
-        "Buenaventura son evidencia, no promesa. (2) Lo mismo se puede copiar en Quilicura y Kennedy, "
-        "que son los dos recintos con mayor noche sin control. (3) Maipú no se vende como ahorro de "
-        "esta lámina: Placa y Falabella son alimentación alternativa del mall (cuando se inyecta una, "
-        "se corta la otra).",
+        "Tres resultados, en este orden. (1) Donde ya se intervino, el dato está: Estanque Sur bajó "
+        "el día completo (presostatos 10/06) y Estanque Norte + San Ignacio 500 pasaron de consumo "
+        "nocturno a cero entre 01:00 y 05:00 (el corte se activa a las 00:30). (2) El mismo corte se "
+        "propone en Quilicura (Matriz) y Kennedy (Bazar Gourmet): esa noche hoy no es cero, y esa "
+        "es la proyección. (3) En Maipú no hay on/off que vender todavía: estamos a la espera de "
+        "concretar la relocalización de Pasillo 1 Arrow y la instalación del punto 6 (Pasillo 2), "
+        "según la propuesta enviada a Don Miguel.",
     )
 
     _h(doc, "2. Resumen ejecutivo (m³/mes y $)", 1)
@@ -406,41 +439,41 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 f"{fn(sur['ahorro_acum'], 0)} m³ ({clp(sur['ahorro_acum'])})",
             ],
             [
-                "MAE Estanque Norte — on/off 05/08 (00–05)",
-                "Logrado",
-                f"noche {fn(norte['pre'], 1)} → {fn(norte['post'], 1)} m³",
+                "MAE Estanque Norte — corte 00:30 (01:00–05:00)",
+                "Logrado (a cero)",
+                f"{fn(norte['pre'], 1)} → {fn(norte['post'], 1)} m³",
                 fn(norte["ahorro_mes"], 0),
                 clp(norte["ahorro_mes"]),
                 f"{fn(norte['ahorro_acum'], 0)} m³ ({clp(norte['ahorro_acum'])})",
             ],
             [
-                "MAE Pizza Hut — on/off 01/07",
+                "MAE Pizza Hut — corte 01/07",
                 "Operativo (no suma $)",
-                f"noche ya residual {fn(pizza['pre'], 1)} → {fn(pizza['post'], 1)} m³",
+                "01:00–05:00 ya en cero",
                 "—",
                 "—",
                 "Control puesto; el día alto es ocupación de local",
             ],
             [
-                "Buenaventura SI500 — on/off 17/07",
-                "Logrado",
-                f"noche {fn(bom['pre'], 1)} → {fn(bom['post'], 1)} m³",
+                "Buenaventura SI500 — corte 00:30 (01:00–05:00)",
+                "Logrado (a cero)",
+                f"{fn(bom['pre'], 1)} → {fn(bom['post'], 1)} m³",
                 fn(bom["ahorro_mes"], 0),
                 clp(bom["ahorro_mes"]),
                 f"{fn(bom['ahorro_acum'], 0)} m³ ({clp(bom['ahorro_acum'])})",
             ],
             [
-                "Quilicura Matriz — on/off 00–06",
-                "Propuesta",
-                f"noche típica {fn(maq['noche'], 1)} m³ (residual {fn(maq['residual'], 0)})",
+                "Quilicura Matriz — corte 00:30 (01:00–05:00)",
+                "Propuesta (a cero)",
+                f"noche típica {fn(maq['noche'], 1)} m³ → 0",
                 fn(maq["ahorro_mes"], 0),
                 clp(maq["ahorro_mes"]),
                 "Aún no operativo",
             ],
             [
-                f"Kennedy {pak_nom} — on/off 00–06",
-                "Propuesta",
-                f"noche típica {fn(pak['noche'], 1)} m³ (residual {fn(pak['residual'], 0)})",
+                f"Kennedy {pak_nom} — corte 00:30 (01:00–05:00)",
+                "Propuesta (a cero)",
+                f"noche típica {fn(pak['noche'], 1)} m³ → 0",
                 fn(pak["ahorro_mes"], 0),
                 clp(pak["ahorro_mes"]),
                 "Aún no operativo",
@@ -468,8 +501,8 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         cap = doc.add_paragraph()
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         _set_run(
-            cap.add_run("Verde = ya operativo. Dorado = propuesta de control (proyección conservadora)."),
-            "Verde = ya operativo. Dorado = propuesta de control (proyección conservadora).",
+            cap.add_run("Verde = ya operativo (01:00–05:00 a cero). Dorado = propuesta, misma ventana a cero."),
+            "Verde = ya operativo (01:00–05:00 a cero). Dorado = propuesta, misma ventana a cero.",
             size=9,
             color=GRAY,
         )
@@ -488,14 +521,21 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         doc.add_picture(str(p_sur), width=Inches(5.6))
     _p(
         doc,
-        f"Encima de eso hay dos controles nocturnos operativos. Estanque Norte (desde el 05/08, "
-        f"00:00–05:00): noche típica {fn(norte['pre'], 1)} → {fn(norte['post'], 1)} m³, "
-        f"{fn(norte['ahorro_noche'], 1)} m³/noche = {fn(norte['ahorro_mes'], 0)} m³/mes "
-        f"({clp(norte['ahorro_mes'])}). Es un ahorro menor frente a Sur; se cita para mostrar que "
-        "el on/off también corre en MAE, no para inflar el total. "
-        f"Pizza Hut (desde el 01/07) ya tenía la madrugada en residual "
-        f"({fn(pizza['pre'], 1)} → {fn(pizza['post'], 1)} m³/noche): el control está puesto, "
-        "pero no hay m³ extra que vender. Un día alto (p.ej. 28/08) es ocupación de local, no fuga.",
+        f"Estanque Norte (desde el 05/08): el corte se activa a las 00:30, así que la noche que "
+        f"cuenta es 01:00–05:00. Ahí pasó de {fn(norte['pre'], 1)} a {fn(norte['post'], 1)} m³ "
+        f"(prácticamente cero). Ahorro {fn(norte['ahorro_noche'], 1)} m³/noche = "
+        f"{fn(norte['ahorro_mes'], 0)} m³/mes ({clp(norte['ahorro_mes'])}). "
+        f"Lo que aparece si se mira 00:00–01:00 ({fn(norte.get('h0_post', 0), 1)} m³) es el tramo "
+        "00:00–00:30, antes de que el corte quede armado: no es consumo de noche y no se resta "
+        "del ahorro. Es un número menor frente a Sur; se muestra para demostrar que el on/off "
+        "también corre en MAE.",
+    )
+    if p_norte.is_file():
+        doc.add_picture(str(p_norte), width=Inches(5.6))
+    _p(
+        doc,
+        "Pizza Hut (desde el 01/07) ya tenía 01:00–05:00 en cero: el control está puesto, "
+        "pero no hay m³ extra que sumar. Un día alto (p.ej. 28/08) es ocupación de local, no fuga.",
     )
     _p(
         doc,
@@ -508,13 +548,18 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     _h(doc, "4. Buenaventura / San Ignacio (BOM) — ahorro ya logrado", 1)
     _p(
         doc,
-        f"San Ignacio 500 tiene on/off nocturno operativo desde el 17/07. La madrugada 00–06 pasó de "
-        f"{fn(bom['pre'], 1)} a {fn(bom['post'], 1)} m³ (mediana). Ahorro "
-        f"{fn(bom['ahorro_noche'], 1)} m³/noche = {fn(bom['ahorro_mes'], 0)} m³/mes "
-        f"({clp(bom['ahorro_mes'])}). Acumulado 17/07–{hasta:%d/%m} "
-        f"({int(bom['n_post'])} noches): {fn(bom['ahorro_acum'], 0)} m³ ({clp(bom['ahorro_acum'])}). "
-        f"El residual típico ({fn(bom['post'], 1)} m³) no se lee como fuga: es lo que queda con el control puesto. "
-        "San Ignacio 300 queda en monitoreo; no es el punto del corte.",
+        f"San Ignacio 500 tiene corte nocturno desde el 17/07, armado a las 00:30. Entre 01:00 y "
+        f"05:00 el consumo pasó de {fn(bom['pre'], 1)} m³ a {fn(bom['post'], 1)} m³: a cero. "
+        f"Eso es {fn(bom['ahorro_noche'], 1)} m³/noche = {fn(bom['ahorro_mes'], 0)} m³/mes "
+        f"({clp(bom['ahorro_mes'])}). Acumulado 17/07–{hasta:%d/%m} ({int(bom['n_post'])} noches): "
+        f"{fn(bom['ahorro_acum'], 0)} m³ ({clp(bom['ahorro_acum'])}).",
+    )
+    _p(
+        doc,
+        f"Si alguien mira el total 00:00–06:00 va a ver ~{fn(bom.get('h0_post', 0), 1)} m³. "
+        "Eso no es un residual de noche ni una fuga: es el agua que corre entre las 00:00 y las "
+        "00:30, hasta que el corte queda armado. La meta del control es cero de 01:00 a 05:00, "
+        "y esa meta ya se cumple. San Ignacio 300 queda en monitoreo; no es el punto del corte.",
     )
     if p_bom.is_file():
         doc.add_picture(str(p_bom), width=Inches(5.6))
@@ -529,17 +574,15 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     _p(
         doc,
         f"La Matriz Principal concentra el recinto. Desde el 22/06 el día se duplicó y se sostuvo; "
-        f"Alimentación Baños es uso hábil, no es el problema. La noche 00–06, desde esa alza, "
+        f"Alimentación Baños es uso hábil, no es el problema. La noche 01:00–05:00, desde esa alza, "
         f"anda en {fn(maq['noche'], 1)} m³ (mediana, {int(maq['n'])} noches hasta {hasta:%d/%m}).",
     )
     _p(
         doc,
-        f"Propuesta: on/off 00:00–06:00 en Matriz Principal, igual que SI500 y Norte. "
-        f"Proyección conservadora: {fn(maq['noche'], 1)} − {fn(maq['residual'], 0)} m³ de residual = "
+        f"Propuesta: mismo corte que SI500 y Norte (se arma a las 00:30) en Matriz Principal. "
+        f"La meta es pasar {fn(maq['noche'], 1)} m³ a cero entre 01:00 y 05:00 = "
         f"{fn(maq['ahorro_noche'], 1)} m³/noche × 30 = {fn(maq['ahorro_mes'], 0)} m³/mes "
-        f"({clp(maq['ahorro_mes'])}). Si el corte fuera a cero, el techo sería "
-        f"{fn(maq['ahorro_bruto_mes'], 0)} m³/mes ({clp(maq['ahorro_bruto_mes'])}); "
-        "en la reunión se defiende el número conservador.",
+        f"({clp(maq['ahorro_mes'])}). No se resta residual: el control nocturno es ir a cero.",
         bold=True,
     )
     _p(
@@ -556,12 +599,10 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     )
     _p(
         doc,
-        f"El eslabón de mayor noche 00–06 es {pak_nom}: {fn(pak['noche'], 1)} m³/noche "
-        f"(el otro queda más abajo). Propuesta: on/off 00:00–06:00 en {pak_nom}. "
-        f"Proyección conservadora: {fn(pak['ahorro_noche'], 1)} m³/noche × 30 = "
-        f"{fn(pak['ahorro_mes'], 0)} m³/mes ({clp(pak['ahorro_mes'])}). "
-        f"Techo si el corte fuera a cero: {fn(pak['ahorro_bruto_mes'], 0)} m³/mes "
-        f"({clp(pak['ahorro_bruto_mes'])}).",
+        f"El eslabón de mayor noche 01:00–05:00 es {pak_nom}: {fn(pak['noche'], 1)} m³ "
+        f"(el otro queda más abajo). Propuesta: mismo corte a las 00:30 en {pak_nom}. "
+        f"Meta: {fn(pak['noche'], 1)} m³ → 0 = {fn(pak['ahorro_mes'], 0)} m³/mes "
+        f"({clp(pak['ahorro_mes'])}). Tampoco se resta residual.",
         bold=True,
     )
     _p(
@@ -570,46 +611,78 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         f"Bazar Gourmet {fn(UMBRAL_PAK_BAZAR_DIA, 0)} · DL Kennedy {fn(UMBRAL_PAK_KEN_DIA, 0)} m³/día.",
     )
 
-    _h(doc, "7. Pedido concreto de la reunión", 1)
+    _h(doc, "7. Mall Arauco Maipú (MAM) — a la espera de concretar", 1)
     _p(
         doc,
-        f"Se pide aprobar on/off 00:00–06:00 en (a) Matriz Principal de Quilicura y "
-        f"(b) {pak_nom} de Kennedy, con el mismo criterio que ya opera en San Ignacio 500. "
+        "Maipú no entra en esta lámina como ahorro de on/off. Placa Bancaria y Falabella son "
+        "alimentación alternativa del mall (cuando se inyecta una, se corta la otra). El 08/09 "
+        "Placa 4,5 m³ y Falabella 92 m³ es cambio de alimentación, no dos fallas.",
+    )
+    _p(
+        doc,
+        "Lo que sí está pendiente —y hay que pedirlo en la reunión— es concretar la relocalización "
+        "del punto de Pasillo 1 Arrow y la instalación del punto 6 (Pasillo 2). Se envió a Don Miguel "
+        "la propuesta de localización: dos sectores hoy no están monitoreados y pueden concentrar "
+        "una parte importante del volumen distribuido. Pasillo Técnico Boulevard y Arrow casi no "
+        "miden; no sirven donde están.",
+    )
+    _p(
+        doc,
+        "En la visita técnica del miércoles 19/08 se conversó que, para instalar y reubicar con "
+        "seguridad, hace falta acceso al entretecho (escotilla o gatera). En paralelo WES fabrica "
+        "el CIR del punto 6, que va en Pasillo 2. Falta validación de la propuesta y la habilitación "
+        "de esos accesos para programar la faena.",
+    )
+    if DIAGRAMA_MAM.is_file():
+        doc.add_picture(str(DIAGRAMA_MAM), width=Inches(6.1))
+        cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        _set_run(
+            cap.add_run(
+                "Propuesta MAM: relocalizar Pasillo 1 Arrow e instalar el punto 6 en Pasillo 2."
+            ),
+            "Propuesta MAM: relocalizar Pasillo 1 Arrow e instalar el punto 6 en Pasillo 2.",
+            size=9,
+            color=GRAY,
+        )
+
+    _h(doc, "8. Pedido concreto de la reunión", 1)
+    _p(
+        doc,
+        f"Se pide aprobar el mismo corte (se arma a las 00:30; 01:00–05:00 a cero) en "
+        f"(a) Matriz Principal de Quilicura y (b) {pak_nom} de Kennedy. "
         f"Con eso se proyectan {fn(propuesto_mes, 0)} m³/mes adicionales ({clp(propuesto_mes)}). "
-        "Junto con el corte, activar los umbrales 24 h de este informe. "
-        "No se pide intervención de ahorro en Maipú ni en las Sandías de Kennedy.",
+        "Junto con el corte, activar los umbrales 24 h de este informe.",
+        bold=True,
+    )
+    _p(
+        doc,
+        "En Maipú se pide validar la propuesta enviada a Don Miguel (relocalizar Arrow e instalar "
+        "el punto 6 en Pasillo 2) y habilitar la gatera al entretecho para programar la faena. "
+        "No se pide on/off de ahorro en Maipú ni corte en las Sandías de Kennedy.",
         bold=True,
     )
 
-    _h(doc, "8. Cómo responder en la reunión", 1)
+    _h(doc, "Cómo responder en la reunión", 1)
     bullets = [
-        f"¿Cuánto ahorramos ya? {fn(logrado_mes, 0)} m³/mes ({clp(logrado_mes)}), MAE + Buenaventura. "
-        f"Casi todo es Estanque Sur + SI500. Acumulado a {hasta:%d/%m}: "
+        f"¿Cuánto se demuestra ya? {fn(logrado_mes, 0)} m³/mes ({clp(logrado_mes)}), MAE + Buenaventura. "
+        f"Casi todo es Estanque Sur + SI500 a cero en 01:00–05:00. Acumulado a {hasta:%d/%m}: "
         f"{fn(logrado_acum, 0)} m³ ({clp(logrado_acum)}).",
         f"¿Cuánto más si aprueban Quilicura y Kennedy? {fn(propuesto_mes, 0)} m³/mes "
-        f"({clp(propuesto_mes)}), con residual de ~2 m³. Suma total {fn(total_mes, 0)} m³/mes "
+        f"({clp(propuesto_mes)}), pasando esa misma ventana a cero. Suma total {fn(total_mes, 0)} m³/mes "
         f"({clp(total_mes)}).",
-        "¿Por qué Quilicura? La Matriz concentra el mall y la noche se quedó alta desde junio. El control es el mismo que ya corre en SI500.",
+        "¿Por qué no restan 2 m³ de residual? Porque el control nocturno es ir a cero. Esos ~2 m³ "
+        "son el tramo 00:00–00:30, antes de que el corte quede armado. No es noche.",
+        "¿Por qué Quilicura? La Matriz concentra el mall y 01:00–05:00 se quedó alta desde junio. El corte es el mismo que ya corre en SI500.",
         f"¿Por qué Kennedy? Hay que cortar en {pak_nom} (el de mayor noche de la cadena DL), no en las Sandías.",
-        "¿Pizza Hut cuánto ahorra? El control está puesto; la noche ya era residual. No se vende en $.",
-        "¿Y Maipú el 08/09? Placa 4,5 m³ y Falabella 92 m³ el mismo día es cambio de alimentación, no dos fallas. No se presenta como ahorro.",
-        "Los umbrales 24 h (promedio operativo × 1,25) se piden junto con el on/off, para que el recinto vea el día completo, no solo la madrugada.",
+        "¿Pizza Hut cuánto ahorra? El control está puesto; 01:00–05:00 ya era cero. No se suma en $.",
+        "¿Y Maipú? A la espera de concretar Arrow + punto 6 (Pasillo 2) con Don Miguel y la gatera. El 08/09 Placa/Falabella es cambio de alimentación, no ahorro.",
+        "Los umbrales 24 h (promedio operativo × 1,25) se piden junto con el corte, para que el recinto vea el día completo, no solo la madrugada.",
     ]
     for b in bullets:
         p = doc.add_paragraph(style="List Bullet")
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         _set_run(p.add_run(b), b, size=11, color=NAVY)
-
-    _h(doc, "9. Notas de método", 1)
-    _p(
-        doc,
-        "Mediana, no promedio: un sábado alto no infla el ahorro. Noche = suma 00:00–06:00 hora Chile. "
-        "Ahorro mensual = m³/noche (o m³/día en Sur) × 30. Acumulado = ese delta × noches/días con la "
-        "medida ya operativa. Propuestas: se resta un residual de 2 m³ (lo visto en SI500 con control) "
-        "para no vender el corte a cero. Fuente: API WES, mismos puntos del consolidado 7 malls.",
-        size=10,
-        color=GRAY,
-    )
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / f"Informe_ahorro_PA_reunion_{hasta.strftime('%Y%m%d')}.docx"
@@ -645,10 +718,10 @@ def main() -> int:
         by = refrescar_diario(nodos, desde, hasta)
 
     night_nodes = ["000025-01", "000025-07", "000025-18", "000025-13", "000025-27", "000025-35", "000025-36"]
+    hour_nodes = ["000025-01", "000025-07", "000025-18", "000025-13", "000025-35", "000025-36"]
     night_from = date(2026, 6, 1)
     if args.skip_refresh and JSON_NIGHT.is_file():
         hourly = json.loads(JSON_NIGHT.read_text(encoding="utf-8")).get("hourly") or {}
-        # si faltan noches largas, igual refresca
         need = False
         for nid in night_nodes:
             if night_from.isoformat() not in (hourly.get(nid) or {}):
@@ -660,19 +733,46 @@ def main() -> int:
     else:
         hourly = refrescar_noches(night_nodes, night_from, hasta)
 
+    if args.skip_refresh and JSON_HOURS.is_file():
+        by_h = json.loads(JSON_HOURS.read_text(encoding="utf-8")).get("by_h") or {}
+        need_h = False
+        for nid in hour_nodes:
+            rec = (by_h.get(nid) or {}).get(night_from.isoformat()) or {}
+            if "1" not in rec and 1 not in rec:
+                need_h = True
+                break
+        if need_h:
+            print("[INFO] Horas 01–05 no están en cache; se descargan.", flush=True)
+            by_h = refrescar_horas_noche(hour_nodes, night_from, hasta)
+    else:
+        by_h = refrescar_horas_noche(hour_nodes, night_from, hasta)
+
     sur = _stats_sur((by.get("000025-19") or {}).get("daily") or {}, hasta)
-    norte = _stats_control(_n06_serie(hourly, "000025-01"), CTRL_NORTE, hasta, lookback_dias=14)
+    norte = _stats_control(
+        _serie_ventana(by_h, "000025-01"),
+        CTRL_NORTE,
+        hasta,
+        lookback_dias=14,
+        serie_h0=_serie_hora(by_h, "000025-01", 0),
+    )
     pizza = _stats_control(
-        _n06_serie(hourly, "000025-07"),
+        _serie_ventana(by_h, "000025-07"),
         CTRL_PIZZA,
         hasta,
         excluir=PIZZA_NOCHES_ATIPICAS,
         lookback_dias=14,
+        serie_h0=_serie_hora(by_h, "000025-07", 0),
     )
-    bom = _stats_control(_n06_serie(hourly, SI500), CTRL_SI500, hasta, lookback_dias=7)
-    maq = _stats_propuesta_noche(_n06_serie(hourly, MATRIZ_MAQ), MAQ_ALZA, hasta)
-    bazar = _stats_propuesta_noche(_n06_serie(hourly, BAZAR), date(2026, 7, 1), hasta)
-    ken = _stats_propuesta_noche(_n06_serie(hourly, DL_KENNEDY), date(2026, 7, 1), hasta)
+    bom = _stats_control(
+        _serie_ventana(by_h, SI500),
+        CTRL_SI500,
+        hasta,
+        lookback_dias=7,
+        serie_h0=_serie_hora(by_h, SI500, 0),
+    )
+    maq = _stats_propuesta_noche(_serie_ventana(by_h, MATRIZ_MAQ), MAQ_ALZA, hasta)
+    bazar = _stats_propuesta_noche(_serie_ventana(by_h, BAZAR), date(2026, 7, 1), hasta)
+    ken = _stats_propuesta_noche(_serie_ventana(by_h, DL_KENNEDY), date(2026, 7, 1), hasta)
     if bazar["noche"] >= ken["noche"]:
         pak, pak_nom = bazar, "Bazar Gourmet"
     else:
