@@ -4570,7 +4570,7 @@ def generate_aggregated_report(
             if es_fundo_zapallar
             else (
                 "Consumo total del periodo por punto de monitoreo"
-                if es_agregado_fmt
+                if es_agregado_fmt and not portada_estandar
                 else "Consumo total por punto de monitoreo"
             )
         )
