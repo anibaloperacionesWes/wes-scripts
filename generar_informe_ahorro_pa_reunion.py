@@ -228,6 +228,16 @@ def _set_run(run, text: str, *, size=11, bold=False, color=NAVY, name="Calibri")
     run.font.name = name
 
 
+def _p_lead(doc: Document, lead: str, rest: str, *, size=11) -> None:
+    p = doc.add_paragraph()
+    p.paragraph_format.space_after = Pt(8)
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    _set_run(p.add_run(lead), lead, size=size, bold=True, color=NAVY)
+    _set_run(p.add_run(" " + rest), " " + rest, size=size, bold=False, color=NAVY)
+
+
 def _p(doc: Document, text: str, *, size=11, bold=False, color=NAVY, justify=True) -> None:
     p = doc.add_paragraph()
     p.paragraph_format.space_after = Pt(6)
@@ -407,22 +417,41 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     _p(
         doc,
         f"Documento para reunión. Período de datos 01/05/2026 – {hasta:%d/%m/%Y}. "
-        f"Tarifa de referencia ${fn(TARIFA_CLP_M3, 0)}/m³ (la misma del PPT de 7 malls). "
-        "El corte se arma a las 00:30: la noche que se demuestra es 01:00–05:00, y la meta es "
-        "cero. Lo que queda entre 00:00 y 00:30 no es consumo de noche.",
+        f"Tarifa de referencia ${fn(TARIFA_CLP_M3, 0)}/m³ (la misma del PPT de 7 malls).",
+        size=11,
+    )
+    _p(
+        doc,
+        "El corte se activa a las 00:30. La noche que se demuestra —y la que tiene que ir a cero— "
+        "es de 01:00 a 05:00.",
+        size=11,
+    )
+    _p(
+        doc,
+        "Entre 00:00 y 00:30 el medidor todavía registra agua: es el tramo anterior al corte, "
+        "no consumo de noche.",
         size=11,
     )
 
     _h(doc, "1. Lo que hay que demostrar en la reunión", 1)
-    _p(
+    _p(doc, "En este orden:")
+    _p_lead(
         doc,
-        "Tres resultados, en este orden. (1) Donde ya se intervino, el dato está: Estanque Sur bajó "
-        "el día completo (presostatos 10/06) y Estanque Norte + San Ignacio 500 pasaron de consumo "
-        "nocturno a cero entre 01:00 y 05:00 (el corte se activa a las 00:30). (2) El mismo corte se "
-        "propone en Quilicura (Matriz) y Kennedy (Bazar Gourmet): esa noche hoy no es cero, y esa "
-        "es la proyección. (3) En Maipú no hay on/off que vender todavía: estamos a la espera de "
-        "concretar la relocalización de Pasillo 1 Arrow y la instalación del punto 6 (Pasillo 2), "
-        "según la propuesta enviada a Don Miguel.",
+        "Ya operativo — Estación y Buenaventura.",
+        "Estanque Sur bajó el día completo (presostatos 10/06). Estanque Norte y San Ignacio 500 "
+        "pasaron de consumo nocturno a cero entre 01:00 y 05:00.",
+    )
+    _p_lead(
+        doc,
+        "A copiar — Quilicura y Kennedy.",
+        "El mismo corte se propone en Matriz Principal y en Bazar Gourmet. Esa noche hoy no es cero; "
+        "esa es la proyección.",
+    )
+    _p_lead(
+        doc,
+        "Pendiente — Maipú.",
+        "No hay on/off que sumar todavía. Estamos a la espera de concretar la relocalización de "
+        "Pasillo 1 Arrow y la instalación del punto 6 (Pasillo 2), según la propuesta enviada a Don Miguel.",
     )
 
     _h(doc, "2. Resumen ejecutivo (m³/mes y $)", 1)
