@@ -369,6 +369,7 @@ def _perfil_hora(
     *,
     h_max: int = 24,
     excluir: set | None = None,
+    noche_cero: bool = False,
 ) -> List[float]:
     """Mediana m³ de cada hora Chile entre d0 y d1 (inclusive)."""
     buckets: List[List[float]] = [[] for _ in range(h_max)]
@@ -377,6 +378,8 @@ def _perfil_hora(
         if d < d0 or d > d1:
             continue
         if excluir and d in excluir:
+            continue
+        if noche_cero and sum(_hval(rec, h) for h in range(1, 6)) > 0.15:
             continue
         for h in range(h_max):
             buckets[h].append(_hval(rec, h))
@@ -522,22 +525,22 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     p_bar = CHARTS / "ahorro_mensual_barras.png"
     chart_barras_ahorro(p_bar, filas_chart)
     p_sur = CHARTS / "mae_sur_antes_despues.png"
-    chart_perfil_horario(
+    chart_antes_despues(
         p_sur,
-        "MAE Estanque Sur — m³/hora (mediana) · presostatos 10/06",
-        ctx["sur_pre_h"],
-        ctx["sur_post_h"],
+        "MAE Estanque Sur — m³/día (mediana)",
+        sur["pre"],
+        sur["post"],
         "Antes 10/06",
         "Después 11/06",
     )
     p_norte = CHARTS / "mae_norte_antes_despues.png"
     chart_perfil_horario(
         p_norte,
-        "MAE Estanque Norte — m³/hora 00:00–06:00 (mediana) · control 05/08",
+        "MAE Estanque Norte — m³/hora · antes vs control (noche en cero)",
         ctx["norte_pre_h"],
         ctx["norte_post_h"],
         "Antes 05/08",
-        "Con control",
+        "Con control (noche en cero)",
         corte_00_30=True,
     )
     p_bom = CHARTS / "bom_noche_antes_despues.png"
@@ -831,17 +834,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         "No es un modelo: es el mall después de la reparación.",
     )
     if p_sur.is_file():
-        doc.add_picture(str(p_sur), width=Inches(6.3))
-        cap = doc.add_paragraph()
-        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        _set_run(
-            cap.add_run(
-                "Gris = antes de los presostatos. Dorado = después. Cada barra es la mediana de esa hora."
-            ),
-            "Gris = antes de los presostatos. Dorado = después. Cada barra es la mediana de esa hora.",
-            size=9,
-            color=GRAY,
-        )
+        doc.add_picture(str(p_sur), width=Inches(5.6))
     _p(
         doc,
         f"Estanque Norte (desde el 05/08): el corte se activa a las 00:30. De 01:00 a 05:00 el "
@@ -858,9 +851,11 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         _set_run(
             cap.add_run(
-                "El corte se arma a las 00:30. De 01:00 a 05:00 el consumo queda en cero; 00:00–00:30 no es noche."
+                "Gris = noche con caudal. Dorado = con on/off: de 01:00 a 05:00 va a cero. "
+                "Lo de 00:00–00:30 no es noche."
             ),
-            "El corte se arma a las 00:30. De 01:00 a 05:00 el consumo queda en cero; 00:00–00:30 no es noche.",
+            "Gris = noche con caudal. Dorado = con on/off: de 01:00 a 05:00 va a cero. "
+            "Lo de 00:00–00:30 no es noche.",
             size=9,
             color=GRAY,
         )
@@ -1140,16 +1135,17 @@ def main() -> int:
     else:
         by_h = refrescar_horas_noche(hour_nodes, night_from, hasta)
 
-    sur_nodes = ["000025-19"]
+    dia_nodes = ["000025-19", "000025-01"]
+    norte_d0 = CTRL_NORTE - timedelta(days=14)
     if args.skip_refresh and JSON_HOURS_DIA.is_file():
         by_h_dia = json.loads(JSON_HOURS_DIA.read_text(encoding="utf-8")).get("by_h") or {}
-        rec_s = (by_h_dia.get("000025-19") or {}).get(desde.isoformat()) or {}
-        rec_e = (by_h_dia.get("000025-19") or {}).get(hasta.isoformat()) or {}
-        if ("12" not in rec_s and 12 not in rec_s) or ("12" not in rec_e and 12 not in rec_e):
-            print("[INFO] Horas 00–23 de Estanque Sur no están en cache; se descargan.", flush=True)
-            by_h_dia = refrescar_horas_dia(sur_nodes, desde, hasta)
+        rec_n0 = (by_h_dia.get("000025-01") or {}).get(norte_d0.isoformat()) or {}
+        rec_n1 = (by_h_dia.get("000025-01") or {}).get(hasta.isoformat()) or {}
+        if ("12" not in rec_n0 and 12 not in rec_n0) or ("12" not in rec_n1 and 12 not in rec_n1):
+            print("[INFO] Horas 00–23 de Estanque Norte no están en cache; se descargan.", flush=True)
+            by_h_dia = refrescar_horas_dia(dia_nodes, norte_d0, hasta)
     else:
-        by_h_dia = refrescar_horas_dia(sur_nodes, desde, hasta)
+        by_h_dia = refrescar_horas_dia(dia_nodes, norte_d0, hasta)
 
     sur = _stats_sur((by.get("000025-19") or {}).get("daily") or {}, hasta)
     norte = _stats_logrado(by_h, "000025-01", CTRL_NORTE, hasta, lookback_dias=14)
@@ -1179,24 +1175,27 @@ def main() -> int:
         "ken": ken,
         "aeb": aeb,
         "fala": fala,
-        "sur_pre_h": _perfil_hora(
-            by_h_dia, "000025-19", desde, SUR_REPARACION - timedelta(days=1), h_max=24
-        ),
-        "sur_post_h": _perfil_hora(
-            by_h_dia, "000025-19", SUR_REPARACION + timedelta(days=1), hasta, h_max=24
-        ),
         "norte_pre_h": _perfil_hora(
-            by_h,
+            by_h_dia,
             "000025-01",
             CTRL_NORTE - timedelta(days=14),
             CTRL_NORTE - timedelta(days=1),
-            h_max=6,
+            h_max=24,
         ),
-        "norte_post_h": _perfil_hora(by_h, "000025-01", CTRL_NORTE, hasta, h_max=6),
+        "norte_post_h": _perfil_hora(
+            by_h_dia,
+            "000025-01",
+            CTRL_NORTE,
+            hasta,
+            h_max=24,
+            noche_cero=True,
+        ),
         "bom_pre_h": _perfil_hora(
             by_h, SI500, CTRL_SI500 - timedelta(days=7), CTRL_SI500 - timedelta(days=1), h_max=6
         ),
-        "bom_post_h": _perfil_hora(by_h, SI500, CTRL_SI500, hasta, h_max=6),
+        "bom_post_h": _perfil_hora(
+            by_h, SI500, CTRL_SI500, hasta, h_max=6, noche_cero=True
+        ),
     }
     print(
         "[INFO] MAE Sur",
