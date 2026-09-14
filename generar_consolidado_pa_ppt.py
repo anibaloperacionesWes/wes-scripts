@@ -37,6 +37,7 @@ from generar_ppt_recorrido_ejecutivo_pa import (
     BAZAR,
     CHIP_NOTA,
     COLOR_NODO,
+    DL_KENNEDY,
     FALABELLA,
     FONDO,
     GOLD,
@@ -928,12 +929,13 @@ def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, floa
     )
 
     noc_maq, mes_maq = _noche_tipica_00_06(by_h, MATRIZ_MAQ, MAQ_ALZA, hasta)
-    noc_pak, mes_pak = _noche_tipica_00_06(by_h, BAZAR, PAK_PROP_DESDE, hasta)
+    noc_bazar, mes_bazar = _noche_tipica_00_06(by_h, BAZAR, PAK_PROP_DESDE, hasta)
+    noc_ken, mes_ken = _noche_tipica_00_06(by_h, DL_KENNEDY, PAK_PROP_DESDE, hasta)
     noc_aeb, mes_aeb = _noche_tipica_00_06(by_h, MATRIZ_AEB, AEB_PROP_DESDE, hasta)
     noc_fala, mes_fala = _noche_tipica_00_06(
         by_h, FALABELLA, FALABELLA_PROP_DESDE, hasta, min_noche=1.0
     )
-    propuesto = mes_maq + mes_pak + mes_aeb + mes_fala
+    propuesto = mes_maq + mes_bazar + mes_ken + mes_aeb + mes_fala
     total_si = 2825.0 + propuesto
 
     # Derecha: a copiar / proponer
@@ -950,13 +952,18 @@ def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, floa
     prop = [
         (
             "MAQ  ·  Matriz Principal",
-            f"On/off 00:30. Noche típica {fn(noc_maq, 1)} m³ → 0 = {fn(mes_maq, 0)} m³/mes "
+            f"On/off 00:30. Noche {fn(noc_maq, 1)} m³ → 0 = {fn(mes_maq, 0)} m³/mes "
             f"({_clp_mes(mes_maq)}). Umbral 24 h: 240 m³/día.",
         ),
         (
             "PAK  ·  Bazar Gourmet",
-            f"On/off 00:30 en Bazar (no en las Sandías). Noche {fn(noc_pak, 1)} m³ → 0 = "
-            f"{fn(mes_pak, 0)} m³/mes ({_clp_mes(mes_pak)}). Umbrales: DL 390 · Bazar 250 · DL Kennedy 20.",
+            f"On/off 00:30 (no las Sandías). Noche {fn(noc_bazar, 1)} m³ → 0 = "
+            f"{fn(mes_bazar, 0)} m³/mes ({_clp_mes(mes_bazar)}). Umbral 24 h: 250 m³/día.",
+        ),
+        (
+            "PAK  ·  DL Kennedy",
+            f"On/off 00:30 (no las Sandías). Noche {fn(noc_ken, 1)} m³ → 0 = "
+            f"{fn(mes_ken, 0)} m³/mes ({_clp_mes(mes_ken)}). Umbral 24 h: 20 m³/día.",
         ),
         (
             "AEB  ·  Matriz 1° piso",
@@ -965,16 +972,17 @@ def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, floa
         ),
         (
             "MAM  ·  Falabella",
-            f"On/off 00:30 (el mall sale por Falabella desde el 15/08). Noche {fn(noc_fala, 1)} m³ → 0 = "
-            f"{fn(mes_fala, 0)} m³/mes ({_clp_mes(mes_fala)}). Umbral 140 m³/día. Arrow + punto 6 sigue.",
+            f"On/off 00:30 (sale por Falabella desde el 15/08). Noche {fn(noc_fala, 1)} m³ → 0 = "
+            f"{fn(mes_fala, 0)} m³/mes ({_clp_mes(mes_fala)}). Umbral 140 m³/día.",
         ),
     ]
-    y = 1.84
+    y = 1.78
+    card_h = 0.98
     for tit, txt in prop:
-        _caja(sl, 6.90, y, 6.06, 1.22, fill=WHITE, line=GOLD)
-        _tb(sl, 7.02, y + 0.06, 5.82, 0.24, [(tit, 12, True, NAVY)])
-        _tb(sl, 7.02, y + 0.32, 5.82, 0.82, [(txt, 10, False, NAVY)])
-        y += 1.30
+        _caja(sl, 6.90, y, 6.06, card_h, fill=WHITE, line=GOLD)
+        _tb(sl, 7.02, y + 0.04, 5.82, 0.22, [(tit, 11, True, NAVY)])
+        _tb(sl, 7.02, y + 0.26, 5.82, 0.68, [(txt, 10, False, NAVY)])
+        y += 1.04
     _tb(
         sl,
         6.90,
@@ -983,7 +991,7 @@ def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, floa
         0.16,
         [
             (
-                f"Si se aprueban las 4: {fn(total_si, 0)} m³/mes  ·  {_clp_mes(total_si)}",
+                f"Si se aprueban las 5: {fn(total_si, 0)} m³/mes  ·  {_clp_mes(total_si)}",
                 11,
                 True,
                 NAVY,
@@ -1067,7 +1075,7 @@ def main() -> int:
     else:
         conn = refrescar_conexion(nodos)
 
-    prop_nodes = ["000025-13", "000025-35", MATRIZ_AEB, FALABELLA]
+    prop_nodes = ["000025-13", "000025-35", "000025-36", MATRIZ_AEB, FALABELLA]
     d0_h = date(2026, 6, 1)
     if args.skip_refresh and JSON_HOURS.is_file():
         by_h = json.loads(JSON_HOURS.read_text(encoding="utf-8")).get("by_h") or {}
@@ -1075,6 +1083,7 @@ def main() -> int:
         checks = [
             ("000025-13", d0_h),
             ("000025-35", date(2026, 7, 1)),
+            ("000025-36", date(2026, 7, 1)),
             (MATRIZ_AEB, AEB_PROP_DESDE),
             (FALABELLA, FALABELLA_PROP_DESDE),
         ]
