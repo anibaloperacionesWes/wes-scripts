@@ -419,6 +419,7 @@ def chart_perfil_horario(
     etq_post: str,
     *,
     corte_00_30: bool = False,
+    etiquetar: List[int] | None = None,
 ) -> None:
     """Barras agrupadas por hora Chile: antes vs después del control."""
     n = min(len(pre), len(post))
@@ -437,13 +438,15 @@ def chart_perfil_horario(
     ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
     ax.set_axisbelow(True)
     tope = max(list(pre[:n]) + list(post[:n]) + [1.0])
-    ymax = tope * (1.28 if corte_00_30 else 1.18)
+    ymax = tope * (1.28 if corte_00_30 else 1.22)
     if corte_00_30:
         ax.axvline(0.5, color="#0D3B66", linestyle="--", linewidth=1.0, zorder=4)
         ax.text(0.55, ymax * 0.94, "corte 00:30", fontsize=8, color="#0D3B66")
     ax.set_ylim(0, ymax)
-    # Valores en la madrugada (y en 00–06 si el gráfico es solo noche).
-    h_etq = range(n) if n <= 7 else range(7)
+    if etiquetar is None:
+        h_etq = range(n) if n <= 7 else range(7)
+    else:
+        h_etq = [h for h in etiquetar if 0 <= h < n]
     for i in h_etq:
         pv, ov = float(pre[i]), float(post[i])
         if pv >= 0.05:
@@ -561,13 +564,14 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     p_bar = CHARTS / "ahorro_mensual_barras.png"
     chart_barras_ahorro(p_bar, filas_chart)
     p_sur = CHARTS / "mae_sur_antes_despues.png"
-    chart_antes_despues(
+    chart_perfil_horario(
         p_sur,
-        "MAE Estanque Sur — m³/día (mediana)",
-        sur["pre"],
-        sur["post"],
+        "MAE Estanque Sur — m³/hora · presostatos 10/06",
+        ctx["sur_pre_h"],
+        ctx["sur_post_h"],
         "Antes 10/06",
         "Después 11/06",
+        etiquetar=list(range(7)) + [10, 12, 15, 18],
     )
     p_norte = CHARTS / "mae_norte_antes_despues.png"
     chart_perfil_horario(
@@ -870,7 +874,19 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         "No es un modelo: es el mall después de la reparación.",
     )
     if p_sur.is_file():
-        doc.add_picture(str(p_sur), width=Inches(5.6))
+        doc.add_picture(str(p_sur), width=Inches(6.3))
+        cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        _set_run(
+            cap.add_run(
+                "Gris = antes de los presostatos (fuga día y noche). Dorado = después del 11/06: "
+                "de madrugada casi desaparece y de día baja a menos de la mitad."
+            ),
+            "Gris = antes de los presostatos (fuga día y noche). Dorado = después del 11/06: "
+            "de madrugada casi desaparece y de día baja a menos de la mitad.",
+            size=9,
+            color=GRAY,
+        )
     _p(
         doc,
         f"Estanque Norte (desde el 05/08): el corte se activa a las 00:30. De 01:00 a 05:00 el "
@@ -1220,6 +1236,12 @@ def main() -> int:
         "ken": ken,
         "aeb": aeb,
         "fala": fala,
+        "sur_pre_h": _perfil_hora(
+            by_h_dia, "000025-19", desde, SUR_REPARACION - timedelta(days=1), h_max=24
+        ),
+        "sur_post_h": _perfil_hora(
+            by_h_dia, "000025-19", SUR_REPARACION + timedelta(days=1), hasta, h_max=24
+        ),
         "norte_pre_h": _perfil_hora(
             by_h_dia,
             "000025-01",
