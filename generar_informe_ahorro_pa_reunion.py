@@ -424,7 +424,7 @@ def chart_perfil_horario(
     n = min(len(pre), len(post))
     x = np.arange(n)
     w = 0.38
-    fig, ax = plt.subplots(figsize=(8.4 if n > 12 else 7.2, 3.15), dpi=150)
+    fig, ax = plt.subplots(figsize=(8.4 if n > 12 else 7.2, 3.35), dpi=150)
     ax.bar(x - w / 2, pre[:n], w, color="#8FA4B8", zorder=3, label=etq_pre)
     ax.bar(x + w / 2, post[:n], w, color="#C9A227", zorder=3, label=etq_post)
     ax.set_xticks(x)
@@ -436,13 +436,49 @@ def chart_perfil_horario(
     ax.spines["right"].set_visible(False)
     ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
     ax.set_axisbelow(True)
+    tope = max(list(pre[:n]) + list(post[:n]) + [1.0])
+    ymax = tope * (1.28 if corte_00_30 else 1.18)
     if corte_00_30:
         ax.axvline(0.5, color="#0D3B66", linestyle="--", linewidth=1.0, zorder=4)
-        ymax = max(list(pre[:n]) + list(post[:n]) + [1.0]) * 1.22
-        ax.text(0.55, ymax * 0.92, "corte 00:30", fontsize=8, color="#0D3B66")
-    else:
-        ymax = max(list(pre[:n]) + list(post[:n]) + [1.0]) * 1.18
+        ax.text(0.55, ymax * 0.94, "corte 00:30", fontsize=8, color="#0D3B66")
     ax.set_ylim(0, ymax)
+    # Valores en la madrugada (y en 00–06 si el gráfico es solo noche).
+    h_etq = range(n) if n <= 7 else range(7)
+    for i in h_etq:
+        pv, ov = float(pre[i]), float(post[i])
+        if pv >= 0.05:
+            ax.text(
+                i - w / 2,
+                pv + ymax * 0.015,
+                fn(pv, 1),
+                ha="center",
+                va="bottom",
+                fontsize=7,
+                color="#0D3B66",
+                fontweight="bold",
+            )
+        if ov >= 0.05:
+            ax.text(
+                i + w / 2,
+                ov + ymax * 0.015,
+                fn(ov, 1),
+                ha="center",
+                va="bottom",
+                fontsize=7,
+                color="#0D3B66",
+                fontweight="bold",
+            )
+        elif corte_00_30 and 1 <= i <= 5:
+            ax.text(
+                i + w / 2,
+                ymax * 0.02,
+                "0",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                color="#C9A227",
+                fontweight="bold",
+            )
     ax.legend(frameon=False, fontsize=8, loc="upper right")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -546,11 +582,11 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     p_bom = CHARTS / "bom_noche_antes_despues.png"
     chart_perfil_horario(
         p_bom,
-        "Buenaventura SI500 — m³/hora 00:00–06:00 (mediana) · control 17/07",
+        "Buenaventura SI500 — m³/hora · antes vs control (noche en cero)",
         ctx["bom_pre_h"],
         ctx["bom_post_h"],
         "Antes 17/07",
-        "Con control",
+        "Con control (noche en cero)",
         corte_00_30=True,
     )
 
@@ -895,9 +931,11 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         _set_run(
             cap.add_run(
-                "El corte se arma a las 00:30. De 01:00 a 05:00 queda en cero; el tramo 00:00–00:30 no se resta."
+                "Gris = noche con ~5 m³/h. Dorado = con on/off: 01:00–05:00 en cero. "
+                "El ~2 m³ de 00:00–00:30 no es noche."
             ),
-            "El corte se arma a las 00:30. De 01:00 a 05:00 queda en cero; el tramo 00:00–00:30 no se resta.",
+            "Gris = noche con ~5 m³/h. Dorado = con on/off: 01:00–05:00 en cero. "
+            "El ~2 m³ de 00:00–00:30 no es noche.",
             size=9,
             color=GRAY,
         )
@@ -1135,17 +1173,24 @@ def main() -> int:
     else:
         by_h = refrescar_horas_noche(hour_nodes, night_from, hasta)
 
-    dia_nodes = ["000025-19", "000025-01"]
+    dia_nodes = ["000025-19", "000025-01", SI500]
     norte_d0 = CTRL_NORTE - timedelta(days=14)
+    bom_d0 = CTRL_SI500 - timedelta(days=14)
+    d0_dia = min(norte_d0, bom_d0)
     if args.skip_refresh and JSON_HOURS_DIA.is_file():
         by_h_dia = json.loads(JSON_HOURS_DIA.read_text(encoding="utf-8")).get("by_h") or {}
-        rec_n0 = (by_h_dia.get("000025-01") or {}).get(norte_d0.isoformat()) or {}
         rec_n1 = (by_h_dia.get("000025-01") or {}).get(hasta.isoformat()) or {}
-        if ("12" not in rec_n0 and 12 not in rec_n0) or ("12" not in rec_n1 and 12 not in rec_n1):
-            print("[INFO] Horas 00–23 de Estanque Norte no están en cache; se descargan.", flush=True)
-            by_h_dia = refrescar_horas_dia(dia_nodes, norte_d0, hasta)
+        rec_b0 = (by_h_dia.get(SI500) or {}).get(bom_d0.isoformat()) or {}
+        rec_b1 = (by_h_dia.get(SI500) or {}).get(hasta.isoformat()) or {}
+        if (
+            ("12" not in rec_n1 and 12 not in rec_n1)
+            or ("12" not in rec_b0 and 12 not in rec_b0)
+            or ("12" not in rec_b1 and 12 not in rec_b1)
+        ):
+            print("[INFO] Horas 00–23 de Norte/SI500 no están en cache; se descargan.", flush=True)
+            by_h_dia = refrescar_horas_dia(dia_nodes, d0_dia, hasta)
     else:
-        by_h_dia = refrescar_horas_dia(dia_nodes, norte_d0, hasta)
+        by_h_dia = refrescar_horas_dia(dia_nodes, d0_dia, hasta)
 
     sur = _stats_sur((by.get("000025-19") or {}).get("daily") or {}, hasta)
     norte = _stats_logrado(by_h, "000025-01", CTRL_NORTE, hasta, lookback_dias=14)
@@ -1191,10 +1236,19 @@ def main() -> int:
             noche_cero=True,
         ),
         "bom_pre_h": _perfil_hora(
-            by_h, SI500, CTRL_SI500 - timedelta(days=7), CTRL_SI500 - timedelta(days=1), h_max=6
+            by_h_dia,
+            SI500,
+            CTRL_SI500 - timedelta(days=14),
+            CTRL_SI500 - timedelta(days=1),
+            h_max=24,
         ),
         "bom_post_h": _perfil_hora(
-            by_h, SI500, CTRL_SI500, hasta, h_max=6, noche_cero=True
+            by_h_dia,
+            SI500,
+            CTRL_SI500,
+            hasta,
+            h_max=24,
+            noche_cero=True,
         ),
     }
     print(
