@@ -370,6 +370,7 @@ def _perfil_hora(
     h_max: int = 24,
     excluir: set | None = None,
     noche_cero: bool = False,
+    min_noche: float = 0.0,
 ) -> List[float]:
     """Mediana m³ de cada hora Chile entre d0 y d1 (inclusive)."""
     buckets: List[List[float]] = [[] for _ in range(h_max)]
@@ -380,6 +381,8 @@ def _perfil_hora(
         if excluir and d in excluir:
             continue
         if noche_cero and max(_hval(rec, h) for h in range(1, 6)) > 0.0:
+            continue
+        if min_noche > 0 and sum(_hval(rec, h) for h in range(min(h_max, 6))) < min_noche:
             continue
         for h in range(h_max):
             buckets[h].append(_hval(rec, h))
@@ -420,12 +423,13 @@ def chart_perfil_horario(
     *,
     corte_00_30: bool = False,
     etiquetar: List[int] | None = None,
+    figsize: Tuple[float, float] | None = None,
 ) -> None:
     """Barras agrupadas por hora Chile: antes vs después del control."""
     n = min(len(pre), len(post))
     x = np.arange(n)
     w = 0.38
-    fig, ax = plt.subplots(figsize=(8.4 if n > 12 else 7.2, 3.35), dpi=150)
+    fig, ax = plt.subplots(figsize=figsize or ((8.4 if n > 12 else 7.2), 3.35), dpi=150)
     ax.bar(x - w / 2, pre[:n], w, color="#8FA4B8", zorder=3, label=etq_pre)
     ax.bar(x + w / 2, post[:n], w, color="#C9A227", zorder=3, label=etq_post)
     ax.set_xticks(x)
