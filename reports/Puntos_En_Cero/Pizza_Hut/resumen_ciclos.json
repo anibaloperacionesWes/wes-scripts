@@ -1,0 +1,520 @@
+{
+  "node_id": "000025-07",
+  "desde": "2025-01-01",
+  "hasta": "2026-09-14",
+  "primer_dato": "2025-04-09",
+  "noches_en_cero": 131,
+  "n_ciclos": 51,
+  "ciclos": [
+    {
+      "n": 1,
+      "inicio": "2025-04-09",
+      "fin": "2025-04-09",
+      "dias": 1,
+      "n_corte": 0,
+      "n_completo": 1,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "16:00"
+    },
+    {
+      "n": 2,
+      "inicio": "2025-04-25",
+      "fin": "2025-04-25",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 3,
+      "inicio": "2025-04-29",
+      "fin": "2025-04-29",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "10:00"
+    },
+    {
+      "n": 4,
+      "inicio": "2025-05-03",
+      "fin": "2025-05-03",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 5,
+      "inicio": "2025-05-05",
+      "fin": "2025-05-06",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 6,
+      "inicio": "2025-05-13",
+      "fin": "2025-05-13",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "10:00"
+    },
+    {
+      "n": 7,
+      "inicio": "2025-05-17",
+      "fin": "2025-05-18",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 8,
+      "inicio": "2025-07-02",
+      "fin": "2025-07-02",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "05:00"
+    },
+    {
+      "n": 9,
+      "inicio": "2025-07-13",
+      "fin": "2025-07-14",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 10,
+      "inicio": "2025-07-16",
+      "fin": "2025-07-16",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "23:00 (día anterior)",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 11,
+      "inicio": "2025-08-03",
+      "fin": "2025-08-04",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 12,
+      "inicio": "2025-08-25",
+      "fin": "2025-08-25",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 13,
+      "inicio": "2025-09-14",
+      "fin": "2025-09-14",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "10:00"
+    },
+    {
+      "n": 14,
+      "inicio": "2025-09-19",
+      "fin": "2025-09-20",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "05:00"
+    },
+    {
+      "n": 15,
+      "inicio": "2025-09-27",
+      "fin": "2025-09-27",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 16,
+      "inicio": "2025-10-04",
+      "fin": "2025-10-05",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "06:00"
+    },
+    {
+      "n": 17,
+      "inicio": "2025-10-09",
+      "fin": "2025-10-09",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 18,
+      "inicio": "2025-10-11",
+      "fin": "2025-10-12",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "23:00 (día anterior)",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 19,
+      "inicio": "2025-10-15",
+      "fin": "2025-10-15",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 20,
+      "inicio": "2025-10-19",
+      "fin": "2025-10-20",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 21,
+      "inicio": "2025-10-25",
+      "fin": "2025-10-25",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "06:00"
+    },
+    {
+      "n": 22,
+      "inicio": "2025-10-27",
+      "fin": "2025-10-28",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "05:00"
+    },
+    {
+      "n": 23,
+      "inicio": "2025-11-25",
+      "fin": "2025-11-25",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 24,
+      "inicio": "2025-11-27",
+      "fin": "2025-11-27",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "06:00"
+    },
+    {
+      "n": 25,
+      "inicio": "2025-12-08",
+      "fin": "2025-12-08",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 26,
+      "inicio": "2025-12-15",
+      "fin": "2025-12-15",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "23:00 (día anterior)",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 27,
+      "inicio": "2026-01-25",
+      "fin": "2026-01-25",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 28,
+      "inicio": "2026-01-30",
+      "fin": "2026-01-30",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 29,
+      "inicio": "2026-02-05",
+      "fin": "2026-02-05",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "23:00 (día anterior)",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 30,
+      "inicio": "2026-02-13",
+      "fin": "2026-02-13",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 31,
+      "inicio": "2026-02-17",
+      "fin": "2026-02-17",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 32,
+      "inicio": "2026-03-17",
+      "fin": "2026-03-17",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "06:00"
+    },
+    {
+      "n": 33,
+      "inicio": "2026-03-23",
+      "fin": "2026-03-23",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 34,
+      "inicio": "2026-04-09",
+      "fin": "2026-04-09",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 35,
+      "inicio": "2026-04-22",
+      "fin": "2026-04-24",
+      "dias": 3,
+      "n_corte": 3,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "05:00"
+    },
+    {
+      "n": 36,
+      "inicio": "2026-05-10",
+      "fin": "2026-05-12",
+      "dias": 3,
+      "n_corte": 3,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 37,
+      "inicio": "2026-05-16",
+      "fin": "2026-05-16",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 38,
+      "inicio": "2026-05-26",
+      "fin": "2026-05-26",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "09:00"
+    },
+    {
+      "n": 39,
+      "inicio": "2026-05-30",
+      "fin": "2026-05-30",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 40,
+      "inicio": "2026-06-03",
+      "fin": "2026-06-03",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "10:00"
+    },
+    {
+      "n": 41,
+      "inicio": "2026-06-06",
+      "fin": "2026-06-08",
+      "dias": 3,
+      "n_corte": 3,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "06:00"
+    },
+    {
+      "n": 42,
+      "inicio": "2026-06-13",
+      "fin": "2026-06-13",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "08:00"
+    },
+    {
+      "n": 43,
+      "inicio": "2026-06-18",
+      "fin": "2026-06-21",
+      "dias": 4,
+      "n_corte": 4,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 44,
+      "inicio": "2026-06-23",
+      "fin": "2026-06-26",
+      "dias": 4,
+      "n_corte": 4,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 45,
+      "inicio": "2026-06-28",
+      "fin": "2026-06-29",
+      "dias": 2,
+      "n_corte": 2,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 46,
+      "inicio": "2026-07-01",
+      "fin": "2026-07-05",
+      "dias": 5,
+      "n_corte": 5,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 47,
+      "inicio": "2026-07-07",
+      "fin": "2026-07-13",
+      "dias": 7,
+      "n_corte": 7,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 48,
+      "inicio": "2026-07-16",
+      "fin": "2026-07-25",
+      "dias": 10,
+      "n_corte": 10,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 49,
+      "inicio": "2026-07-31",
+      "fin": "2026-07-31",
+      "dias": 1,
+      "n_corte": 1,
+      "n_completo": 0,
+      "inicio_hora_tipica": "01:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 50,
+      "inicio": "2026-08-02",
+      "fin": "2026-08-05",
+      "dias": 4,
+      "n_corte": 4,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "07:00"
+    },
+    {
+      "n": 51,
+      "inicio": "2026-08-09",
+      "fin": "2026-09-14",
+      "dias": 37,
+      "n_corte": 37,
+      "n_completo": 0,
+      "inicio_hora_tipica": "00:00",
+      "fin_hora_tipica": "07:00"
+    }
+  ]
+}
