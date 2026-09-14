@@ -1238,7 +1238,7 @@ def main() -> int:
         "bom_pre_h": _perfil_hora(
             by_h_dia,
             SI500,
-            CTRL_SI500 - timedelta(days=14),
+            CTRL_SI500 - timedelta(days=7),
             CTRL_SI500 - timedelta(days=1),
             h_max=24,
         ),
