@@ -557,11 +557,13 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     logrado_acum = norte["ahorro_acum"] + bom["ahorro_acum"]
 
     filas_prop = [
-        ("Quilicura\nMatriz", maq["ahorro_mes"]),
-        ("Kennedy\nBazar Gourmet", bazar["ahorro_mes"]),
-        ("Kennedy\nAndén 3-4 Matriz", anden["ahorro_mes"]),
-        ("El Bosque\n1° piso", aeb["ahorro_mes"]),
-        ("Maipú\nFalabella", fala["ahorro_mes"]),
+        ("MAE Estanque Norte", norte["ahorro_mes"], "logrado"),
+        ("BOM San Ignacio 500", bom["ahorro_mes"], "logrado"),
+        ("Quilicura Matriz", maq["ahorro_mes"], "propuesto"),
+        ("Kennedy Bazar Gourmet", bazar["ahorro_mes"], "propuesto"),
+        ("Kennedy Andén 3-4 Matriz", anden["ahorro_mes"], "propuesto"),
+        ("El Bosque 1° piso", aeb["ahorro_mes"], "propuesto"),
+        ("Maipú Falabella", fala["ahorro_mes"], "propuesto"),
     ]
     p_bar = CHARTS / "futuros_puntos_control.png"
     chart_barras_propuestas(p_bar, filas_prop)
@@ -749,8 +751,10 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         cap = doc.add_paragraph()
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         _set_run(
-            cap.add_run("Verde = ya operativo (noche a cero desde las 00:30). Dorado = propuesta, misma ventana a cero."),
-            "Dorado = futuros puntos de control (misma ventana 00:30 → cero). Estanque Sur no entra.",
+            cap.add_run(
+                "Verde = ya operativo (Norte y SI500). Dorado = a copiar. Estanque Sur no entra."
+            ),
+            "Verde = ya operativo (Norte y SI500). Dorado = a copiar. Estanque Sur no entra.",
             size=9,
             color=GRAY,
         )

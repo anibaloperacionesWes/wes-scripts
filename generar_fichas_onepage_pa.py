@@ -176,10 +176,10 @@ def build_ppt(casos: List[Dict[str, Any]], hasta: date, p_bar: Path | None = Non
         _header_bar(
             sl,
             prs,
-            "Futuros puntos de control",
-            f"Proyección 00:30 → cero  ·  tarifa ${fn(TARIFA_CLP_M3, 0)}/m³  ·  {hasta:%d/%m/%Y}",
+            "Proyección: ya operativo y a copiar",
+            f"Verde = control WES  ·  dorado = propuesta  ·  tarifa ${fn(TARIFA_CLP_M3, 0)}/m³  ·  {hasta:%d/%m/%Y}",
         )
-        sl.shapes.add_picture(str(p_bar), PptInches(0.35), PptInches(1.35), width=PptInches(12.60))
+        sl.shapes.add_picture(str(p_bar), PptInches(0.28), PptInches(1.12), width=PptInches(12.75))
         _tb(
             sl,
             0.28,
@@ -188,7 +188,7 @@ def build_ppt(casos: List[Dict[str, Any]], hasta: date, p_bar: Path | None = Non
             0.22,
             [
                 (
-                    "Estanque Sur no entra (no es control WES). DL Kennedy no se propone.",
+                    "Verde = Norte y SI500. Dorado = a copiar. Estanque Sur no entra. DL Kennedy no se propone.",
                     12,
                     False,
                     GRAY,
@@ -457,11 +457,13 @@ def main() -> int:
     chart_barras_propuestas(
         p_bar,
         [
-            ("Quilicura\nMatriz", maq["ahorro_mes"]),
-            ("Kennedy\nBazar Gourmet", bazar["ahorro_mes"]),
-            ("Kennedy\nAndén 3-4 Matriz", anden["ahorro_mes"]),
-            ("El Bosque\n1° piso", aeb["ahorro_mes"]),
-            ("Maipú\nFalabella", fala["ahorro_mes"]),
+            ("MAE Estanque Norte", norte["ahorro_mes"], "logrado"),
+            ("BOM San Ignacio 500", bom["ahorro_mes"], "logrado"),
+            ("Quilicura Matriz", maq["ahorro_mes"], "propuesto"),
+            ("Kennedy Bazar Gourmet", bazar["ahorro_mes"], "propuesto"),
+            ("Kennedy Andén 3-4 Matriz", anden["ahorro_mes"], "propuesto"),
+            ("El Bosque 1° piso", aeb["ahorro_mes"], "propuesto"),
+            ("Maipú Falabella", fala["ahorro_mes"], "propuesto"),
         ],
     )
     ppt = build_ppt(casos, hasta, p_bar)

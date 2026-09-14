@@ -911,17 +911,26 @@ def _clp_mes(m3: float) -> str:
 
 def chart_barras_propuestas(
     path: Path,
-    filas: List[Tuple[str, float]],
+    filas: List[Tuple],
     *,
-    titulo: str = "Futuros puntos de control  ·  proyección a cero desde las 00:30",
+    titulo: str = "Proyección 00:30 → cero  ·  verde = ya operativo  ·  dorado = a copiar",
 ) -> None:
-    """Barras horizontales: el $ se lee a la derecha, sin que Bazar aplaste la escala."""
-    labels = [" ".join(str(a).split()) for a, _ in filas]
-    vals = [float(b) for _, b in filas]
+    """Barras horizontales: verde = control WES ya corriendo; dorado = propuesta."""
+    parsed: List[Tuple[str, float, str]] = []
+    for row in filas:
+        if len(row) == 3:
+            lab, val, tipo = row
+        else:
+            lab, val = row[0], row[1]
+            tipo = "propuesto"
+        parsed.append((" ".join(str(lab).split()), float(val), str(tipo)))
+    labels = [a for a, _, _ in parsed]
+    vals = [b for _, b, _ in parsed]
+    cols = ["#2E7D32" if t == "logrado" else "#C9A227" for _, _, t in parsed]
     n = len(vals)
-    fig, ax = plt.subplots(figsize=(10.8, max(3.8, 0.70 * n + 1.25)), dpi=160)
+    fig, ax = plt.subplots(figsize=(10.8, max(3.8, 0.62 * n + 1.35)), dpi=160)
     y = np.arange(n)
-    ax.barh(y, vals, color="#C9A227", zorder=3, height=0.58, edgecolor="none")
+    ax.barh(y, vals, color=cols, zorder=3, height=0.58, edgecolor="none")
     ax.set_yticks(y)
     ax.set_yticklabels(labels, fontsize=10, color="#0D3B66")
     ax.invert_yaxis()
@@ -937,7 +946,7 @@ def chart_barras_propuestas(
     tope = max(vals + [1.0])
     xmax = tope * 1.22
     ax.set_xlim(0, xmax)
-    for yi, v in zip(y, vals):
+    for yi, v, tipo in zip(y, vals, [t for _, _, t in parsed]):
         txt = f"{fn(v, 0)} m³   {_clp_mes(v)}"
         if v >= tope * 0.45:
             ax.text(
@@ -948,7 +957,7 @@ def chart_barras_propuestas(
                 ha="right",
                 fontsize=9,
                 fontweight="bold",
-                color="#0D3B66",
+                color="white" if tipo == "logrado" else "#0D3B66",
             )
         else:
             ax.text(
@@ -961,6 +970,17 @@ def chart_barras_propuestas(
                 fontweight="bold",
                 color="#0D3B66",
             )
+    from matplotlib.patches import Patch
+
+    ax.legend(
+        handles=[
+            Patch(facecolor="#2E7D32", edgecolor="none", label="Ya operativo (control WES)"),
+            Patch(facecolor="#C9A227", edgecolor="none", label="A copiar (proyección)"),
+        ],
+        loc="lower right",
+        frameon=False,
+        fontsize=8.5,
+    )
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", facecolor="white")
@@ -1129,51 +1149,41 @@ def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, floa
 def _slide_barras_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, float]]]) -> None:
     props = _stats_propuestas(by_h, hasta)
     etiquetas = [
-        "Quilicura\nMatriz",
-        "Kennedy\nBazar Gourmet",
-        "Kennedy\nAndén 3-4 Matriz",
-        "El Bosque\n1° piso",
-        "Maipú\nFalabella",
+        "Quilicura Matriz",
+        "Kennedy Bazar Gourmet",
+        "Kennedy Andén 3-4 Matriz",
+        "El Bosque 1° piso",
+        "Maipú Falabella",
     ]
-    filas = [(etq, mes) for etq, (_, _, mes) in zip(etiquetas, props)]
+    filas = [
+        ("MAE Estanque Norte", LOGRADO_NORTE_MES, "logrado"),
+        ("BOM San Ignacio 500", LOGRADO_BOM_MES, "logrado"),
+    ] + [(etq, mes, "propuesto") for etq, (_, _, mes) in zip(etiquetas, props)]
     p_bar = CHARTS / "futuros_puntos_control.png"
     chart_barras_propuestas(p_bar, filas)
     propuesto = sum(m for _, _, m in props)
+    total_si = LOGRADO_WES_MES + propuesto
     sl = prs.slides.add_slide(prs.slide_layouts[6])
     _header_bar(
         sl,
         prs,
-        "Futuros puntos de control",
-        f"Mismo corte 00:30 → cero  ·  tarifa ${fn(TARIFA_CLP_M3, 0)}/m³  ·  {hasta:%d/%m/%Y}",
-    )
-    _tb(
-        sl,
-        0.28,
-        1.12,
-        12.7,
-        0.36,
-        [
-            (
-                "Cinco on/off a copiar del que ya corre en Estanque Norte y San Ignacio 500. "
-                "No incluye Estanque Sur (no es control WES) ni DL Kennedy.",
-                13,
-                False,
-                NAVY,
-            )
-        ],
+        "Proyección: ya operativo y a copiar",
+        f"Verde = control WES  ·  dorado = propuesta  ·  tarifa ${fn(TARIFA_CLP_M3, 0)}/m³  ·  {hasta:%d/%m/%Y}",
     )
     if p_bar.is_file():
-        sl.shapes.add_picture(str(p_bar), PptInches(0.35), PptInches(1.55), width=PptInches(12.60))
+        sl.shapes.add_picture(str(p_bar), PptInches(0.28), PptInches(1.12), width=PptInches(12.75))
     _tb(
         sl,
         0.28,
-        7.05,
+        7.08,
         12.7,
         0.22,
         [
             (
-                f"Suma de las 5: {fn(propuesto, 0)} m³/mes  ·  {_clp_mes(propuesto)}",
-                14,
+                f"Ya operativo {fn(LOGRADO_WES_MES, 0)} m³/mes  ·  "
+                f"si se aprueban las 5: {fn(total_si, 0)} m³/mes  ·  {_clp_mes(total_si)}  ·  "
+                "Sur no entra",
+                12,
                 True,
                 NAVY,
             )
