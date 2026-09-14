@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Envía el informe de ahorro PA (propuesta n.° 1) a Juan, Diego y Aníbal.
+"""Envía el informe de ahorro PA a Diego y Aníbal.
 
   python enviar_informe_ahorro_pa_reunion.py
 """
@@ -35,7 +35,6 @@ SMTP_SERVIDOR = "smtp.gmail.com"
 SMTP_PUERTO = 587
 
 TO_RECIPIENTS = [
-    "juanlopez@wes.cl",
     "diegocarrasco@wes.cl",
     "anibal.aoperaciones@wes.cl",
 ]
@@ -69,19 +68,16 @@ def main() -> int:
         print("[ERROR] Falta contraseña SMTP")
         return 1
 
-    asunto = (
-        "Parque Arauco — propuesta n.° 1 de informe de ahorro para reunión"
-    )
+    asunto = "Parque Arauco — informe de ahorro para reunión (actualizado)"
     cuerpo = (
-        "Estimados Juan, Diego y Aníbal,\n\n"
-        "Les enviamos la propuesta n.° 1 del informe de ahorro de Parque Arauco "
-        "para la reunión (MAE, Buenaventura, Quilicura, Kennedy y pendiente de Maipú).\n\n"
-        "Va adjunto en Word y también está en Drive:\n"
+        "Estimados Diego y Aníbal,\n\n"
+        "Adjunto el informe de ahorro de Parque Arauco para la reunión, "
+        "actualizado al 08/09/2026.\n\n"
+        "Incluye el control ya operativo (Estanque Sur / Norte y SI500) con "
+        "gráficos hora a hora, y la simulación a copiar: Quilicura, Bazar Gourmet, "
+        "DL Kennedy, El Bosque 1° piso y Falabella de Maipú.\n\n"
+        "Va en Word y también está en Drive:\n"
         f"{DRIVE}\n\n"
-        "Es una primera versión para revisar fondo y números. Si lo desean, "
-        "podemos generar mejoras de apariencia (formato, gráficos y diagramación) "
-        "sobre esta misma base.\n\n"
-        "Quedamos atentos a sus comentarios.\n\n"
         "Saludos,\n"
         "Agente IA WES\n"
     )
