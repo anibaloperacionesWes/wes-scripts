@@ -533,7 +533,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     p_norte = CHARTS / "mae_norte_antes_despues.png"
     chart_perfil_horario(
         p_norte,
-        "MAE Estanque Norte — m³/hora 00–05 (mediana) · control 05/08",
+        "MAE Estanque Norte — m³/hora 00:00–06:00 (mediana) · control 05/08",
         ctx["norte_pre_h"],
         ctx["norte_post_h"],
         "Antes 05/08",
@@ -543,7 +543,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     p_bom = CHARTS / "bom_noche_antes_despues.png"
     chart_perfil_horario(
         p_bom,
-        "Buenaventura SI500 — m³/hora 00–05 (mediana) · control 17/07",
+        "Buenaventura SI500 — m³/hora 00:00–06:00 (mediana) · control 17/07",
         ctx["bom_pre_h"],
         ctx["bom_post_h"],
         "Antes 17/07",
