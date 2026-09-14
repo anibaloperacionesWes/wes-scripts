@@ -379,7 +379,7 @@ def _perfil_hora(
             continue
         if excluir and d in excluir:
             continue
-        if noche_cero and sum(_hval(rec, h) for h in range(1, 6)) > 0.15:
+        if noche_cero and max(_hval(rec, h) for h in range(1, 6)) > 0.0:
             continue
         for h in range(h_max):
             buckets[h].append(_hval(rec, h))
