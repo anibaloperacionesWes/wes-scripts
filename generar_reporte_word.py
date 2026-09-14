@@ -468,7 +468,7 @@ COMPANY_NAMES = {
     "000009": "COPEC",
     "000010": "Corporación Puente Alto",
     "000011": "Sistemas Socios Wes",
-    "000012": "DERCO",
+    "000012": "Inchcape",
     "000013": "Lo Barnechea",
     "000014": "Tres Montes Lucchetti",
     "000016": "Renca",
@@ -1675,8 +1675,24 @@ def add_picture_with_pagination(doc: Document, image_path: str, width: Inches, k
 def apply_keep_with_next(paragraph) -> None:
     """Evita que el párrafo quede separado del siguiente (misma página)."""
     paragraph.paragraph_format.keep_with_next = True
+    paragraph.paragraph_format.keep_together = True
     paragraph.paragraph_format.widow_control = True
     paragraph.paragraph_format.space_after = Pt(2)
+
+
+def mantener_tabla_en_una_pagina(table) -> None:
+    """Impide que una tabla se parta entre páginas (filas unidas + cantSplit)."""
+    n_rows = len(table.rows)
+    for i, row in enumerate(table.rows):
+        tr_pr = row._tr.get_or_add_trPr()
+        if tr_pr.find(qn("w:cantSplit")) is None:
+            tr_pr.append(OxmlElement("w:cantSplit"))
+        for cell in row.cells:
+            for para in cell.paragraphs:
+                para.paragraph_format.keep_together = True
+                para.paragraph_format.widow_control = True
+                if i < n_rows - 1:
+                    para.paragraph_format.keep_with_next = True
 
 
 def add_summary_section(doc: Document, summary: dict, alerts: List[dict], alert_stats: dict, start_date: datetime, end_date: datetime) -> None:
@@ -1749,6 +1765,7 @@ def estilizar_tabla_wes(
                 _aplicar_shading_celda(cell, "FFE6E6")
             elif i % 2 == 0:
                 _aplicar_shading_celda(cell, "F2F6FC")
+    mantener_tabla_en_una_pagina(table)
 
 
 def add_table(
@@ -1908,6 +1925,8 @@ def add_table(
 
     if wes_style:
         estilizar_tabla_wes(table, highlight_rows=highlight_set, has_total_row=has_total_row)
+    else:
+        mantener_tabla_en_una_pagina(table)
 
 
 def generate_comparison_narrative(nodes_data: List[dict], avg_consumption_per_node: float) -> str:
@@ -4314,19 +4333,22 @@ def generate_aggregated_report(
             measures = flatten_measures(measures_payload)
             summary = summarize_consumption(measures)
             alerts = []
-            try:
-                alerts_payload = fetch_json(
-                    f"{acl_node_base_url()}/nodes/myalert/alerts",
-                    params=[
-                        ("id", node_id),
-                        ("start", _format_ddmmyyyy(start_dt)),
-                        ("end", _format_ddmmyyyy(end_dt)),
-                    ],
-                )
-                if isinstance(alerts_payload, list):
-                    alerts = alerts_payload
-            except Exception:
-                pass
+            from agregado_extendido_extra import es_formato_portada_nocturno_anexo
+
+            if not es_formato_portada_nocturno_anexo(company_id):
+                try:
+                    alerts_payload = fetch_json(
+                        f"{acl_node_base_url()}/nodes/myalert/alerts",
+                        params=[
+                            ("id", node_id),
+                            ("start", _format_ddmmyyyy(start_dt)),
+                            ("end", _format_ddmmyyyy(end_dt)),
+                        ],
+                    )
+                    if isinstance(alerts_payload, list):
+                        alerts = alerts_payload
+                except Exception:
+                    pass
             alert_stats = summarize_alerts(alerts, start_dt, end_dt)
             for alert in alerts:
                 alert["nodeId"] = node_id
@@ -4398,9 +4420,15 @@ def generate_aggregated_report(
     # Si hay fuente de agua especificada, excluirla de ciertos cálculos
     # Detectar automáticamente si es Fundo Zapallar (compatibilidad hacia atrás)
     es_fundo_zapallar = company_id == "000027"
-    from agregado_extendido_extra import es_agregado_extendido
+    from agregado_extendido_extra import (
+        OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS,
+        es_agregado_extendido,
+        es_formato_portada_nocturno_anexo,
+    )
 
     es_agregado_fmt = es_agregado_extendido(company_id)
+    omitir_dia_mayor = company_id in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS
+    es_formato_lote = es_formato_portada_nocturno_anexo(company_id)
     nodo_estanque_inferior = "000027-02" if es_fundo_zapallar else None
     
     # Si no se especificó fuente_agua_id pero es Fundo Zapallar, usar ESVAL como fuente
@@ -4540,14 +4568,14 @@ def generate_aggregated_report(
     if nodes_data:
         fig, ax = plt.subplots(figsize=(16, 8))
         
-        # Crear lista de tuplas (node_name, consumption) incluyendo todos los puntos.
+        # Crear lista de tuplas (node_name, consumption, node_id) incluyendo todos los puntos.
         # Fundo Zapallar: se muestran todos los puntos en el gráfico, pero el "total" del
         # fundo NO es la suma (doble conteo): la referencia real es Matriz ESVAL (fuente).
         # Para BUPA, excluir "Llenado de Estanques" (000029-01) de la gráfica
         es_bupa = company_id == "000029"
         node_consumption_pairs = [
-            (d["node_name"], d["summary"]["total"]) 
-            for d in nodes_data 
+            (d["node_name"], d["summary"]["total"], d["node_id"])
+            for d in nodes_data
             if not (es_bupa and d["node_id"] == "000029-01")
         ]
         node_consumption_pairs.sort(key=lambda x: x[1], reverse=True)  # Ordenar de mayor a menor
@@ -4555,21 +4583,59 @@ def generate_aggregated_report(
         # Extraer nombres y consumos ordenados
         node_names = [pair[0] for pair in node_consumption_pairs]
         consumptions = [pair[1] for pair in node_consumption_pairs]
-        
-        bars = ax.bar(node_names, consumptions, color="#0050b3")
+        node_ids_chart = [pair[2] for pair in node_consumption_pairs]
+
+        if es_fundo_zapallar or company_id == "000012":
+            from agregado_extendido_extra import (
+                COLOR_AGUAS_ABAJO,
+                COLOR_MATRIZ_ESVAL,
+                INCHCAPE_NODE_MATRIZ_PRINCIPAL,
+                leyenda_matriz_entrada,
+            )
+            from matplotlib.patches import Patch
+
+            entrada_id = "000027-01" if es_fundo_zapallar else INCHCAPE_NODE_MATRIZ_PRINCIPAL
+            bar_colors = [
+                COLOR_MATRIZ_ESVAL if nid == entrada_id else COLOR_AGUAS_ABAJO
+                for nid in node_ids_chart
+            ]
+            bars = ax.bar(node_names, consumptions, color=bar_colors)
+            leyenda = leyenda_matriz_entrada(company_id)
+            if leyenda:
+                ax.legend(
+                    handles=[
+                        Patch(facecolor=COLOR_MATRIZ_ESVAL, label=leyenda[0]),
+                        Patch(facecolor=COLOR_AGUAS_ABAJO, label=leyenda[1]),
+                    ],
+                    loc="upper right",
+                    fontsize=12,
+                    frameon=False,
+                )
+        else:
+            bars = ax.bar(node_names, consumptions, color="#0050b3")
         ax.set_ylabel("Consumo total (m³)", fontsize=18, fontweight='bold')
         ax.set_xlabel("Punto de monitoreo", fontsize=18, fontweight='bold')
         titulo_barras = (
-            "Consumo del periodo por punto (FZ: ESVAL = entrada real)"
+            "Consumo del periodo por punto — Matriz ESVAL destacada"
             if es_fundo_zapallar
             else (
-                "Consumo total del periodo por punto de monitoreo"
-                if es_agregado_fmt
-                else "Consumo total por punto de monitoreo"
+                "Consumo del periodo por punto — Matriz Principal destacada"
+                if company_id == "000012"
+                else (
+                    "Consumo total del periodo por punto de monitoreo"
+                    if es_agregado_fmt
+                    else "Consumo total por punto de monitoreo"
+                )
             )
         )
         ax.set_title(titulo_barras, fontsize=20, fontweight="bold")
-        ax.set_ylim(bottom=0)
+        from matplotlib.ticker import MultipleLocator
+        from agregado_extendido_extra import _tick_step, _ymax_barras
+
+        y_top = _ymax_barras(consumptions) if consumptions else 1.0
+        ax.set_ylim(bottom=0, top=y_top)
+        ax.yaxis.set_major_locator(MultipleLocator(_tick_step(y_top)))
+        ax.grid(axis="y", linestyle="--", alpha=0.28)
         
         # Rotar las etiquetas del eje X para mejor legibilidad con fuente más grande
         plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right', fontsize=16)
@@ -4638,6 +4704,9 @@ def generate_aggregated_report(
     # Resumen ejecutivo agregado
     add_formatted_heading(doc, "Resumen ejecutivo agregado", level=1)
     summary_para = doc.add_paragraph()
+    summary_para.paragraph_format.keep_together = True
+    summary_para.paragraph_format.keep_with_next = True
+    summary_para.paragraph_format.widow_control = True
     summary_para.add_run(f"Puntos de monitoreo analizados: {total_nodes}.\n")
     if es_fundo_zapallar:
         esval = next((d for d in nodes_data if d["node_id"] == "000027-01"), None)
@@ -4648,10 +4717,22 @@ def generate_aggregated_report(
         summary_para.add_run(
             "Nota: no se suma estanques ni etapas al total (mediciones aguas abajo de ESVAL).\n"
         )
+    elif company_id == "000012":
+        from agregado_extendido_extra import INCHCAPE_NODE_MATRIZ_PRINCIPAL
+
+        matriz = next((d for d in nodes_data if d["node_id"] == INCHCAPE_NODE_MATRIZ_PRINCIPAL), None)
+        matriz_m3 = float(matriz["summary"]["total"]) if matriz else 0.0
+        summary_para.add_run(
+            f"Consumo de la sucursal (Matriz Principal): {format_number_chilean(matriz_m3, 1)} m³.\n"
+        )
+        summary_para.add_run(
+            "Nota: no se suman los demás puntos al total (son parte de la Matriz Principal).\n"
+        )
     else:
         summary_para.add_run(f"Consumo total agregado: {format_number_chilean(total_consumption, 1)} m³.\n")
         summary_para.add_run(f"Consumo promedio por punto: {format_number_chilean(avg_consumption_per_node, 1)} m³.\n")
-    summary_para.add_run(f"Total de alertas registradas: {total_alerts}.\n")
+        if not es_formato_lote:
+            summary_para.add_run(f"Total de alertas registradas: {total_alerts}.\n")
     if not es_agregado_fmt and sum_promedio_alerta > 0:
         summary_para.add_run(f"Promedio de alerta agregado: {format_number_chilean(sum_promedio_alerta, 1)} m³/h.\n")
         summary_para.add_run(f"Proyección diaria de consumo nocturno agregada: {format_number_chilean(sum_proyeccion_24h, 1)} m³/día.\n")
@@ -4661,9 +4742,15 @@ def generate_aggregated_report(
         add_formatted_heading(doc, "Comparación de consumo por punto", level=1)
         if es_fundo_zapallar:
             comp_texto = (
-                "Consumo acumulado por punto en el periodo. "
-                "Matriz ESVAL es la entrada al fundo (referencia de consumo real); "
-                "estanques y etapas son mediciones aguas abajo y no deben sumarse al total."
+                "La barra naranja es la Matriz ESVAL, la entrada de agua al fundo: es el consumo real. "
+                "Las barras grises son estanques y etapas aguas abajo (el mismo caudal medido en cadena); "
+                "no se suman al total."
+            )
+        elif company_id == "000012":
+            comp_texto = (
+                "La barra naranja es la Matriz Principal, el consumo real de la sucursal. "
+                "Las barras grises son puntos internos de esa misma matriz (el mismo caudal medido "
+                "en derivaciones); no se suman al total."
             )
         elif es_agregado_fmt:
             comp_texto = (
@@ -4675,24 +4762,32 @@ def generate_aggregated_report(
             )
         comp_para = doc.add_paragraph(comp_texto)
         comp_para.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+        comp_para.paragraph_format.keep_together = True
+        comp_para.paragraph_format.keep_with_next = True
+        comp_para.paragraph_format.widow_control = True
         for run in comp_para.runs:
             run.font.color.rgb = RGBColor(0, 0, 0)  # Negro
         add_picture_with_pagination(doc, str(comparison_chart_path), Inches(6), keep_with_next=True)
+
+        if es_formato_lote:
+            from agregado_extendido_extra import agregar_tabla_kpis_consumo, nodo_referencia_portada
+
+            ref_kpi = nodo_referencia_portada(company_id, nodes_data)
+            if ref_kpi:
+                agregar_tabla_kpis_consumo(
+                    doc,
+                    ref_kpi.get("summary") or {},
+                    destacar_matriz=(
+                        ref_kpi.get("node_id") in ("000027-01", "000012-06")
+                    ),
+                )
         
         consumer_nodes_for_narrative = [
             d for d in nodes_data 
             if not (es_bupa and d["node_id"] == "000029-01")
         ]
-        if es_fundo_zapallar:
-            esval = next((d for d in nodes_data if d["node_id"] == "000027-01"), None)
-            esval_m3 = float(esval["summary"]["total"]) if esval else 0.0
-            narrative = (
-                f"En Fundo Zapallar el consumo real del periodo corresponde a la Matriz ESVAL "
-                f"(entrada de agua al fundo): {format_number_chilean(esval_m3, 1)} m³. "
-                f"Los demás puntos (estanques y etapas) miden caudales aguas abajo de esa matriz; "
-                f"por eso no se suman entre sí ni con ESVAL — el máximo del gráfico es Matriz ESVAL, "
-                f"no la suma de barras, que no representa un consumo adicional."
-            )
+        if es_fundo_zapallar or company_id == "000012":
+            narrative = ""
         elif es_agregado_fmt:
             from agregado_extendido_extra import narrativa_consumo_total_extendido
 
@@ -4706,7 +4801,7 @@ def generate_aggregated_report(
             for run in narrative_para.runs:
                 run.font.color.rgb = RGBColor(0, 0, 0)  # Negro
 
-    if es_agregado_fmt:
+    if es_agregado_fmt and not es_formato_lote:
         try:
             from agregado_extendido_extra import agregar_secciones_consumo_diario_y_max_dia
 
@@ -4716,15 +4811,25 @@ def generate_aggregated_report(
         except Exception as e:
             print(f"[ADVERTENCIA] Agregado extendido — secciones consumo diario: {e}")
     
-    # Tabla resumen por nodo (ordenar de mayor a menor consumo)
-    add_formatted_heading(doc, "Resumen por punto de monitoreo", level=1)
+    # Tabla resumen por nodo (ordenar de mayor a menor consumo).
+    # Lote comercial (formato Zapallar): se omite — el detalle va en nocturno y en el anexo diario.
+    if not es_formato_lote:
+        add_formatted_heading(doc, "Resumen por punto de monitoreo", level=1)
     col_ultima = "Costo nocturno (CLP)" if es_agregado_fmt else "Proyección de filtración"
-    table_rows = [
-        ("Ranking", "Dispositivo", "Consumo total (m³)", "Número de alerta", "Consumo nocturno", col_ultima)
-    ]
+    omitir_col_alertas = es_fundo_zapallar
+    if omitir_col_alertas:
+        table_rows = [
+            ("Ranking", "Dispositivo", "Consumo total (m³)", "Consumo nocturno", col_ultima)
+        ]
+    else:
+        table_rows = [
+            ("Ranking", "Dispositivo", "Consumo total (m³)", "Número de alerta", "Consumo nocturno", col_ultima)
+        ]
     
     # Ordenar nodes_data por consumo total de mayor a menor
     sorted_nodes_data = sorted(nodes_data, key=lambda d: d["summary"]["total"], reverse=True)
+    if es_formato_lote:
+        sorted_nodes_data = []
     
     # Calcular número total de días del periodo
     num_dias_periodo = (end_dt.date() - start_dt.date()).days + 1
@@ -4820,14 +4925,23 @@ def generate_aggregated_report(
         node_names_for_chart.append(node_name)
         consumo_nocturno_values.append(consumo_nocturno)
         
-        table_rows.append((
-            str(rank),
-            node_name,
-            format_number_chilean(summary["total"], 1),
-            str(num_alertas),
-            consumo_nocturno_str,
-            proyeccion_filtracion_str,
-        ))
+        if omitir_col_alertas:
+            table_rows.append((
+                str(rank),
+                node_name,
+                format_number_chilean(summary["total"], 1),
+                consumo_nocturno_str,
+                proyeccion_filtracion_str,
+            ))
+        else:
+            table_rows.append((
+                str(rank),
+                node_name,
+                format_number_chilean(summary["total"], 1),
+                str(num_alertas),
+                consumo_nocturno_str,
+                proyeccion_filtracion_str,
+            ))
     
     # Agregar fila de totales
     ultima_col_total = (
@@ -4835,22 +4949,32 @@ def generate_aggregated_report(
         if es_agregado_fmt
         else format_number_chilean(total_proyeccion_filtracion, 1) + " m³"
     )
-    table_rows.append((
-        "",
-        "TOTAL",
-        format_number_chilean(total_consumo_total, 1),
-        str(total_num_alertas),
-        format_number_chilean(total_consumo_nocturno, 1) + " m³",
-        ultima_col_total,
-    ))
+    if omitir_col_alertas:
+        table_rows.append((
+            "",
+            "TOTAL",
+            format_number_chilean(total_consumo_total, 1),
+            format_number_chilean(total_consumo_nocturno, 1) + " m³",
+            ultima_col_total,
+        ))
+    else:
+        table_rows.append((
+            "",
+            "TOTAL",
+            format_number_chilean(total_consumo_total, 1),
+            str(total_num_alertas),
+            format_number_chilean(total_consumo_nocturno, 1) + " m³",
+            ultima_col_total,
+        ))
     
-    add_table(
-        doc,
-        "Métricas por punto",
-        table_rows,
-        highlight_rows=None if es_agregado_fmt else [len(table_rows) - 1],
-        wes_style=es_agregado_fmt,
-    )
+    if not es_formato_lote:
+        add_table(
+            doc,
+            "Métricas por punto",
+            table_rows,
+            highlight_rows=None if es_agregado_fmt else [len(table_rows) - 1],
+            wes_style=es_agregado_fmt,
+        )
     
     if es_agregado_fmt:
         try:
@@ -4861,6 +4985,16 @@ def generate_aggregated_report(
             )
         except Exception as e:
             print(f"[ADVERTENCIA] Agregado extendido — análisis nocturno: {e}")
+
+    if es_agregado_fmt and es_formato_lote:
+        try:
+            from agregado_extendido_extra import agregar_secciones_consumo_diario_y_max_dia
+
+            agregar_secciones_consumo_diario_y_max_dia(
+                company_id, doc, nodes_data, start_dt, end_dt, output_dir_path
+            )
+        except Exception as e:
+            print(f"[ADVERTENCIA] Agregado extendido — anexo consumo diario: {e}")
     
     # Generar gráfica de consumo nocturno por nodo (orden: mayor a menor consumo nocturno)
     if (
@@ -4908,7 +5042,7 @@ def generate_aggregated_report(
     
     # Estadísticas de alertas agregadas
     nodos_graficados_horario: set = set()
-    if total_alerts > 0 and not es_agregado_fmt:
+    if total_alerts > 0 and not es_agregado_fmt and not omitir_dia_mayor:
         # Sección "Análisis de alertas agregado" y tabla "Métricas agregadas de consumos nocturnos" eliminadas según solicitud del usuario
         
         # Tabla de eventos registrados eliminada según solicitud del usuario
