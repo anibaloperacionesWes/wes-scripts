@@ -816,27 +816,103 @@ def _slide_propuestas(prs, hasta: date) -> None:
     _header_bar(
         sl,
         prs,
-        "Propuestas vigentes (PPT de presentación)",
-        f"On/off = corte 00:00–06:00  ·  umbral = total 24 h (promedio operativo × 1,25)  ·  corte {hasta:%d/%m/%Y}",
+        "Control nocturno ya operativo y propuestas",
+        f"Corte se arma a las 00:30  ·  meta = cero  ·  umbral = total 24 h  ·  {hasta:%d/%m/%Y}",
     )
-    filas = [
-        ("MAE", "Mantener controles Norte (desde 05/08) y Pizza Hut (desde 01/07). Umbrales 24 h: Norte 40 · Sur 35 · Pizza 50 · Baños 10 m³/día."),
-        ("MAM", "El mall se alimenta por Placa o por Falabella (cuando se inyecta una, se corta la otra). Umbrales 24 h: Placa 290 · Falabella 140 m³/día. Sin on/off hasta ver la noche de la línea que esté inyectando."),
-        ("MAQ", "Proponer on/off 00–06 en Matriz Principal. Umbral 24 h Matriz 240 m³/día. Alim. Baños no es el punto de control."),
-        ("BOM", "Mantener on/off SI500 (desde 17/07). Umbrales: SI500 145 · SI300 45 m³/día."),
-        ("AEB", "Proponer on/off 00–06 en Anillo Plaza y Matriz 1° piso. Umbrales: Anillo 22 · Matriz 75 m³/día."),
-        ("CUR", "Sin on/off. Umbrales: Anillo Sur 14 · Anillo Norte 13 m³/día."),
-        ("PAK", "Proponer on/off 00–06 en el eslabón de mayor noche (DL / Bazar). Umbrales: DL 390 · Bazar 250 · DL Kennedy 20 m³/día. Cadena no se suma a cabecera."),
+    # Izquierda: lo que ya corre
+    _caja(sl, 0.22, 1.08, 6.38, 6.20, fill=(232, 245, 233), line=TEAL)
+    _tb(sl, 0.38, 1.14, 6.08, 0.28, [("YA OPERATIVO  ·  control nocturno", 13, True, TEAL)])
+    _tb(
+        sl,
+        0.38,
+        1.42,
+        6.08,
+        0.36,
+        [("El corte se activa a las 00:30. De 01:00 a 05:00 el consumo quedó en cero.", 11, False, NAVY)],
+    )
+    ya = [
+        (
+            "MAE  ·  Estanque Norte",
+            "Desde el 05/08. Noche 4,8 → 0 m³ desde las 00:30. "
+            "113 m³/mes ($157.920). 01:00–05:00 en cero.",
+        ),
+        (
+            "MAE  ·  Pizza Hut",
+            "Desde el 01/07. 01:00–05:00 ya estaba en cero: el control está puesto, "
+            "no suma m³ extra. Un día alto es ocupación de local.",
+        ),
+        (
+            "BOM  ·  San Ignacio 500",
+            "Desde el 17/07. Noche 31,7 → 0 m³ desde las 00:30. "
+            "886 m³/mes ($1.241.100). El ~2 m³ de 00:00–00:30 no es noche.",
+        ),
+        (
+            "MAE  ·  Estanque Sur",
+            "No es on/off: presostatos 10/06. Día 88 → 28 m³. "
+            "1.826 m³/mes ($2.555.700). El mayor ahorro ya logrado.",
+        ),
     ]
-    y0, gap, bottom = 1.10, 0.05, 7.32
-    n = len(filas)
-    h = (bottom - y0 - gap * (n - 1)) / n
-    y = y0
-    for code, txt in filas:
-        _caja(sl, 0.22, y, 12.88, h, fill=(255, 249, 235), line=GOLD)
-        _tb(sl, 0.36, y + 0.04, 12.60, 0.20, [(code, 12, True, GOLD)])
-        _tb(sl, 0.36, y + 0.24, 12.60, h - 0.30, [(txt, 12, False, NAVY)])
-        y += h + gap
+    y = 1.84
+    for tit, txt in ya:
+        _caja(sl, 0.38, y, 6.06, 1.22, fill=WHITE, line=TEAL)
+        _tb(sl, 0.50, y + 0.06, 5.82, 0.24, [(tit, 12, True, NAVY)])
+        _tb(sl, 0.50, y + 0.32, 5.82, 0.82, [(txt, 11, False, NAVY)])
+        y += 1.30
+    _tb(
+        sl,
+        0.38,
+        7.08,
+        6.08,
+        0.16,
+        [("Total logrado MAE + BOM: 2.825 m³/mes  ·  $3.954.720", 11, True, NAVY)],
+    )
+
+    # Derecha: a copiar / proponer
+    _caja(sl, 6.74, 1.08, 6.38, 6.20, fill=(255, 249, 235), line=GOLD)
+    _tb(sl, 6.90, 1.14, 6.08, 0.28, [("A PROPONER  ·  mismo corte 00:30", 13, True, GOLD)])
+    _tb(
+        sl,
+        6.90,
+        1.42,
+        6.08,
+        0.36,
+        [("Copiar el on/off que ya corre en Norte y SI500. Meta: esa noche a cero.", 11, False, NAVY)],
+    )
+    prop = [
+        (
+            "MAQ  ·  Matriz Principal",
+            "On/off 00:30. Noche típica 21,1 m³ → 0 = 634 m³/mes ($887.040). "
+            "Umbral 24 h: 240 m³/día.",
+        ),
+        (
+            "PAK  ·  Bazar Gourmet",
+            "On/off 00:30 en Bazar (no en las Sandías). Noche 29,1 m³ → 0 = "
+            "874 m³/mes ($1.224.300). Umbrales: DL 390 · Bazar 250 · DL Kennedy 20.",
+        ),
+        (
+            "AEB  ·  Anillo Plaza y Matriz 1° piso",
+            "Proponer on/off 00:30. Umbrales 24 h: Anillo 22 · Matriz 75 m³/día.",
+        ),
+        (
+            "MAM / CUR",
+            "Maipú: sin on/off; a la espera de Arrow + punto 6 (Pasillo 2). "
+            "Curauma: noche chica, sin on/off. Umbrales Sur 14 · Norte 13.",
+        ),
+    ]
+    y = 1.84
+    for tit, txt in prop:
+        _caja(sl, 6.90, y, 6.06, 1.22, fill=WHITE, line=GOLD)
+        _tb(sl, 7.02, y + 0.06, 5.82, 0.24, [(tit, 12, True, NAVY)])
+        _tb(sl, 7.02, y + 0.32, 5.82, 0.82, [(txt, 11, False, NAVY)])
+        y += 1.30
+    _tb(
+        sl,
+        6.90,
+        7.08,
+        6.08,
+        0.16,
+        [("Si se aprueban MAQ + PAK: 4.333 m³/mes  ·  $6.066.060", 11, True, NAVY)],
+    )
 
 
 def build_ppt(
