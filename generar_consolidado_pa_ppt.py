@@ -915,33 +915,52 @@ def chart_barras_propuestas(
     *,
     titulo: str = "Futuros puntos de control  ·  proyección a cero desde las 00:30",
 ) -> None:
-    """Barras verticales de m³/mes (y $) para las propuestas de on/off."""
-    labels = [a for a, _ in filas]
+    """Barras horizontales: el $ se lee a la derecha, sin que Bazar aplaste la escala."""
+    labels = [" ".join(str(a).split()) for a, _ in filas]
     vals = [float(b) for _, b in filas]
-    fig, ax = plt.subplots(figsize=(10.6, 4.35), dpi=150)
-    x = np.arange(len(labels))
-    ax.bar(x, vals, color="#C9A227", zorder=3, width=0.62)
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels, fontsize=9)
-    ax.set_ylabel("m³ / mes", fontsize=9)
-    ax.set_title(titulo, fontsize=11, loc="left", color="#0D3B66")
+    n = len(vals)
+    fig, ax = plt.subplots(figsize=(10.8, max(3.8, 0.70 * n + 1.25)), dpi=160)
+    y = np.arange(n)
+    ax.barh(y, vals, color="#C9A227", zorder=3, height=0.58, edgecolor="none")
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels, fontsize=10, color="#0D3B66")
+    ax.invert_yaxis()
+    ax.set_xlabel("m³ / mes", fontsize=9, color="#0D3B66")
+    ax.set_title(titulo, fontsize=11, loc="left", color="#0D3B66", pad=8)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
+    ax.spines["left"].set_visible(False)
+    ax.tick_params(axis="y", length=0, colors="#0D3B66")
+    ax.tick_params(axis="x", colors="#0D3B66")
+    ax.xaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
     ax.set_axisbelow(True)
-    ymax = max(vals + [1.0]) * 1.32
-    ax.set_ylim(0, ymax)
-    for xi, v in zip(x, vals):
-        ax.text(
-            xi,
-            v + ymax * 0.03,
-            f"{fn(v, 0)} m³\n{_clp_mes(v)}",
-            ha="center",
-            va="bottom",
-            fontsize=8,
-            fontweight="bold",
-            color="#0D3B66",
-        )
+    tope = max(vals + [1.0])
+    xmax = tope * 1.22
+    ax.set_xlim(0, xmax)
+    for yi, v in zip(y, vals):
+        txt = f"{fn(v, 0)} m³   {_clp_mes(v)}"
+        if v >= tope * 0.45:
+            ax.text(
+                v - xmax * 0.012,
+                yi,
+                txt,
+                va="center",
+                ha="right",
+                fontsize=9,
+                fontweight="bold",
+                color="#0D3B66",
+            )
+        else:
+            ax.text(
+                v + xmax * 0.016,
+                yi,
+                txt,
+                va="center",
+                ha="left",
+                fontsize=9,
+                fontweight="bold",
+                color="#0D3B66",
+            )
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", facecolor="white")
