@@ -34,16 +34,22 @@ from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches as PptInches
 
 from generar_ppt_recorrido_ejecutivo_pa import (
+    BAZAR,
     CHIP_NOTA,
     COLOR_NODO,
+    FALABELLA,
     FONDO,
     GOLD,
     GRAY,
     LIGHT,
     LOGO,
     MALLS,
+    MAQ_ALZA,
+    MATRIZ_AEB,
+    MATRIZ_MAQ,
     NAVY,
     NOMBRE_CORTO,
+    TARIFA_CLP_M3,
     TEAL,
     WHITE,
     _caja,
@@ -272,14 +278,15 @@ def refrescar_noches(nodos: List[str], d0: date, d1: date) -> Dict[str, Dict[str
 
 def refrescar_horas_noche(nodos: List[str], d0: date, d1: date) -> Dict[str, Dict[str, Dict[str, float]]]:
     """Perfil 00–06 hora Chile por día (para ventana 01:00–05:00 del corte a las 00:30)."""
-    by_h: Dict[str, Dict[str, Dict[str, float]]] = {n: {} for n in nodos}
+    by_h: Dict[str, Dict[str, Dict[str, float]]] = {}
     if JSON_HOURS.is_file():
         try:
-            prev = json.loads(JSON_HOURS.read_text(encoding="utf-8")).get("by_h") or {}
-            for n in nodos:
-                by_h[n] = dict(prev.get(n) or {})
+            by_h = dict(json.loads(JSON_HOURS.read_text(encoding="utf-8")).get("by_h") or {})
         except Exception:
-            pass
+            by_h = {}
+    for n in nodos:
+        rec = by_h.get(n)
+        by_h[n] = dict(rec) if isinstance(rec, dict) else {}
     pendientes: List[Tuple[str, date]] = []
     for nid in nodos:
         for d in _rango(d0, d1):
@@ -811,7 +818,60 @@ def _slide_mall(
         x += w + gap
 
 
-def _slide_propuestas(prs, hasta: date) -> None:
+AEB_PROP_DESDE = date(2026, 7, 1)
+FALABELLA_PROP_DESDE = date(2026, 8, 15)
+PAK_PROP_DESDE = date(2026, 7, 1)
+
+
+def _hval_hora(rec: Dict[str, Any], h: int) -> float:
+    if not rec:
+        return 0.0
+    v = rec.get(str(h))
+    if v is None:
+        v = rec.get(h)
+    return float(v or 0.0)
+
+
+def _mediana_vals(vals: List[float]) -> float:
+    xs = sorted(float(v) for v in vals)
+    if not xs:
+        return 0.0
+    n = len(xs)
+    mid = n // 2
+    if n % 2:
+        return xs[mid]
+    return (xs[mid - 1] + xs[mid]) / 2.0
+
+
+def _noche_tipica_00_06(
+    by_h: Dict[str, Dict[str, Dict[str, float]]],
+    nid: str,
+    d0: date,
+    hasta: date,
+    *,
+    min_noche: float = 0.0,
+) -> Tuple[float, float]:
+    """Mediana 00:00–06:00 y proyección mensual (×30). El $ es esa noche a cero."""
+    vals: List[float] = []
+    for iso, rec in (by_h.get(nid) or {}).items():
+        try:
+            d = date.fromisoformat(iso)
+        except ValueError:
+            continue
+        if not (d0 <= d <= hasta):
+            continue
+        s = sum(_hval_hora(rec, h) for h in range(6))
+        if s >= min_noche:
+            vals.append(s)
+    med = _mediana_vals(vals)
+    return med, med * 30.0
+
+
+def _clp_mes(m3: float) -> str:
+    return f"${fn(float(m3) * TARIFA_CLP_M3, 0)}"
+
+
+def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, float]]]) -> None:
     sl = prs.slides.add_slide(prs.slide_layouts[6])
     _header_bar(
         sl,
@@ -867,6 +927,15 @@ def _slide_propuestas(prs, hasta: date) -> None:
         [("Total logrado MAE + BOM: 2.825 m³/mes  ·  $3.954.720", 11, True, NAVY)],
     )
 
+    noc_maq, mes_maq = _noche_tipica_00_06(by_h, MATRIZ_MAQ, MAQ_ALZA, hasta)
+    noc_pak, mes_pak = _noche_tipica_00_06(by_h, BAZAR, PAK_PROP_DESDE, hasta)
+    noc_aeb, mes_aeb = _noche_tipica_00_06(by_h, MATRIZ_AEB, AEB_PROP_DESDE, hasta)
+    noc_fala, mes_fala = _noche_tipica_00_06(
+        by_h, FALABELLA, FALABELLA_PROP_DESDE, hasta, min_noche=1.0
+    )
+    propuesto = mes_maq + mes_pak + mes_aeb + mes_fala
+    total_si = 2825.0 + propuesto
+
     # Derecha: a copiar / proponer
     _caja(sl, 6.74, 1.08, 6.38, 6.20, fill=(255, 249, 235), line=GOLD)
     _tb(sl, 6.90, 1.14, 6.08, 0.28, [("A PROPONER  ·  mismo corte 00:30", 13, True, GOLD)])
@@ -881,29 +950,30 @@ def _slide_propuestas(prs, hasta: date) -> None:
     prop = [
         (
             "MAQ  ·  Matriz Principal",
-            "On/off 00:30. Noche típica 21,1 m³ → 0 = 634 m³/mes ($887.040). "
-            "Umbral 24 h: 240 m³/día.",
+            f"On/off 00:30. Noche típica {fn(noc_maq, 1)} m³ → 0 = {fn(mes_maq, 0)} m³/mes "
+            f"({_clp_mes(mes_maq)}). Umbral 24 h: 240 m³/día.",
         ),
         (
             "PAK  ·  Bazar Gourmet",
-            "On/off 00:30 en Bazar (no en las Sandías). Noche 29,1 m³ → 0 = "
-            "874 m³/mes ($1.224.300). Umbrales: DL 390 · Bazar 250 · DL Kennedy 20.",
+            f"On/off 00:30 en Bazar (no en las Sandías). Noche {fn(noc_pak, 1)} m³ → 0 = "
+            f"{fn(mes_pak, 0)} m³/mes ({_clp_mes(mes_pak)}). Umbrales: DL 390 · Bazar 250 · DL Kennedy 20.",
         ),
         (
-            "AEB  ·  Anillo Plaza y Matriz 1° piso",
-            "Proponer on/off 00:30. Umbrales 24 h: Anillo 22 · Matriz 75 m³/día.",
+            "AEB  ·  Matriz 1° piso",
+            f"On/off 00:30 en el primer piso (no Anillo). Noche {fn(noc_aeb, 1)} m³ → 0 = "
+            f"{fn(mes_aeb, 0)} m³/mes ({_clp_mes(mes_aeb)}). Umbral 24 h: 75 m³/día.",
         ),
         (
-            "MAM / CUR",
-            "Maipú: sin on/off; a la espera de Arrow + punto 6 (Pasillo 2). "
-            "Curauma: noche chica, sin on/off. Umbrales Sur 14 · Norte 13.",
+            "MAM  ·  Falabella",
+            f"On/off 00:30 (el mall sale por Falabella desde el 15/08). Noche {fn(noc_fala, 1)} m³ → 0 = "
+            f"{fn(mes_fala, 0)} m³/mes ({_clp_mes(mes_fala)}). Umbral 140 m³/día. Arrow + punto 6 sigue.",
         ),
     ]
     y = 1.84
     for tit, txt in prop:
         _caja(sl, 6.90, y, 6.06, 1.22, fill=WHITE, line=GOLD)
         _tb(sl, 7.02, y + 0.06, 5.82, 0.24, [(tit, 12, True, NAVY)])
-        _tb(sl, 7.02, y + 0.32, 5.82, 0.82, [(txt, 11, False, NAVY)])
+        _tb(sl, 7.02, y + 0.32, 5.82, 0.82, [(txt, 10, False, NAVY)])
         y += 1.30
     _tb(
         sl,
@@ -911,7 +981,14 @@ def _slide_propuestas(prs, hasta: date) -> None:
         7.08,
         6.08,
         0.16,
-        [("Si se aprueban MAQ + PAK: 4.333 m³/mes  ·  $6.066.060", 11, True, NAVY)],
+        [
+            (
+                f"Si se aprueban las 4: {fn(total_si, 0)} m³/mes  ·  {_clp_mes(total_si)}",
+                11,
+                True,
+                NAVY,
+            )
+        ],
     )
 
 
@@ -925,6 +1002,7 @@ def build_ppt(
     s_prev: Tuple[date, date],
     s_act: Tuple[date, date],
     emision: str,
+    by_h: Optional[Dict[str, Dict[str, Dict[str, float]]]] = None,
 ) -> Path:
     prs = Presentation()
     prs.slide_width = PptInches(13.333)
@@ -937,7 +1015,7 @@ def build_ppt(
     for mall in MALLS:
         print(f"[INFO] Lámina {mall['code']}…", flush=True)
         _slide_mall(prs, mall, by, n06, s_act, s_prev, ante0, hasta)
-    _slide_propuestas(prs, hasta)
+    _slide_propuestas(prs, hasta, by_h or {})
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / f"Consolidado_PA_7malls_{hasta.strftime('%Y%m%d')}.pptx"
     prs.save(str(path))
@@ -989,7 +1067,29 @@ def main() -> int:
     else:
         conn = refrescar_conexion(nodos)
 
-    ppt = build_ppt(by, n06, conn, desde, hasta, ante0, s_prev, s_act, emision)
+    prop_nodes = ["000025-13", "000025-35", MATRIZ_AEB, FALABELLA]
+    d0_h = date(2026, 6, 1)
+    if args.skip_refresh and JSON_HOURS.is_file():
+        by_h = json.loads(JSON_HOURS.read_text(encoding="utf-8")).get("by_h") or {}
+        need_h = False
+        checks = [
+            ("000025-13", d0_h),
+            ("000025-35", date(2026, 7, 1)),
+            (MATRIZ_AEB, AEB_PROP_DESDE),
+            (FALABELLA, FALABELLA_PROP_DESDE),
+        ]
+        for nid, dchk in checks:
+            rec = (by_h.get(nid) or {}).get(dchk.isoformat()) or {}
+            if "1" not in rec and 1 not in rec:
+                need_h = True
+                break
+        if need_h:
+            print("[INFO] Horas de propuesta no están en cache; se descargan.", flush=True)
+            by_h = refrescar_horas_noche(prop_nodes, d0_h, hasta)
+    else:
+        by_h = refrescar_horas_noche(prop_nodes, d0_h, hasta)
+
+    ppt = build_ppt(by, n06, conn, desde, hasta, ante0, s_prev, s_act, emision, by_h)
     print("\n=== SALIDA ===")
     print(ppt)
     return 0

@@ -5,8 +5,8 @@ Informe de ahorro Parque Arauco para reunión — estilo reporte agregado.
 Destaca lo demostrable:
   - MAE: Estanque Sur (presostatos) + Estanque Norte (01:00–05:00 → cero)
   - Buenaventura: SI500 01:00–05:00 pasó a cero (corte 00:30)
-  - Quilicura / Kennedy: misma ventana, proyección a cero
-  - Maipú: a la espera de relocalizar Arrow e instalar el punto 6 (Pasillo 2)
+  - Quilicura / Kennedy / El Bosque 1° piso / Falabella Maipú: misma ventana, proyección a cero
+  - Maipú: on/off en Falabella + relocalizar Arrow e instalar el punto 6 (Pasillo 2)
 
   python3 generar_informe_ahorro_pa_reunion.py
   python3 generar_informe_ahorro_pa_reunion.py --hasta 08/09/2026
@@ -49,15 +49,19 @@ from generar_ppt_recorrido_ejecutivo_pa import (
     CTRL_PIZZA,
     CTRL_SI500,
     DL_KENNEDY,
+    FALABELLA,
     MAQ_ALZA,
+    MATRIZ_AEB,
     PIZZA_NOCHES_ATIPICAS,
     SUR_REPARACION,
     TARIFA_CLP_M3,
+    UMBRAL_FALABELLA_DIA,
     UMBRAL_MAE_BANOS_DIA,
     UMBRAL_MAE_NORTE_DIA,
     UMBRAL_MAE_PIZZA_DIA,
     UMBRAL_MAE_SUR_DIA,
     UMBRAL_MAQ_DIA,
+    UMBRAL_MATRIZ_AEB_DIA,
     UMBRAL_PAK_BAZAR_DIA,
     UMBRAL_PAK_DL_DIA,
     UMBRAL_PAK_KEN_DIA,
@@ -71,6 +75,10 @@ GOLD = RGBColor(201, 162, 39)
 GRAY = RGBColor(80, 80, 80)
 SI500 = "000025-18"
 MATRIZ_MAQ = "000025-13"
+# Matriz 1° piso activa desde 15/05; la noche típica se toma de julio en adelante.
+AEB_PROP_DESDE = date(2026, 7, 1)
+# Desde el 15/08 el mall de Maipú sale por Falabella (reactivado 11/08).
+FALABELLA_PROP_DESDE = date(2026, 8, 15)
 CHARTS = OUT_DIR / "charts_informe_reunion"
 DIAGRAMA_MAM = OUT_DIR / "mam_propuesta_localizacion.png"
 # Corte a las 00:30: 01:00–05:00 demuestra el cero; el $ es la noche 00:30–06:00 (00–06 menos 00:00–00:30).
@@ -229,12 +237,14 @@ def _stats_logrado(
     return n06
 
 
-def _stats_propuesta_noche(serie: Dict[str, float], d0: date, hasta: date) -> Dict[str, float]:
+def _stats_propuesta_noche(
+    serie: Dict[str, float], d0: date, hasta: date, *, min_noche: float = 0.0
+) -> Dict[str, float]:
     """Proyección a cero desde las 00:30: el ahorro es la noche típica 00:00–06:00 completa."""
     vals = []
     for iso, v in serie.items():
         d = date.fromisoformat(iso)
-        if d0 <= d <= hasta:
+        if d0 <= d <= hasta and float(v) >= min_noche:
             vals.append(float(v))
     med = _mediana(vals)
     return {
@@ -353,7 +363,7 @@ def chart_barras_ahorro(path: Path, filas: List[Tuple[str, float, str]]) -> None
     labels = [a for a, _, _ in filas]
     vals = [b for _, b, _ in filas]
     cols = ["#2E7D32" if t == "logrado" else "#C9A227" for _, _, t in filas]
-    fig, ax = plt.subplots(figsize=(9.2, 3.6), dpi=150)
+    fig, ax = plt.subplots(figsize=(9.2, 4.6), dpi=150)
     y = np.arange(len(labels))
     ax.barh(y, vals, color=cols, zorder=3)
     ax.set_yticks(y)
@@ -420,10 +430,12 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     maq = ctx["maq"]
     pak = ctx["pak"]
     pak_nom = ctx["pak_nom"]
+    aeb = ctx["aeb"]
+    fala = ctx["fala"]
 
     # Pizza Hut ya está en cero 01:00–05:00: el control se cita como evidencia, no como $.
     logrado_mes = sur["ahorro_mes"] + norte["ahorro_mes"] + bom["ahorro_mes"]
-    propuesto_mes = maq["ahorro_mes"] + pak["ahorro_mes"]
+    propuesto_mes = maq["ahorro_mes"] + pak["ahorro_mes"] + aeb["ahorro_mes"] + fala["ahorro_mes"]
     total_mes = logrado_mes + propuesto_mes
     logrado_acum = sur["ahorro_acum"] + norte["ahorro_acum"] + bom["ahorro_acum"]
 
@@ -431,8 +443,10 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         (f"MAE Estanque Sur\n(presostatos 10/06)", sur["ahorro_mes"], "logrado"),
         (f"MAE Estanque Norte\n(control 05/08)", norte["ahorro_mes"], "logrado"),
         (f"Buenaventura SI500\n(control 17/07)", bom["ahorro_mes"], "logrado"),
-        (f"Quilicura Matriz\n(propuesta 01–05 → 0)", maq["ahorro_mes"], "propuesto"),
-        (f"Kennedy {pak_nom}\n(propuesta 01–05 → 0)", pak["ahorro_mes"], "propuesto"),
+        (f"Quilicura Matriz\n(propuesta 00:30 → 0)", maq["ahorro_mes"], "propuesto"),
+        (f"Kennedy {pak_nom}\n(propuesta 00:30 → 0)", pak["ahorro_mes"], "propuesto"),
+        (f"El Bosque Matriz 1° piso\n(propuesta 00:30 → 0)", aeb["ahorro_mes"], "propuesto"),
+        (f"Maipú Falabella\n(propuesta 00:30 → 0)", fala["ahorro_mes"], "propuesto"),
     ]
     p_bar = CHARTS / "ahorro_mensual_barras.png"
     chart_barras_ahorro(p_bar, filas_chart)
@@ -512,15 +526,16 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     )
     _p_lead(
         doc,
-        "A copiar — Quilicura y Kennedy.",
-        "El mismo corte se propone en Matriz Principal y en Bazar Gourmet. Esa noche hoy no es cero; "
+        "A copiar — Quilicura, Kennedy, El Bosque 1° piso y Falabella Maipú.",
+        "El mismo corte se propone en Matriz Principal, Bazar Gourmet, Matriz 1° piso de El Bosque "
+        "y Falabella de Maipú (el mall sale por ahí desde el 15/08). Esa noche hoy no es cero; "
         "esa es la proyección.",
     )
     _p_lead(
         doc,
-        "Pendiente — Maipú.",
-        "No hay on/off que sumar todavía. Estamos a la espera de concretar la relocalización de "
-        "Pasillo 1 Arrow y la instalación del punto 6 (Pasillo 2), según la propuesta enviada a Don Miguel.",
+        "Pendiente — Maipú (puntos 6 y Arrow).",
+        "El on/off de Falabella sí entra en la simulación. Sigue pendiente concretar la relocalización "
+        "de Pasillo 1 Arrow y la instalación del punto 6 (Pasillo 2), según la propuesta enviada a Don Miguel.",
     )
 
     p_br = doc.add_paragraph()
@@ -573,6 +588,20 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 clp(pak["ahorro_mes"]),
             ],
             [
+                "El Bosque Matriz 1° piso",
+                "Propuesta",
+                f"{fn(aeb['noche'], 1)} m³ → 0 desde 00:30",
+                fn(aeb["ahorro_mes"], 0),
+                clp(aeb["ahorro_mes"]),
+            ],
+            [
+                "Maipú Falabella",
+                "Propuesta",
+                f"{fn(fala['noche'], 1)} m³ → 0 desde 00:30",
+                fn(fala["ahorro_mes"], 0),
+                clp(fala["ahorro_mes"]),
+            ],
+            [
                 "Total logrado",
                 "Operativo",
                 "MAE + Buenaventura",
@@ -580,9 +609,9 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 clp(logrado_mes),
             ],
             [
-                "Total si se aprueban MAQ + PAK",
+                "Total si se aprueban las 4",
                 "Logrado + propuesto",
-                "Cuatro recintos",
+                "MAQ + PAK + AEB 1° piso + Falabella",
                 fn(total_mes, 0),
                 clp(total_mes),
             ],
@@ -680,23 +709,23 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 clp(pak["ahorro_mes"]),
             ],
             [
-                "AEB Anillo Plaza y Matriz 1° piso",
+                "AEB Matriz 1° piso",
                 "On/off 00:30",
-                "Umbrales 24 h: Anillo 22 · Matriz 75 m³/día",
-                "A definir",
-                "—",
+                f"{fn(aeb['noche'], 1)} m³ → 0  ·  umbral 75 m³/día",
+                fn(aeb["ahorro_mes"], 0),
+                clp(aeb["ahorro_mes"]),
             ],
             [
-                "MAM / CUR",
-                "Sin on/off ahora",
-                "Maipú: Arrow + punto 6. Curauma: noche chica (umbrales Sur 14 · Norte 13)",
-                "—",
-                "—",
+                "MAM Falabella",
+                "On/off 00:30 (desde 15/08 sale por Falabella)",
+                f"{fn(fala['noche'], 1)} m³ → 0  ·  umbral 140 m³/día",
+                fn(fala["ahorro_mes"], 0),
+                clp(fala["ahorro_mes"]),
             ],
             [
-                "Total si se aprueban MAQ + PAK",
+                "Total si se aprueban las 4",
                 "Logrado + propuesto",
-                "Cuatro recintos con $ en esta tabla",
+                "MAQ + PAK + AEB 1° piso + Falabella. CUR: noche chica, sin on/off",
                 fn(total_mes, 0),
                 clp(total_mes),
             ],
@@ -808,16 +837,49 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         f"Bazar Gourmet {fn(UMBRAL_PAK_BAZAR_DIA, 0)} · DL Kennedy {fn(UMBRAL_PAK_KEN_DIA, 0)} m³/día.",
     )
 
-    _h(doc, "7. Mall Arauco Maipú (MAM) — a la espera de concretar", 1)
+    _h(doc, "7. Mall Arauco El Bosque (AEB) — propuesta de control", 1)
     _p(
         doc,
-        "Maipú no entra en esta lámina como ahorro de on/off. Placa Bancaria y Falabella son "
-        "alimentación alternativa del mall (cuando se inyecta una, se corta la otra). El 08/09 "
-        "Placa 4,5 m³ y Falabella 92 m³ es cambio de alimentación, no dos fallas.",
+        "Desde el 15/05 la Matriz A.A. está desactivada: el recinto se lee en Matriz 1° piso "
+        f"({MATRIZ_AEB}) y Anillo Plaza. Esta simulación corta solo el primer piso, que es el "
+        f"caudal de noche: {fn(aeb['noche'], 1)} m³ (mediana, {int(aeb['n'])} noches desde julio "
+        f"hasta {hasta:%d/%m}). Anillo Plaza queda con umbral de día, sin $ en esta proyección.",
     )
     _p(
         doc,
-        "Lo que sí está pendiente —y hay que pedirlo en la reunión— es concretar la relocalización "
+        f"Propuesta: mismo corte a las 00:30 en Matriz 1° piso. Meta: {fn(aeb['noche'], 1)} m³ → 0 = "
+        f"{fn(aeb['ahorro_mes'], 0)} m³/mes ({clp(aeb['ahorro_mes'])}). No se resta el tramo "
+        "00:00–00:30: el control es ir a cero.",
+        bold=True,
+    )
+    _p(
+        doc,
+        f"Umbral 24 h a activar: Matriz 1° piso {fn(UMBRAL_MATRIZ_AEB_DIA, 0)} m³/día.",
+    )
+
+    _h(doc, "8. Mall Arauco Maipú (MAM) — Falabella + pendiente Arrow / punto 6", 1)
+    _p(
+        doc,
+        "Placa Bancaria y Falabella son alimentación alternativa del mall (cuando se inyecta una, "
+        "se corta la otra). El 08/09 Placa 4,5 m³ y Falabella 92 m³ es cambio de alimentación, no "
+        "dos fallas. Desde el 15/08 el mall sale por Falabella: el on/off se propone en esa línea.",
+    )
+    _p(
+        doc,
+        f"Noche típica de Falabella desde el 15/08 (solo noches con caudal, no los días que inyecta "
+        f"Placa): {fn(fala['noche'], 1)} m³ (mediana, {int(fala['n'])} noches hasta {hasta:%d/%m}). "
+        f"Propuesta: mismo corte a las 00:30. Meta: {fn(fala['noche'], 1)} m³ → 0 = "
+        f"{fn(fala['ahorro_mes'], 0)} m³/mes ({clp(fala['ahorro_mes'])}). Tampoco se resta el tramo "
+        "00:00–00:30.",
+        bold=True,
+    )
+    _p(
+        doc,
+        f"Umbral 24 h a activar: Falabella {fn(UMBRAL_FALABELLA_DIA, 0)} m³/día.",
+    )
+    _p(
+        doc,
+        "Sigue pendiente —y hay que pedirlo en la reunión— concretar la relocalización "
         "del punto de Pasillo 1 Arrow y la instalación del punto 6 (Pasillo 2). Se envió a Don Miguel "
         "la propuesta de localización: dos sectores hoy no están monitoreados y pueden concentrar "
         "una parte importante del volumen distribuido. Pasillo Técnico Boulevard y Arrow casi no "
@@ -843,20 +905,21 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
             color=GRAY,
         )
 
-    _h(doc, "8. Pedido concreto de la reunión", 1)
+    _h(doc, "9. Pedido concreto de la reunión", 1)
     _p(
         doc,
         f"Se pide aprobar el mismo corte (se arma a las 00:30; 01:00–05:00 a cero) en "
-        f"(a) Matriz Principal de Quilicura y (b) {pak_nom} de Kennedy. "
+        f"(a) Matriz Principal de Quilicura, (b) {pak_nom} de Kennedy, "
+        f"(c) Matriz 1° piso de El Bosque y (d) Falabella de Maipú. "
         f"Con eso se proyectan {fn(propuesto_mes, 0)} m³/mes adicionales ({clp(propuesto_mes)}). "
         "Junto con el corte, activar los umbrales 24 h de este informe.",
         bold=True,
     )
     _p(
         doc,
-        "En Maipú se pide validar la propuesta enviada a Don Miguel (relocalizar Arrow e instalar "
-        "el punto 6 en Pasillo 2) y habilitar la gatera al entretecho para programar la faena. "
-        "No se pide on/off de ahorro en Maipú ni corte en las Sandías de Kennedy.",
+        "En Maipú, además del on/off de Falabella, se pide validar la propuesta enviada a Don Miguel "
+        "(relocalizar Arrow e instalar el punto 6 en Pasillo 2) y habilitar la gatera al entretecho "
+        "para programar la faena. No se pide corte en las Sandías de Kennedy ni on/off en Curauma.",
         bold=True,
     )
 
@@ -865,15 +928,17 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         f"¿Cuánto se demuestra ya? {fn(logrado_mes, 0)} m³/mes ({clp(logrado_mes)}), MAE + Buenaventura. "
         f"Casi todo es Estanque Sur + SI500 a cero en 01:00–05:00. Acumulado a {hasta:%d/%m}: "
         f"{fn(logrado_acum, 0)} m³ ({clp(logrado_acum)}).",
-        f"¿Cuánto más si aprueban Quilicura y Kennedy? {fn(propuesto_mes, 0)} m³/mes "
-        f"({clp(propuesto_mes)}), pasando esa misma ventana a cero. Suma total {fn(total_mes, 0)} m³/mes "
+        f"¿Cuánto más si aprueban las 4? {fn(propuesto_mes, 0)} m³/mes "
+        f"({clp(propuesto_mes)}): Quilicura, Kennedy, El Bosque 1° piso y Falabella Maipú, "
+        f"pasando esa misma ventana a cero. Suma total {fn(total_mes, 0)} m³/mes "
         f"({clp(total_mes)}).",
         "¿Por qué no restan 2 m³ de residual? Porque el control nocturno es ir a cero. Esos ~2 m³ "
         "son el tramo 00:00–00:30, antes de que el corte quede armado. No es noche.",
         "¿Por qué Quilicura? La Matriz concentra el mall y 01:00–05:00 se quedó alta desde junio. El corte es el mismo que ya corre en SI500.",
         f"¿Por qué Kennedy? Hay que cortar en {pak_nom} (el de mayor noche de la cadena DL), no en las Sandías.",
+        "¿Por qué El Bosque 1° piso? La Matriz A.A. está desactivada desde el 15/05; el caudal de noche está en Matriz 1° piso.",
         "¿Pizza Hut cuánto ahorra? El control está puesto; 01:00–05:00 ya era cero. No se suma en $.",
-        "¿Y Maipú? A la espera de concretar Arrow + punto 6 (Pasillo 2) con Don Miguel y la gatera. El 08/09 Placa/Falabella es cambio de alimentación, no ahorro.",
+        "¿Y Maipú? On/off en Falabella (el mall sale por ahí desde el 15/08). Placa/Falabella el 08/09 es cambio de alimentación, no dos fallas. Arrow + punto 6 sigue pendiente con Don Miguel y la gatera.",
         "Los umbrales 24 h (promedio operativo × 1,25) se piden junto con el corte, para que el recinto vea el día completo, no solo la madrugada.",
     ]
     for b in bullets:
@@ -915,7 +980,16 @@ def main() -> int:
         by = refrescar_diario(nodos, desde, hasta)
 
     night_nodes = ["000025-01", "000025-07", "000025-18", "000025-13", "000025-27", "000025-35", "000025-36"]
-    hour_nodes = ["000025-01", "000025-07", "000025-18", "000025-13", "000025-35", "000025-36"]
+    hour_nodes = [
+        "000025-01",
+        "000025-07",
+        "000025-18",
+        "000025-13",
+        "000025-35",
+        "000025-36",
+        MATRIZ_AEB,
+        FALABELLA,
+    ]
     night_from = date(2026, 6, 1)
     if args.skip_refresh and JSON_NIGHT.is_file():
         hourly = json.loads(JSON_NIGHT.read_text(encoding="utf-8")).get("hourly") or {}
@@ -933,8 +1007,13 @@ def main() -> int:
     if args.skip_refresh and JSON_HOURS.is_file():
         by_h = json.loads(JSON_HOURS.read_text(encoding="utf-8")).get("by_h") or {}
         need_h = False
+        check_iso = {
+            MATRIZ_AEB: AEB_PROP_DESDE.isoformat(),
+            FALABELLA: FALABELLA_PROP_DESDE.isoformat(),
+        }
         for nid in hour_nodes:
-            rec = (by_h.get(nid) or {}).get(night_from.isoformat()) or {}
+            iso = check_iso.get(nid, night_from.isoformat())
+            rec = (by_h.get(nid) or {}).get(iso) or {}
             if "1" not in rec and 1 not in rec:
                 need_h = True
                 break
@@ -953,6 +1032,15 @@ def main() -> int:
     maq = _stats_propuesta_noche(_serie_ventana(by_h, MATRIZ_MAQ, 0, H_NOCHE_FIN), MAQ_ALZA, hasta)
     bazar = _stats_propuesta_noche(_serie_ventana(by_h, BAZAR, 0, H_NOCHE_FIN), date(2026, 7, 1), hasta)
     ken = _stats_propuesta_noche(_serie_ventana(by_h, DL_KENNEDY, 0, H_NOCHE_FIN), date(2026, 7, 1), hasta)
+    aeb = _stats_propuesta_noche(
+        _serie_ventana(by_h, MATRIZ_AEB, 0, H_NOCHE_FIN), AEB_PROP_DESDE, hasta
+    )
+    fala = _stats_propuesta_noche(
+        _serie_ventana(by_h, FALABELLA, 0, H_NOCHE_FIN),
+        FALABELLA_PROP_DESDE,
+        hasta,
+        min_noche=1.0,
+    )
     if bazar["noche"] >= ken["noche"]:
         pak, pak_nom = bazar, "Bazar Gourmet"
     else:
@@ -966,6 +1054,8 @@ def main() -> int:
         "maq": maq,
         "pak": pak,
         "pak_nom": pak_nom,
+        "aeb": aeb,
+        "fala": fala,
     }
     print(
         "[INFO] MAE Sur",
@@ -981,6 +1071,10 @@ def main() -> int:
         "PAK",
         pak_nom,
         fn(pak["ahorro_mes"], 0),
+        "AEB 1° piso",
+        fn(aeb["ahorro_mes"], 0),
+        "Falabella",
+        fn(fala["ahorro_mes"], 0),
         flush=True,
     )
     docx = build_doc(ctx, hasta)
