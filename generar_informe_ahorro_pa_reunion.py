@@ -36,10 +36,12 @@ from docx.shared import Cm, Inches, Pt, RGBColor
 from generar_consolidado_pa_ppt import (
     JSON_DAILY,
     JSON_HOURS,
+    JSON_HOURS_DIA,
     JSON_NIGHT,
     OUT_DIR,
     cargar_diario,
     refrescar_diario,
+    refrescar_horas_dia,
     refrescar_horas_noche,
     refrescar_noches,
 )
@@ -359,6 +361,28 @@ def _tabla(doc: Document, headers: List[str], rows: List[List[str]], col_w: List
     return tbl
 
 
+def _perfil_hora(
+    by_h: Dict[str, Dict[str, Dict[str, float]]],
+    nid: str,
+    d0: date,
+    d1: date,
+    *,
+    h_max: int = 24,
+    excluir: set | None = None,
+) -> List[float]:
+    """Mediana m³ de cada hora Chile entre d0 y d1 (inclusive)."""
+    buckets: List[List[float]] = [[] for _ in range(h_max)]
+    for iso, rec in (by_h.get(nid) or {}).items():
+        d = date.fromisoformat(iso)
+        if d < d0 or d > d1:
+            continue
+        if excluir and d in excluir:
+            continue
+        for h in range(h_max):
+            buckets[h].append(_hval(rec, h))
+    return [_mediana(b) for b in buckets]
+
+
 def chart_barras_ahorro(path: Path, filas: List[Tuple[str, float, str]]) -> None:
     labels = [a for a, _, _ in filas]
     vals = [b for _, b, _ in filas]
@@ -377,6 +401,46 @@ def chart_barras_ahorro(path: Path, filas: List[Tuple[str, float, str]]) -> None
     ax.set_xlim(0, xmax)
     for yi, v in zip(y, vals):
         ax.text(v + xmax * 0.015, yi, fn(v, 0), va="center", fontsize=8, fontweight="bold", color="#0D3B66")
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+def chart_perfil_horario(
+    path: Path,
+    titulo: str,
+    pre: List[float],
+    post: List[float],
+    etq_pre: str,
+    etq_post: str,
+    *,
+    corte_00_30: bool = False,
+) -> None:
+    """Barras agrupadas por hora Chile: antes vs después del control."""
+    n = min(len(pre), len(post))
+    x = np.arange(n)
+    w = 0.38
+    fig, ax = plt.subplots(figsize=(8.4 if n > 12 else 7.2, 3.15), dpi=150)
+    ax.bar(x - w / 2, pre[:n], w, color="#8FA4B8", zorder=3, label=etq_pre)
+    ax.bar(x + w / 2, post[:n], w, color="#C9A227", zorder=3, label=etq_post)
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{h:02d}" for h in range(n)], fontsize=8)
+    ax.set_xlabel("Hora Chile", fontsize=9)
+    ax.set_ylabel("m³ / hora", fontsize=9)
+    ax.set_title(titulo, fontsize=10, loc="left", color="#0D3B66")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
+    ax.set_axisbelow(True)
+    if corte_00_30:
+        ax.axvline(0.5, color="#0D3B66", linestyle="--", linewidth=1.0, zorder=4)
+        ymax = max(list(pre[:n]) + list(post[:n]) + [1.0]) * 1.22
+        ax.text(0.55, ymax * 0.92, "corte 00:30", fontsize=8, color="#0D3B66")
+    else:
+        ymax = max(list(pre[:n]) + list(post[:n]) + [1.0]) * 1.18
+    ax.set_ylim(0, ymax)
+    ax.legend(frameon=False, fontsize=8, loc="upper right")
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, bbox_inches="tight", facecolor="white")
@@ -458,31 +522,33 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     p_bar = CHARTS / "ahorro_mensual_barras.png"
     chart_barras_ahorro(p_bar, filas_chart)
     p_sur = CHARTS / "mae_sur_antes_despues.png"
-    chart_antes_despues(
+    chart_perfil_horario(
         p_sur,
-        "MAE Estanque Sur — m³/día (mediana)",
-        sur["pre"],
-        sur["post"],
+        "MAE Estanque Sur — m³/hora (mediana) · presostatos 10/06",
+        ctx["sur_pre_h"],
+        ctx["sur_post_h"],
         "Antes 10/06",
         "Después 11/06",
     )
     p_norte = CHARTS / "mae_norte_antes_despues.png"
-    chart_antes_despues(
+    chart_perfil_horario(
         p_norte,
-        "MAE Estanque Norte — m³/noche desde 00:30 (mediana)",
-        norte["pre"],
-        0.0,
+        "MAE Estanque Norte — m³/hora 00–06 (mediana) · control 05/08",
+        ctx["norte_pre_h"],
+        ctx["norte_post_h"],
         "Antes 05/08",
-        "A cero",
+        "Con control",
+        corte_00_30=True,
     )
     p_bom = CHARTS / "bom_noche_antes_despues.png"
-    chart_antes_despues(
+    chart_perfil_horario(
         p_bom,
-        "Buenaventura SI500 — m³/noche desde 00:30 (mediana)",
-        bom["pre"],
-        0.0,
+        "Buenaventura SI500 — m³/hora 00–06 (mediana) · control 17/07",
+        ctx["bom_pre_h"],
+        ctx["bom_post_h"],
         "Antes 17/07",
-        "A cero",
+        "Con control",
+        corte_00_30=True,
     )
 
     doc = Document()
@@ -765,7 +831,17 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         "No es un modelo: es el mall después de la reparación.",
     )
     if p_sur.is_file():
-        doc.add_picture(str(p_sur), width=Inches(5.6))
+        doc.add_picture(str(p_sur), width=Inches(6.3))
+        cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        _set_run(
+            cap.add_run(
+                "Gris = antes de los presostatos. Dorado = después. Cada barra es la mediana de esa hora."
+            ),
+            "Gris = antes de los presostatos. Dorado = después. Cada barra es la mediana de esa hora.",
+            size=9,
+            color=GRAY,
+        )
     _p(
         doc,
         f"Estanque Norte (desde el 05/08): el corte se activa a las 00:30. De 01:00 a 05:00 el "
@@ -777,7 +853,17 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         "y no se resta del ahorro.",
     )
     if p_norte.is_file():
-        doc.add_picture(str(p_norte), width=Inches(5.6))
+        doc.add_picture(str(p_norte), width=Inches(6.3))
+        cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        _set_run(
+            cap.add_run(
+                "El corte se arma a las 00:30. De 01:00 a 05:00 el consumo queda en cero; 00:00–00:30 no es noche."
+            ),
+            "El corte se arma a las 00:30. De 01:00 a 05:00 el consumo queda en cero; 00:00–00:30 no es noche.",
+            size=9,
+            color=GRAY,
+        )
     _p(
         doc,
         "Pizza Hut (desde el 01/07) ya tenía 01:00–05:00 en cero: el control está puesto, "
@@ -809,7 +895,17 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         "en monitoreo; no es el punto del corte.",
     )
     if p_bom.is_file():
-        doc.add_picture(str(p_bom), width=Inches(5.6))
+        doc.add_picture(str(p_bom), width=Inches(6.3))
+        cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        _set_run(
+            cap.add_run(
+                "El corte se arma a las 00:30. De 01:00 a 05:00 queda en cero; el tramo 00:00–00:30 no se resta."
+            ),
+            "El corte se arma a las 00:30. De 01:00 a 05:00 queda en cero; el tramo 00:00–00:30 no se resta.",
+            size=9,
+            color=GRAY,
+        )
     _p(
         doc,
         f"Umbrales 24 h: San Ignacio 500 {fn(UMBRAL_SI500_DIA, 0)} m³/día · "
@@ -1044,6 +1140,17 @@ def main() -> int:
     else:
         by_h = refrescar_horas_noche(hour_nodes, night_from, hasta)
 
+    sur_nodes = ["000025-19"]
+    if args.skip_refresh and JSON_HOURS_DIA.is_file():
+        by_h_dia = json.loads(JSON_HOURS_DIA.read_text(encoding="utf-8")).get("by_h") or {}
+        rec_s = (by_h_dia.get("000025-19") or {}).get(desde.isoformat()) or {}
+        rec_e = (by_h_dia.get("000025-19") or {}).get(hasta.isoformat()) or {}
+        if ("12" not in rec_s and 12 not in rec_s) or ("12" not in rec_e and 12 not in rec_e):
+            print("[INFO] Horas 00–23 de Estanque Sur no están en cache; se descargan.", flush=True)
+            by_h_dia = refrescar_horas_dia(sur_nodes, desde, hasta)
+    else:
+        by_h_dia = refrescar_horas_dia(sur_nodes, desde, hasta)
+
     sur = _stats_sur((by.get("000025-19") or {}).get("daily") or {}, hasta)
     norte = _stats_logrado(by_h, "000025-01", CTRL_NORTE, hasta, lookback_dias=14)
     pizza = _stats_logrado(
@@ -1072,6 +1179,24 @@ def main() -> int:
         "ken": ken,
         "aeb": aeb,
         "fala": fala,
+        "sur_pre_h": _perfil_hora(
+            by_h_dia, "000025-19", desde, SUR_REPARACION - timedelta(days=1), h_max=24
+        ),
+        "sur_post_h": _perfil_hora(
+            by_h_dia, "000025-19", SUR_REPARACION + timedelta(days=1), hasta, h_max=24
+        ),
+        "norte_pre_h": _perfil_hora(
+            by_h,
+            "000025-01",
+            CTRL_NORTE - timedelta(days=14),
+            CTRL_NORTE - timedelta(days=1),
+            h_max=7,
+        ),
+        "norte_post_h": _perfil_hora(by_h, "000025-01", CTRL_NORTE, hasta, h_max=7),
+        "bom_pre_h": _perfil_hora(
+            by_h, SI500, CTRL_SI500 - timedelta(days=7), CTRL_SI500 - timedelta(days=1), h_max=7
+        ),
+        "bom_post_h": _perfil_hora(by_h, SI500, CTRL_SI500, hasta, h_max=7),
     }
     print(
         "[INFO] MAE Sur",
