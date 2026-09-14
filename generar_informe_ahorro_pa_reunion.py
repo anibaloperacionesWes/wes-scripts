@@ -607,6 +607,103 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
             color=GRAY,
         )
 
+    _h(doc, "Control nocturno ya operativo", 1)
+    _p(
+        doc,
+        "El corte se activa a las 00:30. De 01:00 a 05:00 el consumo quedó en cero. "
+        "Estos son los controles que ya corren (los mismos de la última lámina del consolidado):",
+    )
+    _tabla(
+        doc,
+        ["Punto", "Desde", "Control nocturno", "m³/mes", "$/mes"],
+        [
+            [
+                "MAE Estanque Norte",
+                "05/08",
+                f"{fn(norte['pre'], 1)} → 0 m³ desde las 00:30 (01:00–05:00 en cero)",
+                fn(norte["ahorro_mes"], 0),
+                clp(norte["ahorro_mes"]),
+            ],
+            [
+                "MAE Pizza Hut",
+                "01/07",
+                "01:00–05:00 ya en cero; el control está puesto, no suma m³ extra",
+                "—",
+                "—",
+            ],
+            [
+                "BOM San Ignacio 500",
+                "17/07",
+                f"{fn(bom['pre'], 1)} → 0 m³ desde las 00:30. El ~2 m³ de 00:00–00:30 no es noche",
+                fn(bom["ahorro_mes"], 0),
+                clp(bom["ahorro_mes"]),
+            ],
+            [
+                "MAE Estanque Sur",
+                "10/06",
+                f"No es on/off: presostatos. Día {fn(sur['pre'], 0)} → {fn(sur['post'], 0)} m³",
+                fn(sur["ahorro_mes"], 0),
+                clp(sur["ahorro_mes"]),
+            ],
+            [
+                "Total ya operativo",
+                "",
+                "MAE + Buenaventura",
+                fn(logrado_mes, 0),
+                clp(logrado_mes),
+            ],
+        ],
+        col_w=[4.6, 1.6, 6.2, 2.4, 2.6],
+    )
+
+    _h(doc, "A proponer — mismo corte 00:30", 1)
+    _p(
+        doc,
+        "Copiar el on/off que ya corre en Norte y SI500. Meta: esa noche a cero.",
+    )
+    _tabla(
+        doc,
+        ["Punto", "Acción", "Noche → cero", "m³/mes", "$/mes"],
+        [
+            [
+                "MAQ Matriz Principal",
+                "On/off 00:30",
+                f"{fn(maq['noche'], 1)} m³ → 0  ·  umbral 240 m³/día",
+                fn(maq["ahorro_mes"], 0),
+                clp(maq["ahorro_mes"]),
+            ],
+            [
+                f"PAK {pak_nom}",
+                "On/off 00:30 (no las Sandías)",
+                f"{fn(pak['noche'], 1)} m³ → 0  ·  umbrales DL 390 · Bazar 250 · DL Kennedy 20",
+                fn(pak["ahorro_mes"], 0),
+                clp(pak["ahorro_mes"]),
+            ],
+            [
+                "AEB Anillo Plaza y Matriz 1° piso",
+                "On/off 00:30",
+                "Umbrales 24 h: Anillo 22 · Matriz 75 m³/día",
+                "A definir",
+                "—",
+            ],
+            [
+                "MAM / CUR",
+                "Sin on/off ahora",
+                "Maipú: Arrow + punto 6. Curauma: noche chica (umbrales Sur 14 · Norte 13)",
+                "—",
+                "—",
+            ],
+            [
+                "Total si se aprueban MAQ + PAK",
+                "Logrado + propuesto",
+                "Cuatro recintos con $ en esta tabla",
+                fn(total_mes, 0),
+                clp(total_mes),
+            ],
+        ],
+        col_w=[4.6, 2.8, 5.0, 2.4, 2.6],
+    )
+
     _h(doc, "3. Mall Arauco Estación (MAE) — ahorro ya logrado", 1)
     _p(
         doc,
