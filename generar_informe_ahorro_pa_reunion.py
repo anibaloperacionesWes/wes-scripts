@@ -3,9 +3,9 @@
 Informe de ahorro Parque Arauco para reunión — estilo reporte agregado.
 
 Destaca lo demostrable:
-  - MAE: Estanque Sur (presostatos) + Estanque Norte (01:00–05:00 → cero)
+  - MAE: Estanque Norte (01:00–05:00 → cero). Estanque Sur se explica (presostato al relocalizar) pero no suma: no es control WES.
   - Buenaventura: SI500 01:00–05:00 pasó a cero (corte 00:30)
-  - Quilicura / Kennedy (Bazar + DL Kennedy) / El Bosque 1° piso / Falabella Maipú: misma ventana, proyección a cero
+  - Quilicura / Kennedy (Bazar + Andén 3-4 Matriz) / El Bosque 1° piso / Falabella Maipú: misma ventana, proyección a cero
   - Maipú: on/off en Falabella + relocalizar Arrow e instalar el punto 6 (Pasillo 2)
 
   python3 generar_informe_ahorro_pa_reunion.py
@@ -40,17 +40,18 @@ from generar_consolidado_pa_ppt import (
     JSON_NIGHT,
     OUT_DIR,
     cargar_diario,
+    chart_barras_propuestas,
     refrescar_diario,
     refrescar_horas_dia,
     refrescar_horas_noche,
     refrescar_noches,
 )
 from generar_ppt_recorrido_ejecutivo_pa import (
+    ANDEN_MATRIZ,
     BAZAR,
     CTRL_NORTE,
     CTRL_PIZZA,
     CTRL_SI500,
-    DL_KENNEDY,
     FALABELLA,
     MAQ_ALZA,
     MATRIZ_AEB,
@@ -64,9 +65,9 @@ from generar_ppt_recorrido_ejecutivo_pa import (
     UMBRAL_MAE_SUR_DIA,
     UMBRAL_MAQ_DIA,
     UMBRAL_MATRIZ_AEB_DIA,
+    UMBRAL_PAK_ANDEN_DIA,
     UMBRAL_PAK_BAZAR_DIA,
     UMBRAL_PAK_DL_DIA,
-    UMBRAL_PAK_KEN_DIA,
     UMBRAL_SI300_DIA,
     UMBRAL_SI500_DIA,
 )
@@ -539,34 +540,31 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     bom = ctx["bom"]
     maq = ctx["maq"]
     bazar = ctx["bazar"]
-    ken = ctx["ken"]
+    anden = ctx["anden"]
     aeb = ctx["aeb"]
     fala = ctx["fala"]
 
-    # Pizza Hut ya está en cero 01:00–05:00: el control se cita como evidencia, no como $.
-    logrado_mes = sur["ahorro_mes"] + norte["ahorro_mes"] + bom["ahorro_mes"]
+    # Pizza Hut: evidencia de control, no $. Estanque Sur: presostato al relocalizar, no es control WES.
+    logrado_mes = norte["ahorro_mes"] + bom["ahorro_mes"]
     propuesto_mes = (
         maq["ahorro_mes"]
         + bazar["ahorro_mes"]
-        + ken["ahorro_mes"]
+        + anden["ahorro_mes"]
         + aeb["ahorro_mes"]
         + fala["ahorro_mes"]
     )
     total_mes = logrado_mes + propuesto_mes
-    logrado_acum = sur["ahorro_acum"] + norte["ahorro_acum"] + bom["ahorro_acum"]
+    logrado_acum = norte["ahorro_acum"] + bom["ahorro_acum"]
 
-    filas_chart = [
-        (f"MAE Estanque Sur\n(presostatos 10/06)", sur["ahorro_mes"], "logrado"),
-        (f"MAE Estanque Norte\n(control 05/08)", norte["ahorro_mes"], "logrado"),
-        (f"Buenaventura SI500\n(control 17/07)", bom["ahorro_mes"], "logrado"),
-        (f"Quilicura Matriz\n(propuesta 00:30 → 0)", maq["ahorro_mes"], "propuesto"),
-        (f"Kennedy Bazar Gourmet\n(propuesta 00:30 → 0)", bazar["ahorro_mes"], "propuesto"),
-        (f"Kennedy DL Kennedy\n(propuesta 00:30 → 0)", ken["ahorro_mes"], "propuesto"),
-        (f"El Bosque Matriz 1° piso\n(propuesta 00:30 → 0)", aeb["ahorro_mes"], "propuesto"),
-        (f"Maipú Falabella\n(propuesta 00:30 → 0)", fala["ahorro_mes"], "propuesto"),
+    filas_prop = [
+        ("Quilicura\nMatriz", maq["ahorro_mes"]),
+        ("Kennedy\nBazar Gourmet", bazar["ahorro_mes"]),
+        ("Kennedy\nAndén 3-4 Matriz", anden["ahorro_mes"]),
+        ("El Bosque\n1° piso", aeb["ahorro_mes"]),
+        ("Maipú\nFalabella", fala["ahorro_mes"]),
     ]
-    p_bar = CHARTS / "ahorro_mensual_barras.png"
-    chart_barras_ahorro(p_bar, filas_chart)
+    p_bar = CHARTS / "futuros_puntos_control.png"
+    chart_barras_propuestas(p_bar, filas_prop)
     p_sur = CHARTS / "mae_sur_antes_despues.png"
     chart_perfil_horario(
         p_sur,
@@ -640,16 +638,16 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     _p(doc, "En este orden:")
     _p_lead(
         doc,
-        "Ya operativo — Estación y Buenaventura.",
-        "Estanque Sur bajó el día completo (presostatos 10/06). Estanque Norte y San Ignacio 500 "
-        "pasaron de consumo nocturno a cero entre 01:00 y 05:00.",
+        "Ya operativo — Estación y Buenaventura (control WES).",
+        "Estanque Norte y San Ignacio 500 pasaron de consumo nocturno a cero entre 01:00 y 05:00. "
+        "Estanque Sur se muestra más adelante (mejora de presostato al cambiar la ubicación); no es control WES y no entra en $.",
     )
     _p_lead(
         doc,
-        "A copiar — Quilicura, Kennedy (Bazar y DL Kennedy), El Bosque 1° piso y Falabella Maipú.",
-        "El mismo corte se propone en Matriz Principal, Bazar Gourmet, DL Kennedy, Matriz 1° piso "
-        "de El Bosque y Falabella de Maipú (el mall sale por ahí desde el 15/08). Esa noche hoy no "
-        "es cero; esa es la proyección.",
+        "A copiar — Quilicura, Kennedy (Bazar y Andén 3-4 Matriz), El Bosque 1° piso y Falabella Maipú.",
+        "El mismo corte se propone en Matriz Principal de Quilicura, Bazar Gourmet, Andén 3-4 Matriz "
+        "de Kennedy, Matriz 1° piso de El Bosque y Falabella de Maipú (el mall sale por ahí desde el 15/08). "
+        "Esa noche hoy no es cero; esa es la proyección. No se propone DL Kennedy.",
     )
     _p_lead(
         doc,
@@ -665,13 +663,6 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         doc,
         ["Recinto", "Estado", "Noche → cero", "m³/mes", "$/mes"],
         [
-            [
-                "Estanque Sur (presostatos 10/06)",
-                "Logrado",
-                f"{fn(sur['pre'], 0)} → {fn(sur['post'], 0)} m³/día",
-                fn(sur["ahorro_mes"], 0),
-                clp(sur["ahorro_mes"]),
-            ],
             [
                 "Estanque Norte",
                 "Logrado",
@@ -708,11 +699,11 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 clp(bazar["ahorro_mes"]),
             ],
             [
-                "Kennedy DL Kennedy",
+                "Kennedy Andén 3-4 Matriz",
                 "Propuesta",
-                f"{fn(ken['noche'], 1)} m³ → 0 desde 00:30",
-                fn(ken["ahorro_mes"], 0),
-                clp(ken["ahorro_mes"]),
+                f"{fn(anden['noche'], 1)} m³ → 0 desde 00:30",
+                fn(anden["ahorro_mes"], 0),
+                clp(anden["ahorro_mes"]),
             ],
             [
                 "El Bosque Matriz 1° piso",
@@ -729,16 +720,16 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 clp(fala["ahorro_mes"]),
             ],
             [
-                "Total logrado",
+                "Total logrado (control WES)",
                 "Operativo",
-                "MAE + Buenaventura",
+                "Norte + SI500. Sur no entra",
                 fn(logrado_mes, 0),
                 clp(logrado_mes),
             ],
             [
                 "Total si se aprueban las 5",
                 "Logrado + propuesto",
-                "MAQ + Bazar + DL Kennedy + AEB 1° piso + Falabella",
+                "MAQ + Bazar + Andén 3-4 + AEB 1° piso + Falabella",
                 fn(total_mes, 0),
                 clp(total_mes),
             ],
@@ -748,7 +739,8 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     _p(
         doc,
         f"Acumulado ya operativo a {hasta:%d/%m}: {fn(logrado_acum, 0)} m³ ({clp(logrado_acum)}). "
-        "El $ es la noche desde las 00:30 a cero (00:00–00:30 queda en el medidor y no se resta del ahorro).",
+        "El $ es la noche desde las 00:30 a cero (00:00–00:30 queda en el medidor y no se resta del ahorro). "
+        "Estanque Sur no está en esta suma: no es un control de WES.",
         size=10,
         color=GRAY,
     )
@@ -758,7 +750,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         _set_run(
             cap.add_run("Verde = ya operativo (noche a cero desde las 00:30). Dorado = propuesta, misma ventana a cero."),
-            "Verde = ya operativo (noche a cero desde las 00:30). Dorado = propuesta, misma ventana a cero.",
+            "Dorado = futuros puntos de control (misma ventana 00:30 → cero). Estanque Sur no entra.",
             size=9,
             color=GRAY,
         )
@@ -795,16 +787,9 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 clp(bom["ahorro_mes"]),
             ],
             [
-                "MAE Estanque Sur",
-                "10/06",
-                f"No es on/off: presostatos. Día {fn(sur['pre'], 0)} → {fn(sur['post'], 0)} m³",
-                fn(sur["ahorro_mes"], 0),
-                clp(sur["ahorro_mes"]),
-            ],
-            [
                 "Total ya operativo",
                 "",
-                "MAE + Buenaventura",
+                "Norte + SI500. Sur no entra (no es control WES)",
                 fn(logrado_mes, 0),
                 clp(logrado_mes),
             ],
@@ -836,11 +821,11 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
                 clp(bazar["ahorro_mes"]),
             ],
             [
-                "PAK DL Kennedy",
-                "On/off 00:30 (no las Sandías)",
-                f"{fn(ken['noche'], 1)} m³ → 0  ·  umbral 20 m³/día",
-                fn(ken["ahorro_mes"], 0),
-                clp(ken["ahorro_mes"]),
+                "PAK Andén 3-4 Matriz",
+                "On/off 00:30 (no DL Kennedy)",
+                f"{fn(anden['noche'], 1)} m³ → 0  ·  umbral {fn(UMBRAL_PAK_ANDEN_DIA, 0)} m³/día",
+                fn(anden["ahorro_mes"], 0),
+                clp(anden["ahorro_mes"]),
             ],
             [
                 "AEB Matriz 1° piso",
@@ -859,7 +844,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
             [
                 "Total si se aprueban las 5",
                 "Logrado + propuesto",
-                "MAQ + Bazar + DL Kennedy + AEB 1° piso + Falabella. CUR: noche chica, sin on/off",
+                "MAQ + Bazar + Andén 3-4 + AEB 1° piso + Falabella. CUR: noche chica, sin on/off",
                 fn(total_mes, 0),
                 clp(total_mes),
             ],
@@ -867,30 +852,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         col_w=[4.6, 2.8, 5.0, 2.4, 2.6],
     )
 
-    _h(doc, "3. Mall Arauco Estación (MAE) — ahorro ya logrado", 1)
-    _p(
-        doc,
-        f"Estanque Sur es el caso más limpio para la reunión: el 10/06 se repararon los presostatos. "
-        f"La mediana diaria pasó de {fn(sur['pre'], 0)} a {fn(sur['post'], 0)} m³/día "
-        f"(−{fn(sur['baja_dia'], 0)} m³/día). A 30 días son {fn(sur['ahorro_mes'], 0)} m³/mes "
-        f"({clp(sur['ahorro_mes'])}). Acumulado desde el 11/06 hasta {hasta:%d/%m}: "
-        f"{fn(sur['ahorro_acum'], 0)} m³ ({clp(sur['ahorro_acum'])}). "
-        "No es un modelo: es el mall después de la reparación.",
-    )
-    if p_sur.is_file():
-        doc.add_picture(str(p_sur), width=Inches(6.3))
-        cap = doc.add_paragraph()
-        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        _set_run(
-            cap.add_run(
-                "Gris = antes de los presostatos (fuga día y noche). Dorado = después del 11/06: "
-                "de madrugada casi desaparece y de día baja a menos de la mitad."
-            ),
-            "Gris = antes de los presostatos (fuga día y noche). Dorado = después del 11/06: "
-            "de madrugada casi desaparece y de día baja a menos de la mitad.",
-            size=9,
-            color=GRAY,
-        )
+    _h(doc, "3. Mall Arauco Estación (MAE) — control WES y contexto Estanque Sur", 1)
     _p(
         doc,
         f"Estanque Norte (desde el 05/08): el corte se activa a las 00:30. De 01:00 a 05:00 el "
@@ -912,6 +874,28 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
             ),
             "Gris = noche con caudal. Dorado = con on/off: de 01:00 a 05:00 va a cero. "
             "Lo de 00:00–00:30 no es noche.",
+            size=9,
+            color=GRAY,
+        )
+    _p(
+        doc,
+        f"Estanque Sur no es un control de WES y no entra en la sumatoria. El 10/06, al cambiar "
+        f"la ubicación del punto, se mejoró el presostato. La mediana diaria pasó de "
+        f"{fn(sur['pre'], 0)} a {fn(sur['post'], 0)} m³/día (−{fn(sur['baja_dia'], 0)} m³/día). "
+        "El gráfico muestra ese antes/después: de madrugada el caudal casi desaparece y de día "
+        "baja a menos de la mitad. Es una mejora operativa del recinto, no un on/off de WES.",
+    )
+    if p_sur.is_file():
+        doc.add_picture(str(p_sur), width=Inches(6.3))
+        cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        _set_run(
+            cap.add_run(
+                "Contexto Estanque Sur: gris = antes del 10/06; dorado = después de mejorar el "
+                "presostato al relocalizar. No se suma al $ de WES."
+            ),
+            "Contexto Estanque Sur: gris = antes del 10/06; dorado = después de mejorar el "
+            "presostato al relocalizar. No se suma al $ de WES.",
             size=9,
             color=GRAY,
         )
@@ -989,22 +973,24 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     _h(doc, "6. Parque Arauco Kennedy (PAK) — propuesta de control", 1)
     _p(
         doc,
-        "La cadena no se suma a la cabecera del mall: Sandía Antigua y Sandía Nueva alimentan "
-        "Distrito de Lujo; de ahí sale a Bazar Gourmet y DL Kennedy. El control es cortar de noche "
-        "en esos dos ramales, no apagar las Sandías (dejarían sin agua toda la cadena).",
+        "La cadena DL no se suma a la cabecera del mall: Sandía Antigua y Sandía Nueva alimentan "
+        "Distrito de Lujo; de ahí sale a Bazar Gourmet y DL Kennedy. El control de esa cadena es "
+        "cortar de noche en Bazar Gourmet, no apagar las Sandías (dejarían sin agua toda la cadena) "
+        "ni DL Kennedy (noche chica; no se propone).",
     )
     _p(
         doc,
         f"Bazar Gourmet: noche {fn(bazar['noche'], 1)} m³ → 0 = {fn(bazar['ahorro_mes'], 0)} m³/mes "
-        f"({clp(bazar['ahorro_mes'])}). DL Kennedy: noche {fn(ken['noche'], 1)} m³ → 0 = "
-        f"{fn(ken['ahorro_mes'], 0)} m³/mes ({clp(ken['ahorro_mes'])}). Mismo corte a las 00:30 "
+        f"({clp(bazar['ahorro_mes'])}). Andén 3-4 Matriz Principal ({ANDEN_MATRIZ}): es cabecera, "
+        f"alimenta Locales Gast. y Restaurante del Andén. Noche {fn(anden['noche'], 1)} m³ → 0 = "
+        f"{fn(anden['ahorro_mes'], 0)} m³/mes ({clp(anden['ahorro_mes'])}). Mismo corte a las 00:30 "
         "en los dos. Tampoco se resta el tramo 00:00–00:30.",
         bold=True,
     )
     _p(
         doc,
         f"Umbrales 24 h: Distrito de Lujo {fn(UMBRAL_PAK_DL_DIA, 0)} · "
-        f"Bazar Gourmet {fn(UMBRAL_PAK_BAZAR_DIA, 0)} · DL Kennedy {fn(UMBRAL_PAK_KEN_DIA, 0)} m³/día.",
+        f"Bazar Gourmet {fn(UMBRAL_PAK_BAZAR_DIA, 0)} · Andén 3-4 Matriz {fn(UMBRAL_PAK_ANDEN_DIA, 0)} m³/día.",
     )
 
     _h(doc, "7. Mall Arauco El Bosque (AEB) — propuesta de control", 1)
@@ -1079,7 +1065,7 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
     _p(
         doc,
         f"Se pide aprobar el mismo corte (se arma a las 00:30; 01:00–05:00 a cero) en "
-        f"(a) Matriz Principal de Quilicura, (b) Bazar Gourmet y (c) DL Kennedy de Kennedy, "
+        f"(a) Matriz Principal de Quilicura, (b) Bazar Gourmet y (c) Andén 3-4 Matriz de Kennedy, "
         f"(d) Matriz 1° piso de El Bosque y (e) Falabella de Maipú. "
         f"Con eso se proyectan {fn(propuesto_mes, 0)} m³/mes adicionales ({clp(propuesto_mes)}). "
         "Junto con el corte, activar los umbrales 24 h de este informe.",
@@ -1089,23 +1075,23 @@ def build_doc(ctx: Dict[str, Any], hasta: date) -> Path:
         doc,
         "En Maipú, además del on/off de Falabella, se pide validar la propuesta enviada a Don Miguel "
         "(relocalizar Arrow e instalar el punto 6 en Pasillo 2) y habilitar la gatera al entretecho "
-        "para programar la faena. No se pide corte en las Sandías de Kennedy ni on/off en Curauma.",
+        "para programar la faena. No se pide corte en las Sandías de Kennedy, ni en DL Kennedy, ni on/off en Curauma.",
         bold=True,
     )
 
     _h(doc, "Cómo responder en la reunión", 1)
     bullets = [
-        f"¿Cuánto se demuestra ya? {fn(logrado_mes, 0)} m³/mes ({clp(logrado_mes)}), MAE + Buenaventura. "
-        f"Casi todo es Estanque Sur + SI500 a cero en 01:00–05:00. Acumulado a {hasta:%d/%m}: "
+        f"¿Cuánto se demuestra ya? {fn(logrado_mes, 0)} m³/mes ({clp(logrado_mes)}), control WES en "
+        f"Estanque Norte + SI500. Estanque Sur no entra (presostato al relocalizar). Acumulado a {hasta:%d/%m}: "
         f"{fn(logrado_acum, 0)} m³ ({clp(logrado_acum)}).",
         f"¿Cuánto más si aprueban las 5? {fn(propuesto_mes, 0)} m³/mes "
-        f"({clp(propuesto_mes)}): Quilicura, Bazar Gourmet, DL Kennedy, El Bosque 1° piso y "
+        f"({clp(propuesto_mes)}): Quilicura, Bazar Gourmet, Andén 3-4 Matriz, El Bosque 1° piso y "
         f"Falabella Maipú, pasando esa misma ventana a cero. Suma total {fn(total_mes, 0)} m³/mes "
         f"({clp(total_mes)}).",
         "¿Por qué no restan 2 m³ de residual? Porque el control nocturno es ir a cero. Esos ~2 m³ "
         "son el tramo 00:00–00:30, antes de que el corte quede armado. No es noche.",
         "¿Por qué Quilicura? La Matriz concentra el mall y 01:00–05:00 se quedó alta desde junio. El corte es el mismo que ya corre en SI500.",
-        "¿Por qué Kennedy? Hay que cortar en Bazar Gourmet y en DL Kennedy (los dos ramales que salen de DL), no en las Sandías.",
+        "¿Por qué Kennedy? Hay que cortar en Bazar Gourmet (cadena DL, no las Sandías) y en Andén 3-4 Matriz (cabecera del Andén). DL Kennedy no se propone.",
         "¿Por qué El Bosque 1° piso? La Matriz A.A. está desactivada desde el 15/05; el caudal de noche está en Matriz 1° piso.",
         "¿Pizza Hut cuánto ahorra? El control está puesto; 01:00–05:00 ya era cero. No se suma en $.",
         "¿Y Maipú? On/off en Falabella (el mall sale por ahí desde el 15/08). Placa/Falabella el 08/09 es cambio de alimentación, no dos fallas. Arrow + punto 6 sigue pendiente con Don Miguel y la gatera.",
@@ -1145,18 +1131,18 @@ def main() -> int:
             "000025-18",
             "000025-27",
             "000025-35",
-            "000025-36",
+            ANDEN_MATRIZ,
         ]
         by = refrescar_diario(nodos, desde, hasta)
 
-    night_nodes = ["000025-01", "000025-07", "000025-18", "000025-13", "000025-27", "000025-35", "000025-36"]
+    night_nodes = ["000025-01", "000025-07", "000025-18", "000025-13", "000025-27", "000025-35", ANDEN_MATRIZ]
     hour_nodes = [
         "000025-01",
         "000025-07",
         "000025-18",
         "000025-13",
         "000025-35",
-        "000025-36",
+        ANDEN_MATRIZ,
         MATRIZ_AEB,
         FALABELLA,
     ]
@@ -1180,6 +1166,8 @@ def main() -> int:
         check_iso = {
             MATRIZ_AEB: AEB_PROP_DESDE.isoformat(),
             FALABELLA: FALABELLA_PROP_DESDE.isoformat(),
+            ANDEN_MATRIZ: date(2026, 7, 1).isoformat(),
+            BAZAR: date(2026, 7, 1).isoformat(),
         }
         for nid in hour_nodes:
             iso = check_iso.get(nid, night_from.isoformat())
@@ -1220,7 +1208,9 @@ def main() -> int:
     bom = _stats_logrado(by_h, SI500, CTRL_SI500, hasta, lookback_dias=7)
     maq = _stats_propuesta_noche(_serie_ventana(by_h, MATRIZ_MAQ, 0, H_NOCHE_FIN), MAQ_ALZA, hasta)
     bazar = _stats_propuesta_noche(_serie_ventana(by_h, BAZAR, 0, H_NOCHE_FIN), date(2026, 7, 1), hasta)
-    ken = _stats_propuesta_noche(_serie_ventana(by_h, DL_KENNEDY, 0, H_NOCHE_FIN), date(2026, 7, 1), hasta)
+    anden = _stats_propuesta_noche(
+        _serie_ventana(by_h, ANDEN_MATRIZ, 0, H_NOCHE_FIN), date(2026, 7, 1), hasta
+    )
     aeb = _stats_propuesta_noche(
         _serie_ventana(by_h, MATRIZ_AEB, 0, H_NOCHE_FIN), AEB_PROP_DESDE, hasta
     )
@@ -1237,7 +1227,7 @@ def main() -> int:
         "bom": bom,
         "maq": maq,
         "bazar": bazar,
-        "ken": ken,
+        "anden": anden,
         "aeb": aeb,
         "fala": fala,
         "sur_pre_h": _perfil_hora(
@@ -1290,8 +1280,8 @@ def main() -> int:
         fn(maq["ahorro_mes"], 0),
         "Bazar",
         fn(bazar["ahorro_mes"], 0),
-        "DL Kennedy",
-        fn(ken["ahorro_mes"], 0),
+        "Andén 3-4",
+        fn(anden["ahorro_mes"], 0),
         "AEB 1° piso",
         fn(aeb["ahorro_mes"], 0),
         "Falabella",

@@ -76,6 +76,7 @@ MAQ_NOCHE_D0 = date(2026, 6, 1)  # la noche también sube; el gráfico parte ac�
 UMBRAL_MAQ_DIA = 240.0
 BAZAR = "000025-35"
 DL_KENNEDY = "000025-36"
+ANDEN_MATRIZ = "000025-20"  # Impulsión Andén 3-4 Matriz Principal
 SI500 = "000025-18"
 SI300 = "000025-17"
 CTRL_SI500 = date(2026, 7, 17)
@@ -99,6 +100,7 @@ UMBRAL_MAE_BANOS_DIA = 10.0  # julio ~7
 UMBRAL_PAK_DL_DIA = 390.0
 UMBRAL_PAK_BAZAR_DIA = 250.0
 UMBRAL_PAK_KEN_DIA = 20.0
+UMBRAL_PAK_ANDEN_DIA = 125.0  # mediana ~98 m³/día × 1,25
 
 MALLS: List[Dict[str, Any]] = [
     {
@@ -200,7 +202,7 @@ NOMBRE_CORTO = {
     "000025-12": "Anillo Plaza",
     "000025-37": "Anillo Sur",
     "000025-38": "Anillo Norte",
-    "000025-20": "Matriz Andén",
+    "000025-20": "Andén 3-4 Matriz",
     "000025-21": "Locales Gast.",
     "000025-22": "Sandía Antigua",
     "000025-23": "Pileta",

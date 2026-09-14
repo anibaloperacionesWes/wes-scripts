@@ -34,10 +34,10 @@ from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches as PptInches
 
 from generar_ppt_recorrido_ejecutivo_pa import (
+    ANDEN_MATRIZ,
     BAZAR,
     CHIP_NOTA,
     COLOR_NODO,
-    DL_KENNEDY,
     FALABELLA,
     FONDO,
     GOLD,
@@ -102,7 +102,7 @@ NODOS_CLAVE_NOCHE = [
 ANTECEDENTES_FIJOS: List[Tuple[str, str]] = [
     (
         "MAE",
-        "Estanque Sur: reparación de presostatos 10/06. Pizza Hut con control nocturno desde 01/07. Estanque Norte con control desde 05/08 (00–05 h).",
+        "Estanque Norte con control desde 05/08 (00–05 h). Pizza Hut con control nocturno desde 01/07. Estanque Sur: mejora de presostato al relocalizar (10/06); no es control WES.",
     ),
     (
         "MAM",
@@ -909,6 +909,71 @@ def _clp_mes(m3: float) -> str:
     return f"${fn(float(m3) * TARIFA_CLP_M3, 0)}"
 
 
+def chart_barras_propuestas(
+    path: Path,
+    filas: List[Tuple[str, float]],
+    *,
+    titulo: str = "Futuros puntos de control  ·  proyección a cero desde las 00:30",
+) -> None:
+    """Barras verticales de m³/mes (y $) para las propuestas de on/off."""
+    labels = [a for a, _ in filas]
+    vals = [float(b) for _, b in filas]
+    fig, ax = plt.subplots(figsize=(10.6, 4.35), dpi=150)
+    x = np.arange(len(labels))
+    ax.bar(x, vals, color="#C9A227", zorder=3, width=0.62)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.set_ylabel("m³ / mes", fontsize=9)
+    ax.set_title(titulo, fontsize=11, loc="left", color="#0D3B66")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.yaxis.grid(True, linestyle=":", alpha=0.5, zorder=0)
+    ax.set_axisbelow(True)
+    ymax = max(vals + [1.0]) * 1.32
+    ax.set_ylim(0, ymax)
+    for xi, v in zip(x, vals):
+        ax.text(
+            xi,
+            v + ymax * 0.03,
+            f"{fn(v, 0)} m³\n{_clp_mes(v)}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
+            color="#0D3B66",
+        )
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+LOGRADO_NORTE_MES = 113.0
+LOGRADO_BOM_MES = 886.0
+LOGRADO_WES_MES = LOGRADO_NORTE_MES + LOGRADO_BOM_MES  # Sur no entra: no es control WES
+LOGRADO_WES_CLP = 157_920 + 1_241_100
+
+
+def _stats_propuestas(
+    by_h: Dict[str, Dict[str, Dict[str, float]]], hasta: date
+) -> List[Tuple[str, float, float]]:
+    """(etiqueta corta, noche m³, m³/mes) de los 5 futuros puntos de control."""
+    noc_maq, mes_maq = _noche_tipica_00_06(by_h, MATRIZ_MAQ, MAQ_ALZA, hasta)
+    noc_bazar, mes_bazar = _noche_tipica_00_06(by_h, BAZAR, PAK_PROP_DESDE, hasta)
+    noc_anden, mes_anden = _noche_tipica_00_06(by_h, ANDEN_MATRIZ, PAK_PROP_DESDE, hasta)
+    noc_aeb, mes_aeb = _noche_tipica_00_06(by_h, MATRIZ_AEB, AEB_PROP_DESDE, hasta)
+    noc_fala, mes_fala = _noche_tipica_00_06(
+        by_h, FALABELLA, FALABELLA_PROP_DESDE, hasta, min_noche=1.0
+    )
+    return [
+        ("MAQ Matriz", noc_maq, mes_maq),
+        ("PAK Bazar Gourmet", noc_bazar, mes_bazar),
+        ("PAK Andén 3-4 Matriz", noc_anden, mes_anden),
+        ("AEB Matriz 1° piso", noc_aeb, mes_aeb),
+        ("MAM Falabella", noc_fala, mes_fala),
+    ]
+
+
 def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, float]]]) -> None:
     sl = prs.slides.add_slide(prs.slide_layouts[6])
     _header_bar(
@@ -917,16 +982,23 @@ def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, floa
         "Control nocturno ya operativo y propuestas",
         f"Corte se arma a las 00:30  ·  meta = cero  ·  umbral = total 24 h  ·  {hasta:%d/%m/%Y}",
     )
-    # Izquierda: lo que ya corre
     _caja(sl, 0.22, 1.08, 6.38, 6.20, fill=(232, 245, 233), line=TEAL)
-    _tb(sl, 0.38, 1.14, 6.08, 0.28, [("YA OPERATIVO  ·  control nocturno", 13, True, TEAL)])
+    _tb(sl, 0.38, 1.14, 6.08, 0.28, [("YA OPERATIVO  ·  control WES", 13, True, TEAL)])
     _tb(
         sl,
         0.38,
         1.42,
         6.08,
-        0.36,
-        [("El corte se activa a las 00:30. De 01:00 a 05:00 el consumo quedó en cero.", 11, False, NAVY)],
+        0.42,
+        [
+            (
+                "El corte se activa a las 00:30. De 01:00 a 05:00 el consumo quedó en cero. "
+                "Estanque Sur no entra: fue mejora de presostato al relocalizar, no un control WES.",
+                11,
+                False,
+                NAVY,
+            )
+        ],
     )
     ya = [
         (
@@ -944,38 +1016,35 @@ def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, floa
             "Desde el 17/07. Noche 31,7 → 0 m³ desde las 00:30. "
             "886 m³/mes ($1.241.100). El ~2 m³ de 00:00–00:30 no es noche.",
         ),
-        (
-            "MAE  ·  Estanque Sur",
-            "No es on/off: presostatos 10/06. Día 88 → 28 m³. "
-            "1.826 m³/mes ($2.555.700). El mayor ahorro ya logrado.",
-        ),
     ]
-    y = 1.84
+    y = 1.92
     for tit, txt in ya:
-        _caja(sl, 0.38, y, 6.06, 1.22, fill=WHITE, line=TEAL)
-        _tb(sl, 0.50, y + 0.06, 5.82, 0.24, [(tit, 12, True, NAVY)])
-        _tb(sl, 0.50, y + 0.32, 5.82, 0.82, [(txt, 11, False, NAVY)])
-        y += 1.30
+        _caja(sl, 0.38, y, 6.06, 1.48, fill=WHITE, line=TEAL)
+        _tb(sl, 0.50, y + 0.08, 5.82, 0.26, [(tit, 13, True, NAVY)])
+        _tb(sl, 0.50, y + 0.40, 5.82, 0.96, [(txt, 12, False, NAVY)])
+        y += 1.60
     _tb(
         sl,
         0.38,
         7.08,
         6.08,
         0.16,
-        [("Total logrado MAE + BOM: 2.825 m³/mes  ·  $3.954.720", 11, True, NAVY)],
+        [
+            (
+                f"Total control WES: {fn(LOGRADO_WES_MES, 0)} m³/mes  ·  {_clp_mes(LOGRADO_WES_CLP / TARIFA_CLP_M3)}",
+                11,
+                True,
+                NAVY,
+            )
+        ],
     )
 
-    noc_maq, mes_maq = _noche_tipica_00_06(by_h, MATRIZ_MAQ, MAQ_ALZA, hasta)
-    noc_bazar, mes_bazar = _noche_tipica_00_06(by_h, BAZAR, PAK_PROP_DESDE, hasta)
-    noc_ken, mes_ken = _noche_tipica_00_06(by_h, DL_KENNEDY, PAK_PROP_DESDE, hasta)
-    noc_aeb, mes_aeb = _noche_tipica_00_06(by_h, MATRIZ_AEB, AEB_PROP_DESDE, hasta)
-    noc_fala, mes_fala = _noche_tipica_00_06(
-        by_h, FALABELLA, FALABELLA_PROP_DESDE, hasta, min_noche=1.0
-    )
-    propuesto = mes_maq + mes_bazar + mes_ken + mes_aeb + mes_fala
-    total_si = 2825.0 + propuesto
+    props = _stats_propuestas(by_h, hasta)
+    propuesto = sum(m for _, _, m in props)
+    total_si = LOGRADO_WES_MES + propuesto
+    noc = {etq: n for etq, n, _ in props}
+    mes = {etq: m for etq, _, m in props}
 
-    # Derecha: a copiar / proponer
     _caja(sl, 6.74, 1.08, 6.38, 6.20, fill=(255, 249, 235), line=GOLD)
     _tb(sl, 6.90, 1.14, 6.08, 0.28, [("A PROPONER  ·  mismo corte 00:30", 13, True, GOLD)])
     _tb(
@@ -989,28 +1058,29 @@ def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, floa
     prop = [
         (
             "MAQ  ·  Matriz Principal",
-            f"On/off 00:30. Noche {fn(noc_maq, 1)} m³ → 0 = {fn(mes_maq, 0)} m³/mes "
-            f"({_clp_mes(mes_maq)}). Umbral 24 h: 240 m³/día.",
+            f"On/off 00:30. Noche {fn(noc['MAQ Matriz'], 1)} m³ → 0 = {fn(mes['MAQ Matriz'], 0)} m³/mes "
+            f"({_clp_mes(mes['MAQ Matriz'])}). Umbral 24 h: 240 m³/día.",
         ),
         (
             "PAK  ·  Bazar Gourmet",
-            f"On/off 00:30 (no las Sandías). Noche {fn(noc_bazar, 1)} m³ → 0 = "
-            f"{fn(mes_bazar, 0)} m³/mes ({_clp_mes(mes_bazar)}). Umbral 24 h: 250 m³/día.",
+            f"On/off 00:30 (no las Sandías). Noche {fn(noc['PAK Bazar Gourmet'], 1)} m³ → 0 = "
+            f"{fn(mes['PAK Bazar Gourmet'], 0)} m³/mes ({_clp_mes(mes['PAK Bazar Gourmet'])}). Umbral 250 m³/día.",
         ),
         (
-            "PAK  ·  DL Kennedy",
-            f"On/off 00:30 (no las Sandías). Noche {fn(noc_ken, 1)} m³ → 0 = "
-            f"{fn(mes_ken, 0)} m³/mes ({_clp_mes(mes_ken)}). Umbral 24 h: 20 m³/día.",
+            "PAK  ·  Andén 3-4 Matriz",
+            f"On/off 00:30 en la matriz del Andén (no DL Kennedy). Noche "
+            f"{fn(noc['PAK Andén 3-4 Matriz'], 1)} m³ → 0 = {fn(mes['PAK Andén 3-4 Matriz'], 0)} m³/mes "
+            f"({_clp_mes(mes['PAK Andén 3-4 Matriz'])}). Umbral 125 m³/día.",
         ),
         (
             "AEB  ·  Matriz 1° piso",
-            f"On/off 00:30 en el primer piso (no Anillo). Noche {fn(noc_aeb, 1)} m³ → 0 = "
-            f"{fn(mes_aeb, 0)} m³/mes ({_clp_mes(mes_aeb)}). Umbral 24 h: 75 m³/día.",
+            f"On/off 00:30 en el primer piso (no Anillo). Noche {fn(noc['AEB Matriz 1° piso'], 1)} m³ → 0 = "
+            f"{fn(mes['AEB Matriz 1° piso'], 0)} m³/mes ({_clp_mes(mes['AEB Matriz 1° piso'])}). Umbral 75 m³/día.",
         ),
         (
             "MAM  ·  Falabella",
-            f"On/off 00:30 (sale por Falabella desde el 15/08). Noche {fn(noc_fala, 1)} m³ → 0 = "
-            f"{fn(mes_fala, 0)} m³/mes ({_clp_mes(mes_fala)}). Umbral 140 m³/día.",
+            f"On/off 00:30 (sale por Falabella desde el 15/08). Noche {fn(noc['MAM Falabella'], 1)} m³ → 0 = "
+            f"{fn(mes['MAM Falabella'], 0)} m³/mes ({_clp_mes(mes['MAM Falabella'])}). Umbral 140 m³/día.",
         ),
     ]
     y = 1.78
@@ -1034,6 +1104,62 @@ def _slide_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, floa
                 NAVY,
             )
         ],
+    )
+
+
+def _slide_barras_propuestas(prs, hasta: date, by_h: Dict[str, Dict[str, Dict[str, float]]]) -> None:
+    props = _stats_propuestas(by_h, hasta)
+    etiquetas = [
+        "Quilicura\nMatriz",
+        "Kennedy\nBazar Gourmet",
+        "Kennedy\nAndén 3-4 Matriz",
+        "El Bosque\n1° piso",
+        "Maipú\nFalabella",
+    ]
+    filas = [(etq, mes) for etq, (_, _, mes) in zip(etiquetas, props)]
+    p_bar = CHARTS / "futuros_puntos_control.png"
+    chart_barras_propuestas(p_bar, filas)
+    propuesto = sum(m for _, _, m in props)
+    sl = prs.slides.add_slide(prs.slide_layouts[6])
+    _header_bar(
+        sl,
+        prs,
+        "Futuros puntos de control",
+        f"Mismo corte 00:30 → cero  ·  tarifa ${fn(TARIFA_CLP_M3, 0)}/m³  ·  {hasta:%d/%m/%Y}",
+    )
+    _tb(
+        sl,
+        0.28,
+        1.12,
+        12.7,
+        0.36,
+        [
+            (
+                "Cinco on/off a copiar del que ya corre en Estanque Norte y San Ignacio 500. "
+                "No incluye Estanque Sur (no es control WES) ni DL Kennedy.",
+                13,
+                False,
+                NAVY,
+            )
+        ],
+    )
+    if p_bar.is_file():
+        sl.shapes.add_picture(str(p_bar), PptInches(0.35), PptInches(1.55), width=PptInches(12.60))
+    _tb(
+        sl,
+        0.28,
+        7.05,
+        12.7,
+        0.22,
+        [
+            (
+                f"Suma de las 5: {fn(propuesto, 0)} m³/mes  ·  {_clp_mes(propuesto)}",
+                14,
+                True,
+                NAVY,
+            )
+        ],
+        align=PP_ALIGN.CENTER,
     )
 
 
@@ -1061,6 +1187,7 @@ def build_ppt(
         print(f"[INFO] Lámina {mall['code']}…", flush=True)
         _slide_mall(prs, mall, by, n06, s_act, s_prev, ante0, hasta)
     _slide_propuestas(prs, hasta, by_h or {})
+    _slide_barras_propuestas(prs, hasta, by_h or {})
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / f"Consolidado_PA_7malls_{hasta.strftime('%Y%m%d')}.pptx"
     prs.save(str(path))
@@ -1112,7 +1239,7 @@ def main() -> int:
     else:
         conn = refrescar_conexion(nodos)
 
-    prop_nodes = ["000025-13", "000025-35", "000025-36", MATRIZ_AEB, FALABELLA]
+    prop_nodes = ["000025-13", "000025-35", ANDEN_MATRIZ, MATRIZ_AEB, FALABELLA]
     d0_h = date(2026, 6, 1)
     if args.skip_refresh and JSON_HOURS.is_file():
         by_h = json.loads(JSON_HOURS.read_text(encoding="utf-8")).get("by_h") or {}
@@ -1120,7 +1247,7 @@ def main() -> int:
         checks = [
             ("000025-13", d0_h),
             ("000025-35", date(2026, 7, 1)),
-            ("000025-36", date(2026, 7, 1)),
+            (ANDEN_MATRIZ, date(2026, 7, 1)),
             (MATRIZ_AEB, AEB_PROP_DESDE),
             (FALABELLA, FALABELLA_PROP_DESDE),
         ]
