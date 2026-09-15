@@ -1,0 +1,28 @@
+Estimada Belén:
+
+Junto con saludar, agradecemos el análisis detallado. Revisamos internamente los mismos periodos en la plataforma y contrastamos con las actas de mantención de Fundo Zapallar.
+
+1) Etapa N°5 — bloques 96 y 200
+Confirmamos el comportamiento que describen: entre fines de enero y abril de 2026 el lector de Etapa N°5 concentra valores fijos ~96 m³/h (p. ej. el 8 de marzo: ~2.338 m³/día con la mayoría de las horas en 96,00), y existen horas aisladas ~200 m³ asociadas en varios casos a cortes de comunicación (incluido el episodio de fines de julio, documentado en acta del 29/07/2026 por cortocircuito y reempalme 220V en Etapa 5 y 1–4).
+Ese patrón no corresponde a un caudal real continuo. Por lo anterior, esos tramos no deben usarse como base única para cuantificar volúmenes de pérdida.
+
+2) Matriz ESVAL en cero (2–10/03/2026)
+Efectivamente el nodo registró ~0 m³ con 24 horas de señal. El 11/03/2026 se instaló el medidor ultrasónico de Matriz ESVAL (Formulario WES N°2116); a partir de ese día el punto vuelve a registrar consumo. En paralelo, Estanque Inferior siguió midiendo, lo que indica movimiento interno de agua mientras la entrada ESVAL no quedó bien medida en esos días.
+
+3) Contraste con boleta ESVAL (cliente 631203-9)
+Reproducimos los totales WES que indican (≈7.726 / 2.498 / 3.341 m³). El periodo dic–ene es anterior al medidor ultrasónico actual. Post-instalación la brecha se reduce pero no desaparece. Confirmaremos en terreno si el ultrasónico WES está en la misma tubería y aguas abajo del medidor fiscal con que ESVAL factura, o en otro punto de la red. Mientras tanto, para efectos de cuantificación frente a terceros, la referencia de entrada debe ser la boleta ESVAL; WES aporta el detalle horario y la detección de patrones.
+
+4) Alertas
+Hoy la alerta configurada es de tipo umbral diario (FILTRACIÓN), no de caudal mínimo nocturno. Eso explica por qué un día como el 8 de marzo o una madrugada estable de ~2,8 m³/h no disparan el aviso que ustedes necesitan. Acogemos la solicitud de alerta nocturna (00:00–05:00, N horas consecutivas sobre umbral) en Matriz ESVAL y Etapa N°5, y coordinaremos su implementación / equivalencia operativa.
+
+Compromisos
+- Visita a terreno de Etapa N°5 con informe escrito de hallazgos y correcciones.
+- Confirmación del punto de instalación Matriz ESVAL vs medidor fiscal.
+- Configuración (o procedimiento equivalente) de alerta de caudal mínimo nocturno.
+- Criterio técnico por escrito sobre qué ventanas de Etapa N°5 sí/no son válidas para cuantificar m³.
+
+Quedamos atentos para agendar la visita.
+
+Saludos cordiales,
+[Aníbal / Juan Manuel]
+WES
