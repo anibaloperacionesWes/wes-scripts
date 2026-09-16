@@ -1,0 +1,17 @@
+VALIDACIÓN INTERNA (no enviar tal cual al cliente)
+
+1) Boleta 92825564: ítem 501 m³ vs delta lecturas 339045→346238 = 7193 m³. Belén usó 501; el consumo de medidor/resumen es 7193.
+
+2) Criterio 12h WES Matriz ESVAL 30/12/2025 12:00 → 30/01/2026 12:00 = 7200,3 m³ (~+7 vs 7193). CUADRA.
+
+3) resumen_consumos vs WES_12h (000027-01):
+- 29/10→28/11: 5711 vs 5678 (ok)
+- 28/11→30/12: 6319 vs 6269 (ok)
+- 30/12→30/01: 7193 vs 7200 (ok)
+- 30/01→27/02: 6478 vs 5716 (empieza a desviar; cerca desconexión 25/02)
+- 27/02→30/03: 6793 vs 1867 (incluye ceros + cambio ultrasónico 11/03) NO cuadra
+- Post-marzo: WES queda por DEBAJO del resumen ESVAL (ratios ~0,5–0,8). Ojo: Belén citó boletas 639 y 2328 que NO coinciden con resumen (3707 y 5067). Pedir boletas.
+
+4) Etapa 5 desde 13/11/2025: días limpios mediana ~5–9 m³/d hasta antes del bloque 96 (desde ~30/01/2026). Luego anomalías. Ago–sep 2026 otra vez limpio (~7–8 m³/d).
+
+5) Correos respaldo: 15/10 diferencia etapa 5 + línea antigua; 03–10/11 canalización MAP y visita 13/11.

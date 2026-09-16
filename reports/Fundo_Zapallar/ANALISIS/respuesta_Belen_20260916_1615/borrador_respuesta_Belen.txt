@@ -1,0 +1,62 @@
+Estimada Belén:
+
+Junto con saludar, y en respuesta a su correo sobre las inconsistencias detectadas en los informes de consumo del Condominio Fundo Zapallar, le informamos lo siguiente luego de revisar los registros de plataforma, las actas de mantención y la documentación de terreno.
+
+1) Lector Etapa N°5 — bloques de 96 y 200 m³/h
+
+Los valores que ustedes señalan son correctos: el comportamiento del punto Etapa N°5 no corresponde a un caudal continuo real y concentra lecturas en bloques fijos (en particular ~96 m³/h y ~200 m³/h).
+
+Sobre ese punto procederemos a:
+- Revisar en terreno el sensor de pulso (inductivo) instalado sobre su medidor Sensus.
+- Evaluar si el sensor inductivo está fallando en la lectura.
+- Verificar la factibilidad de instalar uno de nuestros caudalímetros ultrasónicos en ese punto.
+
+Como información de contexto (trabajo ya realizado con el fundo):
+En octubre de 2025 se revisó en conjunto con el supervisor del fundo que el monitoreo inicial de Etapa N°5 también capturaba una línea antigua del loteo (además de la línea propia de la etapa). Por ello se decidió reubicar el monitoreo en la cámara MAP dedicada a la línea que alimenta Etapa N°5. El medidor de terreno es marca Sensus y, para tomar el registro de consumo, se implementó un sensor inductivo de pulso. Esa reubicación/puesta en lectura se ejecutó el jueves 13 de noviembre de 2025.
+
+Revisamos la serie desde esa fecha: entre noviembre 2025 y fines de enero 2026 las lecturas se mantuvieron, en general, en rangos acotados y coherentes con un sector de bajo consumo diario. El patrón anómalo de bloques ~96 m³/h se concentra principalmente desde fines de enero / febrero–abril 2026, y existen además episodios de ~200 m³/h asociados a cortes de comunicación. Por eso la revisión del sensor inductivo (y la evaluación de pasar a ultrasónico) es la acción correcta.
+
+2) Matriz ESVAL en cero entre el 2 y el 10 de marzo de 2026
+
+En una primera etapa el monitoreo de Matriz ESVAL se tomaba desde un sensor inductivo sobre el medidor. Con fecha 25/02/2026 ese sensor fue desconectado por terceros, quedando sin dato válido hacia nuestro sistema.
+
+Por lo anterior se realizó una visita para instalar un caudalímetro ultrasónico WES. Desde el 11/03/2026 el monitoreo volvió a activarse. Ese es el motivo por el cual, en el intervalo previo a la reactivación (incluyendo el 2–10 de marzo), el punto aparece en cero o casi cero pese a tener horas registradas.
+
+3) Contraste entre Matriz ESVAL (WES) y lo facturado por ESVAL
+
+Respecto del ciclo 30/12/2025 al 31/01/2026 (boleta N°92825564, cliente 631203-9):
+- En la boleta aparece un ítem de 501 m³.
+- Sin embargo, según las lecturas del medidor de la misma boleta, el consumo del periodo es 7.193 m³ (lectura inicial 339.045 y lectura final 346.238).
+
+Esa diferencia entre “m³ facturados en un ítem” y “delta de lecturas del medidor” es relevante para no comparar fuentes distintas.
+
+Adicionalmente, la lectura presencial de la sanitaria no tiene una hora exacta publicada, mientras WES registra las 24 horas. Para efectos prácticos, al comparar usamos el siguiente criterio operativo: asumimos lectura cerca de las 12:00, descontando las primeras 12 horas del día de lectura inicial y tomando las primeras 12 horas del día de lectura final.
+
+Aplicando ese criterio al mismo ciclo (30/12/2025 12:00 → 30/01/2026 12:00), el consumo WES de Matriz ESVAL resulta ≈7.200 m³, alineado con los 7.193 m³ del medidor/resumen de consumos (diferencia de orden ~7 m³).
+
+Si nos comparten las demás boletas/ciclos, podemos validarlos con el mismo criterio. Con el resumen de consumos ESVAL que ya revisamos, los ciclos anteriores a la desconexión/cambio de febrero–marzo 2026 calzan muy bien con WES; en ciclos posteriores al cambio a ultrasónico conviene revisar punto a punto con las boletas originales.
+
+En cuanto a la ubicación: el lector WES de Matriz ESVAL está instalado para monitorear la matriz de entrada del fundo; confirmaremos/dejaremos constancia en la visita de su posición respecto del medidor fiscal ESVAL.
+
+4) Alertas de consumo
+
+Actualmente las alertas activas corresponden a un esquema de mínimo consumo que se repite en forma idéntica en 2 horas. Eso no cubre el patrón de “caudal mínimo nocturno sostenido” que ustedes describen (por ejemplo, madrugadas con ~2,8–2,9 m³/h).
+
+Podemos complementar con:
+- Una alerta de umbral cuando un punto sobrepase el consumo promedio de los últimos 90 días; y/o
+- Alertas operativas adicionales que ustedes consideren pertinentes para la operación del fundo, las cuales podemos configurar en plataforma y/o generar mediante nuestro agente de monitoreo.
+
+Compromisos inmediatos
+a) Visita a terreno Etapa N°5: revisión del sensor inductivo / evaluación de ultrasónico, con informe escrito.
+b) Dejamos documentada la causa de los ceros de Matriz ESVAL (desconexión 25/02 y reactivación con ultrasónico 11/03).
+c) Confirmación en terreno del punto Matriz ESVAL respecto del medidor ESVAL.
+d) Coordinar con ustedes la configuración de alertas adicionales (umbral 90 días y/o nocturna / otras que definamos).
+e) Criterio técnico: los tramos de Etapa N°5 con bloques fijos anómalos no deben usarse solos para cuantificar volúmenes cobrables; la base de contraste de entrada al fundo debe privilegiar medidor/boleta ESVAL + Matriz ESVAL WES con criterio de horario comparable.
+
+Quedamos atentos para agendar la visita y para que nos reenvíen las boletas restantes a validar.
+
+Saludos cordiales,
+
+Aníbal Aranda Alvarado
+Jefe de Mantenimiento
+Sociedad Tecnológica WES SpA
