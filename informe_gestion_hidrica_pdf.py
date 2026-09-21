@@ -1028,40 +1028,41 @@ def render_mensual(spec: InformeSpec, out_path: Path, chart_dir: Path) -> Path:
         y = _draw_runs(c, [(spec.nota_cobertura, False)], ML, y - 2, CONTENT_W, 7.2, GRAY, 10)
     c.showPage()
 
-    # Página 5
-    _new_page(c, spec, logo, 5)
-    y = _section(c, "Anexo técnico - gráficos relevantes", PAGE_H - 58, 15)
-    y = _draw_runs(
-        c,
-        [
-            (
-                "Se presentan únicamente las series que aportan información para interpretar el periodo y respaldar decisiones.",
-                False,
-            )
-        ],
-        ML,
-        y + 4,
-        CONTENT_W,
-        8,
-        GRAY,
-        11,
-    )
-    for i, serie in enumerate(spec.series_diarias[:3]):
-        chart = chart_dir / f"diario_{i + 1}.png"
-        build_chart_diario(chart, serie)
-        y = _section(c, serie.nombre, y - 6, 10.5)
-        y = _draw_image(c, chart, y + 8, 112)
+    # Página 5 (solo si hay series diarias relevantes)
+    if spec.series_diarias:
+        _new_page(c, spec, logo, 5)
+        y = _section(c, "Anexo técnico - gráficos relevantes", PAGE_H - 58, 15)
         y = _draw_runs(
             c,
-            [("Lectura: ", True), (serie.lectura, False)],
+            [
+                (
+                    "Se presentan únicamente las series que aportan información para interpretar el periodo y respaldar decisiones.",
+                    False,
+                )
+            ],
             ML,
-            y,
+            y + 4,
             CONTENT_W,
             8,
             GRAY,
             11,
         )
-        y -= 2
+        for i, serie in enumerate(spec.series_diarias[:3]):
+            chart = chart_dir / f"diario_{i + 1}.png"
+            build_chart_diario(chart, serie)
+            y = _section(c, serie.nombre, y - 6, 10.5)
+            y = _draw_image(c, chart, y + 8, 112)
+            y = _draw_runs(
+                c,
+                [("Lectura: ", True), (serie.lectura, False)],
+                ML,
+                y,
+                CONTENT_W,
+                8,
+                GRAY,
+                11,
+            )
+            y -= 2
     c.save()
     return out_path
 

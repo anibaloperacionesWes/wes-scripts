@@ -96,7 +96,7 @@ def _fmt_clp(v: float) -> str:
 
 
 def _wow() -> Dict[str, Any]:
-    precio = precio_referencia_clp()
+    precio = 1400.0  # tarifa fija solicitada
     filas = evaluar_colegios(max_workers=2)
     fuera = evaluar_fuera_comparativo(max_workers=2)
     tot_sin = sum(f.m3_sin for f in filas)
@@ -385,6 +385,9 @@ def _clarificar_spec(spec, wow: Dict[str, Any], chart_cmp: Path, chart_ahorro: P
         "Ahorro valorizado por colegio (semana sin control − semana con control) "
         f"× {_fmt(wow['precio'], 0)} CLP/m³."
     )
+    # Sin serie de 6 meses ni los 3 gráficos diarios del anexo (no aportan al mensaje vacaciones).
+    spec.chart_6m = None
+    spec.series_diarias = []
 
     spec.conclusion = [
         [

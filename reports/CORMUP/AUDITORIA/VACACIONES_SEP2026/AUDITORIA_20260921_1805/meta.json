@@ -1,0 +1,95 @@
+{
+  "docx": "/workspace/reports/CORMUP/AUDITORIA/VACACIONES_SEP2026/AUDITORIA_20260921_1805/Auditoria_CORMUP_Vacaciones_14_20_Sep_2026.docx",
+  "pdf": "/workspace/reports/CORMUP/AUDITORIA/VACACIONES_SEP2026/AUDITORIA_20260921_1805/Auditoria_CORMUP_Vacaciones_14_20_Sep_2026.pdf",
+  "precio_clp_m3": 1400.0,
+  "total_sin_m3": 2349.34,
+  "total_con_m3": 214.03,
+  "ahorro_m3": 2135.31,
+  "ahorro_pct": 90.88978181106182,
+  "ahorro_clp": 2989434.0,
+  "n_colegios": 10,
+  "periodo_con": "2026-09-14/2026-09-20",
+  "periodo_sin": "2026-09-07/2026-09-13",
+  "colegios": [
+    {
+      "node_id": "000008-01",
+      "nombre": "Lic. Antonio Hermida F",
+      "m3_sin": 584.4,
+      "m3_con": 101.2,
+      "ahorro_m3": 483.2,
+      "ahorro_pct": 82.68309377138947
+    },
+    {
+      "node_id": "000008-03",
+      "nombre": "Carlos Fernandez P.",
+      "m3_sin": 117.58,
+      "m3_con": 15.49,
+      "ahorro_m3": 102.09,
+      "ahorro_pct": 86.82599081476442
+    },
+    {
+      "node_id": "000008-05",
+      "nombre": "Santa Maria",
+      "m3_sin": 170.44,
+      "m3_con": 0.04,
+      "ahorro_m3": 170.4,
+      "ahorro_pct": 99.97653133067355
+    },
+    {
+      "node_id": "000008-06",
+      "nombre": "Luis Arrieta Caña",
+      "m3_sin": 418.8,
+      "m3_con": 50.8,
+      "ahorro_m3": 368.0,
+      "ahorro_pct": 87.87010506208213
+    },
+    {
+      "node_id": "000008-07",
+      "nombre": "Erasmo Escala",
+      "m3_sin": 14.28,
+      "m3_con": 0.05,
+      "ahorro_m3": 14.229999999999999,
+      "ahorro_pct": 99.64985994397757
+    },
+    {
+      "node_id": "000008-09",
+      "nombre": "Juan Bautista Pasten",
+      "m3_sin": 128.4,
+      "m3_con": 39.2,
+      "ahorro_m3": 89.2,
+      "ahorro_pct": 69.47040498442367
+    },
+    {
+      "node_id": "000008-10",
+      "nombre": "Matilde Huici Navas",
+      "m3_sin": 33.8,
+      "m3_con": 5.300000000000001,
+      "ahorro_m3": 28.499999999999996,
+      "ahorro_pct": 84.31952662721893
+    },
+    {
+      "node_id": "000008-11",
+      "nombre": "CE Valle Hermoso",
+      "m3_sin": 144.25,
+      "m3_con": 1.75,
+      "ahorro_m3": 142.5,
+      "ahorro_pct": 98.78682842287695
+    },
+    {
+      "node_id": "000008-12",
+      "nombre": "Unión Nacional Árabe",
+      "m3_sin": 710.3,
+      "m3_con": 0.2,
+      "ahorro_m3": 710.0999999999999,
+      "ahorro_pct": 99.97184288328874
+    },
+    {
+      "node_id": "000008-14",
+      "nombre": "Juan Pablo II",
+      "m3_sin": 27.09,
+      "m3_con": 0.0,
+      "ahorro_m3": 27.09,
+      "ahorro_pct": 100.0
+    }
+  ]
+}

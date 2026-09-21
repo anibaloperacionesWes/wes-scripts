@@ -38,17 +38,15 @@ from generar_comparativo_cormup_vacaciones_sept2026 import (
     CON_CONTROL_FIN,
     CON_CONTROL_INI,
     HORARIOS_ESPECIALES,
-    SIN_CONTROL,
     SIN_CONTROL_FIN,
     SIN_CONTROL_INI,
     TOBALABA,
     evaluar_colegios,
     evaluar_fuera_comparativo,
-    grafico_ahorro_clp,
-    grafico_barras_colegios,
-    grafico_totales_diarios,
-    precio_referencia_clp,
 )
+
+# Tarifa fija solicitada para valorización (CLP/m³).
+PRECIO_CLP_M3 = 1400.0
 from generar_reporte_word import (
     add_picture_with_pagination,
     convertir_word_a_pdf,
@@ -195,10 +193,8 @@ def _registros_cormup(
     tot_sin: float,
     filas,
     png_barras: Path,
-    png_colegios: Path,
-    png_diario: Path,
-    png_clp: Path,
 ) -> None:
+    """Registros: un solo gráfico Con vs Sin + tabla por colegio (sin serie 6m ni gráficos secundarios)."""
     icco._section_heading_icco(doc, "Registros de consumos")
     icco._p_justify(
         doc,
@@ -211,16 +207,9 @@ def _registros_cormup(
 
     if png_barras.is_file():
         add_picture_with_pagination(doc, str(png_barras), width=Inches(5.8))
-    if png_colegios.is_file():
-        add_picture_with_pagination(doc, str(png_colegios), width=Inches(6.2))
 
     icco._section_heading_icco(doc, "Detalle por establecimiento", space_after_pt=6)
     _tabla_colegios(doc, filas)
-
-    if png_diario.is_file():
-        add_picture_with_pagination(doc, str(png_diario), width=Inches(6.0))
-    if png_clp.is_file():
-        add_picture_with_pagination(doc, str(png_clp), width=Inches(6.0))
 
     icco._section_heading_icco(doc, "Horarios especiales (semana Con WES)", space_after_pt=6)
     for linea in HORARIOS_ESPECIALES:
@@ -262,7 +251,7 @@ def generar_informe(
     charts = out_dir / "graficos"
     charts.mkdir(parents=True, exist_ok=True)
 
-    precio = float(precio_referencia_clp())
+    precio = float(PRECIO_CLP_M3)
     icco.CLP_POR_M3_REF = precio
 
     print("1) Consumos por colegio (API)…")
@@ -279,11 +268,8 @@ def generar_informe(
         f"Ahorro={ahorro:.1f} m³ ({pct:.1f} %) ≈ {clp_ahorro:,.0f} CLP @ {precio:.0f}"
     )
 
-    print("2) Gráficos…")
+    print("2) Gráfico único Con vs Sin…")
     png_barras = _png_barras_totales(tot_con, tot_sin, charts / "01_barras_con_sin.png")
-    png_colegios = grafico_barras_colegios(filas, charts / "02_barras_por_colegio.png")
-    png_diario = grafico_totales_diarios(filas, charts / "03_totales_diarios.png")
-    png_clp = grafico_ahorro_clp(filas, precio, charts / "04_ahorro_clp.png")
 
     # Portada ICCO
     stem = "Auditoria_CORMUP_Vacaciones_14_20_Sep_2026"
@@ -310,9 +296,6 @@ def generar_informe(
         tot_sin=tot_sin,
         filas=filas,
         png_barras=png_barras,
-        png_colegios=png_colegios,
-        png_diario=png_diario,
-        png_clp=png_clp,
     )
 
     p_br2 = doc.add_paragraph()
