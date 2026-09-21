@@ -32,7 +32,6 @@ from generar_comparativo_cormup_vacaciones_sept2026 import (
     TOBALABA,
     evaluar_colegios,
     evaluar_fuera_comparativo,
-    precio_referencia_clp,
 )
 from generar_informes_gestion_hidrica_lote_agosto2026 import (
     build_spec,
