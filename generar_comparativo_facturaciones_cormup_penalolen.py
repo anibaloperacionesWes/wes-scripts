@@ -3,8 +3,9 @@ Comparativo cuentas Aguas Andinas vs registro API WES — colegios CORMUP / Peñ
 
 Lee las facturaciones de Google Drive:
   G:\\Mi unidad\\Colegios\\Peñalolén\\Facturaciones
-(una subcarpeta por establecimiento) y cruza cada período de lectura con el
-consumo diario del nodo WES correspondiente.
+(una subcarpeta por establecimiento) y cruza cada período de lectura real
+con el consumo diario del nodo WES. Las boletas a promedio no se comparan.
+Si hay huecos de API se proyecta el m³ faltante y se suma al WES medido.
 
 Salida (Word + PDF + Excel) en:
   reports/CORMUP/Facturaciones_vs_WES/
@@ -324,6 +325,7 @@ def _extraer_claves(txt: str) -> Tuple[str, str]:
 
 
 def _es_estimado(clave_fact: str, clave_lect: str) -> bool:
+    """Boletas a promedio / sin lectura real: no sirven para el cruce válido."""
     u = f"{clave_fact} {clave_lect}".upper()
     return any(
         t in u
@@ -332,8 +334,43 @@ def _es_estimado(clave_fact: str, clave_lect: str) -> bool:
             "CASA CERRADA",
             "PROMEDIO",
             "DESCONTABLE",
+            "MEDIDOR DETENIDO",
+            "CERRADO",
+            "TERMINO MEDIO",
+            "TÉRMINO MEDIO",
         )
     )
+
+
+def _es_ciclo_septiembre(f: "FilaComparacion") -> bool:
+    return f.emision.month == 9 or f.lectura_actual.month == 9
+
+
+def _fechas_inclusive(a: date, b: date) -> list[date]:
+    out: list[date] = []
+    d = a
+    while d <= b:
+        out.append(d)
+        d += timedelta(days=1)
+    return out
+
+
+def _colapsar_huecos(fechas: list[date]) -> str:
+    if not fechas:
+        return ""
+    rangos: list[tuple[date, date]] = []
+    ini = prev = fechas[0]
+    for d in fechas[1:]:
+        if d == prev + timedelta(days=1):
+            prev = d
+        else:
+            rangos.append((ini, prev))
+            ini = prev = d
+    rangos.append((ini, prev))
+    partes = []
+    for a, b in rangos:
+        partes.append(_fmt_fecha(a) if a == b else f"{_fmt_fecha(a)}→{_fmt_fecha(b)}")
+    return ", ".join(partes)
 
 
 def _extraer_total_pagar(txt: str) -> Optional[int]:
@@ -360,14 +397,27 @@ class FilaComparacion:
     lectura_anterior: datetime
     lectura_actual: datetime
     m3_cuenta: int
-    m3_wes: float
+    m3_wes_medido: float
+    m3_proyeccion: float
     dias_wes: int
+    dias_esperados: int
+    dias_hueco: int
     dias_periodo: int
+    huecos_txt: str
     clave_facturacion: str
     clave_lectura: str
     estimado: bool
     total_pagar: Optional[int] = None
     error_wes: str = ""
+
+    @property
+    def valido(self) -> bool:
+        return not self.estimado
+
+    @property
+    def m3_wes(self) -> float:
+        """WES medido + proyección de huecos (lo comparable)."""
+        return float(self.m3_wes_medido) + float(self.m3_proyeccion)
 
     @property
     def periodo_txt(self) -> str:
@@ -386,16 +436,18 @@ class FilaComparacion:
     @property
     def observacion(self) -> str:
         notas: list[str] = []
+        if self.estimado:
+            notas.append("NO VÁLIDO — promedio / estimado (no se compara)")
         if self.error_wes:
             notas.append(self.error_wes)
-        elif self.dias_wes == 0:
+        elif self.dias_wes == 0 and not self.estimado:
             notas.append("Sin registro WES en el período")
-        elif self.dias_periodo > 0 and self.dias_wes < max(1, int(self.dias_periodo * 0.7)):
-            notas.append("Cobertura WES incompleta")
-        if self.estimado:
-            notas.append("Consumo estimado / casa cerrada")
-        pct = self.pct
-        if pct is not None and self.dias_wes > 0 and abs(pct) <= 10:
+        if self.dias_hueco > 0:
+            notas.append(
+                f"Huecos {self.dias_hueco} d ({self.huecos_txt}); "
+                f"proyección +{format_number_chilean(self.m3_proyeccion, 1)} m³"
+            )
+        if self.valido and self.pct is not None and abs(self.pct) <= 10:
             notas.append("Alineado (±10 %)")
         return "; ".join(notas) if notas else ""
 
@@ -462,9 +514,13 @@ def _cargar_sitios(locales: Dict[str, Path]) -> List[Sitio]:
                         lectura_anterior=per.lectura_anterior,
                         lectura_actual=per.lectura_actual,
                         m3_cuenta=int(per.m3_cuenta),
-                        m3_wes=0.0,
+                        m3_wes_medido=0.0,
+                        m3_proyeccion=0.0,
                         dias_wes=0,
+                        dias_esperados=int(dias) + 1,
+                        dias_hueco=0,
                         dias_periodo=int(dias),
+                        huecos_txt="",
                         clave_facturacion=clave_f,
                         clave_lectura=clave_l,
                         estimado=estimado,
@@ -512,12 +568,31 @@ def cruzar_wes(sitios: List[Sitio]) -> None:
             for f in sitio.filas:
                 f.error_wes = f"Error API WES: {e}"
             continue
+        # Promedio diario del nodo (días con registro) para proyectar si el período viene vacío.
+        tot_nodo = sum(m.total_m3 for m in meas)
+        dias_nodo = len({m.date.date() for m in meas})
+        prom_nodo = (tot_nodo / dias_nodo) if dias_nodo else 0.0
         for f in sitio.filas:
             a, b = f.lectura_anterior.date(), f.lectura_actual.date()
-            sub = [m for m in meas if a <= m.date.date() <= b]
-            s = summarize_consumption(sub)
-            f.m3_wes = float(s.get("total") or 0.0)
-            f.dias_wes = int(s.get("dias") or 0)
+            esperadas = _fechas_inclusive(a, b)
+            f.dias_esperados = len(esperadas)
+            por_dia = {m.date.date(): float(m.total_m3) for m in meas if a <= m.date.date() <= b}
+            f.dias_wes = len(por_dia)
+            f.m3_wes_medido = float(sum(por_dia.values()))
+            huecos = [d for d in esperadas if d not in por_dia]
+            f.dias_hueco = len(huecos)
+            f.huecos_txt = _colapsar_huecos(huecos)
+            if f.dias_wes >= 3:
+                prom = f.m3_wes_medido / f.dias_wes
+            else:
+                prom = prom_nodo
+            f.m3_proyeccion = float(prom * f.dias_hueco) if huecos else 0.0
+            if huecos:
+                print(
+                    f"  [proy] {f.boleta} huecos={f.dias_hueco} "
+                    f"+{f.m3_proyeccion:.1f} m³ (prom {prom:.2f})",
+                    flush=True,
+                )
 
 
 def _set_cell(cell, text: str, *, bold: bool = False, size: int = 8) -> None:
@@ -566,27 +641,36 @@ def _add_table_rows(doc: Document, headers: List[str], rows: List[List[str]], *,
     doc.add_paragraph("")
 
 
-def _grafico_resumen(sitios: List[Sitio], out_png: Path) -> Path:
-    labels = []
-    m3_fact = []
-    m3_wes = []
-    for s in sitios:
-        if not s.filas:
-            continue
-        labels.append(s.node_name)
-        m3_fact.append(sum(f.m3_cuenta for f in s.filas))
-        m3_wes.append(sum(f.m3_wes for f in s.filas))
+def _filas_validas(sitios: List[Sitio]) -> List[FilaComparacion]:
+    return [f for s in sitios for f in s.filas if f.valido]
+
+
+def _filas_septiembre(sitios: List[Sitio]) -> List[FilaComparacion]:
+    return [f for s in sitios for f in s.filas if _es_ciclo_septiembre(f)]
+
+
+def _grafico_barras(
+    filas: List[FilaComparacion],
+    out_png: Path,
+    *,
+    titulo: str,
+    solo_validas: bool = True,
+) -> Path:
+    data = [f for f in filas if (f.valido if solo_validas else True)]
+    labels = [f.node_name for f in data]
+    m3_fact = [f.m3_cuenta for f in data]
+    m3_wes = [f.m3_wes for f in data]
     fig, ax = plt.subplots(figsize=(11.5, 5.2))
     fig.patch.set_facecolor("white")
     ax.set_facecolor("white")
     x = range(len(labels))
     w = 0.38
-    ax.bar([i - w / 2 for i in x], m3_fact, width=w, color=COLOR_BARRA_FACT, label="m³ cuenta (Aguas Andinas)")
-    ax.bar([i + w / 2 for i in x], m3_wes, width=w, color=COLOR_BARRA_WES, label="m³ registro API WES")
+    ax.bar([i - w / 2 for i in x], m3_fact, width=w, color=COLOR_BARRA_FACT, label="m³ cuenta (lectura real)")
+    ax.bar([i + w / 2 for i in x], m3_wes, width=w, color=COLOR_BARRA_WES, label="m³ WES + proyección huecos")
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels, rotation=35, ha="right", fontsize=8)
-    ax.set_ylabel("m³ acumulados")
-    ax.set_title("CORMUP Peñalolén — m³ facturado vs m³ App WES, por establecimiento")
+    ax.set_ylabel("m³")
+    ax.set_title(titulo)
     ax.legend(frameon=False)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -598,47 +682,142 @@ def _grafico_resumen(sitios: List[Sitio], out_png: Path) -> Path:
     return out_png
 
 
-def _write_excel(sitios: List[Sitio], out_xlsx: Path, generado: datetime) -> None:
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Resumen"
-
-    header_fill = PatternFill("solid", fgColor="003366")
-    header_font = Font(color="FFFFFF", bold=True)
-    total_fill = PatternFill("solid", fgColor="D9E1F2")
-
-    headers_res = [
-        "Establecimiento",
-        "Nodo WES",
-        "Carpeta Drive",
-        "N° períodos",
-        "m³ cuenta",
-        "m³ App WES",
-        "Dif m³ (cuenta − WES)",
-        "% dif vs cuenta",
-        "Períodos estimados",
-        "PDF con error",
-    ]
-    ws.append(headers_res)
-    for col in range(1, len(headers_res) + 1):
+def _style_header(ws, n_cols: int, header_fill, header_font) -> None:
+    for col in range(1, n_cols + 1):
         c = ws.cell(row=1, column=col)
         c.fill = header_fill
         c.font = header_font
         c.alignment = Alignment(horizontal="center", wrap_text=True)
 
-    tot_c = tot_w = tot_p = tot_est = 0
+
+def _fila_detalle_excel(f: FilaComparacion) -> list:
+    pct = f.pct if f.valido else None
+    dif = f.diff_m3 if f.valido else None
+    return [
+        f.establecimiento,
+        f.node_id,
+        "Sí" if f.valido else "No",
+        f.cuenta,
+        f.medidor,
+        f.boleta,
+        f.emision.strftime("%d-%m-%Y"),
+        f.lectura_anterior.strftime("%d-%m-%Y"),
+        f.lectura_actual.strftime("%d-%m-%Y"),
+        f.dias_esperados,
+        f.m3_cuenta,
+        round(f.m3_wes_medido, 1),
+        f.dias_wes,
+        f.dias_hueco,
+        f.huecos_txt,
+        round(f.m3_proyeccion, 1),
+        round(f.m3_wes, 1),
+        None if dif is None else round(dif, 1),
+        None if pct is None else round(pct, 1),
+        f.clave_facturacion,
+        f.clave_lectura,
+        f.observacion,
+        f.pdf_name,
+        f.total_pagar if f.total_pagar is not None else "",
+    ]
+
+
+HEADERS_DETALLE = [
+    "Establecimiento",
+    "Nodo WES",
+    "Válida (lectura real)",
+    "Cuenta Aguas Andinas",
+    "Medidor",
+    "N° factura / boleta",
+    "Emisión",
+    "Lectura anterior",
+    "Lectura actual",
+    "Días esperados",
+    "m³ cuenta",
+    "m³ WES medido",
+    "Días WES",
+    "Días hueco",
+    "Huecos (fechas)",
+    "m³ proyección huecos",
+    "m³ WES + proyección",
+    "Dif m³ (cuenta − WES+proy)",
+    "% dif vs cuenta",
+    "Clave facturación",
+    "Clave lectura",
+    "Observación",
+    "Archivo PDF",
+    "Total a pagar (CLP)",
+]
+
+
+def _write_sheet_filas(ws, filas: List[FilaComparacion], header_fill, header_font) -> None:
+    ws.append(HEADERS_DETALLE)
+    _style_header(ws, len(HEADERS_DETALLE), header_fill, header_font)
+    for f in filas:
+        ws.append(_fila_detalle_excel(f))
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
+        row[9].number_format = "0"
+        row[10].number_format = "#,##0"
+        row[11].number_format = "#,##0.0"
+        row[12].number_format = "0"
+        row[13].number_format = "0"
+        row[15].number_format = "#,##0.0"
+        row[16].number_format = "#,##0.0"
+        row[17].number_format = "#,##0.0"
+        row[18].number_format = "0.0"
+        row[23].number_format = "#,##0"
+    ws.freeze_panes = "A2"
+    if ws.max_row > 1:
+        ws.auto_filter.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
+    widths = [26, 12, 16, 16, 14, 16, 12, 14, 14, 12, 12, 14, 10, 10, 28, 16, 18, 20, 12, 28, 18, 40, 28, 16]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+
+def _write_excel(sitios: List[Sitio], out_xlsx: Path, generado: datetime) -> None:
+    wb = Workbook()
+    header_fill = PatternFill("solid", fgColor="003366")
+    header_font = Font(color="FFFFFF", bold=True)
+    total_fill = PatternFill("solid", fgColor="D9E1F2")
+
+    wsep = wb.active
+    wsep.title = "Septiembre"
+    sep = _filas_septiembre(sitios)
+    sep.sort(key=lambda f: (not f.valido, f.node_id))
+    _write_sheet_filas(wsep, sep, header_fill, header_font)
+
+    ws = wb.create_sheet("Resumen_valido")
+    headers_res = [
+        "Establecimiento",
+        "Nodo WES",
+        "N° períodos válidos",
+        "m³ cuenta (reales)",
+        "m³ WES medido",
+        "m³ proyección huecos",
+        "m³ WES + proyección",
+        "Dif m³ (cuenta − WES+proy)",
+        "% dif vs cuenta",
+        "Períodos no válidos (promedio)",
+        "PDF con error",
+    ]
+    ws.append(headers_res)
+    _style_header(ws, len(headers_res), header_fill, header_font)
+    tot_c = tot_med = tot_pr = tot_n = tot_est = 0
     for s in sitios:
-        m3c = sum(f.m3_cuenta for f in s.filas)
-        m3w = sum(f.m3_wes for f in s.filas)
+        validas = [f for f in s.filas if f.valido]
+        m3c = sum(f.m3_cuenta for f in validas)
+        m3m = sum(f.m3_wes_medido for f in validas)
+        m3p = sum(f.m3_proyeccion for f in validas)
+        m3w = m3m + m3p
         n_est = sum(1 for f in s.filas if f.estimado)
         pct = (100.0 * (m3c - m3w) / m3c) if m3c else None
         ws.append(
             [
                 s.node_name,
                 s.node_id,
-                s.carpeta,
-                len(s.filas),
+                len(validas),
                 m3c,
+                round(m3m, 1),
+                round(m3p, 1),
                 round(m3w, 1),
                 round(m3c - m3w, 1),
                 None if pct is None else round(pct, 1),
@@ -647,17 +826,20 @@ def _write_excel(sitios: List[Sitio], out_xlsx: Path, generado: datetime) -> Non
             ]
         )
         tot_c += m3c
-        tot_w += m3w
-        tot_p += len(s.filas)
+        tot_med += m3m
+        tot_pr += m3p
+        tot_n += len(validas)
         tot_est += n_est
+    tot_w = tot_med + tot_pr
     tot_pct = (100.0 * (tot_c - tot_w) / tot_c) if tot_c else None
     ws.append(
         [
-            "TOTAL",
+            "TOTAL (solo lecturas reales)",
             COMPANY_ID,
-            "",
-            tot_p,
+            tot_n,
             tot_c,
+            round(tot_med, 1),
+            round(tot_pr, 1),
             round(tot_w, 1),
             round(tot_c - tot_w, 1),
             None if tot_pct is None else round(tot_pct, 1),
@@ -669,84 +851,20 @@ def _write_excel(sitios: List[Sitio], out_xlsx: Path, generado: datetime) -> Non
         cell.fill = total_fill
         cell.font = Font(bold=True)
     for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
-        row[3].number_format = "0"
-        row[4].number_format = "#,##0"
+        row[2].number_format = "0"
+        row[3].number_format = "#,##0"
+        row[4].number_format = "#,##0.0"
         row[5].number_format = "#,##0.0"
         row[6].number_format = "#,##0.0"
-        row[7].number_format = "0.0"
+        row[7].number_format = "#,##0.0"
+        row[8].number_format = "0.0"
     ws.freeze_panes = "A2"
-    for i, w in enumerate([28, 12, 22, 12, 14, 14, 20, 16, 16, 14], start=1):
+    for i, w in enumerate([28, 12, 16, 18, 16, 18, 20, 24, 14, 24, 14], start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     wd = wb.create_sheet("Detalle")
-    headers_d = [
-        "Establecimiento",
-        "Nodo WES",
-        "Cuenta Aguas Andinas",
-        "Medidor",
-        "N° factura / boleta",
-        "Emisión",
-        "Lectura anterior",
-        "Lectura actual",
-        "Días período",
-        "m³ cuenta",
-        "m³ App WES",
-        "Días WES",
-        "Dif m³ (cuenta − WES)",
-        "% dif vs cuenta",
-        "Clave facturación",
-        "Clave lectura",
-        "Observación",
-        "Archivo PDF",
-        "Total a pagar (CLP)",
-    ]
-    wd.append(headers_d)
-    for col in range(1, len(headers_d) + 1):
-        c = wd.cell(row=1, column=col)
-        c.fill = header_fill
-        c.font = header_font
-        c.alignment = Alignment(horizontal="center", wrap_text=True)
-    for s in sitios:
-        for f in s.filas:
-            pct = f.pct
-            wd.append(
-                [
-                    f.establecimiento,
-                    f.node_id,
-                    f.cuenta,
-                    f.medidor,
-                    f.boleta,
-                    f.emision.strftime("%d-%m-%Y"),
-                    f.lectura_anterior.strftime("%d-%m-%Y"),
-                    f.lectura_actual.strftime("%d-%m-%Y"),
-                    f.dias_periodo,
-                    f.m3_cuenta,
-                    round(f.m3_wes, 1),
-                    f.dias_wes,
-                    round(f.diff_m3, 1),
-                    None if pct is None else round(pct, 1),
-                    f.clave_facturacion,
-                    f.clave_lectura,
-                    f.observacion,
-                    f.pdf_name,
-                    f.total_pagar if f.total_pagar is not None else "",
-                ]
-            )
-    for row in wd.iter_rows(min_row=2, max_row=wd.max_row):
-        row[8].number_format = "0"
-        row[9].number_format = "#,##0"
-        row[10].number_format = "#,##0.0"
-        row[11].number_format = "0"
-        row[12].number_format = "#,##0.0"
-        row[13].number_format = "0.0"
-        row[18].number_format = "#,##0"
-    wd.freeze_panes = "A2"
-    wd.auto_filter.ref = f"A1:{get_column_letter(wd.max_column)}{wd.max_row}"
-    for i, w in enumerate(
-        [26, 12, 16, 14, 16, 12, 14, 14, 12, 12, 14, 12, 18, 14, 22, 18, 36, 28, 16],
-        start=1,
-    ):
-        wd.column_dimensions[get_column_letter(i)].width = w
+    todas = [f for s in sitios for f in s.filas]
+    _write_sheet_filas(wd, todas, header_fill, header_font)
 
     wn = wb.create_sheet("Notas")
     wn["A1"] = "Criterio"
@@ -755,22 +873,25 @@ def _write_excel(sitios: List[Sitio], out_xlsx: Path, generado: datetime) -> Non
         "(una subcarpeta por establecimiento)."
     )
     wn["A3"] = (
-        "Por cada boleta se toma el período entre Lectura anterior y Lectura actual "
-        "informadas en la factura, y se suma el consumo diario del nodo WES en esas mismas fechas "
-        "(inclusive), vía API acl-node /nodes/measures/dates."
+        "Comparativo VÁLIDO: solo boletas con lectura real (no promedio, no estimado SISS, "
+        "no casa cerrada, no medidor detenido, no cerrado). Esas no se contrastan contra WES."
     )
     wn["A4"] = (
-        "Diferencia = m³ de la cuenta − m³ App WES. Un valor positivo indica que la boleta "
-        "facturó más que el registro WES; negativo, que WES midió más que la cuenta."
+        "Huecos: días del período de lecturas sin registro diario en la API WES. "
+        "Se proyectan con el promedio m³/día de los días con dato en el mismo período "
+        "(si hay < 3 días, se usa el promedio del nodo en todo el rango descargado) "
+        "y se SUMAN al m³ WES medido."
     )
     wn["A5"] = (
-        "Las boletas con clave de facturación estimada / casa cerrada se incluyen y se marcan "
-        "en Observación: el m³ de la cuenta no proviene de lectura real del medidor."
+        "Diferencia = m³ cuenta − (m³ WES medido + proyección de huecos). "
+        "Positivo: la boleta facturó más que WES+proyección."
     )
-    wn["A6"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
-    wn["A7"] = (
-        "Eduardo de la Barra (000008-02) no tiene subcarpeta de facturaciones en Drive "
-        "al momento de este informe."
+    wn["A6"] = (
+        "Septiembre: boletas con emisión o lectura actual en septiembre (ciclo más reciente)."
+    )
+    wn["A7"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
+    wn["A8"] = (
+        "Eduardo de la Barra (000008-02) no tiene subcarpeta de facturaciones en Drive."
     )
     wn.column_dimensions["A"].width = 120
     wb.save(out_xlsx)
@@ -779,6 +900,7 @@ def _write_excel(sitios: List[Sitio], out_xlsx: Path, generado: datetime) -> Non
 def _write_word(
     sitios: List[Sitio],
     out_docx: Path,
+    chart_sep: Path,
     chart_png: Path,
     generado: datetime,
 ) -> None:
@@ -816,69 +938,152 @@ def _write_word(
 
     add_formatted_heading(doc, "1. Alcance y criterio", level=1)
     doc.add_paragraph(
-        "Cada establecimiento de la carpeta de facturaciones se asocia al nodo WES CORMUP "
-        "homónimo. Para cada boleta se compara el consumo total facturado (m³) con la suma "
-        "de consumo diario registrado por la API WES entre la lectura anterior y la lectura "
-        "actual de esa misma boleta."
+        "Cada establecimiento se asocia al nodo WES CORMUP homónimo. El cruce válido "
+        "usa solo boletas con lectura real. Las facturadas a promedio / estimado SISS / "
+        "casa cerrada / medidor detenido / cerrado NO se comparan: el m³ de la cuenta no "
+        "es una lectura del medidor."
     )
     doc.add_paragraph(
-        "El cruce no exige coincidencia exacta: el medidor de la sanitaria y el punto WES "
-        "pueden diferir por alcance hidráulico, lecturas estimadas (casa cerrada), días sin "
-        "telemetría o desfase de calendario. Se destaca una diferencia ≥ 15 % cuando hay "
-        "cobertura WES en el período."
+        "Si en el período de lecturas faltan días en la API WES (huecos), se proyecta el "
+        "consumo de esos días con el promedio m³/día de los días con dato del mismo período "
+        "y se SUMA al total WES. Con menos de 3 días de base se usa el promedio del nodo."
     )
     presentes = {s.node_id for s in sitios}
     faltantes = [n for n in NODOS_CORMUP if n not in presentes]
     if faltantes:
         txt_falt = ", ".join(f"{n} ({get_node_name(n)})" for n in faltantes)
-        doc.add_paragraph(
-            f"Sin carpeta de facturaciones en Drive para: {txt_falt}."
-        )
+        doc.add_paragraph(f"Sin carpeta de facturaciones en Drive para: {txt_falt}.")
 
-    add_formatted_heading(doc, "2. Resumen por establecimiento", level=1)
+    add_formatted_heading(doc, "2. Ciclo septiembre (el que más importa)", level=1)
+    doc.add_paragraph(
+        "Boletas con emisión o lectura actual en septiembre. Primero las válidas "
+        "(lectura real); al final las de promedio, solo informativas."
+    )
+    headers_sep = [
+        "Establecimiento",
+        "Período",
+        "Emisión",
+        "Válida",
+        "m³ cuenta",
+        "m³ WES med.",
+        "Huecos",
+        "m³ proy.",
+        "m³ WES+proy",
+        "Dif m³",
+        "%",
+        "Observación",
+    ]
+    sep = _filas_septiembre(sitios)
+    sep.sort(key=lambda f: (not f.valido, f.node_id))
+    rows_sep: List[List[str]] = []
+    hi_sep: list[int] = []
+    tot_c = tot_med = tot_pr = 0
+    n_val = 0
+    for i, f in enumerate(sep, start=1):
+        dif_txt = format_number_chilean(f.diff_m3, 1) if f.valido else "—"
+        pct_txt = format_number_chilean(f.pct or 0.0, 1) if f.valido else "—"
+        rows_sep.append(
+            [
+                f.node_name,
+                f.periodo_txt,
+                f.emision.strftime("%d-%m-%Y"),
+                "Sí" if f.valido else "No",
+                format_number_chilean(f.m3_cuenta, 0),
+                format_number_chilean(f.m3_wes_medido, 1),
+                str(f.dias_hueco),
+                format_number_chilean(f.m3_proyeccion, 1),
+                format_number_chilean(f.m3_wes, 1),
+                dif_txt,
+                pct_txt,
+                f.observacion,
+            ]
+        )
+        if f.valido:
+            tot_c += f.m3_cuenta
+            tot_med += f.m3_wes_medido
+            tot_pr += f.m3_proyeccion
+            n_val += 1
+            if abs(f.pct or 0) >= UMBRAL_PCT_DESTACAR:
+                hi_sep.append(i)
+        else:
+            hi_sep.append(i)
+    tot_w = tot_med + tot_pr
+    tot_pct = (100.0 * (tot_c - tot_w) / tot_c) if tot_c else 0.0
+    rows_sep.append(
+        [
+            "TOTAL válidas septiembre",
+            "",
+            "",
+            str(n_val),
+            format_number_chilean(tot_c, 0),
+            format_number_chilean(tot_med, 1),
+            "",
+            format_number_chilean(tot_pr, 1),
+            format_number_chilean(tot_w, 1),
+            format_number_chilean(tot_c - tot_w, 1),
+            format_number_chilean(tot_pct, 1),
+            "",
+        ]
+    )
+    _add_table_rows(doc, headers_sep, rows_sep, highlight=hi_sep, has_total=True)
+    if chart_sep.exists():
+        add_picture_with_pagination(doc, str(chart_sep), Inches(9.4), keep_with_next=False)
+
+    add_formatted_heading(doc, "3. Resumen válido por establecimiento (todas las lecturas reales)", level=1)
     headers_r = [
         "Establecimiento",
         "Nodo",
-        "N° per.",
+        "N° válidas",
         "m³ cuenta",
-        "m³ WES",
+        "m³ WES med.",
+        "m³ proy.",
+        "m³ WES+proy",
         "Dif m³",
         "% dif",
-        "Estimadas",
+        "No válidas",
     ]
     rows_r: List[List[str]] = []
     highlight: list[int] = []
-    tot_c = tot_w = tot_n = tot_e = 0
+    tot_c = tot_med = tot_pr = tot_n = tot_e = 0
     for idx, s in enumerate(sitios, start=1):
-        m3c = sum(f.m3_cuenta for f in s.filas)
-        m3w = sum(f.m3_wes for f in s.filas)
+        validas = [f for f in s.filas if f.valido]
+        m3c = sum(f.m3_cuenta for f in validas)
+        m3m = sum(f.m3_wes_medido for f in validas)
+        m3p = sum(f.m3_proyeccion for f in validas)
+        m3w = m3m + m3p
         n_est = sum(1 for f in s.filas if f.estimado)
         pct = (100.0 * (m3c - m3w) / m3c) if m3c else 0.0
         rows_r.append(
             [
                 s.node_name,
                 s.node_id,
-                str(len(s.filas)),
+                str(len(validas)),
                 format_number_chilean(m3c, 0),
+                format_number_chilean(m3m, 1),
+                format_number_chilean(m3p, 1),
                 format_number_chilean(m3w, 1),
                 format_number_chilean(m3c - m3w, 1),
                 format_number_chilean(pct, 1),
                 str(n_est),
             ]
         )
-        if abs(pct) >= UMBRAL_PCT_DESTACAR:
+        if validas and abs(pct) >= UMBRAL_PCT_DESTACAR:
             highlight.append(idx)
         tot_c += m3c
-        tot_w += m3w
-        tot_n += len(s.filas)
+        tot_med += m3m
+        tot_pr += m3p
+        tot_n += len(validas)
         tot_e += n_est
+    tot_w = tot_med + tot_pr
     tot_pct = (100.0 * (tot_c - tot_w) / tot_c) if tot_c else 0.0
     rows_r.append(
         [
-            "TOTAL",
+            "TOTAL lecturas reales",
             COMPANY_ID,
             str(tot_n),
             format_number_chilean(tot_c, 0),
+            format_number_chilean(tot_med, 1),
+            format_number_chilean(tot_pr, 1),
             format_number_chilean(tot_w, 1),
             format_number_chilean(tot_c - tot_w, 1),
             format_number_chilean(tot_pct, 1),
@@ -890,17 +1095,19 @@ def _write_word(
     if chart_png.exists():
         add_picture_with_pagination(doc, str(chart_png), Inches(9.4), keep_with_next=False)
 
-    add_formatted_heading(doc, "3. Tablas por establecimiento", level=1)
+    add_formatted_heading(doc, "4. Tablas por establecimiento", level=1)
     headers_d = [
         "Período (lecturas)",
         "Emisión",
         "N° factura",
-        "Cuenta",
+        "Válida",
         "m³ cuenta",
-        "m³ WES",
-        "Días WES",
+        "m³ WES med.",
+        "Huecos",
+        "m³ proy.",
+        "m³ WES+proy",
         "Dif m³",
-        "% dif",
+        "%",
         "Observación",
     ]
     for s in sitios:
@@ -931,35 +1138,45 @@ def _write_word(
         rows: List[List[str]] = []
         hi: list[int] = []
         for i, f in enumerate(s.filas, start=1):
-            pct = f.pct if f.pct is not None else 0.0
+            dif_txt = format_number_chilean(f.diff_m3, 1) if f.valido else "—"
+            pct_txt = format_number_chilean(f.pct or 0.0, 1) if f.valido else "—"
             rows.append(
                 [
                     f.periodo_txt,
                     f.emision.strftime("%d-%m-%Y"),
                     f.boleta,
-                    f.cuenta or "—",
+                    "Sí" if f.valido else "No",
                     format_number_chilean(f.m3_cuenta, 0),
+                    format_number_chilean(f.m3_wes_medido, 1),
+                    str(f.dias_hueco),
+                    format_number_chilean(f.m3_proyeccion, 1),
                     format_number_chilean(f.m3_wes, 1),
-                    str(f.dias_wes),
-                    format_number_chilean(f.diff_m3, 1),
-                    format_number_chilean(pct, 1),
+                    dif_txt,
+                    pct_txt,
                     f.observacion,
                 ]
             )
-            if f.dias_wes > 0 and abs(pct) >= UMBRAL_PCT_DESTACAR:
+            if f.valido and f.pct is not None and abs(f.pct) >= UMBRAL_PCT_DESTACAR:
                 hi.append(i)
-        m3c = sum(f.m3_cuenta for f in s.filas)
-        m3w = sum(f.m3_wes for f in s.filas)
+            elif not f.valido:
+                hi.append(i)
+        validas = [f for f in s.filas if f.valido]
+        m3c = sum(f.m3_cuenta for f in validas)
+        m3m = sum(f.m3_wes_medido for f in validas)
+        m3p = sum(f.m3_proyeccion for f in validas)
+        m3w = m3m + m3p
         pct_t = (100.0 * (m3c - m3w) / m3c) if m3c else 0.0
         rows.append(
             [
-                "TOTAL",
+                "TOTAL válidas",
                 "",
-                str(len(s.filas)),
+                str(len(validas)),
                 "",
                 format_number_chilean(m3c, 0),
-                format_number_chilean(m3w, 1),
+                format_number_chilean(m3m, 1),
                 "",
+                format_number_chilean(m3p, 1),
+                format_number_chilean(m3w, 1),
                 format_number_chilean(m3c - m3w, 1),
                 format_number_chilean(pct_t, 1),
                 "",
@@ -967,16 +1184,19 @@ def _write_word(
         )
         _add_table_rows(doc, headers_d, rows, highlight=hi, has_total=True)
 
-    add_formatted_heading(doc, "4. Notas", level=1, page_break_before=True)
+    add_formatted_heading(doc, "5. Notas", level=1, page_break_before=True)
     doc.add_paragraph(
         "Fuente de medidas WES: GET /wes/api/acl-node/v1/nodes/measures/dates "
         "(consumo diario totalM3). El período de cada fila es el intervalo de lecturas "
         "de la boleta, no el mes calendario de emisión."
     )
     doc.add_paragraph(
-        "Las facturas con «casa cerrada» o consumo promedio descontable se contrastan "
-        "igual, pero el m³ de la cuenta no es lectura real: la diferencia frente a WES "
-        "en esos ciclos no debe leerse como error de telemetría."
+        "Las filas en rojo / «NO VÁLIDO» son promedio o sin lectura real: no entran al "
+        "total ni al % de diferencia. El m³ WES de esas filas se muestra solo como referencia."
+    )
+    doc.add_paragraph(
+        "Proyección de huecos: promedio diario WES del mismo período × días sin dato, "
+        "sumado al m³ medido. Un día con 0 m³ registrado no es hueco (sí hubo telemetría)."
     )
     out_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_docx)
@@ -1027,10 +1247,52 @@ def generar(skip_download: bool = False) -> Tuple[Path, Optional[Path], Path]:
     out_xlsx = OUT_DIR / f"{stem}.xlsx"
     out_docx = OUT_DIR / f"{stem}.docx"
     chart_png = OUT_DIR / f"{stem}_barras.png"
+    chart_sep = OUT_DIR / f"{stem}_septiembre.png"
 
-    _grafico_resumen(sitios, chart_png)
+    sep_validas = [f for f in _filas_septiembre(sitios) if f.valido]
+    _grafico_barras(
+        sep_validas,
+        chart_sep,
+        titulo="Septiembre — lecturas reales: m³ cuenta vs WES + proyección de huecos",
+    )
+    # Un punto por establecimiento (suma de boletas válidas)
+    resumen_filas: List[FilaComparacion] = []
+    for s in sitios:
+        validas = [f for f in s.filas if f.valido]
+        if not validas:
+            continue
+        acc = FilaComparacion(
+            establecimiento=s.node_name,
+            carpeta=s.carpeta,
+            node_id=s.node_id,
+            node_name=s.node_name,
+            pdf_name="",
+            boleta="",
+            cuenta="",
+            medidor="",
+            emision=validas[0].emision,
+            lectura_anterior=validas[0].lectura_anterior,
+            lectura_actual=validas[-1].lectura_actual,
+            m3_cuenta=sum(f.m3_cuenta for f in validas),
+            m3_wes_medido=sum(f.m3_wes_medido for f in validas),
+            m3_proyeccion=sum(f.m3_proyeccion for f in validas),
+            dias_wes=sum(f.dias_wes for f in validas),
+            dias_esperados=sum(f.dias_esperados for f in validas),
+            dias_hueco=sum(f.dias_hueco for f in validas),
+            dias_periodo=sum(f.dias_periodo for f in validas),
+            huecos_txt="",
+            clave_facturacion="Consumo real",
+            clave_lectura="LECTURA NORMAL",
+            estimado=False,
+        )
+        resumen_filas.append(acc)
+    _grafico_barras(
+        resumen_filas,
+        chart_png,
+        titulo="CORMUP Peñalolén — solo lecturas reales: m³ cuenta vs WES + proyección",
+    )
     _write_excel(sitios, out_xlsx, generado)
-    _write_word(sitios, out_docx, chart_png, generado)
+    _write_word(sitios, out_docx, chart_sep, chart_png, generado)
     out_pdf = convertir_a_pdf(out_docx)
 
     print(f"[OK] Excel: {out_xlsx}", flush=True)
