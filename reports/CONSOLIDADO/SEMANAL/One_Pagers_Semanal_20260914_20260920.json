@@ -1,0 +1,98 @@
+{
+  "periodo": "14 al 20 de septiembre de 2026",
+  "start": "2026-09-14",
+  "end": "2026-09-20",
+  "ok": [
+    {
+      "key": "zapallar",
+      "cliente": "Fundo Zapallar",
+      "pdf": "reports/Fundo_Zapallar/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Fundo_Zapallar_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1D6ggsbgAQjDdpKPuE6f934mO8kCkzAGp/view?usp=drivesdk"
+    },
+    {
+      "key": "inchcape",
+      "cliente": "Inchcape",
+      "pdf": "reports/Inchcape/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Inchcape_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1wCt8Gp8TyUU9iZ0-3XWfcMgXF0xhBaqz/view?usp=drivesdk"
+    },
+    {
+      "key": "nido",
+      "cliente": "Nido de Águilas",
+      "pdf": "reports/Nido_de_Aguilas/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Nido_de_Aguilas_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1yWDcwqiEf_T_g1IaH0EpKcNAsKwrz-tF/view?usp=drivesdk"
+    },
+    {
+      "key": "valledor",
+      "cliente": "Lo Valledor",
+      "pdf": "reports/Lo_Valledor/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Lo_Valledor_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1DXF7fRBGdpkRwbR7y1JtHI1kx7L49a-g/view?usp=drivesdk"
+    },
+    {
+      "key": "udd",
+      "cliente": "UDD",
+      "pdf": "reports/UDD/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_UDD_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1Cu23-YTir7a4Uq-um5cyahlLHuLiSBsR/view?usp=drivesdk"
+    },
+    {
+      "key": "club",
+      "cliente": "Club Providencia",
+      "pdf": "reports/Club_Providencia/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Club_Providencia_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1SvJI4IUPUtS7hvmeJIHYLd-8nD7qPJAG/view?usp=drivesdk"
+    },
+    {
+      "key": "lampa",
+      "cliente": "AGUNSA Lampa",
+      "pdf": "reports/AGUNSA_Lampa/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_AGUNSA_Lampa_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1EmzhZcPtdUhGUPJsPnXtEf1JYkPIHNNF/view?usp=drivesdk"
+    },
+    {
+      "key": "intermodal",
+      "cliente": "AGUNSA Intermodal",
+      "pdf": "reports/Agunsa_Intermodal/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_AGUNSA_Intermodal_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1zlaZWJ9axtTpN0gkLvAO-UeF9cB44GXy/view?usp=drivesdk"
+    },
+    {
+      "key": "renca",
+      "cliente": "Renca",
+      "pdf": "reports/Renca/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Renca_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/12mifw6IBBWPMjk1sofCg2hZp-fbCFEUf/view?usp=drivesdk"
+    },
+    {
+      "key": "florida",
+      "cliente": "La Florida",
+      "pdf": "reports/La_Florida/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_La_Florida_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1PhtDMmYoqA2PIvwtZoyNLIOtsSnK9PQ4/view?usp=drivesdk"
+    },
+    {
+      "key": "reina",
+      "cliente": "La Reina",
+      "pdf": "reports/La_Reina/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_La_Reina_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1F2HbJ7kXhjQ5swRxSCjxRTPLeuU-IXnO/view?usp=drivesdk"
+    },
+    {
+      "key": "cormup",
+      "cliente": "CORMUP",
+      "pdf": "reports/CORMUP/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_CORMUP_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1UfRKmJN-oaBJx-pNHc7-WaO8phcYJLS-/view?usp=drivesdk"
+    },
+    {
+      "key": "copec",
+      "cliente": "COPEC",
+      "pdf": "reports/COPEC/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_COPEC_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1rIlQWwdz31gxwuiG2RcnnqCbwHSvZo4X/view?usp=drivesdk"
+    },
+    {
+      "key": "cduc",
+      "cliente": "CDUC",
+      "pdf": "reports/CDUC/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_CDUC_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1YvlQkWvikFwyvKPli74GCMOuQBAGPNzC/view?usp=drivesdk"
+    },
+    {
+      "key": "fleming",
+      "cliente": "Alexander Fleming",
+      "pdf": "reports/Alexander_Fleming/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Alexander_Fleming_20260914_20260920.pdf",
+      "drive": "https://drive.google.com/file/d/1YELMCu72tdzAppSD0V-URLUSkXPBh2Dz/view?usp=drivesdk"
+    }
+  ],
+  "errors": []
+}
