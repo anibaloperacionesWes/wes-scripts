@@ -6,92 +6,167 @@
     {
       "key": "zapallar",
       "cliente": "Fundo Zapallar",
-      "pdf": "reports/Fundo_Zapallar/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Fundo_Zapallar_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1D6ggsbgAQjDdpKPuE6f934mO8kCkzAGp/view?usp=drivesdk"
+      "one_pager": "reports/Fundo_Zapallar/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Fundo_Zapallar_20260914_20260920.pdf",
+      "extendido": "reports/Fundo_Zapallar/GESTION_HIDRICA/SEMANAL/Informe_Semanal_Fundo_Zapallar_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1D6ggsbgAQjDdpKPuE6f934mO8kCkzAGp/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/13ma0pMiuELot0Gn1ieSIHHGz0nvpX5Dq/view?usp=drivesdk",
+      "clasificacion": "REQUIERE ATENCIÓN",
+      "kpi": "1.067,3 m³",
+      "noct": "22 %"
     },
     {
       "key": "inchcape",
       "cliente": "Inchcape",
-      "pdf": "reports/Inchcape/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Inchcape_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1wCt8Gp8TyUU9iZ0-3XWfcMgXF0xhBaqz/view?usp=drivesdk"
+      "one_pager": "reports/Inchcape/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Inchcape_20260914_20260920.pdf",
+      "extendido": "reports/Inchcape/GESTION_HIDRICA/SEMANAL/Informe_Semanal_Inchcape_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1wCt8Gp8TyUU9iZ0-3XWfcMgXF0xhBaqz/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1yfQkbVYkNHFNW35Fouh080UuaLWDcW87/view?usp=drivesdk",
+      "clasificacion": "BAJO CONTROL",
+      "kpi": "314,1 m³",
+      "noct": "12 %"
     },
     {
       "key": "nido",
       "cliente": "Nido de Águilas",
-      "pdf": "reports/Nido_de_Aguilas/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Nido_de_Aguilas_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1yWDcwqiEf_T_g1IaH0EpKcNAsKwrz-tF/view?usp=drivesdk"
+      "one_pager": "reports/Nido_de_Aguilas/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Nido_de_Aguilas_20260914_20260920.pdf",
+      "extendido": "reports/Nido_de_Aguilas/GESTION_HIDRICA/SEMANAL/Informe_Semanal_Nido_de_Aguilas_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1yWDcwqiEf_T_g1IaH0EpKcNAsKwrz-tF/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1GqfCGjK_UYAmkGY0MvG-hlbZ8coYA3eO/view?usp=drivesdk",
+      "clasificacion": "BAJO CONTROL",
+      "kpi": "1.522,9 m³",
+      "noct": "16 %"
     },
     {
       "key": "valledor",
       "cliente": "Lo Valledor",
-      "pdf": "reports/Lo_Valledor/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Lo_Valledor_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1DXF7fRBGdpkRwbR7y1JtHI1kx7L49a-g/view?usp=drivesdk"
+      "one_pager": "reports/Lo_Valledor/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Lo_Valledor_20260914_20260920.pdf",
+      "extendido": "reports/Lo_Valledor/GESTION_HIDRICA/SEMANAL/Informe_Semanal_Lo_Valledor_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1DXF7fRBGdpkRwbR7y1JtHI1kx7L49a-g/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1wC0GJhzmrCeALo9oH_dzrzkdju2LNDt8/view?usp=drivesdk",
+      "clasificacion": "REQUIERE ATENCIÓN",
+      "kpi": "964,7 m³",
+      "noct": "30 %"
     },
     {
       "key": "udd",
       "cliente": "UDD",
-      "pdf": "reports/UDD/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_UDD_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1Cu23-YTir7a4Uq-um5cyahlLHuLiSBsR/view?usp=drivesdk"
+      "one_pager": "reports/UDD/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_UDD_20260914_20260920.pdf",
+      "extendido": "reports/UDD/GESTION_HIDRICA/SEMANAL/Informe_Semanal_UDD_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1Cu23-YTir7a4Uq-um5cyahlLHuLiSBsR/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/15LROU0Y9KuxaIX2XjfLBZWsDFOWn_S3o/view?usp=drivesdk",
+      "clasificacion": "BAJO CONTROL",
+      "kpi": "144,9 m³",
+      "noct": "4 %"
     },
     {
       "key": "club",
       "cliente": "Club Providencia",
-      "pdf": "reports/Club_Providencia/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Club_Providencia_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1SvJI4IUPUtS7hvmeJIHYLd-8nD7qPJAG/view?usp=drivesdk"
+      "one_pager": "reports/Club_Providencia/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Club_Providencia_20260914_20260920.pdf",
+      "extendido": "reports/Club_Providencia/GESTION_HIDRICA/SEMANAL/Informe_Semanal_Club_Providencia_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1SvJI4IUPUtS7hvmeJIHYLd-8nD7qPJAG/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1htqXr9ofXZMjq0XEihVKQzAFj_faV0RN/view?usp=drivesdk",
+      "clasificacion": "BAJO CONTROL",
+      "kpi": "1.388,5 m³",
+      "noct": "10 %"
     },
     {
       "key": "lampa",
       "cliente": "AGUNSA Lampa",
-      "pdf": "reports/AGUNSA_Lampa/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_AGUNSA_Lampa_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1EmzhZcPtdUhGUPJsPnXtEf1JYkPIHNNF/view?usp=drivesdk"
+      "one_pager": "reports/AGUNSA_Lampa/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_AGUNSA_Lampa_20260914_20260920.pdf",
+      "extendido": "reports/AGUNSA_Lampa/GESTION_HIDRICA/SEMANAL/Informe_Semanal_AGUNSA_Lampa_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1EmzhZcPtdUhGUPJsPnXtEf1JYkPIHNNF/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/10ZZJgOk-NH2mkV4Qdu2EDWaamUk05Yki/view?usp=drivesdk",
+      "clasificacion": "BAJO CONTROL",
+      "kpi": "307,9 m³",
+      "noct": "16 %"
     },
     {
       "key": "intermodal",
       "cliente": "AGUNSA Intermodal",
-      "pdf": "reports/Agunsa_Intermodal/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_AGUNSA_Intermodal_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1zlaZWJ9axtTpN0gkLvAO-UeF9cB44GXy/view?usp=drivesdk"
+      "one_pager": "reports/Agunsa_Intermodal/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_AGUNSA_Intermodal_20260914_20260920.pdf",
+      "extendido": "reports/Agunsa_Intermodal/GESTION_HIDRICA/SEMANAL/Informe_Semanal_AGUNSA_Intermodal_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1zlaZWJ9axtTpN0gkLvAO-UeF9cB44GXy/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1BUsQA5qMkERqrD7gyTKMgfE-MOGrQoZr/view?usp=drivesdk",
+      "clasificacion": "BAJO CONTROL",
+      "kpi": "0,0 m³",
+      "noct": "0 %"
     },
     {
       "key": "renca",
       "cliente": "Renca",
-      "pdf": "reports/Renca/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Renca_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/12mifw6IBBWPMjk1sofCg2hZp-fbCFEUf/view?usp=drivesdk"
+      "one_pager": "reports/Renca/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Renca_20260914_20260920.pdf",
+      "extendido": "reports/Renca/GESTION_HIDRICA/SEMANAL/Informe_Semanal_Renca_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/12mifw6IBBWPMjk1sofCg2hZp-fbCFEUf/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1_1W-VJeeMaOODV9sKIr7rwFFRE_uyz8y/view?usp=drivesdk",
+      "clasificacion": "BAJO CONTROL",
+      "kpi": "66,1 m³",
+      "noct": "15 %"
     },
     {
       "key": "florida",
       "cliente": "La Florida",
-      "pdf": "reports/La_Florida/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_La_Florida_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1PhtDMmYoqA2PIvwtZoyNLIOtsSnK9PQ4/view?usp=drivesdk"
+      "one_pager": "reports/La_Florida/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_La_Florida_20260914_20260920.pdf",
+      "extendido": "reports/La_Florida/GESTION_HIDRICA/SEMANAL/Informe_Semanal_La_Florida_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1PhtDMmYoqA2PIvwtZoyNLIOtsSnK9PQ4/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/13x7KYGscqFSijGeM__vgUtv8Zm9vMmsJ/view?usp=drivesdk",
+      "clasificacion": "REQUIERE ATENCIÓN",
+      "kpi": "151,2 m³",
+      "noct": "29 %"
     },
     {
       "key": "reina",
       "cliente": "La Reina",
-      "pdf": "reports/La_Reina/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_La_Reina_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1F2HbJ7kXhjQ5swRxSCjxRTPLeuU-IXnO/view?usp=drivesdk"
+      "one_pager": "reports/La_Reina/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_La_Reina_20260914_20260920.pdf",
+      "extendido": "reports/La_Reina/GESTION_HIDRICA/SEMANAL/Informe_Semanal_La_Reina_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1F2HbJ7kXhjQ5swRxSCjxRTPLeuU-IXnO/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1H6XILd_yN875lAAowYadMd6UfmkbQrwC/view?usp=drivesdk",
+      "clasificacion": "BAJO CONTROL",
+      "kpi": "86,6 m³",
+      "noct": "0 %"
     },
     {
       "key": "cormup",
       "cliente": "CORMUP",
-      "pdf": "reports/CORMUP/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_CORMUP_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1UfRKmJN-oaBJx-pNHc7-WaO8phcYJLS-/view?usp=drivesdk"
+      "one_pager": "reports/CORMUP/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_CORMUP_20260914_20260920.pdf",
+      "extendido": "reports/CORMUP/GESTION_HIDRICA/SEMANAL/Informe_Semanal_CORMUP_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1UfRKmJN-oaBJx-pNHc7-WaO8phcYJLS-/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1XRCDYFGf1AGz8cPKU_VvTAA5Q-PDCw3l/view?usp=drivesdk",
+      "clasificacion": "REQUIERE ATENCIÓN",
+      "kpi": "10.692,0 m³",
+      "noct": "31 %"
     },
     {
       "key": "copec",
       "cliente": "COPEC",
-      "pdf": "reports/COPEC/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_COPEC_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1rIlQWwdz31gxwuiG2RcnnqCbwHSvZo4X/view?usp=drivesdk"
+      "one_pager": "reports/COPEC/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_COPEC_20260914_20260920.pdf",
+      "extendido": "reports/COPEC/GESTION_HIDRICA/SEMANAL/Informe_Semanal_COPEC_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1rIlQWwdz31gxwuiG2RcnnqCbwHSvZo4X/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1VJINlTQwfTG_vMdjoTQaoRowPWV2mGbg/view?usp=drivesdk",
+      "clasificacion": "EN OBSERVACIÓN",
+      "kpi": "1.617,8 m³",
+      "noct": "24 %"
     },
     {
       "key": "cduc",
       "cliente": "CDUC",
-      "pdf": "reports/CDUC/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_CDUC_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1YvlQkWvikFwyvKPli74GCMOuQBAGPNzC/view?usp=drivesdk"
+      "one_pager": "reports/CDUC/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_CDUC_20260914_20260920.pdf",
+      "extendido": "reports/CDUC/GESTION_HIDRICA/SEMANAL/Informe_Semanal_CDUC_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1YvlQkWvikFwyvKPli74GCMOuQBAGPNzC/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1vN_KXTxqgNBJ3bau32j1HfGjC2OtLFFG/view?usp=drivesdk",
+      "clasificacion": "BAJO CONTROL",
+      "kpi": "867,5 m³",
+      "noct": "16 %"
     },
     {
       "key": "fleming",
       "cliente": "Alexander Fleming",
-      "pdf": "reports/Alexander_Fleming/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Alexander_Fleming_20260914_20260920.pdf",
-      "drive": "https://drive.google.com/file/d/1YELMCu72tdzAppSD0V-URLUSkXPBh2Dz/view?usp=drivesdk"
+      "one_pager": "reports/Alexander_Fleming/GESTION_HIDRICA/SEMANAL/One_Pager_Semanal_Alexander_Fleming_20260914_20260920.pdf",
+      "extendido": "reports/Alexander_Fleming/GESTION_HIDRICA/SEMANAL/Informe_Semanal_Alexander_Fleming_20260914_20260920.pdf",
+      "drive_one": "https://drive.google.com/file/d/1YELMCu72tdzAppSD0V-URLUSkXPBh2Dz/view?usp=drivesdk",
+      "drive_ext": "https://drive.google.com/file/d/1MPUUGhKByFOX7QVwjJMtWU9xtUkzBFla/view?usp=drivesdk",
+      "clasificacion": "REQUIERE ATENCIÓN",
+      "kpi": "442,2 m³",
+      "noct": "46 %"
     }
   ],
   "errors": []
