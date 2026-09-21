@@ -1,0 +1,11 @@
+{
+  "out_dir": "/workspace/reports/CORMUP/VACACIONES/COMPARATIVO_20260921_1201",
+  "docx": "/workspace/reports/CORMUP/VACACIONES/COMPARATIVO_20260921_1201/Comparativo_CORMUP_Vacaciones_20260907_20260920.docx",
+  "pdf": "/workspace/reports/CORMUP/VACACIONES/COMPARATIVO_20260921_1201/Comparativo_CORMUP_Vacaciones_20260907_20260920.pdf",
+  "agregados": [],
+  "precio_clp_m3": 1270.0,
+  "total_sin_m3": 2349.34,
+  "total_con_m3": 214.03,
+  "ahorro_m3": 2135.31,
+  "ahorro_clp": 2711843.6999999997
+}

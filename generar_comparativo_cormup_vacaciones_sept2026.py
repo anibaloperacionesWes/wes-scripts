@@ -752,7 +752,12 @@ def generar_agregados_apoyo() -> List[Path]:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Comparativo vacaciones CORMUP sept 2026")
     ap.add_argument("--sin-agregados", action="store_true", help="Solo el comparativo (sin agregados Word)")
-    ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument(
+        "--workers",
+        type=int,
+        default=2,
+        help="Workers paralelos API (default 2; valores altos pueden devolver ceros)",
+    )
     args = ap.parse_args()
 
     print("=" * 72)
