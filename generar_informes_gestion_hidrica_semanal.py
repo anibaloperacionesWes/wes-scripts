@@ -6,17 +6,20 @@ completa (lunes a domingo), la compara con la semana previa y marca qué hay
 que atacar antes del cierre.
 
 Por defecto: Fundo Zapallar, última semana completa.
+Con --todos: los 15 clientes del lote de fin de mes (8 + colegios + COPEC +
+CDUC + Fleming).
 
 Uso:
   python generar_informes_gestion_hidrica_semanal.py
   python generar_informes_gestion_hidrica_semanal.py --cliente zapallar
-  python generar_informes_gestion_hidrica_semanal.py --hasta 30/08/2026
+  python generar_informes_gestion_hidrica_semanal.py --todos --hasta 20/09/2026
 """
 
 from __future__ import annotations
 
 import argparse
 import copy
+import json
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -40,6 +43,35 @@ from informe_gestion_hidrica_pdf import (
 from visitas_tecnicas_formulario import cargar_visitas_periodo, visitas_de_cliente
 
 CACHE_PREFIX = "sem"
+
+
+def clientes_fin_de_mes() -> List[dict]:
+    """Lote de fin de mes: 8 comerciales + colegios + COPEC + CDUC + Fleming."""
+    from generar_informes_gestion_hidrica_cduc_agosto2026 import CLIENTES as CLIENTES_CDUC
+    from generar_informes_gestion_hidrica_colegios_agosto2026 import (
+        CLIENTES as CLIENTES_COLEGIOS,
+    )
+    from generar_informes_gestion_hidrica_copec_agosto2026 import CLIENTES as CLIENTES_COPEC
+    from generar_informes_gestion_hidrica_fleming_agosto2026 import (
+        CLIENTES as CLIENTES_FLEMING,
+    )
+
+    out: List[dict] = []
+    seen = set()
+    for grupo in (
+        CLIENTES,
+        CLIENTES_COLEGIOS,
+        CLIENTES_COPEC,
+        CLIENTES_CDUC,
+        CLIENTES_FLEMING,
+    ):
+        for cfg in grupo:
+            key = cfg["key"]
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(cfg)
+    return out
 
 
 def _lunes(dt: datetime) -> datetime:
@@ -97,6 +129,9 @@ def _cfg_semana(base: dict, start: datetime, end: datetime) -> dict:
     cfg.pop("excluir_meses_6m", None)
     cfg.pop("usar_kpi_ultimo_mes_6m", None)
     cfg.pop("hallazgo_dato", None)
+    cfg.pop("nota_agosto", None)
+    cfg.pop("panorama_nota", None)
+    cfg.pop("periodo_corto", None)
     return cfg
 
 
@@ -411,11 +446,29 @@ def build_spec_semanal(
     )
 
 
+def _subir_drive(pdf: Path, folder: str) -> str:
+    try:
+        from wes_google_drive import credenciales_configuradas, subir_a_drive
+    except Exception as e:
+        print(f"[ADVERTENCIA] Drive no disponible: {e}", flush=True)
+        return ""
+    if not credenciales_configuradas():
+        print("[ADVERTENCIA] Sin credenciales Drive; se omite la subida.", flush=True)
+        return ""
+    sub = f"{folder}/GESTION_HIDRICA/SEMANAL"
+    info = subir_a_drive(pdf, subcarpeta=sub)
+    link = info.get("web_view_link") or ""
+    print(f"[OK] Drive ({sub}): {link}", flush=True)
+    return link
+
+
 def generar_semanal(
     base: dict,
     start: datetime,
     end: datetime,
-) -> Path:
+    *,
+    subir_drive: bool = False,
+) -> Tuple[Path, str]:
     prev_start, prev_end = _semana_previa(start)
     cfg = _cfg_semana(base, start, end)
     cfg_prev = _cfg_semana(base, prev_start, prev_end)
@@ -446,7 +499,8 @@ def generar_semanal(
         f"{spec.kpi_entrada}  noct {spec.kpi_pct}",
         flush=True,
     )
-    return out
+    drive = _subir_drive(out, base["folder"]) if subir_drive else ""
+    return out, drive
 
 
 def _parse_hasta(raw: Optional[str]) -> Optional[datetime]:
@@ -463,19 +517,96 @@ def main() -> int:
         except Exception:
             pass
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cliente", default="zapallar", help="key del lote (default: zapallar)")
+    parser.add_argument(
+        "--cliente",
+        default=None,
+        help="key del lote (default: zapallar). Varios separados por coma.",
+    )
+    parser.add_argument(
+        "--todos",
+        action="store_true",
+        help="Genera el one-pager de los 15 clientes de fin de mes.",
+    )
     parser.add_argument(
         "--hasta",
         default=None,
         help="Último día (dd/mm/YYYY). Por defecto: última semana lunes–domingo cerrada.",
     )
+    parser.add_argument(
+        "--subir-drive",
+        action="store_true",
+        help="Sube cada PDF a Drive en <cliente>/GESTION_HIDRICA/SEMANAL.",
+    )
+    parser.add_argument(
+        "--sin-drive",
+        action="store_true",
+        help="No subir a Drive (prioridad sobre --subir-drive).",
+    )
     args = parser.parse_args()
-    base = next((c for c in CLIENTES if c["key"] == args.cliente), None)
-    if base is None:
-        print(f"[ERROR] Cliente no está en el lote: {args.cliente}", file=sys.stderr)
-        return 1
+    catalogo = clientes_fin_de_mes()
+    if args.todos:
+        seleccion = catalogo
+    elif args.cliente:
+        keys = [k.strip().lower() for k in args.cliente.split(",") if k.strip()]
+        by_key = {c["key"]: c for c in catalogo}
+        missing = [k for k in keys if k not in by_key]
+        if missing:
+            print(f"[ERROR] Cliente(s) no están en el lote: {', '.join(missing)}", file=sys.stderr)
+            print("Disponibles:", ", ".join(c["key"] for c in catalogo), file=sys.stderr)
+            return 1
+        seleccion = [by_key[k] for k in keys]
+    else:
+        seleccion = [next(c for c in catalogo if c["key"] == "zapallar")]
     start, end = _semana_completa(_parse_hasta(args.hasta))
-    generar_semanal(base, start, end)
+    subir = bool(args.subir_drive) and not args.sin_drive
+    print(
+        f"ONE-PAGER SEMANAL · {_rango_es(start, end)} · {len(seleccion)} cliente(s)\n",
+        flush=True,
+    )
+    ok: List[dict] = []
+    errors: List[str] = []
+    for base in seleccion:
+        try:
+            pdf, drive = generar_semanal(base, start, end, subir_drive=subir)
+            ok.append(
+                {
+                    "key": base["key"],
+                    "cliente": base["cliente"],
+                    "pdf": str(pdf),
+                    "drive": drive,
+                }
+            )
+        except Exception as e:
+            errors.append(f"{base['cliente']}: {e}")
+            print(f"[ERROR] {base['cliente']}: {e}", flush=True)
+            import traceback
+
+            traceback.print_exc()
+    resumen = Path("reports") / "CONSOLIDADO" / "SEMANAL" / (
+        f"One_Pagers_Semanal_{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}.json"
+    )
+    resumen.parent.mkdir(parents=True, exist_ok=True)
+    resumen.write_text(
+        json.dumps(
+            {
+                "periodo": _rango_es(start, end),
+                "start": start.strftime("%Y-%m-%d"),
+                "end": end.strftime("%Y-%m-%d"),
+                "ok": ok,
+                "errors": errors,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    print(f"\n[INFO] Completados: {len(ok)}/{len(seleccion)}", flush=True)
+    print(f"[INFO] Resumen: {resumen}", flush=True)
+    if errors:
+        print("[INFO] Fallidos:", flush=True)
+        for e in errors:
+            print("  -", e, flush=True)
+        return 1
     return 0
 
 
