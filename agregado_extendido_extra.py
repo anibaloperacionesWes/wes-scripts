@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import matplotlib
 
@@ -527,3 +527,67 @@ def agregar_analisis_nocturno_extendido(
     for run in conc.runs:
         run.font.color.rgb = RGBColor(0, 0, 0)
         run.font.size = Pt(10)
+
+
+# --- Serie mensual (gestión hídrica / comparativo 6 meses) ---
+_MESES_ES = {
+    1: "ene",
+    2: "feb",
+    3: "mar",
+    4: "abr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "ago",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dic",
+}
+
+
+def _meses_ultimos_n(end_dt: datetime, n: int = 6) -> List[Tuple[int, int]]:
+    y, m = end_dt.year, end_dt.month
+    out: List[Tuple[int, int]] = []
+    for _ in range(n):
+        out.append((y, m))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    out.reverse()
+    return out
+
+
+def _serie_mensual_nodo(node_id: str, end_dt: datetime, n_meses: int = 6) -> List[Tuple[str, float]]:
+    from generar_reporte_word import (
+        acl_node_base_url,
+        fetch_json,
+        flatten_measures,
+        normalize_measures_payload,
+    )
+
+    meses = _meses_ultimos_n(end_dt, n_meses)
+    y0, m0 = meses[0]
+    start = datetime(y0, m0, 1)
+    payload_raw = fetch_json(
+        f"{acl_node_base_url()}/nodes/measures/dates",
+        params=[
+            ("id", node_id),
+            ("start", start.strftime("%d%m%Y")),
+            ("end", end_dt.strftime("%d%m%Y")),
+        ],
+    )
+    payload = normalize_measures_payload(payload_raw, node_id)
+    measures = flatten_measures(payload)
+    by_month: Dict[Tuple[int, int], float] = {}
+    for mp in measures:
+        key = (mp.date.year, mp.date.month)
+        by_month[key] = by_month.get(key, 0.0) + float(mp.total_m3)
+    series: List[Tuple[str, float]] = []
+    for y, m in meses:
+        label = f"{_MESES_ES.get(m, str(m))} {y}"
+        if y == end_dt.year and m == end_dt.month:
+            label += "*"
+        series.append((label, float(by_month.get((y, m), 0.0))))
+    return series
