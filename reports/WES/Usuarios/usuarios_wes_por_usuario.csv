@@ -1,0 +1,19 @@
+﻿user_id;email;nombre;company_id;empresa;nodos_count;switch_enabled
+6927675fb8a2df181215150b;joseluisricardo@hotmail.com;Jose Luis Otarola;000002;Lo valledor;3;False
+693a0178b8a2df1812151511;acortes@parauco.com;Aliro Cortes;000025;Parque Arauco;2;False
+6916197ab8a2df18121514f6;cbustamante@linkes.cl;Bustamante;000025;Parque Arauco;5;False
+6942efc5b8a2df1812151518;francisco.jeldres@parauco.com;Francisco Jeldres;000025;Parque Arauco;10;False
+691f6f22b8a2df1812151509;idustan@linkes.cl;Ivan Dustan;000025;Parque Arauco;3;False
+693a080fb8a2df1812151512;jlazo@parauco.com;Joceline Lazo;000025;Parque Arauco;2;False
+6a43ef76fe7a89344ddbf932;medioambiente.dcl@parauco.com;Medio Ambiente DCL;000025;Parque Arauco;28;False
+691dba6db8a2df18121514fe;mfreitez@parauco.com;Mario Freitez;000025;Parque Arauco;4;False
+69161a6bb8a2df18121514f9;mrupayan@parauco.com;M. Rupayan;000025;Parque Arauco;5;False
+691f6e99b8a2df1812151508;msaavedra@parauco.com;Marco Saavedra;000025;Parque Arauco;3;False
+68af1af89679f24ad94440c4;anibal.aoperaciones@wes.cl;Aníbal Aranda;000000;Wes Spa;74;True
+68af1a9f9679f24ad94440c3;diegocarrasco@wes.cl;Diego Carrasco;000000;Wes Spa;97;False
+68b09df29679f24ad94440c6;go.salass@gmail.com;Gonzalo Salas;000000;Wes Spa;104;False
+68af186f9679f24ad94440c1;joseotarola@wes.cl;José Luis Otárola;000000;Wes Spa;107;True
+68af1a459679f24ad94440c2;juanlopez@wes.cl;Juan Lopez;000000;Wes Spa;97;False
+6a908c2efe7a89344ddbf944;mauricioorellana@wes.cl;Mauricio Orellana;000000;Wes Spa;74;False
+5fba8b3ddc819833d2d84828;silvanaaraya.rojas@gmail.com;Silvana Araya Rojas;000000;Wes Spa;1;False
+691dbe7db8a2df1812151505;tsaba@parauco.com;Tomas Saba;000000;Wes Spa;6;False
