@@ -1,0 +1,11 @@
+{
+  "out_dir": "/workspace/reports/CORMUP/VACACIONES/COMPARATIVO_20260921_1058",
+  "docx": "/workspace/reports/CORMUP/VACACIONES/COMPARATIVO_20260921_1058/Comparativo_CORMUP_Vacaciones_20260907_20260920.docx",
+  "pdf": "/workspace/reports/CORMUP/VACACIONES/COMPARATIVO_20260921_1058/Comparativo_CORMUP_Vacaciones_20260907_20260920.pdf",
+  "agregados": [
+    "reports/CORMUP/ABREGADO/AGREGADO_20260921_1358/Reporte_Agregado_CORMUP_20260907_20260913.docx",
+    "reports/CORMUP/ABREGADO/AGREGADO_20260921_1359/Reporte_Agregado_CORMUP_20260914_20260920.docx"
+  ],
+  "total_sin_m3": 2349.34,
+  "total_con_m3": 214.03
+}
