@@ -138,6 +138,9 @@ class InformeSpec:
     lectura_ejecutiva: List[List[Tuple[str, bool]]]
     nota_agosto: str
     kpi_consumo_label: str = "Consumo de entrada"
+    kpi_promedio_label: str = "Promedio diario"
+    kpi_nocturno_label: str = "Consumo nocturno"
+    kpi_pct_label: str = "Participación nocturna"
     chart_6m: Optional[Path] = None
     chart_puntos: Optional[Path] = None
     chart_puntos_nota: str = ""
@@ -325,9 +328,9 @@ def _draw_kpis(c: canvas.Canvas, spec: InformeSpec, top: float) -> float:
     c.rect(TABLE_X, y, TABLE_W, h, fill=0, stroke=1)
     items = [
         (spec.kpi_entrada, spec.kpi_consumo_label or "Consumo de entrada"),
-        (spec.kpi_promedio, "Promedio diario"),
-        (spec.kpi_nocturno, "Consumo nocturno"),
-        (spec.kpi_pct, "Participación nocturna"),
+        (spec.kpi_promedio, spec.kpi_promedio_label or "Promedio diario"),
+        (spec.kpi_nocturno, spec.kpi_nocturno_label or "Consumo nocturno"),
+        (spec.kpi_pct, spec.kpi_pct_label or "Participación nocturna"),
     ]
     for i, (val, lab) in enumerate(items):
         cx = TABLE_X + i * col_w + col_w / 2

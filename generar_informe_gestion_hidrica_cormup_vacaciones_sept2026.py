@@ -2,8 +2,9 @@
 Informe de gestión hídrica CORMUP — vacaciones septiembre 2026
 (formato Zapallar / igual a Informe_Mensual_CORMUP_Agosto_2026.pdf).
 
-Periodo informado: 14–20/09/2026 (semana con control especial por vacaciones).
-Referencia comparativa: 07–13/09/2026 (semana sin control).
+Mensaje central (claro):
+  Semana sin control 7–13/09  vs  Semana con control vacaciones 14–20/09
+  → ahorro m³ y $ de la cohorte con control.
 
 Cohorte: 10 colegios con control (excluye Tobalaba por pulso y los 3 sin válvula).
 
@@ -17,16 +18,17 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Sequence
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 import generar_informes_gestion_hidrica_lote_agosto2026 as motor
 from generar_comparativo_cormup_vacaciones_sept2026 import (
     COLEGIOS,
-    CON_CONTROL_FIN,
-    CON_CONTROL_INI,
     SIN_CONTROL,
-    SIN_CONTROL_FIN,
-    SIN_CONTROL_INI,
     TOBALABA,
     evaluar_colegios,
     evaluar_fuera_comparativo,
@@ -36,11 +38,17 @@ from generar_informes_gestion_hidrica_lote_agosto2026 import (
     build_spec,
     fetch_cliente,
 )
-from informe_gestion_hidrica_pdf import render_mensual, render_one_pager
+from informe_gestion_hidrica_pdf import (
+    Accion,
+    Hallazgo,
+    render_mensual,
+    render_one_pager,
+)
 from visitas_tecnicas_formulario import cargar_visitas_periodo, visitas_de_cliente
+from wes_estilo_graficos_app import COLOR_BARRA_WES, COLOR_NOCHE
 
 ROOT = Path(__file__).resolve().parent
-CACHE = Path("/tmp/gh_cormup_vacaciones_sept2026")
+CACHE = Path("/tmp/gh_cormup_vacaciones_sept2026_v2")
 OUT_DIR = ROOT / "reports" / "CORMUP" / "GESTION_HIDRICA"
 
 SHORT_NAMES = {
@@ -54,6 +62,14 @@ SHORT_NAMES = {
     "000008-11": "Valle Hermoso",
     "000008-12": "Unión Árabe",
     "000008-14": "Juan Pablo II",
+}
+
+# Consumos esperados en 14–20 (no son fallas de corte).
+ESPERADOS_CONTROL = {
+    "000008-03": "Obras: agua 09:00–18:00 toda la semana (incl. sáb/dom).",
+    "000008-09": "Obras: agua 09:00–18:00 toda la semana (incl. sáb/dom).",
+    "000008-06": "Patinaje lun–mar 17:30–21:00 + revisión martes 15/09.",
+    "000008-11": "Patinaje lun y mié 17:30–21:00 + habilitación mié 16/09 ~10:00–tarde.",
 }
 
 
@@ -80,7 +96,6 @@ def _fmt_clp(v: float) -> str:
 
 
 def _wow() -> Dict[str, Any]:
-    """Comparativo 7–13 vs 14–20 para hallazgos (misma cohorte del informe)."""
     precio = precio_referencia_clp()
     filas = evaluar_colegios(max_workers=2)
     fuera = evaluar_fuera_comparativo(max_workers=2)
@@ -105,11 +120,9 @@ def _wow() -> Dict[str, Any]:
     }
 
 
-def _cfg(wow: Dict[str, Any]) -> dict:
-    tob = wow["tobalaba"]
-    solo_txt = ", ".join(f.nombre for f in wow["solo_monitoreo"])
+def _cfg() -> dict:
     return {
-        "key": "cormup_vac_14_20_sep2026",
+        "key": "cormup_vac_14_20_sep2026_v2",
         "company_id": "000008",
         "folder": "CORMUP",
         "cliente": "CORMUP",
@@ -120,132 +133,300 @@ def _cfg(wow: Dict[str, Any]) -> dict:
         "start": "14/09/2026",
         "end": "20/09/2026",
         "periodo_corto": (
-            "CORMUP Peñalolén · 14 al 20 de septiembre de 2026 "
-            "(semana con control especial por vacaciones)"
+            "CORMUP Peñalolén · vacaciones Fiestas Patrias · "
+            "comparativo 7–13/09 (sin control) vs 14–20/09 (con control)"
         ),
         "apply_exclusions": False,
         "matriz_id": None,
         "matriz_name": "",
         "additive": True,
-        "nocturnal_explain": None,
+        "nocturnal_explain": "wes",  # evita hallazgo genérico de % nocturno “sospechoso”
         "kpi_label": "Consumo total",
         "workers": 2,
         "short_names": dict(SHORT_NAMES),
         "leyenda": None,
         "skip_serie_6m": True,
         "chart_nota": (
-            "Cada barra es un establecimiento de la cohorte con control. "
-            "Tobalaba (pulso) y los tres colegios sin válvula no entran en este total."
+            "Barras por colegio: gris = semana sin control (7–13/09); "
+            "azul = semana con control vacaciones (14–20/09)."
         ),
         "nocturno_nota": (
-            "El nocturno se suma entre establecimientos porque son recintos distintos. "
-            "En CORMUP la ventana es UTC 00:00–07:00, igual que en la app."
+            "En 14–20/09 el consumo residual corresponde sobre todo a obras y patinaje "
+            "acordados, no a falla del corte."
         ),
         "ventana_nocturna": (
             "En los colegios CORMUP el nocturno se toma del CSV horario, marcas UTC 00:00 "
             "a 07:00 (misma ventana que la app). "
         ),
         "nota_agosto": (
-            "Periodo informado: 14–20/09/2026 (7 días con control especial por vacaciones). "
-            "No se extrapola. La semana previa 7–13/09 sirve de referencia sin control "
-            f"({_fmt(wow['tot_sin'])} m³ / {_fmt_clp(wow['clp_sin'])}). "
-            "Tobalaba queda fuera por falla de pulso; "
-            f"{solo_txt} no tienen válvula de control."
+            "Cómo leer este informe: la historia es el antes/después. "
+            "7–13/09 = semana sin control de vacaciones. "
+            "14–20/09 = semana con control especial. "
+            "Los KPI de portada muestran ese comparativo (m³ y $). "
+            "El anexo técnico detalla solo la semana con control (14–20)."
         ),
         "panorama_nota": (
-            "Semana con control especial por vacaciones de alumnos. "
-            "Cohorte: 10 colegios con CPA/WES. Excluidos del total: Tobalaba "
-            "(pulso — seguimiento pendiente) y Eduardo de la Barra, Alicura y Likankura "
-            "(solo monitoreo, sin válvula)."
+            "10 colegios con control. Fuera del total: Tobalaba (pulso) y "
+            "Eduardo de la Barra, Alicura y Likankura (sin válvula)."
         ),
-        "hallazgo_dato": {
-            "prioridad": "INFORMATIVA",
-            "titulo": (
-                f"Ahorro vs semana sin control: {_fmt(wow['ahorro'])} m³ "
-                f"({_fmt(wow['pct'])} %)"
-            ),
-            "dato": (
-                f"7–13/09 (sin control): {_fmt(wow['tot_sin'])} m³ "
-                f"({_fmt_clp(wow['clp_sin'])}). "
-                f"14–20/09 (con control vacaciones): {_fmt(wow['tot_con'])} m³ "
-                f"({_fmt_clp(wow['clp_con'])}). "
-                f"Ahorro estimado: {_fmt_clp(wow['clp_ahorro'])} a "
-                f"{_fmt_clp(wow['precio'])}/m³."
-            ),
-            "lectura": (
-                "El resultado incorpora habilitaciones por obras (C. Fernández y J.B. Pastene "
-                "09:00–18:00 toda la semana), patinaje (Arrieta lun–mar 17:30–21:00; "
-                "Valle Hermoso lun y mié 17:30–21:00) y revisiones puntuales "
-                "(Arrieta mar 15; Valle Hermoso mié 16)."
-            ),
-        },
-        "hallazgos_extra": [
-            {
-                "prioridad": "ATENCIÓN",
-                "titulo": "Tobalaba — seguimiento pendiente (pulso)",
-                "dato": (
-                    f"Excluido del total. Serie referencial no validada: "
-                    f"7–13/09 {_fmt(tob.m3_sin)} m³; 14–20/09 {_fmt(tob.m3_con)} m³."
-                ),
-                "lectura": (
-                    "Debe revisarse el pulso/telemetría para reincorporarlo al control "
-                    "y a la cuantificación de ahorro. Mientras no se normalice, no entra "
-                    "en rankings de cumplimiento."
-                ),
-            },
-            {
-                "prioridad": "INFORMATIVA",
-                "titulo": "Colegios sin control hidráulico",
-                "dato": (
-                    "Eduardo de la Barra, Alicura y Likankura solo tienen monitoreo "
-                    "(sin válvula WES). No formaron parte del programa de vacaciones "
-                    "ni del cálculo de ahorro."
-                    + "".join(
-                        f" {f.nombre}: 7–13={_fmt(f.m3_sin)} m³, "
-                        f"14–20={_fmt(f.m3_con)} m³."
-                        for f in wow["solo_monitoreo"]
-                    )
-                ),
-                "lectura": (
-                    "Cualquier reducción en estos establecimientos requiere intervención "
-                    "en terreno o ampliación de infraestructura de control."
-                ),
-            },
-        ],
     }
 
 
-def _inyectar_hallazgos_extra(spec, extras: Sequence[dict]) -> None:
-    from informe_gestion_hidrica_pdf import Hallazgo
+def _chart_comparativo(wow: Dict[str, Any], path: Path) -> Path:
+    filas = sorted(wow["filas"], key=lambda f: f.m3_sin, reverse=True)
+    names = [SHORT_NAMES.get(f.node_id, f.nombre) for f in filas]
+    sin_vals = [f.m3_sin for f in filas]
+    con_vals = [f.m3_con for f in filas]
+    x = list(range(len(filas)))
+    w = 0.38
+    fig, ax = plt.subplots(figsize=(10.5, 4.6))
+    ax.bar([i - w / 2 for i in x], sin_vals, width=w, color=COLOR_NOCHE, label="Sin control 7–13/09")
+    ax.bar([i + w / 2 for i in x], con_vals, width=w, color=COLOR_BARRA_WES, label="Con control 14–20/09")
+    ax.set_xticks(x)
+    ax.set_xticklabels(names, rotation=30, ha="right", fontsize=8)
+    ax.set_ylabel("m³ en la semana")
+    ax.set_title("Comparativo semanal por colegio (misma cohorte)")
+    ax.legend(frameon=False, fontsize=8)
+    ax.grid(axis="y", linestyle=":", alpha=0.4)
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    return path
 
-    extras_h = [
-        Hallazgo(
-            prioridad=str(h["prioridad"]),
-            titulo=str(h["titulo"]),
-            detalle=str(h["dato"]),
-            lectura=str(h["lectura"]),
-        )
-        for h in extras
-    ]
-    # Insert after the first (hallazgo_dato / ahorro), keep the rest.
-    if spec.hallazgos:
-        spec.hallazgos = [spec.hallazgos[0]] + extras_h + list(spec.hallazgos[1:])
-    else:
-        spec.hallazgos = extras_h
+
+def _chart_ahorro(wow: Dict[str, Any], path: Path) -> Path:
+    filas = sorted(wow["filas"], key=lambda f: f.ahorro_m3, reverse=True)
+    names = [SHORT_NAMES.get(f.node_id, f.nombre) for f in filas]
+    vals = [f.ahorro_m3 * wow["precio"] for f in filas]
+    fig, ax = plt.subplots(figsize=(10.5, 4.6))
+    ax.barh(names[::-1], vals[::-1], color=COLOR_BARRA_WES)
+    ax.set_xlabel("Ahorro (CLP)")
+    ax.set_title(f"Ahorro económico por colegio @ {_fmt(wow['precio'], 0)} CLP/m³")
+    ax.grid(axis="x", linestyle=":", alpha=0.4)
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    return path
 
 
-def _patch_spec_copy(spec, wow: Dict[str, Any]) -> None:
-    spec.footer = "Informe de gestión hídrica - CORMUP | Vacaciones 14-20 septiembre 2026"
-    spec.titulo_mensual = "Informe de gestión hídrica — vacaciones"
-    spec.titulo_onepager = "Resumen ejecutivo de gestión hídrica — vacaciones"
-    # Refuerzo de conclusión con ahorro económico.
-    ahorro_txt = (
-        f"Respecto de la semana sin control (7–13/09), el ahorro volumétrico fue "
-        f"{_fmt(wow['ahorro'])} m³ ({_fmt(wow['pct'])} %), equivalente a "
-        f"{_fmt_clp(wow['clp_ahorro'])} a tarifa referencial de {_fmt_clp(wow['precio'])}/m³."
+def _hallazgos_claros(wow: Dict[str, Any]) -> List[Hallazgo]:
+    tob = wow["tobalaba"]
+    top = sorted(wow["filas"], key=lambda f: f.ahorro_m3, reverse=True)[:3]
+    top_txt = "; ".join(
+        f"{SHORT_NAMES.get(f.node_id, f.nombre)} {_fmt(f.ahorro_m3)} m³"
+        for f in top
     )
-    if spec.conclusion and isinstance(spec.conclusion, list):
-        spec.conclusion = list(spec.conclusion) + [[(ahorro_txt, False)]]
+    esperados = [
+        f"{SHORT_NAMES[nid]}: {txt}" for nid, txt in ESPERADOS_CONTROL.items()
+    ]
+    return [
+        Hallazgo(
+            "INFORMATIVA",
+            f"Resultado vacaciones: se evitaron {_fmt(wow['ahorro'])} m³",
+            (
+                f"Antes (7–13/09, sin control): {_fmt(wow['tot_sin'])} m³ = "
+                f"{_fmt_clp(wow['clp_sin'])}. "
+                f"Después (14–20/09, con control): {_fmt(wow['tot_con'])} m³ = "
+                f"{_fmt_clp(wow['clp_con'])}. "
+                f"Ahorro: {_fmt(wow['pct'])} % → {_fmt_clp(wow['clp_ahorro'])}."
+            ),
+            f"Mayores aportes al ahorro: {top_txt}.",
+        ),
+        Hallazgo(
+            "INFORMATIVA",
+            "Consumo en 14–20 que SÍ estaba autorizado",
+            "No interpretar como falla de corte: " + " | ".join(esperados),
+            (
+                "Hermida, Santa María, Erasmo, M. Huici, Unión Árabe y Juan Pablo II "
+                "tenían corte 24 h; sus residuales bajos confirman el control."
+            ),
+        ),
+        Hallazgo(
+            "ATENCIÓN",
+            "Tobalaba quedó fuera: hay que revisar el pulso",
+            (
+                f"No entra en el ahorro. La serie está anómala "
+                f"(7–13: {_fmt(tob.m3_sin)} m³; 14–20: {_fmt(tob.m3_con)} m³) "
+                f"y no sirve para evaluar control."
+            ),
+            (
+                "Acción: diagnóstico de pulso/telemetría y reincorporarlo al esquema "
+                "cuando la medición sea confiable."
+            ),
+        ),
+        Hallazgo(
+            "INFORMATIVA",
+            "Tres colegios no tienen control (solo monitoreo)",
+            (
+                "Eduardo de la Barra, Alicura y Likankura no tienen válvula WES: "
+                "no se pudo programar corte ni habilitación remota."
+                + "".join(
+                    f" {f.nombre}: {_fmt(f.m3_sin)} → {_fmt(f.m3_con)} m³."
+                    for f in wow["solo_monitoreo"]
+                )
+            ),
+            (
+                "Quedan fuera del programa de vacaciones y del cálculo de ahorro. "
+                "Cualquier baja ahí requiere terreno o instalar control."
+            ),
+        ),
+    ]
+
+
+def _acciones_claras() -> List[Accion]:
+    return [
+        Accion(
+            accion="Revisar y normalizar el pulso de Tobalaba",
+            responsable="WES + operación",
+            plazo="7 días",
+            objetivo="Recuperar medición confiable y reactivar control en ese colegio.",
+        ),
+        Accion(
+            accion="Confirmar con el cliente el estado de los 3 sin válvula",
+            responsable="WES + cliente",
+            plazo="Próxima reunión",
+            objetivo=(
+                "Dejar por escrito que Eduardo de la Barra, Alicura y Likankura "
+                "solo tienen monitoreo."
+            ),
+        ),
+        Accion(
+            accion="Mantener registro de habilitaciones en próximos periodos no lectivos",
+            responsable="WES",
+            plazo="Continuo",
+            objetivo="Que obras/patinaje no se confundan con fugas en el informe.",
+        ),
+    ]
+
+
+def _clarificar_spec(spec, wow: Dict[str, Any], chart_cmp: Path, chart_ahorro: Path) -> None:
+    """Reescribe KPIs, estado, lectura y hallazgos para que el mensaje sea inequívoco."""
+    spec.footer = "Informe de gestión hídrica - CORMUP | Vacaciones septiembre 2026"
+    spec.titulo_mensual = "Informe de gestión hídrica — vacaciones"
+    spec.titulo_onepager = "Resumen ejecutivo — vacaciones CORMUP"
+    spec.periodo_corto = (
+        "CORMUP Peñalolén · 7–13/09 sin control  vs  14–20/09 con control vacaciones"
+    )
+
+    # Portada: los 4 KPI cuentan la historia completa.
+    spec.kpi_entrada = f"{_fmt(wow['tot_sin'])} m³"
+    spec.kpi_consumo_label = "Sin control (7–13/09)"
+    spec.kpi_promedio = f"{_fmt(wow['tot_con'])} m³"
+    spec.kpi_promedio_label = "Con control (14–20/09)"
+    spec.kpi_nocturno = f"{_fmt(wow['ahorro'])} m³"
+    spec.kpi_nocturno_label = f"Ahorro ({_fmt(wow['pct'])} %)"
+    spec.kpi_pct = _fmt_clp(wow["clp_ahorro"])
+    spec.kpi_pct_label = f"Ahorro @ {_fmt(wow['precio'], 0)} CLP/m³"
+
+    spec.clasificacion = "BAJO CONTROL"
+    spec.motivo = (
+        "el control de vacaciones redujo ~91 % el consumo de la cohorte "
+        "respecto de la semana previa sin control"
+    )
+
+    spec.lectura_ejecutiva = [
+        [
+            ("En vacaciones se compararon dos semanas iguales (7 días) sobre ", False),
+            ("10 colegios con control", True),
+            (". ", False),
+            ("Sin control (7–13/09): ", False),
+            (f"{_fmt(wow['tot_sin'])} m³ ({_fmt_clp(wow['clp_sin'])})", True),
+            (". ", False),
+            ("Con control (14–20/09): ", False),
+            (f"{_fmt(wow['tot_con'])} m³ ({_fmt_clp(wow['clp_con'])})", True),
+            (".", False),
+        ],
+        [
+            ("Ahorro: ", False),
+            (f"{_fmt(wow['ahorro'])} m³ ({_fmt(wow['pct'])} %)", True),
+            (", equivalente a ", False),
+            (_fmt_clp(wow["clp_ahorro"]), True),
+            (f" a {_fmt_clp(wow['precio'])}/m³. ", False),
+            ("Estado: Bajo control", True),
+            (" — el programa cumplió el objetivo de evitar consumo innecesario.", False),
+        ],
+        [
+            (
+                "Importante: Tobalaba no entra (pulso anómalo, pendiente de revisión). "
+                "Eduardo de la Barra, Alicura y Likankura no tienen válvula: solo monitoreo.",
+                False,
+            )
+        ],
+    ]
+
+    spec.panorama = [
+        ("Lectura en una línea: de ", False),
+        (f"{_fmt(wow['tot_sin'])} m³", True),
+        (" (semana sin control) a ", False),
+        (f"{_fmt(wow['tot_con'])} m³", True),
+        (" (semana con control), ahorro ", False),
+        (f"{_fmt(wow['ahorro'])} m³ / {_fmt_clp(wow['clp_ahorro'])}", True),
+        (".", False),
+    ]
+    spec.panorama_nota = (
+        "Cohorte = 10 colegios con control. Fuera: Tobalaba (pulso) + 3 sin válvula."
+    )
+
+    spec.hallazgos = _hallazgos_claros(wow)
+    spec.acciones = _acciones_claras()
+
+    spec.chart_puntos = chart_cmp
+    spec.chart_puntos_nota = (
+        "Gris = sin control (7–13/09). Azul = con control vacaciones (14–20/09). "
+        "Misma cohorte de 10 colegios."
+    )
+    spec.max_entrada_txt = (
+        f"En la semana sin control el total fue {_fmt(wow['tot_sin'])} m³; "
+        f"con control bajó a {_fmt(wow['tot_con'])} m³."
+    )
+    spec.chart_nocturno = chart_ahorro
+    spec.chart_nocturno_nota = (
+        "Ahorro valorizado por colegio (semana sin control − semana con control) "
+        f"× {_fmt(wow['precio'], 0)} CLP/m³."
+    )
+
+    spec.conclusion = [
+        [
+            ("Conclusión: el control especial de vacaciones funcionó. ", False),
+            (
+                f"Se evitaron {_fmt(wow['ahorro'])} m³ ({_fmt_clp(wow['clp_ahorro'])})",
+                True,
+            ),
+            (" frente a la semana previa sin control.", False),
+        ],
+        [
+            (
+                "Pendiente explícito: revisar Tobalaba (pulso) y mantener claridad con el "
+                "cliente sobre los tres colegios sin control hidráulico.",
+                False,
+            )
+        ],
+    ]
+
+    spec.nota_agosto = (
+        "Guía de lectura: portada = antes/después + $. "
+        "Hallazgos = qué se ahorró, qué consumo estaba autorizado, qué quedó fuera. "
+        "Anexo técnico = detalle de la semana con control (14–20/09) por colegio."
+    )
+    spec.criterio_nocturno = [
+        [
+            (
+                "Tarifa referencial WES para CORMUP: ",
+                False,
+            ),
+            (f"{_fmt_clp(wow['precio'])}/m³", True),
+            (
+                ". El ahorro económico = (m³ semana sin control − m³ semana con control) × tarifa. "
+                "No sustituye la factura del sanitario.",
+                False,
+            ),
+        ]
+    ]
+    spec.nota_cobertura = (
+        "Anexo: columnas TOTAL / PROMEDIO / MÁXIMO / NOCTURNO corresponden solo a "
+        "14–20/09 (semana con control). Para el antes/después use la portada y el gráfico gris/azul."
+    )
 
 
 def main() -> int:
@@ -257,43 +438,40 @@ def main() -> int:
             pass
 
     print("=" * 72)
-    print("CORMUP — gestión hídrica vacaciones (formato Informe Mensual Agosto)")
+    print("CORMUP — gestión hídrica vacaciones (datos claros antes/después)")
     print("=" * 72)
 
     CACHE.mkdir(parents=True, exist_ok=True)
     motor.CACHE_DIR = CACHE
 
-    print("\n[INFO] Comparativo 7–13 vs 14–20 (cohorte con control)…")
+    print("\n[INFO] Comparativo 7–13 vs 14–20…")
     wow = _wow()
     print(
-        f"  sin={wow['tot_sin']:.1f} m³ | con={wow['tot_con']:.1f} m³ | "
-        f"ahorro={wow['ahorro']:.1f} m³ ({wow['pct']:.1f} %) | "
-        f"{wow['clp_ahorro']:.0f} CLP @ {wow['precio']:.0f}/m³"
+        f"  SIN {_fmt(wow['tot_sin'])} m³ → CON {_fmt(wow['tot_con'])} m³ | "
+        f"ahorro {_fmt(wow['ahorro'])} m³ ({_fmt(wow['pct'])} %) = {_fmt_clp(wow['clp_ahorro'])}"
     )
 
-    cfg = _cfg(wow)
-    extras = list(cfg.pop("hallazgos_extra"))
-
-    print("\n[INFO] Fetch periodo 14–20/09…")
+    cfg = _cfg()
+    print("\n[INFO] Fetch 14–20/09 (anexo técnico)…")
     data = fetch_cliente(cfg)
 
-    start_dt = datetime(2026, 9, 14)
-    end_dt = datetime(2026, 9, 20, 23, 59, 59)
     try:
-        todas = cargar_visitas_periodo(start_dt, end_dt)
-        visitas = visitas_de_cliente(todas, cfg)
-        print(f"[INFO] Visitas técnicas en el periodo: {len(visitas)}")
+        visitas = visitas_de_cliente(
+            cargar_visitas_periodo(datetime(2026, 9, 14), datetime(2026, 9, 20, 23, 59, 59)),
+            cfg,
+        )
     except Exception as exc:
         visitas = []
-        print(f"[ADVERTENCIA] Visitas no disponibles: {exc}")
+        print(f"[ADVERTENCIA] Visitas: {exc}")
 
     spec = build_spec(cfg, data, visitas)
-    _inyectar_hallazgos_extra(spec, extras)
-    _patch_spec_copy(spec, wow)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     charts = OUT_DIR / "_charts_vacaciones_sep2026"
     charts.mkdir(parents=True, exist_ok=True)
+    chart_cmp = _chart_comparativo(wow, charts / "comparativo_sin_vs_con.png")
+    chart_ahorro = _chart_ahorro(wow, charts / "ahorro_clp_colegios.png")
+    _clarificar_spec(spec, wow, chart_cmp, chart_ahorro)
 
     one = OUT_DIR / "One_Pager_Gestion_Hidrica_CORMUP_Vacaciones_14_20_Sep_2026.pdf"
     monthly = OUT_DIR / "Informe_Gestion_Hidrica_CORMUP_Vacaciones_14_20_Sep_2026.pdf"
@@ -303,21 +481,19 @@ def main() -> int:
     meta = {
         "one_pager": str(one),
         "informe": str(monthly),
-        "periodo": "14/09/2026–20/09/2026",
-        "referencia_sin_control": "07/09/2026–13/09/2026",
-        "precio_clp_m3": wow["precio"],
+        "mensaje": "Antes 7-13 sin control vs despues 14-20 con control",
         "total_sin_m3": wow["tot_sin"],
         "total_con_m3": wow["tot_con"],
         "ahorro_m3": wow["ahorro"],
+        "ahorro_pct": wow["pct"],
         "ahorro_clp": wow["clp_ahorro"],
-        "nodos": [nid for nid, _ in COLEGIOS],
+        "precio_clp_m3": wow["precio"],
     }
     (OUT_DIR / "meta_vacaciones_sep2026.json").write_text(
-        json.dumps(meta, indent=2, ensure_ascii=False),
-        encoding="utf-8",
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    print(f"\n[OK] One-pager: {one}")
-    print(f"[OK] Informe:   {monthly}")
+    print(f"\n[OK] {one.name}")
+    print(f"[OK] {monthly.name}")
     print(json.dumps(meta, indent=2, ensure_ascii=False))
     return 0
 

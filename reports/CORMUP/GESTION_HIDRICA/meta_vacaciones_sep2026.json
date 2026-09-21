@@ -1,23 +1,11 @@
 {
   "one_pager": "/workspace/reports/CORMUP/GESTION_HIDRICA/One_Pager_Gestion_Hidrica_CORMUP_Vacaciones_14_20_Sep_2026.pdf",
   "informe": "/workspace/reports/CORMUP/GESTION_HIDRICA/Informe_Gestion_Hidrica_CORMUP_Vacaciones_14_20_Sep_2026.pdf",
-  "periodo": "14/09/2026–20/09/2026",
-  "referencia_sin_control": "07/09/2026–13/09/2026",
-  "precio_clp_m3": 1270.0,
+  "mensaje": "Antes 7-13 sin control vs despues 14-20 con control",
   "total_sin_m3": 2349.34,
   "total_con_m3": 214.03,
   "ahorro_m3": 2135.31,
+  "ahorro_pct": 90.88978181106182,
   "ahorro_clp": 2711843.6999999997,
-  "nodos": [
-    "000008-01",
-    "000008-03",
-    "000008-05",
-    "000008-06",
-    "000008-07",
-    "000008-09",
-    "000008-10",
-    "000008-11",
-    "000008-12",
-    "000008-14"
-  ]
+  "precio_clp_m3": 1270.0
 }
