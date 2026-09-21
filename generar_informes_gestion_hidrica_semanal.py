@@ -1,45 +1,87 @@
 """
 One-pager semanal de gestión hídrica (formato Zapallar).
 
-El informe mensual se mantiene a fin de mes. Este one-pager cubre una semana
-completa (lunes a domingo), la compara con la semana previa y marca qué hay
-que atacar antes del cierre.
+El informe de cierre se mantiene a fin de mes. Cada lunes se emite el par
+semanal (one-pager + informe extendido) de lunes a domingo, comparado con
+la semana previa.
 
 Por defecto: Fundo Zapallar, última semana completa.
+Con --todos: los 15 clientes del lote de fin de mes (8 + colegios + COPEC +
+CDUC + Fleming).
 
 Uso:
   python generar_informes_gestion_hidrica_semanal.py
   python generar_informes_gestion_hidrica_semanal.py --cliente zapallar
-  python generar_informes_gestion_hidrica_semanal.py --hasta 30/08/2026
+  python generar_informes_gestion_hidrica_semanal.py --todos --hasta 20/09/2026 --subir-drive
 """
 
 from __future__ import annotations
 
 import argparse
 import copy
+import json
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from generar_informes_gestion_hidrica_lote_agosto2026 import (
+    CACHE_DIR,
     CLIENTES,
     _clasificar,
     _fmt,
+    _parrafo_visitas,
     _pretty_cls,
+    _series_diarias,
+    _visitas_spec,
     fetch_cliente,
 )
 from informe_gestion_hidrica_pdf import (
     Accion,
     Hallazgo,
     InformeSpec,
+    PuntoIndicador,
     _fecha_es,
+    _fmt_clp,
+    build_chart_6_meses,
+    build_chart_nocturno,
+    build_chart_puntos,
+    render_mensual,
     render_one_pager,
     resolve_logo,
 )
 from visitas_tecnicas_formulario import cargar_visitas_periodo, visitas_de_cliente
 
 CACHE_PREFIX = "sem"
+
+
+def clientes_fin_de_mes() -> List[dict]:
+    """Lote de fin de mes: 8 comerciales + colegios + COPEC + CDUC + Fleming."""
+    from generar_informes_gestion_hidrica_cduc_agosto2026 import CLIENTES as CLIENTES_CDUC
+    from generar_informes_gestion_hidrica_colegios_agosto2026 import (
+        CLIENTES as CLIENTES_COLEGIOS,
+    )
+    from generar_informes_gestion_hidrica_copec_agosto2026 import CLIENTES as CLIENTES_COPEC
+    from generar_informes_gestion_hidrica_fleming_agosto2026 import (
+        CLIENTES as CLIENTES_FLEMING,
+    )
+
+    out: List[dict] = []
+    seen = set()
+    for grupo in (
+        CLIENTES,
+        CLIENTES_COLEGIOS,
+        CLIENTES_COPEC,
+        CLIENTES_CDUC,
+        CLIENTES_FLEMING,
+    ):
+        for cfg in grupo:
+            key = cfg["key"]
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(cfg)
+    return out
 
 
 def _lunes(dt: datetime) -> datetime:
@@ -88,16 +130,40 @@ def _rango_es(start: datetime, end: datetime) -> str:
     )
 
 
-def _cfg_semana(base: dict, start: datetime, end: datetime) -> dict:
+def _cfg_semana(
+    base: dict,
+    start: datetime,
+    end: datetime,
+    *,
+    skip_serie_6m: bool = True,
+) -> dict:
     cfg = copy.deepcopy(base)
     cfg["start"] = start.strftime("%d/%m/%Y")
     cfg["end"] = end.strftime("%d/%m/%Y")
     cfg["key"] = f"{base['key']}_{CACHE_PREFIX}_{start.strftime('%Y%m%d')}"
-    cfg["skip_serie_6m"] = True
-    cfg.pop("excluir_meses_6m", None)
+    cfg["skip_serie_6m"] = skip_serie_6m
+    if skip_serie_6m:
+        cfg.pop("excluir_meses_6m", None)
     cfg.pop("usar_kpi_ultimo_mes_6m", None)
     cfg.pop("hallazgo_dato", None)
+    cfg.pop("nota_agosto", None)
+    cfg.pop("panorama_nota", None)
+    cfg.pop("periodo_corto", None)
     return cfg
+
+
+def _drop_cache_sin_6m(cfg: dict) -> None:
+    """La corrida anterior cacheó la semana sin serie de 6 meses."""
+    path = CACHE_DIR / f"{cfg['key']}.json"
+    if not path.is_file():
+        return
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        path.unlink(missing_ok=True)
+        return
+    if not payload.get("serie_6_meses"):
+        path.unlink(missing_ok=True)
 
 
 def _wow(actual: float, previa: float) -> Optional[float]:
@@ -364,7 +430,7 @@ def build_spec_semanal(
         ],
         [
             (
-                "Este one-pager no reemplaza el informe de fin de mes: sirve para atacar "
+                "Este informe semanal no reemplaza el de fin de mes: sirve para atacar "
                 "alzas, picos o nocturno anómalo ahora. Si el patrón se sostiene, "
                 "la clasificación de cierre avanzará a ",
                 False,
@@ -384,7 +450,7 @@ def build_spec_semanal(
         periodo_corto=f"{cfg['sitio']} · {_rango_es(start, end)}",
         footer=f"Seguimiento semanal - {cfg['cliente']} | {_rango_es(start, end)}",
         titulo_onepager="Seguimiento semanal de gestión hídrica",
-        titulo_mensual="Seguimiento semanal de gestión hídrica",
+        titulo_mensual="Informe semanal de gestión hídrica",
         clasificacion=clasificacion,
         motivo=motivo,
         kpi_entrada=f"{_fmt(entrada, 1)} m³",
@@ -393,7 +459,7 @@ def build_spec_semanal(
         kpi_pct=f"{_fmt(round(pct), 0)} %",
         panorama=panorama,
         panorama_nota=(
-            "One-pager de seguimiento semanal (lunes a domingo), comparado con la semana "
+            "Seguimiento semanal (lunes a domingo), comparado con la semana "
             "previa. No se extrapola. El informe de cierre se emite a fin de mes."
             + (
                 f" En la semana se registró {len(visitas)} visita(s) técnica(s)."
@@ -411,14 +477,148 @@ def build_spec_semanal(
     )
 
 
+def _anexar_extendido(
+    spec: InformeSpec,
+    cfg: dict,
+    data: dict,
+    visitas: Sequence[Any],
+    start: datetime,
+    end: datetime,
+) -> None:
+    """Completa gráficos, tabla por punto y anexos del informe extendido."""
+    nodos = data["nodos"]
+    dias = int(data.get("periodo_dias") or 7)
+    kpi = data["kpi"]
+    extra = _parrafo_visitas(visitas)
+    if extra:
+        spec.lectura_ejecutiva.append(extra)
+    spec.visitas = _visitas_spec(visitas)
+    spec.nota_agosto = (
+        f"Este informe cubre la semana {_rango_es(start, end)}. "
+        "La gráfica de 6 meses es contexto del año; no se extrapola ni se cierra el mes."
+    )
+    spec.chart_puntos_nota = cfg.get("chart_nota") or (
+        "cada barra es el consumo del punto en la semana."
+    )
+    spec.chart_nocturno_nota = cfg.get("nocturno_nota") or (
+        "El consumo nocturno corresponde a 00:00–06:59, hora de Chile."
+    )
+    fecha_max = _fecha_es(kpi["max_fecha"]) if kpi.get("max_fecha") else "—"
+    max_txt = f"{_fmt(float(kpi['max_m3']), 1)} m³" if kpi.get("max_fecha") else "—"
+    spec.max_entrada_txt = (
+        f"El mayor consumo diario de la referencia ocurrió el {fecha_max}, con {max_txt}."
+    )
+    indicadores = []
+    orden = sorted(nodos, key=lambda n: -float(n["total"]))
+    if cfg.get("matriz_id") and not cfg["additive"]:
+        matriz = next(n for n in nodos if n["node_id"] == cfg["matriz_id"])
+        resto = [n for n in orden if n["node_id"] != cfg["matriz_id"]]
+        orden = [matriz] + resto
+    for n in orden:
+        max_dt = datetime.strptime(n["max_fecha"], "%Y-%m-%d") if n.get("max_fecha") else None
+        indicadores.append(
+            PuntoIndicador(
+                nombre=n["short_name"],
+                total=float(n["total"]),
+                promedio=float(n["total"]) / dias if dias else 0.0,
+                max_m3=float(n["max_m3"]),
+                max_fecha=max_dt.strftime("%d/%m") if max_dt else "—",
+                nocturno=float(n["nocturno_m3"]),
+                cobertura=int(n["nocturno_cobertura"]),
+                es_matriz=n["node_id"] == cfg.get("matriz_id"),
+            )
+        )
+    spec.indicadores = indicadores
+    costo = float(kpi.get("costo_nocturno") or 0)
+    spec.criterio_nocturno = [
+        [
+            (
+                (
+                    cfg.get("ventana_nocturna")
+                    or (
+                        "Se considera nocturno el volumen medido entre las 00:00 y las 06:59, "
+                        "hora de Chile. "
+                    )
+                )
+                + "Los valores corresponden únicamente a días con datos y no "
+                "se proyectan. El costo nocturno de la referencia se estima en ",
+                False,
+            ),
+            (_fmt_clp(costo), True),
+            (", con tarifa referencial de ", False),
+            (f"{_fmt_clp(float(data.get('price_per_m3') or 0))}/m³", True),
+            (".", False),
+        ]
+    ]
+    spec.nota_cobertura = (
+        "La cobertura nocturna indica cuántos días de la semana cuentan con registros "
+        "en esa franja. Los días sin datos no se interpolan."
+    )
+    spec.series_diarias = _series_diarias(cfg, nodos, spec.hallazgos, data)
+
+    out_dir = Path("reports") / cfg["folder"] / "GESTION_HIDRICA" / "SEMANAL"
+    charts = out_dir / "_charts"
+    charts.mkdir(parents=True, exist_ok=True)
+    highlight = cfg.get("matriz_name") or ""
+    if not cfg["additive"]:
+        names = [n["short_name"] for n in nodos]
+        totals = [float(n["total"]) for n in nodos]
+        nocts = [float(n["nocturno_m3"]) for n in nodos]
+    else:
+        by_tot = sorted(nodos, key=lambda x: -float(x["total"]))
+        names = [n["short_name"] for n in by_tot]
+        totals = [float(n["total"]) for n in by_tot]
+        nocts = [float(n["nocturno_m3"]) for n in by_tot]
+    labels_6, vals_6 = [], []
+    for item in data.get("serie_6_meses") or []:
+        lab = str(item.get("label") or "").replace("*", "").split()[0].capitalize()
+        labels_6.append(lab)
+        vals_6.append(float(item.get("m3") or 0))
+    if labels_6:
+        spec.chart_6m = build_chart_6_meses(charts / f"{cfg['key']}_6m.png", labels_6, vals_6)
+    spec.chart_puntos = build_chart_puntos(
+        charts / f"{cfg['key']}_puntos.png",
+        names,
+        totals,
+        highlight,
+        additive=bool(cfg.get("additive")),
+    )
+    spec.chart_nocturno = build_chart_nocturno(
+        charts / f"{cfg['key']}_nocturno.png",
+        names,
+        nocts,
+        highlight,
+        cfg.get("leyenda"),
+    )
+
+
+def _subir_drive(pdf: Path, folder: str) -> str:
+    try:
+        from wes_google_drive import credenciales_configuradas, subir_a_drive
+    except Exception as e:
+        print(f"[ADVERTENCIA] Drive no disponible: {e}", flush=True)
+        return ""
+    if not credenciales_configuradas():
+        print("[ADVERTENCIA] Sin credenciales Drive; se omite la subida.", flush=True)
+        return ""
+    sub = f"{folder}/GESTION_HIDRICA/SEMANAL"
+    info = subir_a_drive(pdf, subcarpeta=sub)
+    link = info.get("web_view_link") or ""
+    print(f"[OK] Drive ({sub}): {link}", flush=True)
+    return link
+
+
 def generar_semanal(
     base: dict,
     start: datetime,
     end: datetime,
-) -> Path:
+    *,
+    subir_drive: bool = False,
+) -> dict:
     prev_start, prev_end = _semana_previa(start)
-    cfg = _cfg_semana(base, start, end)
-    cfg_prev = _cfg_semana(base, prev_start, prev_end)
+    cfg = _cfg_semana(base, start, end, skip_serie_6m=False)
+    cfg_prev = _cfg_semana(base, prev_start, prev_end, skip_serie_6m=True)
+    _drop_cache_sin_6m(cfg)
     print(
         f"[INFO] Semana {start.strftime('%d/%m')}–{end.strftime('%d/%m/%Y')} "
         f"(previa {prev_start.strftime('%d/%m')}–{prev_end.strftime('%d/%m')})",
@@ -437,16 +637,29 @@ def generar_semanal(
     )
     out_dir = Path("reports") / base["folder"] / "GESTION_HIDRICA" / "SEMANAL"
     slug = base["cliente"].replace(" ", "_").replace("Á", "A").replace("á", "a")
-    out = out_dir / (
-        f"One_Pager_Semanal_{slug}_{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}.pdf"
-    )
-    render_one_pager(spec, out)
+    stamp = f"{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}"
+    one = out_dir / f"One_Pager_Semanal_{slug}_{stamp}.pdf"
+    ext = out_dir / f"Informe_Semanal_{slug}_{stamp}.pdf"
+    render_one_pager(spec, one)
     print(
-        f"[OK] {out}  {spec.clasificacion}  "
+        f"[OK] {one.name}  {spec.clasificacion}  "
         f"{spec.kpi_entrada}  noct {spec.kpi_pct}",
         flush=True,
     )
-    return out
+    _anexar_extendido(spec, cfg, data, visitas, start, end)
+    render_mensual(spec, ext, out_dir / "_charts")
+    print(f"[OK] {ext.name}", flush=True)
+    drive_one = _subir_drive(one, base["folder"]) if subir_drive else ""
+    drive_ext = _subir_drive(ext, base["folder"]) if subir_drive else ""
+    return {
+        "one_pager": one,
+        "extendido": ext,
+        "drive_one": drive_one,
+        "drive_ext": drive_ext,
+        "clasificacion": spec.clasificacion,
+        "kpi": spec.kpi_entrada,
+        "noct": spec.kpi_pct,
+    }
 
 
 def _parse_hasta(raw: Optional[str]) -> Optional[datetime]:
@@ -463,19 +676,101 @@ def main() -> int:
         except Exception:
             pass
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cliente", default="zapallar", help="key del lote (default: zapallar)")
+    parser.add_argument(
+        "--cliente",
+        default=None,
+        help="key del lote (default: zapallar). Varios separados por coma.",
+    )
+    parser.add_argument(
+        "--todos",
+        action="store_true",
+        help="Genera one-pager e informe extendido de los 15 clientes de fin de mes.",
+    )
     parser.add_argument(
         "--hasta",
         default=None,
         help="Último día (dd/mm/YYYY). Por defecto: última semana lunes–domingo cerrada.",
     )
+    parser.add_argument(
+        "--subir-drive",
+        action="store_true",
+        help="Sube cada PDF a Drive en <cliente>/GESTION_HIDRICA/SEMANAL.",
+    )
+    parser.add_argument(
+        "--sin-drive",
+        action="store_true",
+        help="No subir a Drive (prioridad sobre --subir-drive).",
+    )
     args = parser.parse_args()
-    base = next((c for c in CLIENTES if c["key"] == args.cliente), None)
-    if base is None:
-        print(f"[ERROR] Cliente no está en el lote: {args.cliente}", file=sys.stderr)
-        return 1
+    catalogo = clientes_fin_de_mes()
+    if args.todos:
+        seleccion = catalogo
+    elif args.cliente:
+        keys = [k.strip().lower() for k in args.cliente.split(",") if k.strip()]
+        by_key = {c["key"]: c for c in catalogo}
+        missing = [k for k in keys if k not in by_key]
+        if missing:
+            print(f"[ERROR] Cliente(s) no están en el lote: {', '.join(missing)}", file=sys.stderr)
+            print("Disponibles:", ", ".join(c["key"] for c in catalogo), file=sys.stderr)
+            return 1
+        seleccion = [by_key[k] for k in keys]
+    else:
+        seleccion = [next(c for c in catalogo if c["key"] == "zapallar")]
     start, end = _semana_completa(_parse_hasta(args.hasta))
-    generar_semanal(base, start, end)
+    subir = bool(args.subir_drive) and not args.sin_drive
+    print(
+        f"INFORMES SEMANALES (one-pager + extendido) · {_rango_es(start, end)} · {len(seleccion)} cliente(s)\n",
+        flush=True,
+    )
+    ok: List[dict] = []
+    errors: List[str] = []
+    for base in seleccion:
+        try:
+            out = generar_semanal(base, start, end, subir_drive=subir)
+            ok.append(
+                {
+                    "key": base["key"],
+                    "cliente": base["cliente"],
+                    "one_pager": str(out["one_pager"]),
+                    "extendido": str(out["extendido"]),
+                    "drive_one": out["drive_one"],
+                    "drive_ext": out["drive_ext"],
+                    "clasificacion": out["clasificacion"],
+                    "kpi": out["kpi"],
+                    "noct": out["noct"],
+                }
+            )
+        except Exception as e:
+            errors.append(f"{base['cliente']}: {e}")
+            print(f"[ERROR] {base['cliente']}: {e}", flush=True)
+            import traceback
+
+            traceback.print_exc()
+    resumen = Path("reports") / "CONSOLIDADO" / "SEMANAL" / (
+        f"One_Pagers_Semanal_{start.strftime('%Y%m%d')}_{end.strftime('%Y%m%d')}.json"
+    )
+    resumen.parent.mkdir(parents=True, exist_ok=True)
+    resumen.write_text(
+        json.dumps(
+            {
+                "periodo": _rango_es(start, end),
+                "start": start.strftime("%Y-%m-%d"),
+                "end": end.strftime("%Y-%m-%d"),
+                "ok": ok,
+                "errors": errors,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    print(f"\n[INFO] Completados: {len(ok)}/{len(seleccion)}", flush=True)
+    print(f"[INFO] Resumen: {resumen}", flush=True)
+    if errors:
+        print("[INFO] Fallidos:", flush=True)
+        for e in errors:
+            print("  -", e, flush=True)
+        return 1
     return 0
 
 
