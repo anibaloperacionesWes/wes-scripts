@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-22T20:09:03Z",
+  "generado": "2026-09-22T20:17:30Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -18,7 +18,7 @@
     "total_clientes": 16,
     "puntos_separados": 10,
     "red_con_subredes": 6,
-    "total_nodos_hoja": 92
+    "total_nodos_hoja": 91
   },
   "clientes": [
     {
@@ -854,47 +854,56 @@
           "name": "MAM — Maipú",
           "codigo_mall": "MAM",
           "tipo": "sitio",
-          "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
+          "nota": "Incluye matriz y subredes hidráulicas mapeadas.",
           "children": [
-            {
-              "id": "000025-08",
-              "nodeId": "000025-08",
-              "name": "Placa Bancaria",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-09",
-              "nodeId": "000025-09",
-              "name": "Impulsión Falabella",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
             {
               "id": "000025-10",
               "nodeId": "000025-10",
               "name": "Impulsión Ripley",
               "tipo": "punto",
               "children": [],
-              "pendiente_jerarquia": true
+              "nota": "Matriz aparte: corre por separado del par Placa / Falabella."
             },
             {
-              "id": "000025-32",
-              "nodeId": "000025-32",
-              "name": "Matriz Pasillo Tecnico Boulevard",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-33",
-              "nodeId": "000025-33",
-              "name": "Salida de emergencia pasillo 1 ARROW",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
+              "id": "virtual:000025-mam-comun",
+              "name": "Punto común Placa Bancaria / Impulsión Falabella",
+              "tipo": "subred",
+              "children": [
+                {
+                  "id": "000025-08",
+                  "nodeId": "000025-08",
+                  "name": "Placa Bancaria",
+                  "tipo": "punto",
+                  "children": [],
+                  "nota": "Comparte punto común con Impulsión Falabella; pueden alimentar juntas o una sola hacia Matriz Pasillo / ARROW."
+                },
+                {
+                  "id": "000025-09",
+                  "nodeId": "000025-09",
+                  "name": "Impulsión Falabella",
+                  "tipo": "punto",
+                  "children": [],
+                  "nota": "Comparte punto común con Placa Bancaria; pueden alimentar juntas o una sola hacia Matriz Pasillo / ARROW."
+                },
+                {
+                  "id": "000025-32",
+                  "name": "Matriz Pasillo Tecnico Boulevard",
+                  "tipo": "subred",
+                  "children": [
+                    {
+                      "id": "000025-33",
+                      "nodeId": "000025-33",
+                      "name": "Salida de emergencia pasillo 1 ARROW",
+                      "tipo": "punto",
+                      "children": []
+                    }
+                  ],
+                  "nodeId": "000025-32",
+                  "nota": "Subred del par Placa Bancaria / Impulsión Falabella (punto común)."
+                }
+              ],
+              "virtual": true,
+              "nota": "Placa Bancaria e Impulsión Falabella comparten este punto: pueden alimentar juntas o una sola. Aguas abajo: Matriz Pasillo → ARROW. Impulsión Ripley corre por separado."
             }
           ]
         },

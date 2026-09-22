@@ -65,6 +65,14 @@ VIRTUAL_NODES: Dict[str, Dict[str, str]] = {
             "del Superior; de aquí salen Etapa N°5 y Etapa N°1 al 4."
         ),
     },
+    "virtual:000025-mam-comun": {
+        "name": "Punto común Placa Bancaria / Impulsión Falabella",
+        "nota": (
+            "Placa Bancaria e Impulsión Falabella comparten este punto: "
+            "pueden alimentar juntas o una sola. Aguas abajo: Matriz Pasillo → ARROW. "
+            "Impulsión Ripley corre por separado."
+        ),
+    },
 }
 
 HIERARCHY_FUNDO_ZAPALLAR: Dict[str, Optional[str]] = {
@@ -120,6 +128,18 @@ NODE_NOTAS: Dict[str, str] = {
     "000025-22": "Alimenta Distrito de lujo (DL); a veces también Sandia Nueva.",
     "000025-28": "A veces abastece Distrito de lujo (DL) junto / en lugar de Sandia Antigua.",
     "000025-27": "Distrito de lujo — alimentado por Sandia Antigua (y a veces Nueva).",
+    "000025-08": (
+        "Comparte punto común con Impulsión Falabella; pueden alimentar juntas o una sola "
+        "hacia Matriz Pasillo / ARROW."
+    ),
+    "000025-09": (
+        "Comparte punto común con Placa Bancaria; pueden alimentar juntas o una sola "
+        "hacia Matriz Pasillo / ARROW."
+    ),
+    "000025-10": "Matriz aparte: corre por separado del par Placa / Falabella.",
+    "000025-32": (
+        "Subred del par Placa Bancaria / Impulsión Falabella (punto común)."
+    ),
     "000027-02": (
         "Alimenta el Estanque Superior (sin medición): la salida del Inferior "
         "equivale al llenado del Superior."
@@ -171,6 +191,20 @@ HIERARCHY_PA_ESTACION: Dict[str, Optional[str]] = {
 HIERARCHY_PA_QUILICURA: Dict[str, Optional[str]] = {
     "000025-13": None,  # Matriz Principal
     "000025-34": "000025-13",  # Alimentación Baños (subred)
+}
+
+# Parque Arauco — Maipú (MAM)
+# Placa Bancaria y Falabella comparten punto común (pueden alimentar juntas o sola);
+# Matriz Pasillo → ARROW son subred de ese par. Impulsión Ripley corre por separado.
+VIRTUAL_MAM_COMUN = "virtual:000025-mam-comun"
+
+HIERARCHY_PA_MAIPU: Dict[str, Optional[str]] = {
+    VIRTUAL_MAM_COMUN: None,  # Punto común Placa / Falabella
+    "000025-08": VIRTUAL_MAM_COMUN,  # Placa Bancaria
+    "000025-09": VIRTUAL_MAM_COMUN,  # Impulsión Falabella
+    "000025-32": VIRTUAL_MAM_COMUN,  # Matriz Pasillo Tecnico Boulevard (subred)
+    "000025-33": "000025-32",  # Salida de emergencia pasillo 1 ARROW
+    "000025-10": None,  # Impulsión Ripley — matriz aparte
 }
 
 # Bupa Antofagasta: Sanitaria → Bomba Principal → Sexto Piso / Bomba N°2
@@ -364,6 +398,7 @@ CLIENTES_RED: Dict[str, Dict[str, Any]] = {
             "Kennedy": HIERARCHY_PA_KENNEDY,
             "Estación": HIERARCHY_PA_ESTACION,
             "Quilicura": HIERARCHY_PA_QUILICURA,
+            "Maipú": HIERARCHY_PA_MAIPU,
         },
     },
     "000026": {
