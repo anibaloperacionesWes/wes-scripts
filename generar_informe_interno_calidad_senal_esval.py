@@ -42,28 +42,30 @@ Q_INICIAL = 93
 DN_UP_POST = 80
 Q_POST = 96
 
-# Comparación inicial por pulso
 LITROS_ESVAL_ITRON_1 = 230
 LITROS_ULTRASONIDO_1 = 100
 
-# Tras corrección de configuración (diámetro + mortero)
 DIFERENCIA_LITROS_POST_CONFIG = 40
+DIFERENCIA_LITROS_POST_M45 = 30
 
-# Configuración cañería
 DIAMETRO_CONFIG_ERRONEO_MM = 110
 DIAMETRO_ESVAL_MM = 118
+DIAMETRO_FINAL_MM = 127  # +8 % sobre 118
+INCREMENTO_DIAMETRO_PCT = 8
 ESPESOR_MORTERO_MM = 3
 MATERIAL = "Fierro dúctil (EN545)"
 MARCADO_FISICO = "EN545 / DN100 / PN16"
 
-FOTO_CANERIA = (
-    ROOT
-    / "reports"
-    / "Fundo_Zapallar"
-    / "Informes_Tecnicos"
-    / "_evidencias"
-    / "caneria_EN545_DN100_PN16.jpg"
-)
+# Factor de escala M45
+M45_FACTOR_ACTUAL = 0.5934
+M45_CAUDAL_TURBINA_LPM = 460.0
+M45_CAUDAL_ULTRASONIDO_LPM = 87.05
+M45_CALCULADO = 3.1362
+M45_MAXIMO_EQUIPO = 1.5
+
+EVIDENCIAS = ROOT / "reports" / "Fundo_Zapallar" / "Informes_Tecnicos" / "_evidencias"
+FOTO_CANERIA = EVIDENCIAS / "caneria_EN545_DN100_PN16.jpg"
+FOTO_FORMULA_M45 = EVIDENCIAS / "formula_factor_escala_M45.jpg"
 
 
 def _set_run_font(run, *, size: int = 11, bold: bool = False, color: RGBColor | None = None) -> None:
@@ -115,6 +117,18 @@ def _fill_row(tbl, i: int, values: list[str]) -> None:
         _set_run_font(run, size=10)
 
 
+def _add_figure(doc: Document, path: Path, caption: str, width_cm: float = 12.5) -> None:
+    if not path.is_file():
+        return
+    cap = doc.add_paragraph()
+    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cap.add_run().add_picture(str(path), width=Cm(width_cm))
+    pie = doc.add_paragraph()
+    pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = pie.add_run(caption)
+    _set_run_font(r, size=9, color=_MUTED)
+
+
 def _tabla_calidad(doc: Document) -> None:
     tbl = doc.add_table(rows=4, cols=4)
     tbl.style = "Table Grid"
@@ -163,17 +177,17 @@ def _tabla_comparacion_inicial(doc: Document) -> None:
 
 
 def _tabla_config_caneria(doc: Document) -> None:
-    tbl = doc.add_table(rows=5, cols=3)
+    tbl = doc.add_table(rows=6, cols=3)
     tbl.style = "Table Grid"
-    _fill_header_row(tbl, ["Parámetro", "Configuración previa", "Corrección aplicada"])
+    _fill_header_row(tbl, ["Parámetro", "Configuración previa / intermedia", "Valor final"])
     _fill_row(tbl, 1, ["Material", "No validado / incompleto", MATERIAL])
     _fill_row(
         tbl,
         2,
         [
             "Diámetro (mm)",
-            f"{DIAMETRO_CONFIG_ERRONEO_MM} mm",
-            f"{DIAMETRO_ESVAL_MM} mm (ficha sanitaria ESVAL)",
+            f"{DIAMETRO_CONFIG_ERRONEO_MM} → {DIAMETRO_ESVAL_MM} mm (ficha ESVAL)",
+            f"{DIAMETRO_FINAL_MM} mm (+{INCREMENTO_DIAMETRO_PCT} % sobre {DIAMETRO_ESVAL_MM})",
         ],
     )
     _fill_row(
@@ -189,9 +203,52 @@ def _tabla_config_caneria(doc: Document) -> None:
         tbl,
         4,
         [
-            "Evidencia física",
-            "—",
-            f"Marcado en obra: {MARCADO_FISICO}",
+            "Factor de escala M45",
+            f"Actual {M45_FACTOR_ACTUAL} → calculado {M45_CALCULADO}",
+            f"Seteado al máximo permitido: {M45_MAXIMO_EQUIPO}",
+        ],
+    )
+    _fill_row(tbl, 5, ["Evidencia física", "—", f"Marcado en obra: {MARCADO_FISICO}"])
+
+
+def _tabla_evolucion_diferencias(doc: Document) -> None:
+    tbl = doc.add_table(rows=5, cols=3)
+    tbl.style = "Table Grid"
+    _fill_header_row(tbl, ["Etapa", "Diferencia aprox. (L)", "Observación"])
+    _fill_row(
+        tbl,
+        1,
+        [
+            "Comparación inicial",
+            f"{LITROS_ESVAL_ITRON_1 - LITROS_ULTRASONIDO_1} L",
+            f"Itron {LITROS_ESVAL_ITRON_1} L vs ultrasónico {LITROS_ULTRASONIDO_1} L",
+        ],
+    )
+    _fill_row(
+        tbl,
+        2,
+        [
+            "Tras diámetro 118 mm + mortero 3 mm",
+            f"{DIFERENCIA_LITROS_POST_CONFIG} L",
+            "Mejora, aún con desviación",
+        ],
+    )
+    _fill_row(
+        tbl,
+        3,
+        [
+            f"Tras M45 = {M45_MAXIMO_EQUIPO} (máximo)",
+            f"{DIFERENCIA_LITROS_POST_M45} L",
+            "Mejora parcial; no cierra el error",
+        ],
+    )
+    _fill_row(
+        tbl,
+        4,
+        [
+            f"Tras diámetro {DIAMETRO_FINAL_MM} mm (+{INCREMENTO_DIAMETRO_PCT} %)",
+            "0 L / sin error",
+            "Ambos medidores en el mismo ciclo de lectura",
         ],
     )
 
@@ -201,11 +258,14 @@ def generar_informe(out_dir: Path) -> Path:
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
     out_docx = out_dir / f"Informe_Interno_Calidad_Senal_ESVAL_{stamp}.docx"
 
-    # Copiar evidencia a la carpeta del informe
-    foto_local: Path | None = None
+    foto_caneria: Path | None = None
+    foto_formula: Path | None = None
     if FOTO_CANERIA.is_file():
-        foto_local = out_dir / FOTO_CANERIA.name
-        shutil.copy2(FOTO_CANERIA, foto_local)
+        foto_caneria = out_dir / FOTO_CANERIA.name
+        shutil.copy2(FOTO_CANERIA, foto_caneria)
+    if FOTO_FORMULA_M45.is_file():
+        foto_formula = out_dir / FOTO_FORMULA_M45.name
+        shutil.copy2(FOTO_FORMULA_M45, foto_formula)
 
     doc = Document()
     section = doc.sections[0]
@@ -241,6 +301,7 @@ def generar_informe(out_dir: Path) -> Path:
         "Tipo: Informe técnico interno (terreno)",
         f"Fecha de elaboración: {datetime.now().strftime('%d-%m-%Y %H:%M')}",
         "Clasificación: Uso interno WES",
+        "Estado: Cerrado — medidores alineados",
     ):
         run = meta.add_run(line + "\n")
         _set_run_font(run, size=10, color=_MUTED)
@@ -250,8 +311,8 @@ def generar_informe(out_dir: Path) -> Path:
         doc,
         "Documentar las acciones realizadas en terreno sobre el medidor ultrasónico asociado a "
         f"{NODO_NOMBRE}, ante un desvío respecto del medidor de turbina Itron de ESVAL; registrar "
-        "las correcciones de configuración de cañería aplicadas y el procedimiento de cálculo del "
-        "factor de escala para alinear ambas lecturas.",
+        "las correcciones de configuración (diámetro, mortero y factor de escala M45) hasta lograr "
+        "que ambos medidores lean en el mismo ciclo, sin error entre ellos.",
     )
 
     _add_heading(doc, "2. Resumen ejecutivo", level=1)
@@ -261,14 +322,18 @@ def generar_informe(out_dir: Path) -> Path:
         f"fabricante (> {UMBRAL_FABRICANTE}). La primera comparación volumétrica mostró un desvío "
         f"importante: turbina Itron/ESVAL {LITROS_ESVAL_ITRON_1} L vs ultrasónico "
         f"{LITROS_ULTRASONIDO_1} L. Se verificó continuidad de cables (OK); se limpió la tubería y "
-        f"se renovó la silicona, mejorando DN/UP a {DN_UP_POST} y Q a {Q_POST}, sin corregir el "
-        "volumen. Al revisar en detalle el material de la cañería (fierro dúctil EN545 DN100) y "
-        "contrastarlo con la información de la sanitaria ESVAL, se corrigió el diámetro configurado "
-        f"de {DIAMETRO_CONFIG_ERRONEO_MM} mm a {DIAMETRO_ESVAL_MM} mm y se cargó el lining de mortero "
-        f"({ESPESOR_MORTERO_MM} mm) en el menú de cobertura. La nueva prueba redujo la diferencia a "
-        f"aproximadamente {DIFERENCIA_LITROS_POST_CONFIG} L (aún con desviación). Queda pendiente "
-        "aplicar un factor de escala calculado confrontando el flujo del menú 00 del ultrasónico "
-        "contra una medición tipo laboratorio (1 minuto con cronómetro sobre el medidor de turbina).",
+        f"se renovó la silicona (DN/UP {DN_UP_POST}, Q {Q_POST}), sin corregir el volumen.",
+    )
+    _p(
+        doc,
+        f"Se validó material fierro dúctil EN545 DN100 y se corrigió el diámetro de "
+        f"{DIAMETRO_CONFIG_ERRONEO_MM} a {DIAMETRO_ESVAL_MM} mm (ficha ESVAL), más lining de mortero "
+        f"{ESPESOR_MORTERO_MM} mm: la diferencia bajó a ~{DIFERENCIA_LITROS_POST_CONFIG} L. Con la "
+        f"prueba de 1 minuto se calculó M45 = {M45_CALCULADO}, pero el equipo admite máximo "
+        f"{M45_MAXIMO_EQUIPO}; al setear ese tope la diferencia pasó a ~{DIFERENCIA_LITROS_POST_M45} L "
+        f"(aún insuficiente). Siguiendo el manual, se aumentó el diámetro un "
+        f"{INCREMENTO_DIAMETRO_PCT} % ({DIAMETRO_ESVAL_MM} → {DIAMETRO_FINAL_MM} mm). Tras ese ajuste, "
+        "ambos medidores quedaron en el mismo ciclo de lectura, sin error entre ellos.",
     )
 
     _add_heading(doc, "3. Actividades realizadas", level=1)
@@ -329,138 +394,151 @@ def generar_informe(out_dir: Path) -> Path:
     _p(
         doc,
         "La mejora confirma mejor acoplamiento acústico, pero no resolvió la discrepancia "
-        "volumétrica frente al medidor Itron. Continuidad + limpieza/silicona no generaron cambio "
-        "operativo en el problema de medición de caudal.",
+        "volumétrica frente al medidor Itron.",
     )
 
-    _add_heading(doc, "3.5 Hipótesis y validación de configuración de cañería", level=2)
+    _add_heading(doc, "3.5 Validación de configuración de cañería (diámetro + mortero)", level=2)
     _p(
         doc,
-        "Ante lo anterior se levantó la hipótesis de que la cañería configurada no correspondía a "
-        "la tubería real (valores de configuración incorrectos). Se revisó la cañería con mayor "
-        "detalle, identificando el material y el marcado físico en obra.",
+        "Se levantó la hipótesis de que la cañería configurada no correspondía a la tubería real. "
+        "Se revisó el material y el marcado físico en obra, y se contrastó con la información de "
+        "la sanitaria ESVAL.",
     )
-    _bullet(doc, f"Marcado visible en la pieza: {MARCADO_FISICO} (fierro dúctil según EN545).")
+    _bullet(doc, f"Marcado visible: {MARCADO_FISICO} (fierro dúctil según EN545).")
     _bullet(
         doc,
-        f"Validación con información publicada / ficha de la sanitaria ESVAL: diámetro de "
-        f"{DIAMETRO_ESVAL_MM} mm (no {DIAMETRO_CONFIG_ERRONEO_MM} mm como estaba configurado).",
+        f"Diámetro según ficha ESVAL: {DIAMETRO_ESVAL_MM} mm (estaba configurado en "
+        f"{DIAMETRO_CONFIG_ERRONEO_MM} mm).",
     )
     _bullet(
         doc,
-        "Las cañerías de fierro dúctil de este tipo traen mortero inyectado (lining interno). En el "
-        f"menú de cobertura del sensor debía seleccionarse mortero e indicar el espesor: "
-        f"{ESPESOR_MORTERO_MM} mm en este caso.",
+        f"Lining: mortero inyectado — en el menú de cobertura se seleccionó mortero con espesor "
+        f"{ESPESOR_MORTERO_MM} mm.",
     )
-
-    if foto_local and foto_local.is_file():
-        cap = doc.add_paragraph()
-        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = cap.add_run()
-        run.add_picture(str(foto_local), width=Cm(12.5))
-        pie_foto = doc.add_paragraph()
-        pie_foto.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = pie_foto.add_run(
-            f"Figura 1. Evidencia en terreno — cañería {MARCADO_FISICO} (Matriz ESVAL)."
+    if foto_caneria:
+        _add_figure(
+            doc,
+            foto_caneria,
+            f"Figura 1. Evidencia en terreno — cañería {MARCADO_FISICO} (Matriz ESVAL).",
         )
-        _set_run_font(r, size=9, color=_MUTED)
+    _p(
+        doc,
+        f"Tras aplicar {DIAMETRO_ESVAL_MM} mm + mortero {ESPESOR_MORTERO_MM} mm, la nueva prueba "
+        f"volumétrica dejó una diferencia residual de aproximadamente "
+        f"{DIFERENCIA_LITROS_POST_CONFIG} litros (aún con desviación).",
+    )
 
-    _p(doc, "Correcciones aplicadas en la configuración del medidor ultrasónico:")
+    _add_heading(doc, "3.6 Cálculo y aplicación del factor de escala M45", level=2)
+    _p(
+        doc,
+        "Con apoyo de IA y los manuales del sensor se ejecutó la prueba tipo laboratorio de "
+        "1 minuto: caudal del medidor de turbina versus caudal del ultrasónico (menú 00), para "
+        "calcular el nuevo factor de escala M45 a partir del factor actual.",
+    )
+    _bullet(doc, f"Factor actual (M45): {M45_FACTOR_ACTUAL}.")
+    _bullet(
+        doc,
+        f"Caudal turbina (prueba 1 min): {M45_CAUDAL_TURBINA_LPM:g} L/min "
+        f"(≈ {M45_CAUDAL_TURBINA_LPM / 1000:.2f} m³/min).",
+    )
+    _bullet(doc, f"Caudal ultrasónico (menú 00): {M45_CAUDAL_ULTRASONIDO_LPM} L/min.")
+    _bullet(
+        doc,
+        f"Fórmula aplicada: Nuevo M45 = Factor actual × (caudal turbina / caudal ultrasónico) "
+        f"= {M45_FACTOR_ACTUAL} × ({M45_CAUDAL_TURBINA_LPM:g} / {M45_CAUDAL_ULTRASONIDO_LPM}) "
+        f"= {M45_CALCULADO}.",
+    )
+    if foto_formula:
+        _add_figure(
+            doc,
+            foto_formula,
+            "Figura 2. Fórmula de cálculo del nuevo factor de escala M45.",
+            width_cm=14.0,
+        )
+    _p(
+        doc,
+        f"El valor calculado ({M45_CALCULADO}) supera el máximo admitido por el equipo "
+        f"({M45_MAXIMO_EQUIPO}). Se seteó M45 = {M45_MAXIMO_EQUIPO} (tope). Al repetir la "
+        f"comparación volumétrica, la diferencia bajó de ~{DIFERENCIA_LITROS_POST_CONFIG} L a "
+        f"~{DIFERENCIA_LITROS_POST_M45} L: mejora parcial, pero aún no «flotaba» / no se alineaba "
+        "porque el rango de error seguía siendo mayor al aceptable.",
+    )
+
+    _add_heading(doc, "3.7 Ajuste final de diámetro (+8 %) según recomendación de manual", level=2)
+    _p(
+        doc,
+        "Ante el tope del factor de escala, la recomendación del manual del sensor es aumentar el "
+        "diámetro configurado. Se aplicó un incremento del "
+        f"{INCREMENTO_DIAMETRO_PCT} % sobre {DIAMETRO_ESVAL_MM} mm, pasando a "
+        f"{DIAMETRO_FINAL_MM} mm.",
+    )
+    _bullet(doc, f"Diámetro final configurado: {DIAMETRO_FINAL_MM} mm.")
+    _bullet(doc, f"M45 permanece en el máximo seteado: {M45_MAXIMO_EQUIPO}.")
+    _bullet(doc, f"Mortero de cobertura: {ESPESOR_MORTERO_MM} mm.")
+    _p(
+        doc,
+        "Tras este ajuste se repitió la comparación: ambos medidores (ultrasónico y turbina "
+        "Itron/ESVAL) quedaron en el mismo ciclo de lectura, sin error entre ellos.",
+    )
+
+    _add_heading(doc, "3.8 Resumen de configuración final", level=2)
     _tabla_config_caneria(doc)
     doc.add_paragraph()
-
-    _add_heading(doc, "3.6 Nueva prueba volumétrica tras corrección de configuración", level=2)
-    _p(
-        doc,
-        "Luego de corregir diámetro y cobertura (mortero), se repitió la comparación ultrasónico "
-        "vs turbina Itron/ESVAL.",
-    )
-    _bullet(
-        doc,
-        f"La diferencia se redujo a aproximadamente {DIFERENCIA_LITROS_POST_CONFIG} litros: mejora "
-        "clara respecto de los 130 L de desvío inicial, pero aún con desviación residual.",
-    )
-    _bullet(
-        doc,
-        "Conclusión parcial: la hipótesis de configuración incorrecta se confirma en parte "
-        "(el ajuste de diámetro + mortero acercó las lecturas), pero no basta por sí solo para "
-        "igualar ambos medidores.",
-    )
-
-    _add_heading(doc, "3.7 Factor de escala (próximo ajuste según manual del sensor)", level=2)
-    _p(
-        doc,
-        "Con apoyo de IA y los manuales del sensor, se definió el procedimiento para calcular un "
-        "factor de escala que permita alinear el caudal del ultrasónico con la referencia de "
-        "turbina:",
-    )
-    _bullet(
-        doc,
-        "Valor A — flujo pasante del medidor ultrasónico leído en el menú 00 (caudal instantáneo / "
-        "indicado por el equipo).",
-    )
-    _bullet(
-        doc,
-        "Valor B — medición tipo laboratorio: con cronómetro, durante 1 minuto, registrar cuántos "
-        "litros pasaron por el medidor de turbina Itron (referencia ESVAL).",
-    )
-    _bullet(
-        doc,
-        "Con ambos valores se calcula el factor de escala (relación B/A o según fórmula del manual "
-        "del fabricante) y se carga en el equipo para que las lecturas coincidan.",
-    )
-    _p(
-        doc,
-        "Este paso queda como acción inmediata de seguimiento: ejecutar la toma de 1 minuto, "
-        "documentar A y B, aplicar el factor y repetir la prueba de contraste.",
-    )
+    _p(doc, "Evolución de la diferencia volumétrica:")
+    _tabla_evolucion_diferencias(doc)
+    doc.add_paragraph()
 
     _add_heading(doc, "4. Hallazgos", level=1)
     _bullet(
         doc,
-        "Calidad de señal (DN/UP y Q) dentro de especificación desde el inicio; mejora adicional "
-        "tras limpieza de tubería + silicona.",
+        "Calidad de señal (DN/UP y Q) dentro de especificación; mejora adicional tras limpieza + "
+        "silicona.",
     )
     _bullet(doc, "Continuidad de cables correcta.")
     _bullet(
         doc,
-        f"Configuración previa errónea: diámetro {DIAMETRO_CONFIG_ERRONEO_MM} mm y sin lining de "
-        f"mortero; correcto según ESVAL/obra: {DIAMETRO_ESVAL_MM} mm + mortero {ESPESOR_MORTERO_MM} mm "
-        f"en cañería {MATERIAL}.",
+        f"Configuración inicial errónea: diámetro {DIAMETRO_CONFIG_ERRONEO_MM} mm y sin mortero; "
+        f"corrección intermedia {DIAMETRO_ESVAL_MM} mm + mortero {ESPESOR_MORTERO_MM} mm.",
     )
     _bullet(
         doc,
-        f"Tras corrección: diferencia residual ~{DIFERENCIA_LITROS_POST_CONFIG} L → requiere factor "
-        "de escala (menú 00 vs prueba cronometrada 1 min en turbina).",
+        f"M45 teórico {M45_CALCULADO} limitado por el máximo del equipo ({M45_MAXIMO_EQUIPO}); "
+        f"con el tope la diferencia quedó en ~{DIFERENCIA_LITROS_POST_M45} L.",
+    )
+    _bullet(
+        doc,
+        f"Cierre: diámetro {DIAMETRO_FINAL_MM} mm (+{INCREMENTO_DIAMETRO_PCT} %) alineó ambos "
+        "medidores en el mismo ciclo, sin error.",
     )
 
-    _add_heading(doc, "5. Próximos pasos", level=1)
+    _add_heading(doc, "5. Estado y seguimiento", level=1)
     _bullet(
         doc,
-        "Ejecutar el procedimiento de factor de escala: menú 00 (ultrasónico) vs litros en 1 minuto "
-        "en medidor de turbina; cargar el factor según manual.",
+        "Intervención cerrada en terreno: ultrasónico y turbina Itron/ESVAL coinciden en lectura.",
     )
     _bullet(
         doc,
-        "Repetir contraste volumétrico post factor de escala y archivar lecturas antes/después.",
+        "Mantener respaldo fotográfico de menús (diámetro 127 mm, mortero 3 mm, M45 = 1,5) junto "
+        "a las evidencias de este informe.",
     )
     _bullet(
         doc,
-        "Dejar registro fotográfico del menú de configuración (diámetro, cobertura/mortero y "
-        "factor de escala) junto a esta evidencia de cañería.",
+        "Monitorear en plataforma WES que el punto 000027-01 conserve coherencia de caudal "
+        "respecto de la referencia ESVAL en los días posteriores.",
     )
 
     _add_heading(doc, "6. Conclusión", level=1)
     _p(
         doc,
         "El desvío inicial no se explica por calidad de señal ni por cableado. La limpieza de "
-        "tubería y la silicona mejoraron DN/UP y Q, pero no el volumen. La revisión del material "
-        f"(fierro dúctil EN545) y la validación con datos ESVAL permitieron corregir el diámetro "
-        f"({DIAMETRO_CONFIG_ERRONEO_MM} → {DIAMETRO_ESVAL_MM} mm) y cargar mortero de "
-        f"{ESPESOR_MORTERO_MM} mm en el menú de cobertura, reduciendo la diferencia a ~"
-        f"{DIFERENCIA_LITROS_POST_CONFIG} L. El cierre de la desviación residual se aborda con el "
-        "cálculo e ingreso del factor de escala según menú 00 y prueba cronometrada de 1 minuto "
-        "sobre el medidor de turbina.",
+        "tubería y la silicona mejoraron DN/UP y Q, pero no el volumen. La corrección a "
+        f"{DIAMETRO_ESVAL_MM} mm + mortero {ESPESOR_MORTERO_MM} mm redujo la diferencia a ~"
+        f"{DIFERENCIA_LITROS_POST_CONFIG} L. El factor de escala calculado "
+        f"({M45_CALCULADO}) no pudo aplicarse completo por el máximo del equipo "
+        f"({M45_MAXIMO_EQUIPO}); con el tope la diferencia bajó a ~{DIFERENCIA_LITROS_POST_M45} L. "
+        f"El aumento de diámetro en {INCREMENTO_DIAMETRO_PCT} % "
+        f"({DIAMETRO_ESVAL_MM} → {DIAMETRO_FINAL_MM} mm), según recomendación del manual, cerró "
+        "la desviación: ambos medidores quedaron en el mismo ciclo de lectura y sin error entre ellos.",
     )
 
     pie = doc.add_paragraph()
