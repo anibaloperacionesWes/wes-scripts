@@ -124,6 +124,94 @@ PA_MALL_BY_NODE: Dict[str, str] = {
     "000025-36": "Kennedy",
 }
 
+# Empresa API con varios clientes operativos en el Dashboard (mismo companyId).
+# BUPA → Santiago (pendiente) + Antofagasta (operativo).
+# DERCO en API → Inchcape en Dashboard (Lo Boza, Quilicura, Open Plaza).
+CLIENTES_MULTISITIO: Dict[str, Dict[str, Any]] = {
+    "000029": {
+        "expandir_como_clientes": True,
+        "sitios": [
+            {
+                "id_suffix": "santiago",
+                "name": "Bupa Santiago",
+                "node_ids": [
+                    "000029-01",
+                    "000029-02",
+                    "000029-03",
+                    "000029-04",
+                    "000029-05",
+                    "000029-06",
+                ],
+                "topologia": TOPOLOGIA_PUNTOS,
+                "estado_operativo": "pendiente",
+                "nota": "Puntos creados en app; sin instalación operativa.",
+            },
+            {
+                "id_suffix": "antofagasta",
+                "name": "Bupa Antofagasta",
+                "node_ids": [
+                    "000029-07",
+                    "000029-08",
+                    "000029-09",
+                    "000029-10",
+                ],
+                "topologia": TOPOLOGIA_PUNTOS,
+                "estado_operativo": "activo",
+                "nota": (
+                    "Clínica Antofagasta operativa. Medidor Principal Sanitaria (09) "
+                    "es referencia de cuenta; salas de bomba son puntos paralelos."
+                ),
+            },
+        ],
+    },
+    "000012": {
+        "nombre_dashboard": "Inchcape",
+        "nombre_api": "DERCO",
+        "expandir_como_clientes": False,
+        "topologia": TOPOLOGIA_PUNTOS,
+        "nombres_fallback": {
+            "000012-13": "Open Plaza Lavado de Vehiculos",
+            "000012-14": "Open Plaza Matriz Principal",
+        },
+        "sitios": [
+            {
+                "id_suffix": "lo-boza",
+                "name": "Lo Boza",
+                "node_ids": [
+                    "000012-01",
+                    "000012-02",
+                    "000012-03",
+                    "000012-04",
+                    "000012-05",
+                ],
+                "estado_operativo": "fuera",
+                "nota": "Lo Boza excluido de reportes WES.",
+            },
+            {
+                "id_suffix": "quilicura",
+                "name": "Quilicura",
+                "node_ids": [
+                    "000012-06",
+                    "000012-07",
+                    "000012-08",
+                    "000012-09",
+                    "000012-10",
+                    "000012-11",
+                    "000012-12",
+                ],
+                "estado_operativo": "activo",
+            },
+            {
+                "id_suffix": "open-plaza",
+                "name": "Open Plaza",
+                "node_ids": ["000012-13", "000012-14"],
+                "estado_operativo": "activo",
+                "nota": "Incluir si el nodo sigue en API.",
+            },
+        ],
+    },
+}
+
 # Clientes cuyo default es red_con_subredes (aunque aún falte detallar hijos).
 CLIENTES_RED: Dict[str, Dict[str, Any]] = {
     "000027": {
@@ -205,6 +293,103 @@ def _punto_leaf(node_id: str, name: str, **extra: Any) -> Dict[str, Any]:
         "children": [],
         **extra,
     }
+
+
+def _nodes_por_ids(
+    company: Dict[str, Any],
+    node_ids: List[str],
+    nombres_fallback: Optional[Dict[str, str]] = None,
+) -> List[Dict[str, str]]:
+    """Filtra nodos de la empresa; usa fallback si el ID no viene en la API."""
+    by_id = {n["nodeId"]: n for n in company.get("nodes", [])}
+    out: List[Dict[str, str]] = []
+    for nid in node_ids:
+        if nid in by_id:
+            out.append(by_id[nid])
+        elif nombres_fallback and nid in nombres_fallback:
+            out.append({"nodeId": nid, "name": nombres_fallback[nid]})
+    return out
+
+
+def _sitio_desde_cfg(
+    company_id: str,
+    sitio_cfg: Dict[str, Any],
+    nodos: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    topo = sitio_cfg.get("topologia", TOPOLOGIA_PUNTOS)
+    hier = sitio_cfg.get("hierarchy") or {}
+    if topo == TOPOLOGIA_RED and hier:
+        kids = _build_from_parent_map(nodos, hier)
+    else:
+        kids = [
+            _punto_leaf(n["nodeId"], n["name"])
+            for n in sorted(nodos, key=lambda x: x["nodeId"])
+        ]
+    sitio: Dict[str, Any] = {
+        "id": f"{company_id}-{sitio_cfg['id_suffix']}",
+        "name": sitio_cfg["name"],
+        "tipo": TIPO_SITIO,
+        "topologia": topo,
+        "children": kids,
+    }
+    if sitio_cfg.get("nota"):
+        sitio["nota"] = sitio_cfg["nota"]
+    if sitio_cfg.get("estado_operativo"):
+        sitio["estado_operativo"] = sitio_cfg["estado_operativo"]
+    return sitio
+
+
+def _cliente_multisitio(company: Dict[str, Any], cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Una o más entradas Dashboard para empresas API multi-sitio."""
+    cid = company["companyId"]
+    nombre_api = cfg.get("nombre_api") or company["name"]
+    expandir = cfg.get("expandir_como_clientes", False)
+    nombres_fb = cfg.get("nombres_fallback") or {}
+
+    if expandir:
+        clientes: List[Dict[str, Any]] = []
+        for sitio_cfg in cfg["sitios"]:
+            nodos = _nodes_por_ids(company, sitio_cfg["node_ids"], nombres_fb)
+            sitio = _sitio_desde_cfg(cid, sitio_cfg, nodos)
+            clientes.append(
+                {
+                    "id": f"{cid}-{sitio_cfg['id_suffix']}",
+                    "companyId": cid,
+                    "name": sitio_cfg["name"],
+                    "nombre_api": nombre_api,
+                    "tipo": TIPO_CLIENTE,
+                    "topologia": sitio_cfg.get("topologia", TOPOLOGIA_PUNTOS),
+                    "estado_operativo": sitio_cfg.get("estado_operativo", "activo"),
+                    "descripcion": sitio_cfg.get("nota")
+                    or f"Sitio operativo de {nombre_api}.",
+                    "children": sitio["children"],
+                }
+            )
+        return clientes
+
+    nombre = cfg.get("nombre_dashboard") or company["name"]
+    sitios = [
+        _sitio_desde_cfg(
+            cid,
+            sitio_cfg,
+            _nodes_por_ids(company, sitio_cfg["node_ids"], nombres_fb),
+        )
+        for sitio_cfg in cfg["sitios"]
+    ]
+    return [
+        {
+            "id": cid,
+            "companyId": cid,
+            "name": nombre,
+            "nombre_api": nombre_api,
+            "tipo": TIPO_CLIENTE,
+            "topologia": cfg.get("topologia", TOPOLOGIA_PUNTOS),
+            "descripcion": (
+                f"Cliente {nombre} (empresa API {nombre_api}) con varios sitios."
+            ),
+            "children": sitios,
+        }
+    ]
 
 
 def _build_from_parent_map(
@@ -393,7 +578,9 @@ def build_tree(companies: Optional[List[Dict[str, Any]]] = None) -> Dict[str, An
         if cid in CLIENTES_EXCLUIDOS_DASHBOARD:
             continue
 
-        if cid in CLIENTES_RED:
+        if cid in CLIENTES_MULTISITIO:
+            clientes.extend(_cliente_multisitio(company, CLIENTES_MULTISITIO[cid]))
+        elif cid in CLIENTES_RED:
             cfg = CLIENTES_RED[cid]
             if cid == "000025":
                 clientes.append(_cliente_parque_arauco(company, cfg))

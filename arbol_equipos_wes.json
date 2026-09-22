@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-21T22:05:41Z",
+  "generado": "2026-09-22T01:26:13Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -15,10 +15,10 @@
     ]
   },
   "resumen": {
-    "total_clientes": 26,
-    "puntos_separados": 24,
+    "total_clientes": 27,
+    "puntos_separados": 25,
     "red_con_subredes": 2,
-    "total_nodos_hoja": 182
+    "total_nodos_hoja": 184
   },
   "clientes": [
     {
@@ -660,94 +660,138 @@
     {
       "id": "000012",
       "companyId": "000012",
-      "name": "DERCO",
+      "name": "Inchcape",
+      "nombre_api": "DERCO",
       "tipo": "cliente",
       "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
+      "descripcion": "Cliente Inchcape (empresa API DERCO) con varios sitios.",
       "children": [
         {
-          "id": "000012-01",
-          "nodeId": "000012-01",
-          "name": "Lo Boza Lavado de Vehículos",
-          "tipo": "punto",
-          "children": []
+          "id": "000012-lo-boza",
+          "name": "Lo Boza",
+          "tipo": "sitio",
+          "topologia": "puntos_separados",
+          "children": [
+            {
+              "id": "000012-01",
+              "nodeId": "000012-01",
+              "name": "Lo Boza Lavado de Vehículos",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-02",
+              "nodeId": "000012-02",
+              "name": "Lo Boza Pozo",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-03",
+              "nodeId": "000012-03",
+              "name": "Lo Boza Reutilización",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-04",
+              "nodeId": "000012-04",
+              "name": "Lo Boza Edificio Principal Casino",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-05",
+              "nodeId": "000012-05",
+              "name": "Lo Boza Matriz Principal",
+              "tipo": "punto",
+              "children": []
+            }
+          ],
+          "nota": "Lo Boza excluido de reportes WES.",
+          "estado_operativo": "fuera"
         },
         {
-          "id": "000012-02",
-          "nodeId": "000012-02",
-          "name": "Lo Boza Pozo",
-          "tipo": "punto",
-          "children": []
+          "id": "000012-quilicura",
+          "name": "Quilicura",
+          "tipo": "sitio",
+          "topologia": "puntos_separados",
+          "children": [
+            {
+              "id": "000012-06",
+              "nodeId": "000012-06",
+              "name": "Quilicura Matriz Principal",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-07",
+              "nodeId": "000012-07",
+              "name": "Quilicura Dercomaq",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-08",
+              "nodeId": "000012-08",
+              "name": "Quilicura Lav. de Maquinas",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-09",
+              "nodeId": "000012-09",
+              "name": "Quilicura Casino",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-10",
+              "nodeId": "000012-10",
+              "name": "Quilicura Proderco",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-11",
+              "nodeId": "000012-11",
+              "name": "Quilicura Camarines",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-12",
+              "nodeId": "000012-12",
+              "name": "Quilicura Edificio JCB",
+              "tipo": "punto",
+              "children": []
+            }
+          ],
+          "estado_operativo": "activo"
         },
         {
-          "id": "000012-03",
-          "nodeId": "000012-03",
-          "name": "Lo Boza Reutilización",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000012-04",
-          "nodeId": "000012-04",
-          "name": "Lo Boza Edificio Principal Casino",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000012-05",
-          "nodeId": "000012-05",
-          "name": "Lo Boza Matriz Principal",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000012-06",
-          "nodeId": "000012-06",
-          "name": "Quilicura Matriz Principal",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000012-07",
-          "nodeId": "000012-07",
-          "name": "Quilicura Dercomaq",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000012-08",
-          "nodeId": "000012-08",
-          "name": "Quilicura Lav. de Maquinas",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000012-09",
-          "nodeId": "000012-09",
-          "name": "Quilicura Casino",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000012-10",
-          "nodeId": "000012-10",
-          "name": "Quilicura Proderco",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000012-11",
-          "nodeId": "000012-11",
-          "name": "Quilicura Camarines",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000012-12",
-          "nodeId": "000012-12",
-          "name": "Quilicura Edificio JCB",
-          "tipo": "punto",
-          "children": []
+          "id": "000012-open-plaza",
+          "name": "Open Plaza",
+          "tipo": "sitio",
+          "topologia": "puntos_separados",
+          "children": [
+            {
+              "id": "000012-13",
+              "nodeId": "000012-13",
+              "name": "Open Plaza Lavado de Vehiculos",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000012-14",
+              "nodeId": "000012-14",
+              "name": "Open Plaza Matriz Principal",
+              "tipo": "punto",
+              "children": []
+            }
+          ],
+          "nota": "Incluir si el nodo sigue en API.",
+          "estado_operativo": "activo"
         }
       ]
     },
@@ -1547,12 +1591,14 @@
       ]
     },
     {
-      "id": "000029",
+      "id": "000029-santiago",
       "companyId": "000029",
-      "name": "BUPA",
+      "name": "Bupa Santiago",
+      "nombre_api": "BUPA",
       "tipo": "cliente",
       "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
+      "estado_operativo": "pendiente",
+      "descripcion": "Puntos creados en app; sin instalación operativa.",
       "children": [
         {
           "id": "000029-01",
@@ -1595,7 +1641,19 @@
           "name": "Central Térmica",
           "tipo": "punto",
           "children": []
-        },
+        }
+      ]
+    },
+    {
+      "id": "000029-antofagasta",
+      "companyId": "000029",
+      "name": "Bupa Antofagasta",
+      "nombre_api": "BUPA",
+      "tipo": "cliente",
+      "topologia": "puntos_separados",
+      "estado_operativo": "activo",
+      "descripcion": "Clínica Antofagasta operativa. Medidor Principal Sanitaria (09) es referencia de cuenta; salas de bomba son puntos paralelos.",
+      "children": [
         {
           "id": "000029-07",
           "nodeId": "000029-07",
