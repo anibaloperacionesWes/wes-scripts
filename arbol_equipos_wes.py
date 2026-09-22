@@ -66,27 +66,110 @@ HIERARCHY_FUNDO_ZAPALLAR: Dict[str, Optional[str]] = {
     "000027-09": "000027-01",  # Riego Llenado de Estanque ESVAL
 }
 
-# Parque Arauco — Kennedy: matriz Andén 3-4 alimenta gastronomía y restaurante;
-# el resto son puntos independientes del mall (misma sede, sin padre hidráulico).
+# Nido de Águilas: Estanque C (sanitaria) carga B y A; B alimenta Teatro/HS/Elementary;
+# Piscina sale del Estanque A (no monitoreado).
+HIERARCHY_NIDO: Dict[str, Optional[str]] = {
+    "000007-07": None,  # Estanque C (entrada desde medidor sanitaria)
+    "000007-01": "000007-07",  # Estanque B
+    "000007-02": "000007-01",  # Teatro
+    "000007-03": "000007-01",  # High School
+    "000007-04": "000007-01",  # Elementary
+    "000007-05": "000007-07",  # Piscina (vía Estanque A no monitoreado)
+    "000007-06": None,  # Pozo Profundo
+    "000007-09": None,  # Control
+}
+
+NODE_NOTAS: Dict[str, str] = {
+    "000007-07": (
+        "Alimentado por medidor de la sanitaria; carga Estanque B y Estanque A "
+        "(A no se monitorea)."
+    ),
+    "000007-05": (
+        "Sale del Estanque A (no monitoreado), cargado desde Estanque C; "
+        "otras dependencias no están claras."
+    ),
+    "000009-02": (
+        "Solo alimenta el sistema de lavados cuando falla la ósmosis. "
+        "El estanque de reutilización de ósmosis (90 %) no se monitorea."
+    ),
+    "000009-09": (
+        "Se alimenta de la matriz; tiene ósmosis que recupera ~90 % hacia "
+        "estanque de reutilización no monitoreado."
+    ),
+    "000009-10": (
+        "Se alimenta de la matriz; tiene ósmosis que recupera ~90 % hacia "
+        "estanque de reutilización no monitoreado."
+    ),
+    "000012-06": (
+        "Matriz principal: alimenta toda la red Quilicura; "
+        "los otros puntos representan una fracción mínima del total."
+    ),
+    "000025-22": "Alimenta Distrito de lujo (DL); a veces también Sandia Nueva.",
+    "000025-28": "A veces abastece Distrito de lujo (DL) junto / en lugar de Sandia Antigua.",
+    "000025-27": "Distrito de lujo — alimentado por Sandia Antigua (y a veces Nueva).",
+}
+
+# COPEC: Matriz Principal alimenta Costanera, admin, Pronto y lavados.
+HIERARCHY_COPEC: Dict[str, Optional[str]] = {
+    "000009-06": None,  # Matriz Principal
+    "000009-00": "000009-06",  # Costanera
+    "000009-01": "000009-06",  # Oficina Admin.
+    "000009-08": "000009-06",  # Pronto Baños
+    "000009-11": "000009-06",  # Pronto Tienda
+    "000009-03": "000009-06",  # Lavado Automático Norte
+    "000009-04": "000009-06",  # Lavado Automático Sur
+    "000009-09": "000009-06",  # Lavado Auto servicio Norte
+    "000009-10": "000009-06",  # Lavado Auto servicio Sur
+    "000009-02": "000009-06",  # Estanque Reutilización (backup ósmosis)
+    "000009-05": None,  # Riego (independiente / pendiente)
+}
+
+# Inchcape Quilicura: matriz alimenta el resto (fracción mínima cada uno).
+HIERARCHY_INCHCAPE_QUILICURA: Dict[str, Optional[str]] = {
+    "000012-06": None,
+    "000012-07": "000012-06",
+    "000012-08": "000012-06",
+    "000012-09": "000012-06",
+    "000012-10": "000012-06",
+    "000012-11": "000012-06",
+    "000012-12": "000012-06",
+}
+
+# Parque Arauco — Kennedy (PAK)
 HIERARCHY_PA_KENNEDY: Dict[str, Optional[str]] = {
     "000025-20": None,  # Impulsión Anden 3-4 Matriz Principal
     "000025-21": "000025-20",  # Locales Gast.
     "000025-29": "000025-20",  # Restaurante
-    # Independientes (raíces propias dentro del sitio Kennedy)
+    # Sandia → DL → subredes
     "000025-22": None,  # Sala de Bomba Sandia Antigua
-    "000025-28": None,  # Sala de Bomba Sandia Nueva
+    "000025-27": "000025-22",  # Distrito de lujo DL
+    "000025-35": "000025-27",  # PAK BAZAR GOURMET
+    "000025-36": "000025-27",  # PAK DL KENNEDY
+    "000025-28": None,  # Sandia Nueva (alternativo a Antigua)
+    # Independientes
     "000025-23": None,  # Llenado Pileta
     "000025-24": None,  # Llenado Pileta Cascada
-    "000025-25": None,  # Baño N°5 Damas
-    "000025-26": None,  # Baño N°6 Varones
-    "000025-27": None,  # Distrito de lujo DL
-    "000025-35": None,  # PAK BAZAR GOURMET
-    "000025-36": None,  # PAK DL KENNEDY
+}
+
+# Códigos operativos de mall Parque Arauco
+PA_MALL_CODIGO: Dict[str, str] = {
+    "Buenaventura": "BOM",
+    "Curauma": "CUR",
+    "Estación": "MAE",
+    "El Bosque": "AEB",
+    "Maipú": "MAM",
+    "Kennedy": "PAK",
+    "Quilicura": "MAQ",
+}
+
+DISPLAY_NAME_OVERRIDES: Dict[str, str] = {
+    "000020-05": "Agunsa sucursal San Antonio",
 }
 
 # Mall → nodos (misma fuente que generar_reporte_word.get_mall_name_for_parque_arauco)
 PA_MALL_BY_NODE: Dict[str, str] = {
     "000025-01": "Estación",
+    "000025-02": "Estación",  # Abastecimiento Sur Terminal → MAE
     "000025-19": "Estación",
     "000025-03": "Estación",
     "000025-05": "Estación",
@@ -100,8 +183,7 @@ PA_MALL_BY_NODE: Dict[str, str] = {
     "000025-33": "Maipú",
     "000025-11": "El Bosque",
     "000025-12": "El Bosque",
-    # Matriz A.A (000025-30) es MAE → Estación (no El Bosque)
-    "000025-30": "Estación",
+    "000025-30": "El Bosque",  # Matriz A.A — NO es MAE; AEB
     "000025-13": "Quilicura",
     "000025-14": "Quilicura",
     "000025-34": "Quilicura",
@@ -126,13 +208,10 @@ PA_MALL_BY_NODE: Dict[str, str] = {
 }
 
 # Empresa API con varios clientes operativos en el Dashboard (mismo companyId).
-# BUPA → Santiago (pendiente) + Antofagasta (operativo).
-# DERCO en API → Inchcape en Dashboard (Lo Boza, Quilicura, Open Plaza).
 CLIENTES_MULTISITIO: Dict[str, Dict[str, Any]] = {
     "000029": {
         "expandir_como_clientes": True,
         "sitios": [
-            # Bupa Santiago queda fuera del Dashboard (sin instalación operativa).
             {
                 "id_suffix": "antofagasta",
                 "name": "Bupa Antofagasta",
@@ -155,8 +234,7 @@ CLIENTES_MULTISITIO: Dict[str, Dict[str, Any]] = {
         "nombre_dashboard": "Inchcape",
         "nombre_api": "DERCO",
         "expandir_como_clientes": False,
-        "topologia": TOPOLOGIA_PUNTOS,
-        # Lo Boza y Open Plaza fuera del Dashboard — solo Quilicura.
+        "topologia": TOPOLOGIA_RED,
         "sitios": [
             {
                 "id_suffix": "quilicura",
@@ -170,14 +248,46 @@ CLIENTES_MULTISITIO: Dict[str, Dict[str, Any]] = {
                     "000012-11",
                     "000012-12",
                 ],
+                "topologia": TOPOLOGIA_RED,
+                "hierarchy": HIERARCHY_INCHCAPE_QUILICURA,
+                "estado_operativo": "activo",
+                "nota": "Matriz Principal alimenta la red; el resto es fracción mínima.",
+            },
+        ],
+    },
+    "000020": {
+        "nombre_dashboard": "AGUNSA",
+        "expandir_como_clientes": False,
+        "topologia": TOPOLOGIA_PUNTOS,
+        "sitios": [
+            {
+                "id_suffix": "lampa",
+                "name": "Lampa",
+                "node_ids": ["000020-01", "000020-02", "000020-03", "000020-04"],
+                "estado_operativo": "activo",
+            },
+            {
+                "id_suffix": "san-antonio",
+                "name": "Agunsa sucursal San Antonio",
+                "node_ids": ["000020-05"],
                 "estado_operativo": "activo",
             },
         ],
     },
 }
 
-# Clientes cuyo default es red_con_subredes (aunque aún falte detallar hijos).
+# Clientes cuyo default es red_con_subredes.
 CLIENTES_RED: Dict[str, Dict[str, Any]] = {
+    "000007": {
+        "label": "Nido de Aguilas",
+        "hierarchy": HIERARCHY_NIDO,
+        "sitio_unico": "Nido de Águilas",
+    },
+    "000009": {
+        "label": "COPEC",
+        "hierarchy": HIERARCHY_COPEC,
+        "sitio_unico": "COPEC Costanera",
+    },
     "000027": {
         "label": "Fundo Zapallar",
         "hierarchy": HIERARCHY_FUNDO_ZAPALLAR,
@@ -190,7 +300,6 @@ CLIENTES_RED: Dict[str, Dict[str, Any]] = {
             "Kennedy": HIERARCHY_PA_KENNEDY,
         },
     },
-    # UDD: anillo / sectorización — marcar como red; jerarquía pendiente de completar.
     "000026": {
         "label": "UDD",
         "hierarchy": {},
@@ -199,13 +308,12 @@ CLIENTES_RED: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# Clientes portfolio: muchos nodos pero cada uno es punto separado (no subred).
-# Si no está en CLIENTES_RED, se asume puntos_separados.
 CLIENTES_EXCLUIDOS_DASHBOARD = {
-    "000000",  # Wes Spa (interno / todos los nodos de prueba)
+    "000000",  # Wes Spa
     "000001",  # Ejército de Chile
     "000004",  # Gendarmería
     "000005",  # MOP
+    "000010",  # Corporación Puente Alto
     "000011",  # Sistemas Socios Wes
     "000013",  # Lo Barnechea
     "000014",  # Tres Montes Lucchetti
@@ -216,22 +324,26 @@ CLIENTES_EXCLUIDOS_DASHBOARD = {
     "000030",  # Estadio Israelita Maccabi
 }
 
-# Nodos fuera del árbol Dashboard (revisión operativa 2026-09-22).
+# Nodos fuera del árbol Dashboard (revisión operativa).
 NODOS_EXCLUIDOS_DASHBOARD = {
+    "000002-02",  # Lo Valledor Pozo
+    "000006-03",  # Arturo Alessandri Palma
+    "000007-08",  # Nido Cancha
+    "000017-01",  # Rebeca Matte Bello
+    "000017-02",  # Juana Atala de Hirmas
+    "000017-03",  # José Luis Araneda
+    "000021-08",  # Rugby CDUC
     "000022-01",  # Juan Pablo II (Las Condes)
-    # Parque Arauco — Curauma / Quilicura / sin mall / dados de baja
-    "000025-02",  # Abastecimiento Sur Terminal
+    # Parque Arauco — dados de baja / Curauma 15-16 (CUR anillos sí van)
     "000025-03",  # Poniente 7
     "000025-05",  # Locales de Comida
     "000025-06",  # KFC
-    "000025-13",  # Quilicura Matriz Principal
-    "000025-14",  # Quilicura Red de Incendio
+    "000025-14",  # Quilicura Red de Incendio (no operativo)
     "000025-15",  # Curauma Matriz Principal
     "000025-16",  # Curauma Baños
     "000025-25",  # Baño N°5 Damas (retirado)
     "000025-26",  # Baño N°6 Varones (retirado)
-    "000025-34",  # Quilicura Alimentación Baños
-    # Inchcape sitios fuera (por si aparecen en API)
+    # Inchcape sitios fuera
     "000012-01",
     "000012-02",
     "000012-03",
@@ -248,10 +360,8 @@ NODOS_EXCLUIDOS_DASHBOARD = {
     "000029-06",
 }
 
-# Malls PA fuera del Dashboard
-PA_MALLS_EXCLUIDOS = {
-    "Quilicura",
-}
+# Malls PA fuera del Dashboard (vacío: MAQ vuelve al árbol)
+PA_MALLS_EXCLUIDOS: set = set()
 
 
 def _session() -> requests.Session:
@@ -294,19 +404,31 @@ def fetch_companies(max_id: int = 80) -> List[Dict[str, Any]]:
     return out
 
 
+def _display_name(node_id: str, name: str) -> str:
+    return DISPLAY_NAME_OVERRIDES.get(node_id, name)
+
+
+def _attach_nota(node: Dict[str, Any]) -> Dict[str, Any]:
+    nid = node.get("nodeId")
+    if nid and nid in NODE_NOTAS:
+        node["nota"] = NODE_NOTAS[nid]
+    return node
+
+
 def _filter_nodes(nodes: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return [n for n in nodes if n.get("nodeId") not in NODOS_EXCLUIDOS_DASHBOARD]
 
 
 def _punto_leaf(node_id: str, name: str, **extra: Any) -> Dict[str, Any]:
-    return {
+    leaf = {
         "id": node_id,
         "nodeId": node_id,
-        "name": name,
+        "name": _display_name(node_id, name),
         "tipo": TIPO_PUNTO,
         "children": [],
         **extra,
     }
+    return _attach_nota(leaf)
 
 
 def _nodes_por_ids(
@@ -439,14 +561,16 @@ def _build_from_parent_map(
     def build(nid: str) -> Dict[str, Any]:
         meta = by_id.get(nid, {"nodeId": nid, "name": nid})
         kids = children_map.get(nid, [])
+        nombre = _display_name(nid, meta.get("name") or nid)
         if kids:
-            return {
+            node = {
                 "id": nid,
                 "nodeId": nid,
-                "name": meta.get("name") or nid,
+                "name": nombre,
                 "tipo": TIPO_RED if effective_parent.get(nid) is None else TIPO_SUBRED,
                 "children": [build(c) for c in sorted(kids)],
             }
+            return _attach_nota(node)
         return _punto_leaf(nid, meta.get("name") or nid)
 
     roots = children_map.get(None, [])
@@ -517,8 +641,8 @@ def _cliente_parque_arauco(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict
     for mall in sorted(by_mall.keys()):
         nodos = by_mall[mall]
         hier = hierarchies.get(mall)
-        # Nombre display: Estación = MAE
-        mall_label = "Estación (MAE)" if mall == "Estación" else mall
+        codigo = PA_MALL_CODIGO.get(mall, "")
+        mall_label = f"{codigo} — {mall}" if codigo else mall
         if hier:
             kids = _build_from_parent_map(nodos, hier)
             nota = "Incluye matriz y subredes hidráulicas mapeadas."
@@ -532,13 +656,14 @@ def _cliente_parque_arauco(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict
             {
                 "id": f"{company['companyId']}-{mall.lower().replace(' ', '-')}",
                 "name": mall_label,
+                "codigo_mall": codigo or None,
                 "tipo": TIPO_SITIO,
                 "nota": nota,
                 "children": kids,
             }
         )
 
-    # sin_mall: no se incluye en Dashboard (p. ej. 000025-02 ya excluido por nodo)
+    # sin_mall: no se incluye en Dashboard
 
     return {
         "id": company["companyId"],
@@ -547,9 +672,7 @@ def _cliente_parque_arauco(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict
         "tipo": TIPO_CLIENTE,
         "topologia": TOPOLOGIA_RED,
         "descripcion": (
-            "Cliente multi-sitio (malls). Cada mall puede tener red principal "
-            "y subredes; otros puntos del mall son independientes. "
-            "Quilicura y Curauma (15/16) fuera del Dashboard."
+            "Cliente multi-sitio (malls). Códigos: BOM, CUR, MAE, AEB, MAM, PAK, MAQ."
         ),
         "children": sitios,
     }
@@ -603,8 +726,8 @@ def build_tree(companies: Optional[List[Dict[str, Any]]] = None) -> Dict[str, An
             cfg = CLIENTES_RED[cid]
             if cid == "000025":
                 clientes.append(_cliente_parque_arauco(company, cfg))
-            elif cid == "000027":
-                clientes.append(_cliente_fundo(company, cfg))
+            elif cid in ("000027", "000007", "000009", "000026"):
+                clientes.append(_cliente_red_generico(company, cfg) if cid != "000027" else _cliente_fundo(company, cfg))
             else:
                 clientes.append(_cliente_red_generico(company, cfg))
         else:

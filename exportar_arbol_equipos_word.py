@@ -31,6 +31,7 @@ FUERA_IDS = {
     "000001",
     "000004",
     "000005",
+    "000010",
     "000011",
     "000013",
     "000014",
@@ -106,12 +107,13 @@ def _indent_prefix(depth: int) -> str:
 
 
 def _walk_lines(node: Dict[str, Any], depth: int = 0) -> List[tuple]:
-    """Lista de (depth, texto, estilo) para el árbol."""
+    """Lista de (depth, texto, estilo, estado, nota) para el árbol."""
     tipo = node.get("tipo", "")
     name = node.get("name") or node.get("nodeId") or "?"
     nid = node.get("nodeId") or ""
     estado = node.get("estado_operativo")
     topo = node.get("topologia")
+    nota = node.get("nota")
 
     if tipo == "cliente":
         label = f"{name}"
@@ -142,7 +144,7 @@ def _walk_lines(node: Dict[str, Any], depth: int = 0) -> List[tuple]:
             label += f"  ({nid})"
         style = "punto"
 
-    lines = [(depth, label, style, estado)]
+    lines = [(depth, label, style, estado, nota)]
     for ch in node.get("children") or []:
         lines.extend(_walk_lines(ch, depth + 1))
     return lines
@@ -176,7 +178,7 @@ def _add_tree_block(doc: Document, cliente: Dict[str, Any]) -> None:
     if cliente.get("descripcion"):
         _add_para(doc, cliente["descripcion"], size=9, color=WES_GRAY, space_after=4)
 
-    for depth, label, style, est in _walk_lines(cliente):
+    for depth, label, style, est, nota in _walk_lines(cliente):
         if depth == 0:
             continue  # ya está el título del cliente
         prefix = _indent_prefix(depth)
@@ -184,6 +186,14 @@ def _add_tree_block(doc: Document, cliente: Dict[str, Any]) -> None:
         bold = style in ("sitio", "red", "subred")
         size = 11 if style == "sitio" else 10
         _add_para(doc, prefix + label, size=size, bold=bold, color=color, space_after=1)
+        if nota:
+            _add_para(
+                doc,
+                prefix + "    ↳ " + nota,
+                size=8,
+                color=WES_GRAY,
+                space_after=2,
+            )
 
 
 def build_document(tree: Dict[str, Any]) -> Document:

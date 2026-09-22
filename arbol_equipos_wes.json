@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-22T11:23:34Z",
+  "generado": "2026-09-22T12:13:32Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -15,10 +15,10 @@
     ]
   },
   "resumen": {
-    "total_clientes": 17,
-    "puntos_separados": 15,
-    "red_con_subredes": 2,
-    "total_nodos_hoja": 121
+    "total_clientes": 16,
+    "puntos_separados": 11,
+    "red_con_subredes": 5,
+    "total_nodos_hoja": 100
   },
   "clientes": [
     {
@@ -33,13 +33,6 @@
           "id": "000002-01",
           "nodeId": "000002-01",
           "name": "Lo Valledor - P1",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000002-02",
-          "nodeId": "000002-02",
-          "name": "Lo valledor - Pozo",
           "tipo": "punto",
           "children": []
         },
@@ -75,13 +68,6 @@
           "children": []
         },
         {
-          "id": "000006-03",
-          "nodeId": "000006-03",
-          "name": "Arturo Alessandri Palma",
-          "tipo": "punto",
-          "children": []
-        },
-        {
           "id": "000006-04",
           "nodeId": "000006-04",
           "name": "Liceo 7 Luisa Saavedra",
@@ -102,71 +88,76 @@
       "companyId": "000007",
       "name": "Nido de Aguilas",
       "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
+      "topologia": "red_con_subredes",
+      "descripcion": "Red con subredes (jerarquía parcial o pendiente). Completar parent map antes de agregar en Dashboard.",
       "children": [
         {
-          "id": "000007-01",
-          "nodeId": "000007-01",
-          "name": "Estanque B",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000007-02",
-          "nodeId": "000007-02",
-          "name": "Teatro",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000007-03",
-          "nodeId": "000007-03",
-          "name": "Nido High School",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000007-04",
-          "nodeId": "000007-04",
-          "name": "Elementary",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000007-05",
-          "nodeId": "000007-05",
-          "name": "Nido Piscina",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000007-06",
-          "nodeId": "000007-06",
-          "name": "Nido Pozo Profundo",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000007-07",
-          "nodeId": "000007-07",
-          "name": "Estanque C",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000007-08",
-          "nodeId": "000007-08",
-          "name": "Nido Cancha",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000007-09",
-          "nodeId": "000007-09",
-          "name": "Control Nido de Aguilas",
-          "tipo": "punto",
-          "children": []
+          "id": "000007-sitio",
+          "name": "Nido de Águilas",
+          "tipo": "sitio",
+          "nota": null,
+          "children": [
+            {
+              "id": "000007-06",
+              "nodeId": "000007-06",
+              "name": "Nido Pozo Profundo",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000007-07",
+              "nodeId": "000007-07",
+              "name": "Estanque C",
+              "tipo": "red",
+              "children": [
+                {
+                  "id": "000007-01",
+                  "nodeId": "000007-01",
+                  "name": "Estanque B",
+                  "tipo": "subred",
+                  "children": [
+                    {
+                      "id": "000007-02",
+                      "nodeId": "000007-02",
+                      "name": "Teatro",
+                      "tipo": "punto",
+                      "children": []
+                    },
+                    {
+                      "id": "000007-03",
+                      "nodeId": "000007-03",
+                      "name": "Nido High School",
+                      "tipo": "punto",
+                      "children": []
+                    },
+                    {
+                      "id": "000007-04",
+                      "nodeId": "000007-04",
+                      "name": "Elementary",
+                      "tipo": "punto",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "000007-05",
+                  "nodeId": "000007-05",
+                  "name": "Nido Piscina",
+                  "tipo": "punto",
+                  "children": [],
+                  "nota": "Sale del Estanque A (no monitoreado), cargado desde Estanque C; otras dependencias no están claras."
+                }
+              ],
+              "nota": "Alimentado por medidor de la sanitaria; carga Estanque B y Estanque A (A no se monitorea)."
+            },
+            {
+              "id": "000007-09",
+              "nodeId": "000007-09",
+              "name": "Control Nido de Aguilas",
+              "tipo": "punto",
+              "children": []
+            }
+          ]
         }
       ]
     },
@@ -283,172 +274,97 @@
       "companyId": "000009",
       "name": "COPEC",
       "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
+      "topologia": "red_con_subredes",
+      "descripcion": "Red con subredes (jerarquía parcial o pendiente). Completar parent map antes de agregar en Dashboard.",
       "children": [
         {
-          "id": "000009-00",
-          "nodeId": "000009-00",
-          "name": "Copec Costanera",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-01",
-          "nodeId": "000009-01",
-          "name": "Oficina Admin.",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-02",
-          "nodeId": "000009-02",
-          "name": "Estanque Reutilización",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-03",
-          "nodeId": "000009-03",
-          "name": "Lavado Automático Norte",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-04",
-          "nodeId": "000009-04",
-          "name": "Lavado Automático Sur",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-05",
-          "nodeId": "000009-05",
-          "name": "Copec Riego",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-06",
-          "nodeId": "000009-06",
-          "name": "Copec Matriz Principal",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-08",
-          "nodeId": "000009-08",
-          "name": "Copec Pronto Baños",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-09",
-          "nodeId": "000009-09",
-          "name": "Copec Lavado Auto servicio Norte",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-10",
-          "nodeId": "000009-10",
-          "name": "Copec Lavado Auto servicio Sur",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000009-11",
-          "nodeId": "000009-11",
-          "name": "Copec Pronto Tienda",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "000010",
-      "companyId": "000010",
-      "name": "Corporación Puente Alto",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000010-01",
-          "nodeId": "000010-01",
-          "name": "Escuela Andes del SUR",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-02",
-          "nodeId": "000010-02",
-          "name": "Esc. Villa Independencia",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-03",
-          "nodeId": "000010-03",
-          "name": "Esc. Padre Hurtado",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-04",
-          "nodeId": "000010-04",
-          "name": "Colegio Maipo",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-05",
-          "nodeId": "000010-05",
-          "name": "Esc. Luis Matte Larraín",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-06",
-          "nodeId": "000010-06",
-          "name": "Esc. Gabriela",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-07",
-          "nodeId": "000010-07",
-          "name": "Esc. Juan Mackenna",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-08",
-          "nodeId": "000010-08",
-          "name": "Liceo Chiloé",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-09",
-          "nodeId": "000010-09",
-          "name": "Esc. Los Andes",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-10",
-          "nodeId": "000010-10",
-          "name": "Consolidada",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000010-11",
-          "nodeId": "000010-11",
-          "name": "Esc. Nonato Coo",
-          "tipo": "punto",
-          "children": []
+          "id": "000009-sitio",
+          "name": "COPEC Costanera",
+          "tipo": "sitio",
+          "nota": null,
+          "children": [
+            {
+              "id": "000009-05",
+              "nodeId": "000009-05",
+              "name": "Copec Riego",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000009-06",
+              "nodeId": "000009-06",
+              "name": "Copec Matriz Principal",
+              "tipo": "red",
+              "children": [
+                {
+                  "id": "000009-00",
+                  "nodeId": "000009-00",
+                  "name": "Copec Costanera",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000009-01",
+                  "nodeId": "000009-01",
+                  "name": "Oficina Admin.",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000009-02",
+                  "nodeId": "000009-02",
+                  "name": "Estanque Reutilización",
+                  "tipo": "punto",
+                  "children": [],
+                  "nota": "Solo alimenta el sistema de lavados cuando falla la ósmosis. El estanque de reutilización de ósmosis (90 %) no se monitorea."
+                },
+                {
+                  "id": "000009-03",
+                  "nodeId": "000009-03",
+                  "name": "Lavado Automático Norte",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000009-04",
+                  "nodeId": "000009-04",
+                  "name": "Lavado Automático Sur",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000009-08",
+                  "nodeId": "000009-08",
+                  "name": "Copec Pronto Baños",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000009-09",
+                  "nodeId": "000009-09",
+                  "name": "Copec Lavado Auto servicio Norte",
+                  "tipo": "punto",
+                  "children": [],
+                  "nota": "Se alimenta de la matriz; tiene ósmosis que recupera ~90 % hacia estanque de reutilización no monitoreado."
+                },
+                {
+                  "id": "000009-10",
+                  "nodeId": "000009-10",
+                  "name": "Copec Lavado Auto servicio Sur",
+                  "tipo": "punto",
+                  "children": [],
+                  "nota": "Se alimenta de la matriz; tiene ósmosis que recupera ~90 % hacia estanque de reutilización no monitoreado."
+                },
+                {
+                  "id": "000009-11",
+                  "nodeId": "000009-11",
+                  "name": "Copec Pronto Tienda",
+                  "tipo": "punto",
+                  "children": []
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -458,65 +374,68 @@
       "name": "Inchcape",
       "nombre_api": "DERCO",
       "tipo": "cliente",
-      "topologia": "puntos_separados",
+      "topologia": "red_con_subredes",
       "descripcion": "Cliente Inchcape (empresa API DERCO) con varios sitios.",
       "children": [
         {
           "id": "000012-quilicura",
           "name": "Quilicura",
           "tipo": "sitio",
-          "topologia": "puntos_separados",
+          "topologia": "red_con_subredes",
           "children": [
             {
               "id": "000012-06",
               "nodeId": "000012-06",
               "name": "Quilicura Matriz Principal",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-07",
-              "nodeId": "000012-07",
-              "name": "Quilicura Dercomaq",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-08",
-              "nodeId": "000012-08",
-              "name": "Quilicura Lav. de Maquinas",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-09",
-              "nodeId": "000012-09",
-              "name": "Quilicura Casino",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-10",
-              "nodeId": "000012-10",
-              "name": "Quilicura Proderco",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-11",
-              "nodeId": "000012-11",
-              "name": "Quilicura Camarines",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-12",
-              "nodeId": "000012-12",
-              "name": "Quilicura Edificio JCB",
-              "tipo": "punto",
-              "children": []
+              "tipo": "red",
+              "children": [
+                {
+                  "id": "000012-07",
+                  "nodeId": "000012-07",
+                  "name": "Quilicura Dercomaq",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000012-08",
+                  "nodeId": "000012-08",
+                  "name": "Quilicura Lav. de Maquinas",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000012-09",
+                  "nodeId": "000012-09",
+                  "name": "Quilicura Casino",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000012-10",
+                  "nodeId": "000012-10",
+                  "name": "Quilicura Proderco",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000012-11",
+                  "nodeId": "000012-11",
+                  "name": "Quilicura Camarines",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000012-12",
+                  "nodeId": "000012-12",
+                  "name": "Quilicura Edificio JCB",
+                  "tipo": "punto",
+                  "children": []
+                }
+              ],
+              "nota": "Matriz principal: alimenta toda la red Quilicura; los otros puntos representan una fracción mínima del total."
             }
           ],
+          "nota": "Matriz Principal alimenta la red; el resto es fracción mínima.",
           "estado_operativo": "activo"
         }
       ]
@@ -529,27 +448,6 @@
       "topologia": "puntos_separados",
       "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
       "children": [
-        {
-          "id": "000017-01",
-          "nodeId": "000017-01",
-          "name": "Rebeca Matte Bello",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000017-02",
-          "nodeId": "000017-02",
-          "name": "Juana Atala de Hirmas",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000017-03",
-          "nodeId": "000017-03",
-          "name": "José Luis Araneda",
-          "tipo": "punto",
-          "children": []
-        },
         {
           "id": "000017-04",
           "nodeId": "000017-04",
@@ -591,44 +489,63 @@
       "id": "000020",
       "companyId": "000020",
       "name": "AGUNSA",
+      "nombre_api": "AGUNSA",
       "tipo": "cliente",
       "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
+      "descripcion": "Cliente AGUNSA (empresa API AGUNSA) con varios sitios.",
       "children": [
         {
-          "id": "000020-01",
-          "nodeId": "000020-01",
-          "name": "Deposito",
-          "tipo": "punto",
-          "children": []
+          "id": "000020-lampa",
+          "name": "Lampa",
+          "tipo": "sitio",
+          "topologia": "puntos_separados",
+          "children": [
+            {
+              "id": "000020-01",
+              "nodeId": "000020-01",
+              "name": "Deposito",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000020-02",
+              "nodeId": "000020-02",
+              "name": "Modulo D",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000020-03",
+              "nodeId": "000020-03",
+              "name": "Módulo ABC",
+              "tipo": "punto",
+              "children": []
+            },
+            {
+              "id": "000020-04",
+              "nodeId": "000020-04",
+              "name": "Módulo E",
+              "tipo": "punto",
+              "children": []
+            }
+          ],
+          "estado_operativo": "activo"
         },
         {
-          "id": "000020-02",
-          "nodeId": "000020-02",
-          "name": "Modulo D",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000020-03",
-          "nodeId": "000020-03",
-          "name": "Módulo ABC",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000020-04",
-          "nodeId": "000020-04",
-          "name": "Módulo E",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000020-05",
-          "nodeId": "000020-05",
-          "name": "Intermodal-San Antonio",
-          "tipo": "punto",
-          "children": []
+          "id": "000020-san-antonio",
+          "name": "Agunsa sucursal San Antonio",
+          "tipo": "sitio",
+          "topologia": "puntos_separados",
+          "children": [
+            {
+              "id": "000020-05",
+              "nodeId": "000020-05",
+              "name": "Agunsa sucursal San Antonio",
+              "tipo": "punto",
+              "children": []
+            }
+          ],
+          "estado_operativo": "activo"
         }
       ]
     },
@@ -681,13 +598,6 @@
           "name": "Canchas de Tenis",
           "tipo": "punto",
           "children": []
-        },
-        {
-          "id": "000021-08",
-          "nodeId": "000021-08",
-          "name": "Rugby CDUC",
-          "tipo": "punto",
-          "children": []
         }
       ]
     },
@@ -731,11 +641,12 @@
       "name": "Parque Arauco",
       "tipo": "cliente",
       "topologia": "red_con_subredes",
-      "descripcion": "Cliente multi-sitio (malls). Cada mall puede tener red principal y subredes; otros puntos del mall son independientes. Quilicura y Curauma (15/16) fuera del Dashboard.",
+      "descripcion": "Cliente multi-sitio (malls). Códigos: BOM, CUR, MAE, AEB, MAM, PAK, MAQ.",
       "children": [
         {
           "id": "000025-buenaventura",
-          "name": "Buenaventura",
+          "name": "BOM — Buenaventura",
+          "codigo_mall": "BOM",
           "tipo": "sitio",
           "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
           "children": [
@@ -759,7 +670,8 @@
         },
         {
           "id": "000025-curauma",
-          "name": "Curauma",
+          "name": "CUR — Curauma",
+          "codigo_mall": "CUR",
           "tipo": "sitio",
           "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
           "children": [
@@ -783,7 +695,8 @@
         },
         {
           "id": "000025-el-bosque",
-          "name": "El Bosque",
+          "name": "AEB — El Bosque",
+          "codigo_mall": "AEB",
           "tipo": "sitio",
           "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
           "children": [
@@ -802,12 +715,21 @@
               "tipo": "punto",
               "children": [],
               "pendiente_jerarquia": true
+            },
+            {
+              "id": "000025-30",
+              "nodeId": "000025-30",
+              "name": "Matriz A.A",
+              "tipo": "punto",
+              "children": [],
+              "pendiente_jerarquia": true
             }
           ]
         },
         {
           "id": "000025-estación",
-          "name": "Estación (MAE)",
+          "name": "MAE — Estación",
+          "codigo_mall": "MAE",
           "tipo": "sitio",
           "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
           "children": [
@@ -815,6 +737,14 @@
               "id": "000025-01",
               "nodeId": "000025-01",
               "name": "Estanque Norte Locales Mall",
+              "tipo": "punto",
+              "children": [],
+              "pendiente_jerarquia": true
+            },
+            {
+              "id": "000025-02",
+              "nodeId": "000025-02",
+              "name": "Abastecimiento Sur Terminal",
               "tipo": "punto",
               "children": [],
               "pendiente_jerarquia": true
@@ -842,20 +772,13 @@
               "tipo": "punto",
               "children": [],
               "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-30",
-              "nodeId": "000025-30",
-              "name": "Matriz A.A",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
             }
           ]
         },
         {
           "id": "000025-kennedy",
-          "name": "Kennedy",
+          "name": "PAK — Kennedy",
+          "codigo_mall": "PAK",
           "tipo": "sitio",
           "nota": "Incluye matriz y subredes hidráulicas mapeadas.",
           "children": [
@@ -885,8 +808,33 @@
               "id": "000025-22",
               "nodeId": "000025-22",
               "name": "Sala de Bomba Sandia Antigua",
-              "tipo": "punto",
-              "children": []
+              "tipo": "red",
+              "children": [
+                {
+                  "id": "000025-27",
+                  "nodeId": "000025-27",
+                  "name": "Distrito de lujo DL",
+                  "tipo": "subred",
+                  "children": [
+                    {
+                      "id": "000025-35",
+                      "nodeId": "000025-35",
+                      "name": "PAK BAZAR GOURMET",
+                      "tipo": "punto",
+                      "children": []
+                    },
+                    {
+                      "id": "000025-36",
+                      "nodeId": "000025-36",
+                      "name": "PAK DL KENNEDY",
+                      "tipo": "punto",
+                      "children": []
+                    }
+                  ],
+                  "nota": "Distrito de lujo — alimentado por Sandia Antigua (y a veces Nueva)."
+                }
+              ],
+              "nota": "Alimenta Distrito de lujo (DL); a veces también Sandia Nueva."
             },
             {
               "id": "000025-23",
@@ -903,38 +851,19 @@
               "children": []
             },
             {
-              "id": "000025-27",
-              "nodeId": "000025-27",
-              "name": "Distrito de lujo DL",
-              "tipo": "punto",
-              "children": []
-            },
-            {
               "id": "000025-28",
               "nodeId": "000025-28",
               "name": "Sala de Bomba Sandia Nueva",
               "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000025-35",
-              "nodeId": "000025-35",
-              "name": "PAK BAZAR GOURMET",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000025-36",
-              "nodeId": "000025-36",
-              "name": "PAK DL KENNEDY",
-              "tipo": "punto",
-              "children": []
+              "children": [],
+              "nota": "A veces abastece Distrito de lujo (DL) junto / en lugar de Sandia Antigua."
             }
           ]
         },
         {
           "id": "000025-maipú",
-          "name": "Maipú",
+          "name": "MAM — Maipú",
+          "codigo_mall": "MAM",
           "tipo": "sitio",
           "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
           "children": [
@@ -974,6 +903,31 @@
               "id": "000025-33",
               "nodeId": "000025-33",
               "name": "Salida de emergencia pasillo 1 ARROW",
+              "tipo": "punto",
+              "children": [],
+              "pendiente_jerarquia": true
+            }
+          ]
+        },
+        {
+          "id": "000025-quilicura",
+          "name": "MAQ — Quilicura",
+          "codigo_mall": "MAQ",
+          "tipo": "sitio",
+          "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
+          "children": [
+            {
+              "id": "000025-13",
+              "nodeId": "000025-13",
+              "name": "Matriz Principal",
+              "tipo": "punto",
+              "children": [],
+              "pendiente_jerarquia": true
+            },
+            {
+              "id": "000025-34",
+              "nodeId": "000025-34",
+              "name": "Alimentación Baños",
               "tipo": "punto",
               "children": [],
               "pendiente_jerarquia": true
