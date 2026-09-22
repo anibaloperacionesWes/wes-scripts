@@ -137,10 +137,11 @@ HIERARCHY_INCHCAPE_QUILICURA: Dict[str, Optional[str]] = {
 }
 
 # Parque Arauco — Estación (MAE)
+# Estanque Norte → Abastecimiento Sur Terminal → Sala de Bomba Estanque Sur (salida).
 HIERARCHY_PA_ESTACION: Dict[str, Optional[str]] = {
     "000025-01": None,  # Estanque Norte Locales Mall
-    "000025-19": "000025-01",  # Sala de Bomba Estanque Sur (subred)
-    "000025-02": None,  # Abastecimiento Sur Terminal
+    "000025-02": "000025-01",  # Abastecimiento Sur Terminal
+    "000025-19": "000025-02",  # Sala de Bomba Estanque Sur (salida de 02)
     "000025-04": None,  # Baños Públicos
     "000025-07": None,  # PIZZA HUT
 }

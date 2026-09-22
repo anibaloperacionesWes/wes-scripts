@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-22T19:29:25Z",
+  "generado": "2026-09-22T19:42:34Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -18,7 +18,7 @@
     "total_clientes": 16,
     "puntos_separados": 11,
     "red_con_subredes": 5,
-    "total_nodos_hoja": 98
+    "total_nodos_hoja": 97
   },
   "clientes": [
     {
@@ -732,20 +732,21 @@
               "tipo": "red",
               "children": [
                 {
-                  "id": "000025-19",
-                  "nodeId": "000025-19",
-                  "name": "Sala de Bomba Estanque Sur",
-                  "tipo": "punto",
-                  "children": []
+                  "id": "000025-02",
+                  "nodeId": "000025-02",
+                  "name": "Abastecimiento Sur Terminal",
+                  "tipo": "subred",
+                  "children": [
+                    {
+                      "id": "000025-19",
+                      "nodeId": "000025-19",
+                      "name": "Sala de Bomba Estanque Sur",
+                      "tipo": "punto",
+                      "children": []
+                    }
+                  ]
                 }
               ]
-            },
-            {
-              "id": "000025-02",
-              "nodeId": "000025-02",
-              "name": "Abastecimiento Sur Terminal",
-              "tipo": "punto",
-              "children": []
             },
             {
               "id": "000025-04",
