@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-22T01:26:13Z",
+  "generado": "2026-09-22T11:23:34Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -15,92 +15,12 @@
     ]
   },
   "resumen": {
-    "total_clientes": 27,
-    "puntos_separados": 25,
+    "total_clientes": 17,
+    "puntos_separados": 15,
     "red_con_subredes": 2,
-    "total_nodos_hoja": 184
+    "total_nodos_hoja": 121
   },
   "clientes": [
-    {
-      "id": "000001",
-      "companyId": "000001",
-      "name": "Ejercito de Chile",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000001-03",
-          "nodeId": "000001-03",
-          "name": "Arrieta",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000001-05",
-          "nodeId": "000001-05",
-          "name": "Acad. de Guerra",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000001-06",
-          "nodeId": "000001-06",
-          "name": "Jef. Adm y Log (J.A.L)",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000001-08",
-          "nodeId": "000001-08",
-          "name": "Regto. Tacna",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000001-09",
-          "nodeId": "000001-09",
-          "name": "Regto. Limache",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000001-11",
-          "nodeId": "000001-11",
-          "name": "Regto. Calama",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000001-12",
-          "nodeId": "000001-12",
-          "name": "Regto. Copiapo",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000001-13",
-          "nodeId": "000001-13",
-          "name": "Regto. Buin",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000001-14",
-          "nodeId": "000001-14",
-          "name": "Regto. Maipo",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000001-15",
-          "nodeId": "000001-15",
-          "name": "Regto. Chacabuco",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
     {
       "id": "000002",
       "companyId": "000002",
@@ -127,131 +47,6 @@
           "id": "000002-03",
           "nodeId": "000002-03",
           "name": "Lo Valledor - Barrio Norte",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "000004",
-      "companyId": "000004",
-      "name": "Gendarmeria de Chile",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000004-01",
-          "nodeId": "000004-01",
-          "name": "CDP Puente Alto",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-02",
-          "nodeId": "000004-02",
-          "name": "CPF San Miguel",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-03",
-          "nodeId": "000004-03",
-          "name": "CDP Colina 2 Red Sur",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-04",
-          "nodeId": "000004-04",
-          "name": "CDP Colina 1",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-05",
-          "nodeId": "000004-05",
-          "name": "Esforpen Simulación",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-06",
-          "nodeId": "000004-06",
-          "name": "Esforpen Administración",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-07",
-          "nodeId": "000004-07",
-          "name": "Colina 2 Red de Impulsión",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-08",
-          "nodeId": "000004-08",
-          "name": "CDP STGO SUR Óvalo",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-09",
-          "nodeId": "000004-09",
-          "name": "CDP STGO SUR Módulos",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-10",
-          "nodeId": "000004-10",
-          "name": "CDP STGO SUR Ovalo Matriz Principal",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-11",
-          "nodeId": "000004-11",
-          "name": "CDP STGO SUR Modulo Matriz Principal",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-12",
-          "nodeId": "000004-12",
-          "name": "Esc Of. Genchi Carmen",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-13",
-          "nodeId": "000004-13",
-          "name": "Esc Of. Genchi Artemio",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000004-14",
-          "nodeId": "000004-14",
-          "name": "CPF San Miguel sala imp.",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "000005",
-      "companyId": "000005",
-      "name": "Ministerio de O.P",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000005-01",
-          "nodeId": "000005-01",
-          "name": "M.O.P",
           "tipo": "punto",
           "children": []
         }
@@ -667,51 +462,6 @@
       "descripcion": "Cliente Inchcape (empresa API DERCO) con varios sitios.",
       "children": [
         {
-          "id": "000012-lo-boza",
-          "name": "Lo Boza",
-          "tipo": "sitio",
-          "topologia": "puntos_separados",
-          "children": [
-            {
-              "id": "000012-01",
-              "nodeId": "000012-01",
-              "name": "Lo Boza Lavado de Vehículos",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-02",
-              "nodeId": "000012-02",
-              "name": "Lo Boza Pozo",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-03",
-              "nodeId": "000012-03",
-              "name": "Lo Boza Reutilización",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-04",
-              "nodeId": "000012-04",
-              "name": "Lo Boza Edificio Principal Casino",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-05",
-              "nodeId": "000012-05",
-              "name": "Lo Boza Matriz Principal",
-              "tipo": "punto",
-              "children": []
-            }
-          ],
-          "nota": "Lo Boza excluido de reportes WES.",
-          "estado_operativo": "fuera"
-        },
-        {
           "id": "000012-quilicura",
           "name": "Quilicura",
           "tipo": "sitio",
@@ -768,81 +518,6 @@
             }
           ],
           "estado_operativo": "activo"
-        },
-        {
-          "id": "000012-open-plaza",
-          "name": "Open Plaza",
-          "tipo": "sitio",
-          "topologia": "puntos_separados",
-          "children": [
-            {
-              "id": "000012-13",
-              "nodeId": "000012-13",
-              "name": "Open Plaza Lavado de Vehiculos",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000012-14",
-              "nodeId": "000012-14",
-              "name": "Open Plaza Matriz Principal",
-              "tipo": "punto",
-              "children": []
-            }
-          ],
-          "nota": "Incluir si el nodo sigue en API.",
-          "estado_operativo": "activo"
-        }
-      ]
-    },
-    {
-      "id": "000013",
-      "companyId": "000013",
-      "name": "Lo Barnechea",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000013-01",
-          "nodeId": "000013-01",
-          "name": "Plaza Boulevard Pajaros Sur",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "000014",
-      "companyId": "000014",
-      "name": "Tres Montes Lucchetti",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000014-01",
-          "nodeId": "000014-01",
-          "name": "Agua de Rechazo Ablandador",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "000016",
-      "companyId": "000016",
-      "name": "Renca",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000016-01",
-          "nodeId": "000016-01",
-          "name": "SCL Rebeca Matte Bello",
-          "tipo": "punto",
-          "children": []
         }
       ]
     },
@@ -907,44 +582,6 @@
           "id": "000017-08",
           "nodeId": "000017-08",
           "name": "Cumbre de cóndores Ote.",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "000018",
-      "companyId": "000018",
-      "name": "MADECO",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000018-01",
-          "nodeId": "000018-01",
-          "name": "San Nicolas",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000018-02",
-          "nodeId": "000018-02",
-          "name": "Ureta Cox",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000018-03",
-          "nodeId": "000018-03",
-          "name": "Estanque Cisterna",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000018-04",
-          "nodeId": "000018-04",
-          "name": "Casino",
           "tipo": "punto",
           "children": []
         }
@@ -1068,51 +705,6 @@
           "name": "Alexander Fleming",
           "tipo": "punto",
           "children": []
-        },
-        {
-          "id": "000022-01",
-          "nodeId": "000022-01",
-          "name": "Juan Pablo II",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "000023",
-      "companyId": "000023",
-      "name": "MADECO",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000023-01",
-          "nodeId": "000023-01",
-          "name": "San Nicolas",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000023-02",
-          "nodeId": "000023-02",
-          "name": "Ureta Cox",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000023-03",
-          "nodeId": "000023-03",
-          "name": "Estanque Cisterna",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000023-04",
-          "nodeId": "000023-04",
-          "name": "Casino",
-          "tipo": "punto",
-          "children": []
         }
       ]
     },
@@ -1139,7 +731,7 @@
       "name": "Parque Arauco",
       "tipo": "cliente",
       "topologia": "red_con_subredes",
-      "descripcion": "Cliente multi-sitio (malls). Cada mall puede tener red principal y subredes; otros puntos del mall son independientes.",
+      "descripcion": "Cliente multi-sitio (malls). Cada mall puede tener red principal y subredes; otros puntos del mall son independientes. Quilicura y Curauma (15/16) fuera del Dashboard.",
       "children": [
         {
           "id": "000025-buenaventura",
@@ -1171,22 +763,6 @@
           "tipo": "sitio",
           "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
           "children": [
-            {
-              "id": "000025-15",
-              "nodeId": "000025-15",
-              "name": "Matriz Principal",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-16",
-              "nodeId": "000025-16",
-              "name": "Baños",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
             {
               "id": "000025-37",
               "nodeId": "000025-37",
@@ -1226,20 +802,12 @@
               "tipo": "punto",
               "children": [],
               "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-30",
-              "nodeId": "000025-30",
-              "name": "Matriz A.A",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
             }
           ]
         },
         {
           "id": "000025-estación",
-          "name": "Estación",
+          "name": "Estación (MAE)",
           "tipo": "sitio",
           "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
           "children": [
@@ -1252,33 +820,9 @@
               "pendiente_jerarquia": true
             },
             {
-              "id": "000025-03",
-              "nodeId": "000025-03",
-              "name": "Poniente 7",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
               "id": "000025-04",
               "nodeId": "000025-04",
               "name": "Baños Públicos",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-05",
-              "nodeId": "000025-05",
-              "name": "Locales de Comida",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-06",
-              "nodeId": "000025-06",
-              "name": "KFC",
               "tipo": "punto",
               "children": [],
               "pendiente_jerarquia": true
@@ -1295,6 +839,14 @@
               "id": "000025-19",
               "nodeId": "000025-19",
               "name": "Sala de Bomba Estanque Sur",
+              "tipo": "punto",
+              "children": [],
+              "pendiente_jerarquia": true
+            },
+            {
+              "id": "000025-30",
+              "nodeId": "000025-30",
+              "name": "Matriz A.A",
               "tipo": "punto",
               "children": [],
               "pendiente_jerarquia": true
@@ -1347,20 +899,6 @@
               "id": "000025-24",
               "nodeId": "000025-24",
               "name": "Llenado Pileta Cascada",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000025-25",
-              "nodeId": "000025-25",
-              "name": "Baño N°5 Damas",
-              "tipo": "punto",
-              "children": []
-            },
-            {
-              "id": "000025-26",
-              "nodeId": "000025-26",
-              "name": "Baño N°6 Varones",
               "tipo": "punto",
               "children": []
             },
@@ -1439,53 +977,6 @@
               "tipo": "punto",
               "children": [],
               "pendiente_jerarquia": true
-            }
-          ]
-        },
-        {
-          "id": "000025-quilicura",
-          "name": "Quilicura",
-          "tipo": "sitio",
-          "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
-          "children": [
-            {
-              "id": "000025-13",
-              "nodeId": "000025-13",
-              "name": "Matriz Principal",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-14",
-              "nodeId": "000025-14",
-              "name": "Red de Incendio",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-34",
-              "nodeId": "000025-34",
-              "name": "Alimentación Baños",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            }
-          ]
-        },
-        {
-          "id": "000025-sin-mall",
-          "name": "Sin mall asignado",
-          "tipo": "sitio",
-          "nota": "Nodos sin mapeo a mall; revisar PA_MALL_BY_NODE.",
-          "children": [
-            {
-              "id": "000025-02",
-              "nodeId": "000025-02",
-              "name": "Abastecimiento Sur Terminal",
-              "tipo": "punto",
-              "children": []
             }
           ]
         }
@@ -1591,60 +1082,6 @@
       ]
     },
     {
-      "id": "000029-santiago",
-      "companyId": "000029",
-      "name": "Bupa Santiago",
-      "nombre_api": "BUPA",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "estado_operativo": "pendiente",
-      "descripcion": "Puntos creados en app; sin instalación operativa.",
-      "children": [
-        {
-          "id": "000029-01",
-          "nodeId": "000029-01",
-          "name": "Llenado de Estanques",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000029-02",
-          "nodeId": "000029-02",
-          "name": "Torre A",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000029-03",
-          "nodeId": "000029-03",
-          "name": "Torre B1",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000029-04",
-          "nodeId": "000029-04",
-          "name": "Torre B2",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000029-05",
-          "nodeId": "000029-05",
-          "name": "Torre C",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000029-06",
-          "nodeId": "000029-06",
-          "name": "Central Térmica",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
-    {
       "id": "000029-antofagasta",
       "companyId": "000029",
       "name": "Bupa Antofagasta",
@@ -1679,30 +1116,6 @@
           "id": "000029-10",
           "nodeId": "000029-10",
           "name": "Sala de Bomba N°2",
-          "tipo": "punto",
-          "children": []
-        }
-      ]
-    },
-    {
-      "id": "000030",
-      "companyId": "000030",
-      "name": "Estadio Israelita Maccabi",
-      "tipo": "cliente",
-      "topologia": "puntos_separados",
-      "descripcion": "Puntos separados: cada medidor es independiente; no hay subredes hidráulicas entre ellos.",
-      "children": [
-        {
-          "id": "000030-01",
-          "nodeId": "000030-01",
-          "name": "Matriz Av. Las Condes",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000030-02",
-          "nodeId": "000030-02",
-          "name": "Matriz Chesterton",
           "tipo": "punto",
           "children": []
         }

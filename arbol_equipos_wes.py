@@ -100,7 +100,8 @@ PA_MALL_BY_NODE: Dict[str, str] = {
     "000025-33": "Maipú",
     "000025-11": "El Bosque",
     "000025-12": "El Bosque",
-    "000025-30": "El Bosque",
+    # Matriz A.A (000025-30) es MAE → Estación (no El Bosque)
+    "000025-30": "Estación",
     "000025-13": "Quilicura",
     "000025-14": "Quilicura",
     "000025-34": "Quilicura",
@@ -131,21 +132,7 @@ CLIENTES_MULTISITIO: Dict[str, Dict[str, Any]] = {
     "000029": {
         "expandir_como_clientes": True,
         "sitios": [
-            {
-                "id_suffix": "santiago",
-                "name": "Bupa Santiago",
-                "node_ids": [
-                    "000029-01",
-                    "000029-02",
-                    "000029-03",
-                    "000029-04",
-                    "000029-05",
-                    "000029-06",
-                ],
-                "topologia": TOPOLOGIA_PUNTOS,
-                "estado_operativo": "pendiente",
-                "nota": "Puntos creados en app; sin instalación operativa.",
-            },
+            # Bupa Santiago queda fuera del Dashboard (sin instalación operativa).
             {
                 "id_suffix": "antofagasta",
                 "name": "Bupa Antofagasta",
@@ -169,24 +156,8 @@ CLIENTES_MULTISITIO: Dict[str, Dict[str, Any]] = {
         "nombre_api": "DERCO",
         "expandir_como_clientes": False,
         "topologia": TOPOLOGIA_PUNTOS,
-        "nombres_fallback": {
-            "000012-13": "Open Plaza Lavado de Vehiculos",
-            "000012-14": "Open Plaza Matriz Principal",
-        },
+        # Lo Boza y Open Plaza fuera del Dashboard — solo Quilicura.
         "sitios": [
-            {
-                "id_suffix": "lo-boza",
-                "name": "Lo Boza",
-                "node_ids": [
-                    "000012-01",
-                    "000012-02",
-                    "000012-03",
-                    "000012-04",
-                    "000012-05",
-                ],
-                "estado_operativo": "fuera",
-                "nota": "Lo Boza excluido de reportes WES.",
-            },
             {
                 "id_suffix": "quilicura",
                 "name": "Quilicura",
@@ -200,13 +171,6 @@ CLIENTES_MULTISITIO: Dict[str, Dict[str, Any]] = {
                     "000012-12",
                 ],
                 "estado_operativo": "activo",
-            },
-            {
-                "id_suffix": "open-plaza",
-                "name": "Open Plaza",
-                "node_ids": ["000012-13", "000012-14"],
-                "estado_operativo": "activo",
-                "nota": "Incluir si el nodo sigue en API.",
             },
         ],
     },
@@ -239,8 +203,54 @@ CLIENTES_RED: Dict[str, Dict[str, Any]] = {
 # Si no está en CLIENTES_RED, se asume puntos_separados.
 CLIENTES_EXCLUIDOS_DASHBOARD = {
     "000000",  # Wes Spa (interno / todos los nodos de prueba)
+    "000001",  # Ejército de Chile
+    "000004",  # Gendarmería
+    "000005",  # MOP
     "000011",  # Sistemas Socios Wes
+    "000013",  # Lo Barnechea
+    "000014",  # Tres Montes Lucchetti
+    "000016",  # Renca (SCL Rebeca Matte Bello)
+    "000018",  # MADECO
     "000019",  # WESSPA
+    "000023",  # MADECO
+    "000030",  # Estadio Israelita Maccabi
+}
+
+# Nodos fuera del árbol Dashboard (revisión operativa 2026-09-22).
+NODOS_EXCLUIDOS_DASHBOARD = {
+    "000022-01",  # Juan Pablo II (Las Condes)
+    # Parque Arauco — Curauma / Quilicura / sin mall / dados de baja
+    "000025-02",  # Abastecimiento Sur Terminal
+    "000025-03",  # Poniente 7
+    "000025-05",  # Locales de Comida
+    "000025-06",  # KFC
+    "000025-13",  # Quilicura Matriz Principal
+    "000025-14",  # Quilicura Red de Incendio
+    "000025-15",  # Curauma Matriz Principal
+    "000025-16",  # Curauma Baños
+    "000025-25",  # Baño N°5 Damas (retirado)
+    "000025-26",  # Baño N°6 Varones (retirado)
+    "000025-34",  # Quilicura Alimentación Baños
+    # Inchcape sitios fuera (por si aparecen en API)
+    "000012-01",
+    "000012-02",
+    "000012-03",
+    "000012-04",
+    "000012-05",
+    "000012-13",
+    "000012-14",
+    # Bupa Santiago
+    "000029-01",
+    "000029-02",
+    "000029-03",
+    "000029-04",
+    "000029-05",
+    "000029-06",
+}
+
+# Malls PA fuera del Dashboard
+PA_MALLS_EXCLUIDOS = {
+    "Quilicura",
 }
 
 
@@ -284,6 +294,10 @@ def fetch_companies(max_id: int = 80) -> List[Dict[str, Any]]:
     return out
 
 
+def _filter_nodes(nodes: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    return [n for n in nodes if n.get("nodeId") not in NODOS_EXCLUIDOS_DASHBOARD]
+
+
 def _punto_leaf(node_id: str, name: str, **extra: Any) -> Dict[str, Any]:
     return {
         "id": node_id,
@@ -304,6 +318,8 @@ def _nodes_por_ids(
     by_id = {n["nodeId"]: n for n in company.get("nodes", [])}
     out: List[Dict[str, str]] = []
     for nid in node_ids:
+        if nid in NODOS_EXCLUIDOS_DASHBOARD:
+            continue
         if nid in by_id:
             out.append(by_id[nid])
         elif nombres_fallback and nid in nombres_fallback:
@@ -397,16 +413,28 @@ def _build_from_parent_map(
     parent_of: Dict[str, Optional[str]],
 ) -> List[Dict[str, Any]]:
     """Arma un bosque a partir de parent_of[nodeId] = parentNodeId | None."""
+    nodes = _filter_nodes(nodes)
     by_id = {n["nodeId"]: n for n in nodes}
-    children_map: Dict[Optional[str], List[str]] = {}
-    for nid in parent_of:
-        parent = parent_of[nid]
-        children_map.setdefault(parent, []).append(nid)
+    allowed = set(by_id)
 
-    # Nodos de la API no listados en parent_of → raíces independientes
+    # Si el padre quedó excluido, el nodo sube a raíz
+    effective_parent: Dict[str, Optional[str]] = {}
+    for nid in list(parent_of.keys()) + [n["nodeId"] for n in nodes]:
+        if nid not in allowed:
+            continue
+        parent = parent_of.get(nid)
+        while parent is not None and parent not in allowed:
+            parent = parent_of.get(parent)
+        if nid in parent_of or nid in allowed:
+            effective_parent[nid] = parent if nid in parent_of else None
+
     for n in nodes:
-        if n["nodeId"] not in parent_of:
-            children_map.setdefault(None, []).append(n["nodeId"])
+        if n["nodeId"] not in effective_parent:
+            effective_parent[n["nodeId"]] = None
+
+    children_map: Dict[Optional[str], List[str]] = {}
+    for nid, parent in effective_parent.items():
+        children_map.setdefault(parent, []).append(nid)
 
     def build(nid: str) -> Dict[str, Any]:
         meta = by_id.get(nid, {"nodeId": nid, "name": nid})
@@ -416,13 +444,12 @@ def _build_from_parent_map(
                 "id": nid,
                 "nodeId": nid,
                 "name": meta.get("name") or nid,
-                "tipo": TIPO_RED if parent_of.get(nid) is None else TIPO_SUBRED,
+                "tipo": TIPO_RED if effective_parent.get(nid) is None else TIPO_SUBRED,
                 "children": [build(c) for c in sorted(kids)],
             }
         return _punto_leaf(nid, meta.get("name") or nid)
 
     roots = children_map.get(None, [])
-    # Deduplicar preservando orden
     seen = set()
     ordered = []
     for nid in roots:
@@ -435,7 +462,7 @@ def _build_from_parent_map(
 def _cliente_puntos_separados(company: Dict[str, Any]) -> Dict[str, Any]:
     children = [
         _punto_leaf(n["nodeId"], n["name"])
-        for n in sorted(company["nodes"], key=lambda x: x["nodeId"])
+        for n in sorted(_filter_nodes(company["nodes"]), key=lambda x: x["nodeId"])
     ]
     return {
         "id": company["companyId"],
@@ -452,7 +479,7 @@ def _cliente_puntos_separados(company: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _cliente_fundo(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
-    forest = _build_from_parent_map(company["nodes"], cfg["hierarchy"])
+    forest = _build_from_parent_map(_filter_nodes(company["nodes"]), cfg["hierarchy"])
     sitio = {
         "id": f"{company['companyId']}-sitio",
         "name": cfg.get("sitio_unico") or company["name"],
@@ -476,8 +503,10 @@ def _cliente_fundo(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, An
 def _cliente_parque_arauco(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
     by_mall: Dict[str, List[Dict[str, str]]] = {}
     sin_mall: List[Dict[str, str]] = []
-    for n in company["nodes"]:
+    for n in _filter_nodes(company["nodes"]):
         mall = PA_MALL_BY_NODE.get(n["nodeId"])
+        if mall and mall in PA_MALLS_EXCLUIDOS:
+            continue
         if mall:
             by_mall.setdefault(mall, []).append(n)
         else:
@@ -488,12 +517,12 @@ def _cliente_parque_arauco(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict
     for mall in sorted(by_mall.keys()):
         nodos = by_mall[mall]
         hier = hierarchies.get(mall)
+        # Nombre display: Estación = MAE
+        mall_label = "Estación (MAE)" if mall == "Estación" else mall
         if hier:
             kids = _build_from_parent_map(nodos, hier)
             nota = "Incluye matriz y subredes hidráulicas mapeadas."
         else:
-            # Sin jerarquía detallada: puntos del mall como independientes
-            # (misma sede comercial, topología hidráulica pendiente).
             kids = [
                 _punto_leaf(n["nodeId"], n["name"], pendiente_jerarquia=True)
                 for n in sorted(nodos, key=lambda x: x["nodeId"])
@@ -502,26 +531,14 @@ def _cliente_parque_arauco(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict
         sitios.append(
             {
                 "id": f"{company['companyId']}-{mall.lower().replace(' ', '-')}",
-                "name": mall,
+                "name": mall_label,
                 "tipo": TIPO_SITIO,
                 "nota": nota,
                 "children": kids,
             }
         )
 
-    if sin_mall:
-        sitios.append(
-            {
-                "id": f"{company['companyId']}-sin-mall",
-                "name": "Sin mall asignado",
-                "tipo": TIPO_SITIO,
-                "nota": "Nodos sin mapeo a mall; revisar PA_MALL_BY_NODE.",
-                "children": [
-                    _punto_leaf(n["nodeId"], n["name"])
-                    for n in sorted(sin_mall, key=lambda x: x["nodeId"])
-                ],
-            }
-        )
+    # sin_mall: no se incluye en Dashboard (p. ej. 000025-02 ya excluido por nodo)
 
     return {
         "id": company["companyId"],
@@ -531,7 +548,8 @@ def _cliente_parque_arauco(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict
         "topologia": TOPOLOGIA_RED,
         "descripcion": (
             "Cliente multi-sitio (malls). Cada mall puede tener red principal "
-            "y subredes; otros puntos del mall son independientes."
+            "y subredes; otros puntos del mall son independientes. "
+            "Quilicura y Curauma (15/16) fuera del Dashboard."
         ),
         "children": sitios,
     }
@@ -539,12 +557,13 @@ def _cliente_parque_arauco(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict
 
 def _cliente_red_generico(company: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
     hier = cfg.get("hierarchy") or {}
+    nodos = _filter_nodes(company["nodes"])
     if hier:
-        kids = _build_from_parent_map(company["nodes"], hier)
+        kids = _build_from_parent_map(nodos, hier)
     else:
         kids = [
             _punto_leaf(n["nodeId"], n["name"], pendiente_jerarquia=True)
-            for n in sorted(company["nodes"], key=lambda x: x["nodeId"])
+            for n in sorted(nodos, key=lambda x: x["nodeId"])
         ]
     sitio = {
         "id": f"{company['companyId']}-sitio",
@@ -590,6 +609,9 @@ def build_tree(companies: Optional[List[Dict[str, Any]]] = None) -> Dict[str, An
                 clientes.append(_cliente_red_generico(company, cfg))
         else:
             clientes.append(_cliente_puntos_separados(company))
+
+    # Descartar entradas sin puntos hoja (todo excluido)
+    clientes = [c for c in clientes if _count_leaves([c]) > 0]
 
     resumen = {
         "total_clientes": len(clientes),
