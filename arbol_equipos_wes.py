@@ -167,6 +167,20 @@ HIERARCHY_PA_ESTACION: Dict[str, Optional[str]] = {
     "000025-07": None,  # PIZZA HUT
 }
 
+# Parque Arauco — Quilicura (MAQ)
+HIERARCHY_PA_QUILICURA: Dict[str, Optional[str]] = {
+    "000025-13": None,  # Matriz Principal
+    "000025-34": "000025-13",  # Alimentación Baños (subred)
+}
+
+# Bupa Antofagasta: Sanitaria → Bomba Principal → Sexto Piso / Bomba N°2
+HIERARCHY_BUPA_ANTOFAGASTA: Dict[str, Optional[str]] = {
+    "000029-09": None,  # Medidor Principal Sanitaria
+    "000029-07": "000029-09",  # Sala de Bomba Principal
+    "000029-08": "000029-07",  # Sala de Bomba Sexto Piso
+    "000029-10": "000029-07",  # Sala de Bomba N°2
+}
+
 # Parque Arauco — Kennedy (PAK)
 HIERARCHY_PA_KENNEDY: Dict[str, Optional[str]] = {
     "000025-20": None,  # Impulsión Anden 3-4 Matriz Principal
@@ -270,11 +284,12 @@ CLIENTES_MULTISITIO: Dict[str, Dict[str, Any]] = {
                     "000029-09",
                     "000029-10",
                 ],
-                "topologia": TOPOLOGIA_PUNTOS,
+                "topologia": TOPOLOGIA_RED,
+                "hierarchy": HIERARCHY_BUPA_ANTOFAGASTA,
                 "estado_operativo": "activo",
                 "nota": (
-                    "Clínica Antofagasta operativa. Medidor Principal Sanitaria (09) "
-                    "es referencia de cuenta; salas de bomba son puntos paralelos."
+                    "Medidor Principal Sanitaria alimenta Sala de Bomba Principal; "
+                    "Sexto Piso y Bomba N°2 son subredes de la bomba principal."
                 ),
             },
         ],
@@ -348,6 +363,7 @@ CLIENTES_RED: Dict[str, Dict[str, Any]] = {
         "hierarchies_por_sitio": {
             "Kennedy": HIERARCHY_PA_KENNEDY,
             "Estación": HIERARCHY_PA_ESTACION,
+            "Quilicura": HIERARCHY_PA_QUILICURA,
         },
     },
     "000026": {

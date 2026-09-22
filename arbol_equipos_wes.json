@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-22T19:54:32Z",
+  "generado": "2026-09-22T20:09:03Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -16,9 +16,9 @@
   },
   "resumen": {
     "total_clientes": 16,
-    "puntos_separados": 11,
-    "red_con_subredes": 5,
-    "total_nodos_hoja": 95
+    "puntos_separados": 10,
+    "red_con_subredes": 6,
+    "total_nodos_hoja": 92
   },
   "clientes": [
     {
@@ -903,23 +903,22 @@
           "name": "MAQ — Quilicura",
           "codigo_mall": "MAQ",
           "tipo": "sitio",
-          "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
+          "nota": "Incluye matriz y subredes hidráulicas mapeadas.",
           "children": [
             {
               "id": "000025-13",
-              "nodeId": "000025-13",
               "name": "Matriz Principal",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-34",
-              "nodeId": "000025-34",
-              "name": "Alimentación Baños",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
+              "tipo": "red",
+              "children": [
+                {
+                  "id": "000025-34",
+                  "nodeId": "000025-34",
+                  "name": "Alimentación Baños",
+                  "tipo": "punto",
+                  "children": []
+                }
+              ],
+              "nodeId": "000025-13"
             }
           ]
         }
@@ -1035,37 +1034,39 @@
       "name": "Bupa Antofagasta",
       "nombre_api": "BUPA",
       "tipo": "cliente",
-      "topologia": "puntos_separados",
+      "topologia": "red_con_subredes",
       "estado_operativo": "activo",
-      "descripcion": "Clínica Antofagasta operativa. Medidor Principal Sanitaria (09) es referencia de cuenta; salas de bomba son puntos paralelos.",
+      "descripcion": "Medidor Principal Sanitaria alimenta Sala de Bomba Principal; Sexto Piso y Bomba N°2 son subredes de la bomba principal.",
       "children": [
         {
-          "id": "000029-07",
-          "nodeId": "000029-07",
-          "name": "Sala de Bomba Principal",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000029-08",
-          "nodeId": "000029-08",
-          "name": "Sala de Bomba Sexto Piso",
-          "tipo": "punto",
-          "children": []
-        },
-        {
           "id": "000029-09",
-          "nodeId": "000029-09",
           "name": "Medidor Principal Sanitaria",
-          "tipo": "punto",
-          "children": []
-        },
-        {
-          "id": "000029-10",
-          "nodeId": "000029-10",
-          "name": "Sala de Bomba N°2",
-          "tipo": "punto",
-          "children": []
+          "tipo": "red",
+          "children": [
+            {
+              "id": "000029-07",
+              "name": "Sala de Bomba Principal",
+              "tipo": "subred",
+              "children": [
+                {
+                  "id": "000029-08",
+                  "nodeId": "000029-08",
+                  "name": "Sala de Bomba Sexto Piso",
+                  "tipo": "punto",
+                  "children": []
+                },
+                {
+                  "id": "000029-10",
+                  "nodeId": "000029-10",
+                  "name": "Sala de Bomba N°2",
+                  "tipo": "punto",
+                  "children": []
+                }
+              ],
+              "nodeId": "000029-07"
+            }
+          ],
+          "nodeId": "000029-09"
         }
       ]
     },
