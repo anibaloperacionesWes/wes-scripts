@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-22T13:42:04Z",
+  "generado": "2026-09-22T19:29:25Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -18,7 +18,7 @@
     "total_clientes": 16,
     "puntos_separados": 11,
     "red_con_subredes": 5,
-    "total_nodos_hoja": 100
+    "total_nodos_hoja": 98
   },
   "clientes": [
     {
@@ -315,16 +315,14 @@
                   "nodeId": "000009-08",
                   "name": "Copec Pronto Baños",
                   "tipo": "punto",
-                  "children": [],
-                  "nota": "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
+                  "children": []
                 },
                 {
                   "id": "000009-11",
                   "nodeId": "000009-11",
                   "name": "Copec Pronto Tienda",
                   "tipo": "punto",
-                  "children": [],
-                  "nota": "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
+                  "children": []
                 },
                 {
                   "id": "000009-02",
@@ -717,14 +715,6 @@
               "tipo": "punto",
               "children": [],
               "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-30",
-              "nodeId": "000025-30",
-              "name": "Matriz A.A",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
             }
           ]
         },
@@ -733,47 +723,43 @@
           "name": "MAE — Estación",
           "codigo_mall": "MAE",
           "tipo": "sitio",
-          "nota": "Sitio con varios puntos; jerarquía hidráulica pendiente de mapear.",
+          "nota": "Incluye matriz y subredes hidráulicas mapeadas.",
           "children": [
             {
               "id": "000025-01",
               "nodeId": "000025-01",
               "name": "Estanque Norte Locales Mall",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
+              "tipo": "red",
+              "children": [
+                {
+                  "id": "000025-19",
+                  "nodeId": "000025-19",
+                  "name": "Sala de Bomba Estanque Sur",
+                  "tipo": "punto",
+                  "children": []
+                }
+              ]
             },
             {
               "id": "000025-02",
               "nodeId": "000025-02",
               "name": "Abastecimiento Sur Terminal",
               "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
+              "children": []
             },
             {
               "id": "000025-04",
               "nodeId": "000025-04",
               "name": "Baños Públicos",
               "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
+              "children": []
             },
             {
               "id": "000025-07",
               "nodeId": "000025-07",
               "name": "PIZZA HUT",
               "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
-            },
-            {
-              "id": "000025-19",
-              "nodeId": "000025-19",
-              "name": "Sala de Bomba Estanque Sur",
-              "tipo": "punto",
-              "children": [],
-              "pendiente_jerarquia": true
+              "children": []
             }
           ]
         },

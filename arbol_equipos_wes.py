@@ -92,12 +92,6 @@ NODE_NOTAS: Dict[str, str] = {
         "Solo alimenta el sistema de lavados cuando falla la ósmosis. "
         "El estanque de reutilización de ósmosis (90 %) no se monitorea."
     ),
-    "000009-08": (
-        "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
-    ),
-    "000009-11": (
-        "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
-    ),
     "000009-09": (
         "Se alimenta de la matriz; tiene ósmosis que recupera ~90 % hacia "
         "estanque de reutilización no monitoreado."
@@ -140,6 +134,15 @@ HIERARCHY_INCHCAPE_QUILICURA: Dict[str, Optional[str]] = {
     "000012-10": "000012-06",
     "000012-11": "000012-06",
     "000012-12": "000012-06",
+}
+
+# Parque Arauco — Estación (MAE)
+HIERARCHY_PA_ESTACION: Dict[str, Optional[str]] = {
+    "000025-01": None,  # Estanque Norte Locales Mall
+    "000025-19": "000025-01",  # Sala de Bomba Estanque Sur (subred)
+    "000025-02": None,  # Abastecimiento Sur Terminal
+    "000025-04": None,  # Baños Públicos
+    "000025-07": None,  # PIZZA HUT
 }
 
 # Parque Arauco — Kennedy (PAK)
@@ -322,6 +325,7 @@ CLIENTES_RED: Dict[str, Dict[str, Any]] = {
         "agrupar_por": "mall",
         "hierarchies_por_sitio": {
             "Kennedy": HIERARCHY_PA_KENNEDY,
+            "Estación": HIERARCHY_PA_ESTACION,
         },
     },
     "000026": {
@@ -367,6 +371,7 @@ NODOS_EXCLUIDOS_DASHBOARD = {
     "000025-16",  # Curauma Baños
     "000025-25",  # Baño N°5 Damas (retirado)
     "000025-26",  # Baño N°6 Varones (retirado)
+    "000025-30",  # Matriz A.A — fuera de operación
     # Inchcape sitios fuera
     "000012-01",
     "000012-02",
