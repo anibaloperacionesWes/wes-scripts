@@ -398,8 +398,8 @@ def main() -> None:
     ax.plot(fechas, [d["max_m3h"] for d in daily], color=WES_BLUE, lw=1.1, label="Máximo horario del día")
     ax.axhline(LIM_DISENO, color="#70AD47", ls="--", lw=1.1, label=f"2,0 m/s ≈ {_fmt_m3(LIM_DISENO, 0)} m³/h")
     ax.axhline(LIM_ERROR, color="#ED7D31", ls="--", lw=1.1, label=f"3,0 m/s ≈ {_fmt_m3(LIM_ERROR, 0)} m³/h")
-    ax.axhline(96, color="#C00000", ls=":", lw=1.2, label="Meseta ~96 m³/h (≈ 4,2 m/s)")
-    ax.axhline(200, color="#7030A0", ls=":", lw=1.2, label="Meseta ~200 m³/h (≈ 8,8 m/s)")
+    ax.axhline(96, color="#C00000", ls=":", lw=1.2, label=f"Meseta ~96 m³/h (≈ {v_from_q(96):.1f} m/s)")
+    ax.axhline(200, color="#7030A0", ls=":", lw=1.2, label=f"Meseta ~200 m³/h (≈ {v_from_q(200):.1f} m/s)")
     ax.set_ylabel("m³/h")
     ax.set_title("Caudal horario máximo diario vs capacidad DN90", fontweight="bold", color=WES_BLUE)
     ax.legend(frameon=False, fontsize=7.5, ncol=2)
@@ -464,24 +464,29 @@ def _pdf(h: dict, daily: list[dict], c1: Path, c2: Path, c3: Path, out: Path) ->
             ha="left",
             y=0.985,
         )
-        txt = (
-            f"Capacidad DN90 PE100 SDR17 (ID 79,2 mm): 1,0 m/s = {dn['q_1ms']} m³/h · "
-            f"1,5 m/s = {dn['q_15ms']} m³/h · 2,0 m/s = {dn['q_2ms']} m³/h (diseño) · "
-            f"3,0 m/s = {dn['q_3ms']} m³/h (tope físico). "
-            f"96 m³/h = {dn['q_96_vel']} m/s · 200 m³/h = {dn['q_200_vel']} m/s → no es agua en esa cañería.\n"
-            f"Consumo real (ventana sana {date.fromisoformat(vs['desde']).strftime('%d/%m/%Y')}–"
-            f"{date.fromisoformat(vs['hasta']).strftime('%d/%m/%Y')}, {vs['dias_sin_error']} días sin meseta): "
-            f"mediana {_fmt_m3(vs['diario_mediana'], 1)} m³/día · promedio {_fmt_m3(vs['diario_promedio'], 1)} m³/día · "
-            f"horario P50 {_fmt_m3(vs['horario_m3h']['p50'], 2)} m³/h · P90 {_fmt_m3(vs['horario_m3h']['p90'], 2)} m³/h · "
-            f"máx {_fmt_m3(vs['horario_m3h']['max'], 1)} m³/h.\n"
-            f"Primer caudal imposible: {fhora(fe)}\n"
-            f"Primer tramo de 3 h seguidas de error: {fhora(fs)}\n"
-            f"Primer día con ≥ 6 h imposibles: {fd or '—'}\n"
-            f"Serie 13/11/25–22/09/26: reportado {_fmt_m3(tot['m3_reportado'], 0)} m³ · "
-            f"horas OK {_fmt_m3(tot['m3_horas_ok'], 0)} m³ · horas error {_fmt_m3(tot['m3_horas_error'], 0)} m³ · "
-            f"h@96={tot['horas_96']} · h@200={tot['horas_200']} · días Etapa5 > Inferior={tot['dias_e5_gt_inf']}."
-        )
-        fig.text(0.02, 0.905, txt, fontsize=8.2, va="top", color="#222222", wrap=True)
+        lines = [
+            (
+                f"DN90 PE100 SDR17 (ID 79,2 mm): 1,0 m/s = {dn['q_1ms']} m³/h · "
+                f"2,0 m/s = {dn['q_2ms']} m³/h (diseño) · 3,0 m/s = {dn['q_3ms']} m³/h (tope). "
+                f"96 m³/h = {dn['q_96_vel']} m/s · 200 m³/h = {dn['q_200_vel']} m/s → no es agua en esa cañería."
+            ),
+            (
+                f"Consumo real (días sanos {date.fromisoformat(vs['desde']).strftime('%d/%m/%Y')}–"
+                f"{date.fromisoformat(vs['hasta']).strftime('%d/%m/%Y')}, {vs['dias_sin_error']} días): "
+                f"mediana {_fmt_m3(vs['diario_mediana'], 1)} m³/día · promedio {_fmt_m3(vs['diario_promedio'], 1)} m³/día · "
+                f"P90 horario {_fmt_m3(vs['horario_m3h']['p90'], 2)} m³/h · máx {_fmt_m3(vs['horario_m3h']['max'], 1)} m³/h."
+            ),
+            f"Primer error puntual: {fhora(fe)}   |   Error sostenido (≥3 h): {fhora(fs)}   |   ≥6 h en un día: {fd or '—'}",
+            (
+                f"13/11/25–22/09/26: reportado {_fmt_m3(tot['m3_reportado'], 0)} m³ · "
+                f"horas OK {_fmt_m3(tot['m3_horas_ok'], 0)} m³ · horas error {_fmt_m3(tot['m3_horas_error'], 0)} m³ · "
+                f"h@96={tot['horas_96']} · h@200={tot['horas_200']} · días Etapa 5 > Inferior={tot['dias_e5_gt_inf']}."
+            ),
+        ]
+        y = 0.955
+        for line in lines:
+            fig.text(0.02, y, line, fontsize=8.0, va="top", color="#222222")
+            y -= 0.022
         headers = [
             "Mes",
             "m³ reportado",
