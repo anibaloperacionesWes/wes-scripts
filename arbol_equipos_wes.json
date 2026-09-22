@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-22T13:41:25Z",
+  "generado": "2026-09-22T13:42:04Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -311,6 +311,22 @@
                   "children": []
                 },
                 {
+                  "id": "000009-08",
+                  "nodeId": "000009-08",
+                  "name": "Copec Pronto Baños",
+                  "tipo": "punto",
+                  "children": [],
+                  "nota": "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
+                },
+                {
+                  "id": "000009-11",
+                  "nodeId": "000009-11",
+                  "name": "Copec Pronto Tienda",
+                  "tipo": "punto",
+                  "children": [],
+                  "nota": "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
+                },
+                {
                   "id": "000009-02",
                   "nodeId": "000009-02",
                   "name": "Estanque Reutilización",
@@ -333,14 +349,6 @@
                   "children": []
                 },
                 {
-                  "id": "000009-08",
-                  "nodeId": "000009-08",
-                  "name": "Copec Pronto Baños",
-                  "tipo": "punto",
-                  "children": [],
-                  "nota": "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
-                },
-                {
                   "id": "000009-09",
                   "nodeId": "000009-09",
                   "name": "Copec Lavado Auto servicio Norte",
@@ -355,14 +363,6 @@
                   "tipo": "punto",
                   "children": [],
                   "nota": "Se alimenta de la matriz; tiene ósmosis que recupera ~90 % hacia estanque de reutilización no monitoreado."
-                },
-                {
-                  "id": "000009-11",
-                  "nodeId": "000009-11",
-                  "name": "Copec Pronto Tienda",
-                  "tipo": "punto",
-                  "children": [],
-                  "nota": "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
                 }
               ]
             }
