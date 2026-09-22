@@ -71,19 +71,51 @@ FOTO_US_1150 = EVIDENCIAS / "ultrasonido_1150.jpg"
 FOTO_ITRON_1500 = EVIDENCIAS / "itron_1500.jpg"
 FOTO_US_1500 = EVIDENCIAS / "ultrasonido_1500.jpg"
 
-# Validación corta foto vs app (22-09-2026)
+# Validación corta foto vs app (22-09-2026) — cifras leídas de evidencia
 VAL_FECHA = "22-09-2026"
+HORA_INICIO = "11:50"
+HORA_CIERRE = "15:00"
+
+# Itron Flostar S (odómetro mecánico, 6 dígitos negros + 2 rojos)
+ITRON_1150_M3 = 383956.27
+ITRON_1500_M3 = 383978.01
+ITRON_DELTA_M3 = round(ITRON_1500_M3 - ITRON_1150_M3, 2)  # 21.74
+
+# Ultrasónico: NET crudo × 0,01 = m³
 US_FLOW_1150 = 17.183
-US_NET_1150 = 18119.06  # 1811906 × 0.01
+US_NET_CRUDO_1150 = 1811906
 US_FLOW_1500 = 10.648
-US_NET_1500 = 18141.45  # 1814145 × 0.01
+US_NET_CRUDO_1500 = 1814145
+US_NET_FACTOR = 0.01
+US_NET_1150 = round(US_NET_CRUDO_1150 * US_NET_FACTOR, 2)  # 18119.06
+US_NET_1500 = round(US_NET_CRUDO_1500 * US_NET_FACTOR, 2)  # 18141.45
 US_DELTA_M3 = round(US_NET_1500 - US_NET_1150, 2)  # 22.39
+
+# Error relativo respecto del ultrasónico: 1 − (Itron / Ultrasonido)
+ERROR_RELATIVO = 1.0 - (ITRON_DELTA_M3 / US_DELTA_M3)  # ≈ 0.02903 → 2,90 %
+ERROR_RELATIVO_PCT = round(ERROR_RELATIVO * 100, 2)  # 2.90
+DELTA_ITRON_VS_US_M3 = round(US_DELTA_M3 - ITRON_DELTA_M3, 2)  # 0.65
+
+# App WES — consumo horario API (000027-01, 22-09-2026)
 APP_HORA_11 = 0.25
 APP_HORA_12 = 7.66
 APP_HORA_13 = 10.01
 APP_HORA_14 = 0.55
 APP_HORA_15 = 9.87
-APP_DELTA_1150_1500 = round(APP_HORA_11 * (10 / 60) + APP_HORA_12 + APP_HORA_13 + APP_HORA_14, 3)  # ≈18.262
+# 11:50→15:00 = 10/60 de hora 11 + horas 12+13+14 (a las 15:00 exactas no se suma hora 15)
+APP_DELTA_1150_1500 = round(
+    APP_HORA_11 * (10 / 60) + APP_HORA_12 + APP_HORA_13 + APP_HORA_14, 3
+)  # 18.262
+
+
+def _fmt_m3(x: float, dec: int = 2) -> str:
+    """Formato chileno: miles con punto, decimal con coma."""
+    s = f"{x:,.{dec}f}"  # 18,119.06 (en-US)
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _fmt_pct(x: float, dec: int = 2) -> str:
+    return f"{x:.{dec}f}".replace(".", ",")
 
 
 def _set_run_font(run, *, size: int = 11, bold: bool = False, color: RGBColor | None = None) -> None:
@@ -265,8 +297,8 @@ def _tabla_evolucion_diferencias(doc: Document) -> None:
         4,
         [
             f"Tras diámetro {DIAMETRO_FINAL_MM} mm (+{INCREMENTO_DIAMETRO_PCT} %)",
-            "0 L / sin error",
-            "Ambos medidores en el mismo ciclo de lectura",
+            "Alineados en terreno",
+            "Mismo ciclo de lectura post-ajuste; ver §6 para Δ fotográfico 11:50–15:00",
         ],
     )
 
@@ -330,7 +362,7 @@ def generar_informe(out_dir: Path) -> Path:
         "Documentar las acciones realizadas en terreno sobre el medidor ultrasónico asociado a "
         f"{NODO_NOMBRE}, ante un desvío respecto del medidor de turbina Itron de ESVAL; registrar "
         "las correcciones de configuración (diámetro, mortero y factor de escala M45) hasta lograr "
-        "que ambos medidores lean en el mismo ciclo, sin error entre ellos.",
+        "que ambos medidores lean en el mismo ciclo tras el ajuste final.",
     )
 
     _add_heading(doc, "2. Resumen ejecutivo", level=1)
@@ -348,10 +380,17 @@ def generar_informe(out_dir: Path) -> Path:
         f"{DIAMETRO_CONFIG_ERRONEO_MM} a {DIAMETRO_ESVAL_MM} mm (ficha ESVAL), más lining de mortero "
         f"{ESPESOR_MORTERO_MM} mm: la diferencia bajó a ~{DIFERENCIA_LITROS_POST_CONFIG} L. Con la "
         f"prueba de 1 minuto se calculó M45 = {M45_CALCULADO}, pero el equipo admite máximo "
-        f"{M45_MAXIMO_EQUIPO}; al setear ese tope la diferencia pasó a ~{DIFERENCIA_LITROS_POST_M45} L "
-        f"(aún insuficiente). Siguiendo el manual, se aumentó el diámetro un "
-        f"{INCREMENTO_DIAMETRO_PCT} % ({DIAMETRO_ESVAL_MM} → {DIAMETRO_FINAL_MM} mm). Tras ese ajuste, "
-        "ambos medidores quedaron en el mismo ciclo de lectura, sin error entre ellos.",
+        f"{M45_MAXIMO_EQUIPO}; al setear ese tope la diferencia pasó a ~{DIFERENCIA_LITROS_POST_M45} L. "
+        f"Siguiendo el manual, se aumentó el diámetro un {INCREMENTO_DIAMETRO_PCT} % "
+        f"({DIAMETRO_ESVAL_MM} → {DIAMETRO_FINAL_MM} mm). Tras ese ajuste, ambos medidores quedaron "
+        "en el mismo ciclo de lectura en terreno.",
+    )
+    _p(
+        doc,
+        f"Validación fotográfica {HORA_INICIO}→{HORA_CIERRE} del {VAL_FECHA}: Itron "
+        f"{_fmt_m3(ITRON_DELTA_M3)} m³; ultrasónico (NET×0,01) {_fmt_m3(US_DELTA_M3)} m³; "
+        f"error relativo 1 − ({_fmt_m3(ITRON_DELTA_M3)}/{_fmt_m3(US_DELTA_M3)}) = "
+        f"{_fmt_pct(ERROR_RELATIVO_PCT)} % (ese intervalo incluye el tramo previo a los ajustes).",
     )
 
     _add_heading(doc, "3. Actividades realizadas", level=1)
@@ -496,7 +535,7 @@ def generar_informe(out_dir: Path) -> Path:
     _p(
         doc,
         "Tras este ajuste se repitió la comparación: ambos medidores (ultrasónico y turbina "
-        "Itron/ESVAL) quedaron en el mismo ciclo de lectura, sin error entre ellos.",
+        "Itron/ESVAL) quedaron en el mismo ciclo de lectura.",
     )
 
     _add_heading(doc, "3.8 Resumen de configuración final", level=2)
@@ -525,14 +564,21 @@ def generar_informe(out_dir: Path) -> Path:
     )
     _bullet(
         doc,
-        f"Cierre: diámetro {DIAMETRO_FINAL_MM} mm (+{INCREMENTO_DIAMETRO_PCT} %) alineó ambos "
-        "medidores en el mismo ciclo, sin error.",
+        f"Cierre en terreno: diámetro {DIAMETRO_FINAL_MM} mm (+{INCREMENTO_DIAMETRO_PCT} %) dejó "
+        "ambos medidores en el mismo ciclo de lectura.",
+    )
+    _bullet(
+        doc,
+        f"Validación fotográfica {HORA_INICIO}→{HORA_CIERRE}: Itron {_fmt_m3(ITRON_DELTA_M3)} m³ vs "
+        f"ultrasónico {_fmt_m3(US_DELTA_M3)} m³; error "
+        f"1 − ({_fmt_m3(ITRON_DELTA_M3)}/{_fmt_m3(US_DELTA_M3)}) = {_fmt_pct(ERROR_RELATIVO_PCT)} % "
+        "(intervalo mixto pre/post ajuste).",
     )
 
     _add_heading(doc, "5. Estado y seguimiento", level=1)
     _bullet(
         doc,
-        "Intervención cerrada en terreno: ultrasónico y turbina Itron/ESVAL coinciden en lectura.",
+        "Intervención cerrada en terreno tras diámetro 127 mm + M45 = 1,5 + mortero 3 mm.",
     )
     _bullet(
         doc,
@@ -545,15 +591,120 @@ def generar_informe(out_dir: Path) -> Path:
         "respecto de la referencia ESVAL en los días posteriores.",
     )
 
-    _add_heading(doc, "6. Validación corta: fotos de terreno vs app WES", level=1)
+    _add_heading(doc, "6. Validación cuantitativa: lecturas 11:50 vs 15:00", level=1)
     _p(
         doc,
-        f"Fecha {VAL_FECHA}, nodo {NODE_ID} ({NODO_NOMBRE}). Se contrastaron lecturas fotografiadas "
-        "a las 11:50 (inicio, pre-ajuste) y a las 15:00 (cierre) contra el consumo horario de la "
-        "app WES (API dates.measures).",
+        f"Fecha {VAL_FECHA}, nodo {NODE_ID} ({NODO_NOMBRE}). Se leyeron de fotografía el odómetro "
+        f"Itron Flostar S y el totalizador NET del ultrasónico a las {HORA_INICIO} (inicio de la "
+        f"jornada / pre-ajuste) y a las {HORA_CIERRE} (cierre). El NET del ultrasónico se convierte "
+        f"a m³ multiplicando por {US_NET_FACTOR} (factor del display: «×0,01 m³»).",
+    )
+    _p(
+        doc,
+        "Importante: el intervalo 11:50–15:00 abarca el periodo de corrección (diámetro, mortero, "
+        "M45 y +8 % de diámetro). Por tanto el Δ de ese tramo es un balance del día de trabajo, "
+        "no una prueba de calibración post-ajuste puro.",
     )
 
-    _add_heading(doc, "6.1 Caudal instantáneo ultrasónico vs app", level=2)
+    _add_heading(doc, "6.1 Medidor Itron Flostar S (referencia ESVAL)", level=2)
+    tbl_it = doc.add_table(rows=4, cols=2)
+    tbl_it.style = "Table Grid"
+    _fill_header_row(tbl_it, ["Concepto", "Valor"])
+    _fill_row(tbl_it, 1, [f"Lectura {HORA_INICIO}", f"{_fmt_m3(ITRON_1150_M3)} m³"])
+    _fill_row(tbl_it, 2, [f"Lectura {HORA_CIERRE}", f"{_fmt_m3(ITRON_1500_M3)} m³"])
+    _fill_row(
+        tbl_it,
+        3,
+        [
+            f"Δ Itron ({HORA_CIERRE} − {HORA_INICIO})",
+            f"{_fmt_m3(ITRON_DELTA_M3)} m³",
+        ],
+    )
+    doc.add_paragraph()
+    _p(
+        doc,
+        f"Cálculo: {_fmt_m3(ITRON_1500_M3)} − {_fmt_m3(ITRON_1150_M3)} = "
+        f"{_fmt_m3(ITRON_DELTA_M3)} m³. Lectura de odómetro: 6 dígitos negros (m³ enteros) + "
+        "2 dígitos rojos (decimales).",
+    )
+
+    _add_heading(doc, "6.2 Medidor ultrasónico (NET × 0,01)", level=2)
+    tbl_us = doc.add_table(rows=5, cols=2)
+    tbl_us.style = "Table Grid"
+    _fill_header_row(tbl_us, ["Concepto", "Valor"])
+    _fill_row(
+        tbl_us,
+        1,
+        [
+            f"{HORA_INICIO} — Flow / NET crudo",
+            f"{_fmt_m3(US_FLOW_1150, 3)} m³/h · NET {US_NET_CRUDO_1150:,}".replace(",", "."),
+        ],
+    )
+    _fill_row(
+        tbl_us,
+        2,
+        [
+            f"{HORA_INICIO} — NET × 0,01",
+            f"{US_NET_CRUDO_1150:,} × 0,01 = {_fmt_m3(US_NET_1150)} m³".replace(",", "."),
+        ],
+    )
+    _fill_row(
+        tbl_us,
+        3,
+        [
+            f"{HORA_CIERRE} — Flow / NET crudo",
+            f"{_fmt_m3(US_FLOW_1500, 3)} m³/h · NET {US_NET_CRUDO_1500:,}".replace(",", "."),
+        ],
+    )
+    _fill_row(
+        tbl_us,
+        4,
+        [
+            f"{HORA_CIERRE} — NET × 0,01 y Δ",
+            f"{US_NET_CRUDO_1500:,} × 0,01 = {_fmt_m3(US_NET_1500)} m³ → "
+            f"Δ = {_fmt_m3(US_DELTA_M3)} m³".replace(",", "."),
+        ],
+    )
+    doc.add_paragraph()
+    _p(
+        doc,
+        f"Cálculo Δ ultrasónico: {_fmt_m3(US_NET_1500)} − {_fmt_m3(US_NET_1150)} = "
+        f"{_fmt_m3(US_DELTA_M3)} m³.",
+    )
+
+    _add_heading(doc, "6.3 Porcentaje de error (Itron vs ultrasónico)", level=2)
+    _p(
+        doc,
+        "Tomando el Δ del ultrasónico como referencia del tramo fotográfico:",
+    )
+    _p(
+        doc,
+        f"Error = 1 − (Δ Itron / Δ Ultrasónico) = 1 − ({_fmt_m3(ITRON_DELTA_M3)} / "
+        f"{_fmt_m3(US_DELTA_M3)}) = 1 − {_fmt_pct(ITRON_DELTA_M3 / US_DELTA_M3, 4)} = "
+        f"{_fmt_pct(ERROR_RELATIVO_PCT)} %.",
+        bold=False,
+    )
+    tbl_err = doc.add_table(rows=4, cols=2)
+    tbl_err.style = "Table Grid"
+    _fill_header_row(tbl_err, ["Métrica", "Valor"])
+    _fill_row(tbl_err, 1, ["Δ Itron", f"{_fmt_m3(ITRON_DELTA_M3)} m³"])
+    _fill_row(tbl_err, 2, ["Δ Ultrasónico (NET×0,01)", f"{_fmt_m3(US_DELTA_M3)} m³"])
+    _fill_row(
+        tbl_err,
+        3,
+        [
+            "Diferencia absoluta | US − Itron |",
+            f"{_fmt_m3(DELTA_ITRON_VS_US_M3)} m³",
+        ],
+    )
+    doc.add_paragraph()
+    _bullet(
+        doc,
+        f"Error relativo: {_fmt_pct(ERROR_RELATIVO_PCT)} % "
+        f"(Itron midió {_fmt_pct(ERROR_RELATIVO_PCT)} % menos que el ultrasónico en ese tramo).",
+    )
+
+    _add_heading(doc, "6.4 Contraste con app WES (mismo día)", level=2)
     tbl_inst = doc.add_table(rows=3, cols=4)
     tbl_inst.style = "Table Grid"
     _fill_header_row(tbl_inst, ["Hora", "Foto ultrasónico", "App WES (m³ en esa hora)", "Veredicto"])
@@ -561,9 +712,9 @@ def generar_informe(out_dir: Path) -> Path:
         tbl_inst,
         1,
         [
-            "11:50",
-            f"Flow {US_FLOW_1150} m³/h · NET {US_NET_1150:,.2f} m³".replace(",", "."),
-            f"Hora 11: {APP_HORA_11} m³",
+            HORA_INICIO,
+            f"Flow {_fmt_m3(US_FLOW_1150, 3)} m³/h · NET {_fmt_m3(US_NET_1150)} m³",
+            f"Hora 11: {_fmt_m3(APP_HORA_11)} m³",
             "No cuadra (config aún incorrecta)",
         ],
     )
@@ -571,50 +722,57 @@ def generar_informe(out_dir: Path) -> Path:
         tbl_inst,
         2,
         [
-            "15:00",
-            f"Flow {US_FLOW_1500} m³/h · NET {US_NET_1500:,.2f} m³".replace(",", "."),
-            f"Hora 15: {APP_HORA_15} m³",
-            "Cuadra (~8 % vs caudal de foto)",
+            HORA_CIERRE,
+            f"Flow {_fmt_m3(US_FLOW_1500, 3)} m³/h · NET {_fmt_m3(US_NET_1500)} m³",
+            f"Hora 15: {_fmt_m3(APP_HORA_15)} m³",
+            "Cuadra (desvío ~7,3 % vs caudal de foto)",
         ],
     )
     doc.add_paragraph()
-
-    _add_heading(doc, "6.2 Volumen acumulado 11:50 → 15:00", level=2)
-    tbl_vol = doc.add_table(rows=3, cols=2)
+    tbl_vol = doc.add_table(rows=4, cols=2)
     tbl_vol.style = "Table Grid"
-    _fill_header_row(tbl_vol, ["Fuente", "Δ volumen"])
+    _fill_header_row(tbl_vol, ["Fuente", "Δ volumen 11:50 → 15:00"])
+    _fill_row(tbl_vol, 1, ["Itron (odómetro)", f"{_fmt_m3(ITRON_DELTA_M3)} m³"])
+    _fill_row(tbl_vol, 2, ["Ultrasónico (NET × 0,01)", f"{_fmt_m3(US_DELTA_M3)} m³"])
     _fill_row(
         tbl_vol,
-        1,
+        3,
         [
-            "Ultrasónico (NET totalizador)",
-            f"+{US_DELTA_M3} m³ ({US_NET_1500} − {US_NET_1150})",
-        ],
-    )
-    _fill_row(
-        tbl_vol,
-        2,
-        [
-            "App WES (horas 12+13+14 + fracción hora 11)",
-            f"≈ {APP_DELTA_1150_1500} m³",
+            "App WES (10/60·h11 + h12 + h13 + h14)",
+            f"{_fmt_m3(APP_DELTA_1150_1500, 3)} m³",
         ],
     )
     doc.add_paragraph()
     _p(
         doc,
-        "La app queda algo bajo el NET del ultrasónico porque el tramo incluye la mañana con "
-        f"configuración incorrecta y la hora 14 casi en cero ({APP_HORA_14} m³), coherente con "
-        "intervención en terreno. Lo decisivo: a las 11:50 la app no reflejaba el caudal real; "
-        "a las 15:00 ultrasónico y app ya están alineados.",
+        f"La app ({_fmt_m3(APP_DELTA_1150_1500, 3)} m³) queda bajo el NET del ultrasónico "
+        f"({_fmt_m3(US_DELTA_M3)} m³) porque el tramo incluye la mañana mal configurada y la hora 14 "
+        f"casi en cero ({_fmt_m3(APP_HORA_14)} m³), coherente con trabajo en terreno. A las "
+        f"{HORA_INICIO} la app no reflejaba el caudal real ({_fmt_m3(US_FLOW_1150, 3)} m³/h en foto vs "
+        f"{_fmt_m3(APP_HORA_11)} m³ en hora 11); a las {HORA_CIERRE} el caudal de foto "
+        f"({_fmt_m3(US_FLOW_1500, 3)} m³/h) es coherente con la hora 15 de app ({_fmt_m3(APP_HORA_15)} m³).",
     )
 
-    _add_heading(doc, "6.3 Evidencia fotográfica de validación", level=2)
-    # Copiar fotos de validación al out_dir
+    _add_heading(doc, "6.5 Evidencia fotográfica", level=2)
     fotos_val = [
-        (FOTO_ITRON_1150, "Figura 3. Itron Flostar S — 11:50 (inicio)."),
-        (FOTO_US_1150, "Figura 4. Ultrasónico FZ ESVAL — 11:50 · Flow 17,183 m³/h · NET 18.119,06 m³."),
-        (FOTO_ITRON_1500, "Figura 5. Itron Flostar S — 15:00 (cierre)."),
-        (FOTO_US_1500, "Figura 6. Ultrasónico FZ ESVAL — 15:00 · Flow 10,648 m³/h · NET 18.141,45 m³."),
+        (
+            FOTO_ITRON_1150,
+            f"Figura 3. Itron Flostar S — {HORA_INICIO}. Lectura {_fmt_m3(ITRON_1150_M3)} m³.",
+        ),
+        (
+            FOTO_US_1150,
+            f"Figura 4. Ultrasónico FZ ESVAL — {HORA_INICIO}. Flow {_fmt_m3(US_FLOW_1150, 3)} m³/h · "
+            f"NET {US_NET_CRUDO_1150} × 0,01 = {_fmt_m3(US_NET_1150)} m³.",
+        ),
+        (
+            FOTO_ITRON_1500,
+            f"Figura 5. Itron Flostar S — {HORA_CIERRE}. Lectura {_fmt_m3(ITRON_1500_M3)} m³.",
+        ),
+        (
+            FOTO_US_1500,
+            f"Figura 6. Ultrasónico FZ ESVAL — {HORA_CIERRE}. Flow {_fmt_m3(US_FLOW_1500, 3)} m³/h · "
+            f"NET {US_NET_CRUDO_1500} × 0,01 = {_fmt_m3(US_NET_1500)} m³.",
+        ),
     ]
     for src, caption in fotos_val:
         if not src.is_file():
@@ -631,25 +789,38 @@ def generar_informe(out_dir: Path) -> Path:
         "tubería y la silicona mejoraron DN/UP y Q, pero no el volumen. La corrección a "
         f"{DIAMETRO_ESVAL_MM} mm + mortero {ESPESOR_MORTERO_MM} mm redujo la diferencia a ~"
         f"{DIFERENCIA_LITROS_POST_CONFIG} L. El factor de escala calculado "
-        f"({M45_CALCULADO}) no pudo aplicarse completo por el máximo del equipo "
-        f"({M45_MAXIMO_EQUIPO}); con el tope la diferencia bajó a ~{DIFERENCIA_LITROS_POST_M45} L. "
-        f"El aumento de diámetro en {INCREMENTO_DIAMETRO_PCT} % "
-        f"({DIAMETRO_ESVAL_MM} → {DIAMETRO_FINAL_MM} mm), según recomendación del manual, cerró "
-        "la desviación: ambos medidores quedaron en el mismo ciclo de lectura y sin error entre ellos. "
-        "La validación vs app WES confirma que a las 15:00 el caudal del ultrasónico ya es coherente "
-        "con la plataforma.",
+        f"({_fmt_m3(M45_CALCULADO, 4)}) no pudo aplicarse completo por el máximo del equipo "
+        f"({_fmt_m3(M45_MAXIMO_EQUIPO, 1)}); con el tope la diferencia bajó a ~"
+        f"{DIFERENCIA_LITROS_POST_M45} L. El aumento de diámetro en {INCREMENTO_DIAMETRO_PCT} % "
+        f"({DIAMETRO_ESVAL_MM} → {DIAMETRO_FINAL_MM} mm) alineó ambos medidores en el mismo ciclo "
+        "de lectura en terreno.",
+    )
+    _p(
+        doc,
+        f"Sobre el tramo fotográfico {HORA_INICIO}–{HORA_CIERRE} del {VAL_FECHA}: pasaron "
+        f"{_fmt_m3(ITRON_DELTA_M3)} m³ por Itron y {_fmt_m3(US_DELTA_M3)} m³ por ultrasónico "
+        f"(NET×0,01), con error relativo "
+        f"1 − ({_fmt_m3(ITRON_DELTA_M3)}/{_fmt_m3(US_DELTA_M3)}) = {_fmt_pct(ERROR_RELATIVO_PCT)} % "
+        f"(diferencia absoluta {_fmt_m3(DELTA_ITRON_VS_US_M3)} m³). Ese porcentaje corresponde al "
+        "intervalo completo de la visita (incluye pre-ajuste). La app WES a las 15:00 ya es "
+        "coherente con el caudal instantáneo del ultrasónico.",
     )
 
     pie = doc.add_paragraph()
     pie.paragraph_format.space_before = Pt(18)
     run = pie.add_run(
         "Documento generado para uso interno del equipo WES. No constituye informe de cliente "
-        "ni certificado de calibración."
+        "ni certificado de calibración. Cifras de §6 tomadas de evidencia fotográfica del "
+        f"{VAL_FECHA}; consumo horario app vía API WES nodo {NODE_ID}."
     )
     _set_run_font(run, size=9, color=_MUTED)
 
     doc.save(out_docx)
     print(f"[OK] Word: {out_docx}")
+    print(
+        f"[CIFRAS] Itron Δ={ITRON_DELTA_M3} | US Δ={US_DELTA_M3} | "
+        f"error={ERROR_RELATIVO_PCT}% | |US-Itron|={DELTA_ITRON_VS_US_M3}"
+    )
     return out_docx
 
 
