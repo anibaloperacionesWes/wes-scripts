@@ -52,18 +52,31 @@ TIPO_PUNTO = "punto"  # hoja / medidor
 # parent = nodeId padre; si parent es None → raíz de esa red/sitio
 # ---------------------------------------------------------------------------
 
-# Fundo Zapallar: Matriz ESVAL alimenta el resto.
-# Etapas 1–3 son detalle de Etapa N°1 al 4 (sub-sectorización).
+# Fundo Zapallar:
+# ESVAL → Inferior → Superior (sin medición) → Etapa 5 | Etapa 1–4 → etapas 1/2/3.
+# 000027-09 mide carga del estanque de riego desde un pozo (no desde ESVAL).
+VIRTUAL_FZ_SUP = "virtual:000027-superior"
+
+VIRTUAL_NODES: Dict[str, Dict[str, str]] = {
+    VIRTUAL_FZ_SUP: {
+        "name": "Estanque Superior (sin medición)",
+        "nota": (
+            "No monitoreado: la salida del Estanque Inferior equivale al llenado "
+            "del Superior; de aquí salen Etapa N°5 y Etapa N°1 al 4."
+        ),
+    },
+}
+
 HIERARCHY_FUNDO_ZAPALLAR: Dict[str, Optional[str]] = {
-    "000027-01": None,  # Matriz ESVAL (raíz)
+    "000027-01": None,  # Matriz ESVAL
     "000027-02": "000027-01",  # Estanque Inferior
-    "000027-03": "000027-01",  # Etapa N°5
-    "000027-04": "000027-01",  # Etapa N°1 al 4
-    "000027-05": "000027-01",  # Riego
+    VIRTUAL_FZ_SUP: "000027-02",  # Superior (virtual)
+    "000027-03": VIRTUAL_FZ_SUP,  # Etapa N°5
+    "000027-04": VIRTUAL_FZ_SUP,  # Etapa N°1 al 4
     "000027-06": "000027-04",  # Etapa N°1
     "000027-07": "000027-04",  # Etapa N°2
     "000027-08": "000027-04",  # Etapa N°3
-    "000027-09": "000027-01",  # Riego Llenado de Estanque ESVAL
+    "000027-09": None,  # Riego Llenado — carga desde pozo
 }
 
 # Nido de Águilas: Estanque C (sanitaria) carga B y A; B alimenta Teatro/HS/Elementary;
@@ -107,6 +120,14 @@ NODE_NOTAS: Dict[str, str] = {
     "000025-22": "Alimenta Distrito de lujo (DL); a veces también Sandia Nueva.",
     "000025-28": "A veces abastece Distrito de lujo (DL) junto / en lugar de Sandia Antigua.",
     "000025-27": "Distrito de lujo — alimentado por Sandia Antigua (y a veces Nueva).",
+    "000027-02": (
+        "Alimenta el Estanque Superior (sin medición): la salida del Inferior "
+        "equivale al llenado del Superior."
+    ),
+    "000027-09": (
+        "Mide la carga del estanque de riego que viene desde un pozo "
+        "(no desde la Matriz ESVAL)."
+    ),
 }
 
 # COPEC: Matriz Principal (Pomelo) alimenta Costanera, admin, Pronto (antes de
@@ -362,6 +383,7 @@ NODOS_EXCLUIDOS_DASHBOARD = {
     "000017-02",  # Juana Atala de Hirmas
     "000017-03",  # José Luis Araneda
     "000021-08",  # Rugby CDUC
+    "000027-05",  # Riego Fundo Zapallar — ya no corre
     "000022-01",  # Juan Pablo II (Las Condes)
     # Parque Arauco — dados de baja / Curauma 15-16 (CUR anillos sí van)
     "000025-03",  # Poniente 7
@@ -576,6 +598,12 @@ def _build_from_parent_map(
     """Arma un bosque a partir de parent_of[nodeId] = parentNodeId | None."""
     nodes = _filter_nodes(nodes)
     by_id = {n["nodeId"]: n for n in nodes}
+
+    # Inyectar nodos virtuales referenciados en la jerarquía
+    for vid, meta in VIRTUAL_NODES.items():
+        if vid in parent_of or vid in parent_of.values():
+            by_id[vid] = {"nodeId": vid, "name": meta["name"], "virtual": True}
+
     allowed = set(by_id)
 
     # Si el padre quedó excluido, el nodo sube a raíz
@@ -593,6 +621,14 @@ def _build_from_parent_map(
         if n["nodeId"] not in effective_parent:
             effective_parent[n["nodeId"]] = None
 
+    # Asegurar virtuales listados solo en parent_of
+    for vid in VIRTUAL_NODES:
+        if vid in parent_of and vid not in effective_parent and vid in allowed:
+            parent = parent_of[vid]
+            while parent is not None and parent not in allowed:
+                parent = parent_of.get(parent)
+            effective_parent[vid] = parent
+
     children_map: Dict[Optional[str], List[str]] = {}
     for nid, parent in effective_parent.items():
         children_map.setdefault(parent, []).append(nid)
@@ -601,14 +637,21 @@ def _build_from_parent_map(
         meta = by_id.get(nid, {"nodeId": nid, "name": nid})
         kids = children_map.get(nid, [])
         nombre = _display_name(nid, meta.get("name") or nid)
-        if kids:
+        es_virtual = bool(meta.get("virtual")) or nid.startswith("virtual:")
+        if kids or es_virtual:
             node = {
                 "id": nid,
-                "nodeId": nid,
                 "name": nombre,
-                "tipo": TIPO_RED if effective_parent.get(nid) is None else TIPO_SUBRED,
+                "tipo": TIPO_SUBRED if (es_virtual or effective_parent.get(nid) is not None) else TIPO_RED,
                 "children": [build(c) for c in _sort_children(nid, kids)],
             }
+            if not es_virtual:
+                node["nodeId"] = nid
+            else:
+                node["virtual"] = True
+                vnota = VIRTUAL_NODES.get(nid, {}).get("nota")
+                if vnota:
+                    node["nota"] = vnota
             return _attach_nota(node)
         return _punto_leaf(nid, meta.get("name") or nid)
 

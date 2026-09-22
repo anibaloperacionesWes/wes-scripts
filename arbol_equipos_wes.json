@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-22T19:42:34Z",
+  "generado": "2026-09-22T19:54:32Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -18,7 +18,7 @@
     "total_clientes": 16,
     "puntos_separados": 11,
     "red_con_subredes": 5,
-    "total_nodos_hoja": 97
+    "total_nodos_hoja": 95
   },
   "clientes": [
     {
@@ -106,13 +106,11 @@
             },
             {
               "id": "000007-07",
-              "nodeId": "000007-07",
               "name": "Estanque C",
               "tipo": "red",
               "children": [
                 {
                   "id": "000007-01",
-                  "nodeId": "000007-01",
                   "name": "Estanque B",
                   "tipo": "subred",
                   "children": [
@@ -137,7 +135,8 @@
                       "tipo": "punto",
                       "children": []
                     }
-                  ]
+                  ],
+                  "nodeId": "000007-01"
                 },
                 {
                   "id": "000007-05",
@@ -148,6 +147,7 @@
                   "nota": "Sale del Estanque A (no monitoreado), cargado desde Estanque C; otras dependencias no están claras."
                 }
               ],
+              "nodeId": "000007-07",
               "nota": "Alimentado por medidor de la sanitaria; carga Estanque B y Estanque A (A no se monitorea)."
             },
             {
@@ -292,7 +292,6 @@
             },
             {
               "id": "000009-06",
-              "nodeId": "000009-06",
               "name": "Copec Matriz Principal (Pomelo)",
               "tipo": "red",
               "children": [
@@ -362,7 +361,8 @@
                   "children": [],
                   "nota": "Se alimenta de la matriz; tiene ósmosis que recupera ~90 % hacia estanque de reutilización no monitoreado."
                 }
-              ]
+              ],
+              "nodeId": "000009-06"
             }
           ]
         }
@@ -385,7 +385,6 @@
           "children": [
             {
               "id": "000012-06",
-              "nodeId": "000012-06",
               "name": "Quilicura Matriz Principal",
               "tipo": "red",
               "children": [
@@ -432,6 +431,7 @@
                   "children": []
                 }
               ],
+              "nodeId": "000012-06",
               "nota": "Matriz principal: alimenta toda la red Quilicura; los otros puntos representan una fracción mínima del total."
             }
           ],
@@ -727,13 +727,11 @@
           "children": [
             {
               "id": "000025-01",
-              "nodeId": "000025-01",
               "name": "Estanque Norte Locales Mall",
               "tipo": "red",
               "children": [
                 {
                   "id": "000025-02",
-                  "nodeId": "000025-02",
                   "name": "Abastecimiento Sur Terminal",
                   "tipo": "subred",
                   "children": [
@@ -744,9 +742,11 @@
                       "tipo": "punto",
                       "children": []
                     }
-                  ]
+                  ],
+                  "nodeId": "000025-02"
                 }
-              ]
+              ],
+              "nodeId": "000025-01"
             },
             {
               "id": "000025-04",
@@ -773,7 +773,6 @@
           "children": [
             {
               "id": "000025-20",
-              "nodeId": "000025-20",
               "name": "Impulsión Anden 3-4 Matriz Principal",
               "tipo": "red",
               "children": [
@@ -791,17 +790,16 @@
                   "tipo": "punto",
                   "children": []
                 }
-              ]
+              ],
+              "nodeId": "000025-20"
             },
             {
               "id": "000025-22",
-              "nodeId": "000025-22",
               "name": "Sala de Bomba Sandia Antigua",
               "tipo": "red",
               "children": [
                 {
                   "id": "000025-27",
-                  "nodeId": "000025-27",
                   "name": "Distrito de lujo DL",
                   "tipo": "subred",
                   "children": [
@@ -820,9 +818,11 @@
                       "children": []
                     }
                   ],
+                  "nodeId": "000025-27",
                   "nota": "Distrito de lujo — alimentado por Sandia Antigua (y a veces Nueva)."
                 }
               ],
+              "nodeId": "000025-22",
               "nota": "Alimenta Distrito de lujo (DL); a veces también Sandia Nueva."
             },
             {
@@ -940,68 +940,73 @@
           "children": [
             {
               "id": "000027-01",
-              "nodeId": "000027-01",
               "name": "Matriz ESVAL",
               "tipo": "red",
               "children": [
                 {
                   "id": "000027-02",
-                  "nodeId": "000027-02",
                   "name": "Estanque Inferior",
-                  "tipo": "punto",
-                  "children": []
-                },
-                {
-                  "id": "000027-03",
-                  "nodeId": "000027-03",
-                  "name": "Etapa N°5",
-                  "tipo": "punto",
-                  "children": []
-                },
-                {
-                  "id": "000027-04",
-                  "nodeId": "000027-04",
-                  "name": "Etapa N°1 al 4",
                   "tipo": "subred",
                   "children": [
                     {
-                      "id": "000027-06",
-                      "nodeId": "000027-06",
-                      "name": "Etapa N°1",
-                      "tipo": "punto",
-                      "children": []
-                    },
-                    {
-                      "id": "000027-07",
-                      "nodeId": "000027-07",
-                      "name": "Etapa N°2",
-                      "tipo": "punto",
-                      "children": []
-                    },
-                    {
-                      "id": "000027-08",
-                      "nodeId": "000027-08",
-                      "name": "Etapa N°3",
-                      "tipo": "punto",
-                      "children": []
+                      "id": "virtual:000027-superior",
+                      "name": "Estanque Superior (sin medición)",
+                      "tipo": "subred",
+                      "children": [
+                        {
+                          "id": "000027-03",
+                          "nodeId": "000027-03",
+                          "name": "Etapa N°5",
+                          "tipo": "punto",
+                          "children": []
+                        },
+                        {
+                          "id": "000027-04",
+                          "name": "Etapa N°1 al 4",
+                          "tipo": "subred",
+                          "children": [
+                            {
+                              "id": "000027-06",
+                              "nodeId": "000027-06",
+                              "name": "Etapa N°1",
+                              "tipo": "punto",
+                              "children": []
+                            },
+                            {
+                              "id": "000027-07",
+                              "nodeId": "000027-07",
+                              "name": "Etapa N°2",
+                              "tipo": "punto",
+                              "children": []
+                            },
+                            {
+                              "id": "000027-08",
+                              "nodeId": "000027-08",
+                              "name": "Etapa N°3",
+                              "tipo": "punto",
+                              "children": []
+                            }
+                          ],
+                          "nodeId": "000027-04"
+                        }
+                      ],
+                      "virtual": true,
+                      "nota": "No monitoreado: la salida del Estanque Inferior equivale al llenado del Superior; de aquí salen Etapa N°5 y Etapa N°1 al 4."
                     }
-                  ]
-                },
-                {
-                  "id": "000027-05",
-                  "nodeId": "000027-05",
-                  "name": "Riego",
-                  "tipo": "punto",
-                  "children": []
-                },
-                {
-                  "id": "000027-09",
-                  "nodeId": "000027-09",
-                  "name": "Riego Llenado de Estanque ESVAL",
-                  "tipo": "punto",
-                  "children": []
+                  ],
+                  "nodeId": "000027-02",
+                  "nota": "Alimenta el Estanque Superior (sin medición): la salida del Inferior equivale al llenado del Superior."
                 }
-              ]
+              ],
+              "nodeId": "000027-01"
+            },
+            {
+              "id": "000027-09",
+              "nodeId": "000027-09",
+              "name": "Riego Llenado de Estanque ESVAL",
+              "tipo": "punto",
+              "children": [],
+              "nota": "Mide la carga del estanque de riego que viene desde un pozo (no desde la Matriz ESVAL)."
             }
           ]
         }
