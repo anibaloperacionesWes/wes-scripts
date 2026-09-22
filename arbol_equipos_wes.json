@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generado": "2026-09-22T12:13:32Z",
+  "generado": "2026-09-22T13:41:25Z",
   "modelo": {
     "topologias": {
       "puntos_separados": "Cliente con uno o varios medidores independientes (sin relación hidráulica padre→hijo).",
@@ -293,7 +293,7 @@
             {
               "id": "000009-06",
               "nodeId": "000009-06",
-              "name": "Copec Matriz Principal",
+              "name": "Copec Matriz Principal (Pomelo)",
               "tipo": "red",
               "children": [
                 {
@@ -337,7 +337,8 @@
                   "nodeId": "000009-08",
                   "name": "Copec Pronto Baños",
                   "tipo": "punto",
-                  "children": []
+                  "children": [],
+                  "nota": "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
                 },
                 {
                   "id": "000009-09",
@@ -360,7 +361,8 @@
                   "nodeId": "000009-11",
                   "name": "Copec Pronto Tienda",
                   "tipo": "punto",
-                  "children": []
+                  "children": [],
+                  "nota": "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
                 }
               ]
             }

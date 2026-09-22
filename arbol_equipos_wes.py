@@ -92,6 +92,12 @@ NODE_NOTAS: Dict[str, str] = {
         "Solo alimenta el sistema de lavados cuando falla la ósmosis. "
         "El estanque de reutilización de ósmosis (90 %) no se monitorea."
     ),
+    "000009-08": (
+        "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
+    ),
+    "000009-11": (
+        "Toma de Matriz Copec Pomelo, justo antes del Estanque Reutilización."
+    ),
     "000009-09": (
         "Se alimenta de la matriz; tiene ósmosis que recupera ~90 % hacia "
         "estanque de reutilización no monitoreado."
@@ -109,18 +115,19 @@ NODE_NOTAS: Dict[str, str] = {
     "000025-27": "Distrito de lujo — alimentado por Sandia Antigua (y a veces Nueva).",
 }
 
-# COPEC: Matriz Principal alimenta Costanera, admin, Pronto y lavados.
+# COPEC: Matriz Principal (Pomelo) alimenta Costanera, admin, Pronto (antes de
+# reutilización) y lavados.
 HIERARCHY_COPEC: Dict[str, Optional[str]] = {
-    "000009-06": None,  # Matriz Principal
+    "000009-06": None,  # Matriz Principal (Pomelo)
     "000009-00": "000009-06",  # Costanera
     "000009-01": "000009-06",  # Oficina Admin.
-    "000009-08": "000009-06",  # Pronto Baños
-    "000009-11": "000009-06",  # Pronto Tienda
+    "000009-08": "000009-06",  # Pronto Baños (Pomelo, antes de reutilización)
+    "000009-11": "000009-06",  # Pronto Tienda (Pomelo, antes de reutilización)
+    "000009-02": "000009-06",  # Estanque Reutilización
     "000009-03": "000009-06",  # Lavado Automático Norte
     "000009-04": "000009-06",  # Lavado Automático Sur
     "000009-09": "000009-06",  # Lavado Auto servicio Norte
     "000009-10": "000009-06",  # Lavado Auto servicio Sur
-    "000009-02": "000009-06",  # Estanque Reutilización (backup ósmosis)
     "000009-05": None,  # Riego (independiente / pendiente)
 }
 
@@ -163,7 +170,24 @@ PA_MALL_CODIGO: Dict[str, str] = {
 }
 
 DISPLAY_NAME_OVERRIDES: Dict[str, str] = {
+    "000009-06": "Copec Matriz Principal (Pomelo)",
     "000020-05": "Agunsa sucursal San Antonio",
+}
+
+# Orden preferido de hijos bajo un padre (nodeId → lista ordenada de hijos).
+CHILD_ORDER: Dict[str, List[str]] = {
+    # Pronto Baños/Tienda son de Matriz Pomelo, justo antes de Reutilización.
+    "000009-06": [
+        "000009-00",  # Costanera
+        "000009-01",  # Oficina Admin.
+        "000009-08",  # Pronto Baños
+        "000009-11",  # Pronto Tienda
+        "000009-02",  # Estanque Reutilización
+        "000009-03",  # Lavado Automático Norte
+        "000009-04",  # Lavado Automático Sur
+        "000009-09",  # Lavado Auto servicio Norte
+        "000009-10",  # Lavado Auto servicio Sur
+    ],
 }
 
 # Mall → nodos (misma fuente que generar_reporte_word.get_mall_name_for_parque_arauco)
@@ -530,6 +554,15 @@ def _cliente_multisitio(company: Dict[str, Any], cfg: Dict[str, Any]) -> List[Di
     ]
 
 
+def _sort_children(parent_id: Optional[str], kids: List[str]) -> List[str]:
+    """Ordena hijos: CHILD_ORDER si existe; el resto alfabético al final."""
+    preferred = CHILD_ORDER.get(parent_id or "", [])
+    if not preferred:
+        return sorted(kids)
+    rank = {nid: i for i, nid in enumerate(preferred)}
+    return sorted(kids, key=lambda nid: (0, rank[nid]) if nid in rank else (1, nid))
+
+
 def _build_from_parent_map(
     nodes: List[Dict[str, str]],
     parent_of: Dict[str, Optional[str]],
@@ -568,7 +601,7 @@ def _build_from_parent_map(
                 "nodeId": nid,
                 "name": nombre,
                 "tipo": TIPO_RED if effective_parent.get(nid) is None else TIPO_SUBRED,
-                "children": [build(c) for c in sorted(kids)],
+                "children": [build(c) for c in _sort_children(nid, kids)],
             }
             return _attach_nota(node)
         return _punto_leaf(nid, meta.get("name") or nid)
@@ -580,7 +613,7 @@ def _build_from_parent_map(
         if nid not in seen:
             seen.add(nid)
             ordered.append(nid)
-    return [build(nid) for nid in sorted(ordered)]
+    return [build(nid) for nid in _sort_children(None, ordered)]
 
 
 def _cliente_puntos_separados(company: Dict[str, Any]) -> Dict[str, Any]:
