@@ -66,6 +66,24 @@ M45_MAXIMO_EQUIPO = 1.5
 EVIDENCIAS = ROOT / "reports" / "Fundo_Zapallar" / "Informes_Tecnicos" / "_evidencias"
 FOTO_CANERIA = EVIDENCIAS / "caneria_EN545_DN100_PN16.jpg"
 FOTO_FORMULA_M45 = EVIDENCIAS / "formula_factor_escala_M45.jpg"
+FOTO_ITRON_1150 = EVIDENCIAS / "itron_1150.jpg"
+FOTO_US_1150 = EVIDENCIAS / "ultrasonido_1150.jpg"
+FOTO_ITRON_1500 = EVIDENCIAS / "itron_1500.jpg"
+FOTO_US_1500 = EVIDENCIAS / "ultrasonido_1500.jpg"
+
+# Validación corta foto vs app (22-09-2026)
+VAL_FECHA = "22-09-2026"
+US_FLOW_1150 = 17.183
+US_NET_1150 = 18119.06  # 1811906 × 0.01
+US_FLOW_1500 = 10.648
+US_NET_1500 = 18141.45  # 1814145 × 0.01
+US_DELTA_M3 = round(US_NET_1500 - US_NET_1150, 2)  # 22.39
+APP_HORA_11 = 0.25
+APP_HORA_12 = 7.66
+APP_HORA_13 = 10.01
+APP_HORA_14 = 0.55
+APP_HORA_15 = 9.87
+APP_DELTA_1150_1500 = round(APP_HORA_11 * (10 / 60) + APP_HORA_12 + APP_HORA_13 + APP_HORA_14, 3)  # ≈18.262
 
 
 def _set_run_font(run, *, size: int = 11, bold: bool = False, color: RGBColor | None = None) -> None:
@@ -527,7 +545,86 @@ def generar_informe(out_dir: Path) -> Path:
         "respecto de la referencia ESVAL en los días posteriores.",
     )
 
-    _add_heading(doc, "6. Conclusión", level=1)
+    _add_heading(doc, "6. Validación corta: fotos de terreno vs app WES", level=1)
+    _p(
+        doc,
+        f"Fecha {VAL_FECHA}, nodo {NODE_ID} ({NODO_NOMBRE}). Se contrastaron lecturas fotografiadas "
+        "a las 11:50 (inicio, pre-ajuste) y a las 15:00 (cierre) contra el consumo horario de la "
+        "app WES (API dates.measures).",
+    )
+
+    _add_heading(doc, "6.1 Caudal instantáneo ultrasónico vs app", level=2)
+    tbl_inst = doc.add_table(rows=3, cols=4)
+    tbl_inst.style = "Table Grid"
+    _fill_header_row(tbl_inst, ["Hora", "Foto ultrasónico", "App WES (m³ en esa hora)", "Veredicto"])
+    _fill_row(
+        tbl_inst,
+        1,
+        [
+            "11:50",
+            f"Flow {US_FLOW_1150} m³/h · NET {US_NET_1150:,.2f} m³".replace(",", "."),
+            f"Hora 11: {APP_HORA_11} m³",
+            "No cuadra (config aún incorrecta)",
+        ],
+    )
+    _fill_row(
+        tbl_inst,
+        2,
+        [
+            "15:00",
+            f"Flow {US_FLOW_1500} m³/h · NET {US_NET_1500:,.2f} m³".replace(",", "."),
+            f"Hora 15: {APP_HORA_15} m³",
+            "Cuadra (~8 % vs caudal de foto)",
+        ],
+    )
+    doc.add_paragraph()
+
+    _add_heading(doc, "6.2 Volumen acumulado 11:50 → 15:00", level=2)
+    tbl_vol = doc.add_table(rows=3, cols=2)
+    tbl_vol.style = "Table Grid"
+    _fill_header_row(tbl_vol, ["Fuente", "Δ volumen"])
+    _fill_row(
+        tbl_vol,
+        1,
+        [
+            "Ultrasónico (NET totalizador)",
+            f"+{US_DELTA_M3} m³ ({US_NET_1500} − {US_NET_1150})",
+        ],
+    )
+    _fill_row(
+        tbl_vol,
+        2,
+        [
+            "App WES (horas 12+13+14 + fracción hora 11)",
+            f"≈ {APP_DELTA_1150_1500} m³",
+        ],
+    )
+    doc.add_paragraph()
+    _p(
+        doc,
+        "La app queda algo bajo el NET del ultrasónico porque el tramo incluye la mañana con "
+        f"configuración incorrecta y la hora 14 casi en cero ({APP_HORA_14} m³), coherente con "
+        "intervención en terreno. Lo decisivo: a las 11:50 la app no reflejaba el caudal real; "
+        "a las 15:00 ultrasónico y app ya están alineados.",
+    )
+
+    _add_heading(doc, "6.3 Evidencia fotográfica de validación", level=2)
+    # Copiar fotos de validación al out_dir
+    fotos_val = [
+        (FOTO_ITRON_1150, "Figura 3. Itron Flostar S — 11:50 (inicio)."),
+        (FOTO_US_1150, "Figura 4. Ultrasónico FZ ESVAL — 11:50 · Flow 17,183 m³/h · NET 18.119,06 m³."),
+        (FOTO_ITRON_1500, "Figura 5. Itron Flostar S — 15:00 (cierre)."),
+        (FOTO_US_1500, "Figura 6. Ultrasónico FZ ESVAL — 15:00 · Flow 10,648 m³/h · NET 18.141,45 m³."),
+    ]
+    for src, caption in fotos_val:
+        if not src.is_file():
+            continue
+        dst = out_dir / src.name
+        if not dst.is_file():
+            shutil.copy2(src, dst)
+        _add_figure(doc, dst, caption, width_cm=11.5)
+
+    _add_heading(doc, "7. Conclusión", level=1)
     _p(
         doc,
         "El desvío inicial no se explica por calidad de señal ni por cableado. La limpieza de "
@@ -538,7 +635,9 @@ def generar_informe(out_dir: Path) -> Path:
         f"({M45_MAXIMO_EQUIPO}); con el tope la diferencia bajó a ~{DIFERENCIA_LITROS_POST_M45} L. "
         f"El aumento de diámetro en {INCREMENTO_DIAMETRO_PCT} % "
         f"({DIAMETRO_ESVAL_MM} → {DIAMETRO_FINAL_MM} mm), según recomendación del manual, cerró "
-        "la desviación: ambos medidores quedaron en el mismo ciclo de lectura y sin error entre ellos.",
+        "la desviación: ambos medidores quedaron en el mismo ciclo de lectura y sin error entre ellos. "
+        "La validación vs app WES confirma que a las 15:00 el caudal del ultrasónico ya es coherente "
+        "con la plataforma.",
     )
 
     pie = doc.add_paragraph()
