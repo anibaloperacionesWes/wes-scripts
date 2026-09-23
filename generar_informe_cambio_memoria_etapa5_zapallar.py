@@ -1,9 +1,11 @@
 """
 Informe corto — cambio de memoria placa / Etapa N°5 Fundo Zapallar.
 
-Validación lectura mecánica vs consumo (API WES + hueco leído de placa):
+Validación al estilo Informe Interno Matriz ESVAL:
   - Inicio: lectura 22/09/2026 14:30 → mitad del consumo hora 14.
-  - Fin: lectura 23/09/2026 16:54 → consumo hasta las 16:00.
+  - Fin: foto 23/09/2026 16:54 → consumo WES hasta las 16:00.
+  - Tablas resumen (lectura / consumo / % error); sin tabla de huecos horarios.
+  - Fotos compactas (~5,6 cm) lado a lado.
 
 Uso:
   python generar_informe_cambio_memoria_etapa5_zapallar.py
@@ -87,6 +89,8 @@ HRI_PULSO_DN40_125_L = 100
 
 FOTO_AYER = FOTOS_DIR / "lectura_20260922_1430_sensus_5144.png"
 FOTO_HOY = FOTOS_DIR / "lectura_20260923_1654_sensus_5177.png"
+# Mismo tamaño que Informe Interno Calidad Señal ESVAL (~2,21 in / 5,6 cm)
+FOTO_ANCHO = Inches(2.21)
 
 
 @dataclass
@@ -127,6 +131,92 @@ def _shade_cell(cell, hex_color: str) -> None:
 
 def _fmt(n: float, dec: int = 1) -> str:
     return f"{n:,.{dec}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _style_table_cell(cell, *, bold: bool = False, size: int = 9, white: bool = False) -> None:
+    for para in cell.paragraphs:
+        for run in para.runs:
+            _set_run_font(
+                run,
+                bold=bold,
+                size=size,
+                color=RGBColor(255, 255, 255) if white else None,
+            )
+
+
+def _add_fotos_lado_a_lado(
+    doc: Document,
+    path_izq: Path,
+    caption_izq: str,
+    path_der: Path,
+    caption_der: str,
+) -> None:
+    """Fotos compactas en 2 columnas (mismo layout que informe ESVAL)."""
+    tbl = doc.add_table(rows=2, cols=2)
+    tbl.autofit = True
+    for col_i, (path, caption) in enumerate(
+        ((path_izq, caption_izq), (path_der, caption_der))
+    ):
+        cell_img = tbl.rows[0].cells[col_i]
+        cell_img.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if path.is_file():
+            run = cell_img.paragraphs[0].add_run()
+            run.add_picture(str(path), width=FOTO_ANCHO)
+        cell_cap = tbl.rows[1].cells[col_i]
+        cell_cap.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = cell_cap.paragraphs[0].add_run(caption)
+        _set_run_font(r, size=8, color=RGBColor(90, 90, 90))
+
+
+def _add_tabla_validacion_7(
+    doc: Document,
+    titulo: str,
+    analisis: str,
+    fecha_ini: str,
+    lectura_ini: str,
+    fecha_fin: str,
+    lectura_fin: str,
+    consumo: str,
+    horas: str,
+) -> None:
+    """Tabla 7 columnas estilo Informe Interno Matriz ESVAL."""
+    t = doc.add_table(rows=3, cols=7)
+    t.style = "Table Grid"
+    t.rows[0].cells[0].merge(t.rows[0].cells[6])
+    t.rows[0].cells[0].text = titulo
+    headers = [
+        "ANÁLISIS",
+        "FECHA INICIAL",
+        "LECTURA (m³)",
+        "FECHA FINAL",
+        "LECTURA (m³)",
+        "CONSUMO m³",
+        "HORAS",
+    ]
+    for j, htxt in enumerate(headers):
+        t.rows[1].cells[j].text = htxt
+    vals = [analisis, fecha_ini, lectura_ini, fecha_fin, lectura_fin, consumo, horas]
+    for j, v in enumerate(vals):
+        t.rows[2].cells[j].text = v
+    for ri in range(3):
+        for cell in t.rows[ri].cells:
+            bold = ri < 2
+            white = ri < 2
+            if ri < 2:
+                _shade_cell(cell, "1F4788")
+            # re-apply runs after setting .text
+            for para in cell.paragraphs:
+                if not para.runs and para.text:
+                    para.text = ""
+            # python-docx keeps text in runs after .text=; restyle:
+            for para in cell.paragraphs:
+                for run in para.runs:
+                    _set_run_font(
+                        run,
+                        bold=bold,
+                        size=8,
+                        color=RGBColor(255, 255, 255) if white else None,
+                    )
 
 
 def obtener_api_por_hora() -> Dict[datetime, float]:
@@ -192,13 +282,18 @@ def calcular_validacion(lectura_ayer: float, lectura_hoy: float) -> Validacion:
 
     delta = lectura_hoy - lectura_ayer
     dif = delta - total
-    pct = (dif / delta * 100.0) if delta else 0.0
-    if abs(pct) <= 5:
-        estado = "OK — diferencia ≤ 5 %"
-    elif abs(pct) <= 15:
-        estado = "ACEPTABLE — diferencia moderada (hueco placa + corte 16:00 vs foto 16:54)"
+    # Estilo ESVAL: % Error = |1 − (lectura / serie)| o |1 − (serie / lectura)|
+    # Se reporta el valor absoluto respecto al mayor de ambos.
+    if delta and total:
+        pct = abs(1.0 - (min(delta, total) / max(delta, total))) * 100.0
     else:
-        estado = "REVISAR — diferencia relevante"
+        pct = 0.0
+    if pct <= 5:
+        estado = "Aceptable"
+    elif pct <= 15:
+        estado = "Aceptable (diferencia moderada)"
+    else:
+        estado = "Revisar — diferencia relevante"
 
     return Validacion(
         lectura_ayer=lectura_ayer,
@@ -258,7 +353,7 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         "y de la cadena de pulsos, y verificar voltajes correctos, se concluyó que "
         "el error provenía de la memoria de la placa. Se reemplazó la memoria para "
         "normalizar el punto y evitar recurrencia. Se valida además el consumo con "
-        "lecturas mecánicas del medidor Sensus versus serie WES/placa."
+        "lecturas mecánicas del medidor Sensus versus la app WES."
     )
     _set_run_font(r, size=11)
 
@@ -295,23 +390,14 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     )
     _add_bullet(doc, f"Δ mecánico: {_fmt(val.delta_mecanico, 0)} m³")
 
-    if FOTO_AYER.is_file():
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.add_run().add_picture(str(FOTO_AYER), width=Inches(4.8))
-        cap = doc.add_paragraph()
-        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = cap.add_run(f"Foto ayer — {_fmt(lectura_ayer, 0)} m³ ({LECTURA_AYER_DT.strftime('%d/%m/%Y %H:%M')})")
-        _set_run_font(r, size=9, color=RGBColor(90, 90, 90))
-
-    if FOTO_HOY.is_file():
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.add_run().add_picture(str(FOTO_HOY), width=Inches(4.8))
-        cap = doc.add_paragraph()
-        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = cap.add_run(f"Foto hoy — {_fmt(lectura_hoy, 0)} m³ ({LECTURA_HOY_DT.strftime('%d/%m/%Y %H:%M')})")
-        _set_run_font(r, size=9, color=RGBColor(90, 90, 90))
+    if FOTO_AYER.is_file() or FOTO_HOY.is_file():
+        _add_fotos_lado_a_lado(
+            doc,
+            FOTO_AYER,
+            f"Sensus — {LECTURA_AYER_DT.strftime('%d-%m-%Y %H:%M')} · {_fmt(lectura_ayer, 0)} m³",
+            FOTO_HOY,
+            f"Sensus — {LECTURA_HOY_DT.strftime('%d-%m-%Y %H:%M')} · {_fmt(lectura_hoy, 0)} m³",
+        )
 
     h = doc.add_heading("4. Criterio hidráulico (DN90)", level=1)
     for run in h.runs:
@@ -346,77 +432,62 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
                     for run in para.runs:
                         run.font.color.rgb = RGBColor(255, 255, 255)
 
-    h = doc.add_heading("5. Validación lecturas vs WES/placa", level=1)
+    h = doc.add_heading("5. Cálculo de validación", level=1)
     for run in h.runs:
         run.font.color.rgb = COLOR_TITULO
 
     p = doc.add_paragraph()
     r = p.add_run(
-        "Ventana: lectura ayer 14:30 → mitad del consumo hora 14; lectura hoy "
-        f"(foto {LECTURA_HOY_DT.strftime('%H:%M')}) → consumo hasta las "
-        f"{WES_HASTA_DT.strftime('%H:%M')}. El hueco de API del 22/09 (tarde) se "
-        "completa con valores leídos directo de la placa en terreno."
+        "Validación con lecturas fotográficas del medidor Sensus (Etapa N°5) y el "
+        "consumo registrado en la app WES en el mismo periodo. "
+        f"Criterio de ventana: lectura inicial {LECTURA_AYER_DT.strftime('%d-%m-%Y %H:%M')} "
+        f"(mitad del consumo de la hora 14) → consumo WES hasta las "
+        f"{WES_HASTA_DT.strftime('%H:%M')} del {WES_HASTA_DT.strftime('%d-%m-%Y')} "
+        f"(foto de cierre {LECTURA_HOY_DT.strftime('%H:%M')})."
     )
     _set_run_font(r, size=11)
 
-    p = doc.add_paragraph()
-    r = p.add_run(
-        "Nota de extracción placa: H:15:00 apareció dos veces (0,60 y 2,90). "
-        "Se interpreta 0,60 como hora 14:00 y 2,90 como hora 15:00."
+    horas_ventana = (WES_HASTA_DT - LECTURA_AYER_DT).total_seconds() / 3600.0
+    _add_tabla_validacion_7(
+        doc,
+        "Validación Etapa N°5 — medidor Sensus (lectura mecánica)",
+        NODE_NAME,
+        LECTURA_AYER_DT.strftime("%d-%m-%Y %H:%M"),
+        _fmt(val.lectura_ayer, 0),
+        LECTURA_HOY_DT.strftime("%d-%m-%Y %H:%M"),
+        _fmt(val.lectura_hoy, 0),
+        _fmt(val.delta_mecanico, 2),
+        _fmt(horas_ventana, 1),
     )
-    _set_run_font(r, size=9, color=RGBColor(100, 80, 0))
 
-    rows_data = [
-        ("Concepto", "Valor"),
-        ("Lectura ayer", f"{_fmt(val.lectura_ayer, 0)} m³ @ {LECTURA_AYER_DT.strftime('%d/%m/%Y %H:%M')}"),
-        ("Lectura hoy", f"{_fmt(val.lectura_hoy, 0)} m³ @ {LECTURA_HOY_DT.strftime('%d/%m/%Y %H:%M')}"),
-        ("Δ mecánico", f"{_fmt(val.delta_mecanico, 0)} m³"),
-        ("Consumo WES+placa ventana", f"{_fmt(val.wes_m3, 1)} m³"),
-        (
-            "Diferencia (mecánico − serie)",
-            f"{_fmt(val.diferencia_m3, 1)} m³ ({_fmt(val.diferencia_pct, 1)} %)",
-        ),
-        ("Estado", val.estado),
+    doc.add_paragraph()
+
+    # Comparación resumen estilo ESVAL (Total App vs Total Lectura vs % Error)
+    t_err = doc.add_table(rows=3, cols=2)
+    t_err.style = "Table Grid"
+    err_rows = [
+        ("Total App WES", f"{_fmt(val.wes_m3, 2)} m³"),
+        ("Total Lectura Sensus", f"{_fmt(val.delta_mecanico, 2)} m³"),
+        ("% Error", f"{_fmt(val.diferencia_pct, 1)} %"),
     ]
-    t2 = doc.add_table(rows=len(rows_data), cols=2)
-    t2.style = "Table Grid"
-    for i, (a, b) in enumerate(rows_data):
-        t2.rows[i].cells[0].text = a
-        t2.rows[i].cells[1].text = b
-        for cell in t2.rows[i].cells:
+    for i, (a, b) in enumerate(err_rows):
+        t_err.rows[i].cells[0].text = a
+        t_err.rows[i].cells[1].text = b
+        for cell in t_err.rows[i].cells:
             for para in cell.paragraphs:
                 for run in para.runs:
-                    _set_run_font(run, bold=(i == 0 or a == "Estado"), size=10)
-        if i == 0:
-            for cell in t2.rows[i].cells:
-                _shade_cell(cell, "1F4788")
-                for para in cell.paragraphs:
-                    for run in para.runs:
-                        run.font.color.rgb = RGBColor(255, 255, 255)
+                    _set_run_font(run, bold=(i == 2), size=10)
 
     p = doc.add_paragraph()
-    r = p.add_run("Detalle horario de la ventana:")
-    _set_run_font(r, bold=True, size=10)
-
-    det_rows = [("Hora Chile", "m³ aporte", "Fuente / nota")]
-    for etq, contrib, nota in val.detalle:
-        if contrib == 0 and "mitad" not in nota and "placa" not in nota:
-            continue
-        det_rows.append((etq, _fmt(contrib, 2), nota))
-    t3 = doc.add_table(rows=len(det_rows), cols=3)
-    t3.style = "Table Grid"
-    for i, row in enumerate(det_rows):
-        for j, txt in enumerate(row):
-            t3.rows[i].cells[j].text = txt
-            for para in t3.rows[i].cells[j].paragraphs:
-                for run in para.runs:
-                    _set_run_font(run, bold=(i == 0), size=8)
-        if i == 0:
-            for cell in t3.rows[i].cells:
-                _shade_cell(cell, "1F4788")
-                for para in cell.paragraphs:
-                    for run in para.runs:
-                        run.font.color.rgb = RGBColor(255, 255, 255)
+    # Misma fórmula narrativa que ESVAL: 1 − (menor/mayor)
+    dens = max(val.delta_mecanico, val.wes_m3)
+    num = min(val.delta_mecanico, val.wes_m3)
+    r = p.add_run(
+        f"En base a las lecturas, el rango de error entre la lectura del medidor Sensus "
+        f"y la app WES es de un {_fmt(val.diferencia_pct, 1)} % "
+        f"(1 − {_fmt(num, 2)}/{_fmt(dens, 2)}). {val.estado}."
+    )
+    _set_run_font(r, size=11)
 
     h = doc.add_heading("6. Conclusión", level=1)
     for run in h.runs:
@@ -424,16 +495,18 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     p = doc.add_paragraph()
     r = p.add_run(
         "Se confirma falla de memoria de placa (sensor Sensus/HRI y voltajes OK). "
-        f"Validación post-cambio: Δ mecánico {_fmt(val.delta_mecanico, 0)} m³ vs "
-        f"serie {_fmt(val.wes_m3, 1)} m³ (diferencia {_fmt(val.diferencia_m3, 1)} m³ / "
-        f"{_fmt(val.diferencia_pct, 1)} %). {val.estado}. "
-        f"Seguimiento diario matutino del nodo {NODE_ID} con umbral "
+        f"Validación post-cambio: lectura mecánica {_fmt(val.delta_mecanico, 2)} m³ vs "
+        f"app WES {_fmt(val.wes_m3, 2)} m³ (% error {_fmt(val.diferencia_pct, 1)} %). "
+        f"{val.estado}. Seguimiento diario matutino del nodo {NODE_ID} con umbral "
         f"{CAUDAL_MAX_REF_M3H:.0f} m³/h (techo DN90)."
     )
     _set_run_font(r, size=11)
 
     p = doc.add_paragraph()
-    r = p.add_run(f"Nota: informe intervención + validación nodo {NODE_ID}.")
+    r = p.add_run(
+        f"Documento interno WES · {COMPANY} · {NODE_NAME} ({NODE_ID}) · "
+        f"generado {ahora.strftime('%d-%m-%Y %H:%M')}."
+    )
     _set_run_font(r, size=9, color=RGBColor(100, 100, 100))
 
     doc.save(out)
