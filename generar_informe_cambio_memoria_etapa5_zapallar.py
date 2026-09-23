@@ -390,15 +390,6 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     )
     _add_bullet(doc, f"Δ mecánico: {_fmt(val.delta_mecanico, 0)} m³")
 
-    if FOTO_AYER.is_file() or FOTO_HOY.is_file():
-        _add_fotos_lado_a_lado(
-            doc,
-            FOTO_AYER,
-            f"Sensus — {LECTURA_AYER_DT.strftime('%d-%m-%Y %H:%M')} · {_fmt(lectura_ayer, 0)} m³",
-            FOTO_HOY,
-            f"Sensus — {LECTURA_HOY_DT.strftime('%d-%m-%Y %H:%M')} · {_fmt(lectura_hoy, 0)} m³",
-        )
-
     h = doc.add_heading("4. Criterio hidráulico (DN90)", level=1)
     for run in h.runs:
         run.font.color.rgb = COLOR_TITULO
@@ -446,6 +437,15 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         f"(foto de cierre {LECTURA_HOY_DT.strftime('%H:%M')})."
     )
     _set_run_font(r, size=11)
+
+    if FOTO_AYER.is_file() or FOTO_HOY.is_file():
+        _add_fotos_lado_a_lado(
+            doc,
+            FOTO_AYER,
+            f"Sensus — {LECTURA_AYER_DT.strftime('%d-%m-%Y %H:%M')} · {_fmt(lectura_ayer, 0)} m³",
+            FOTO_HOY,
+            f"Sensus — {LECTURA_HOY_DT.strftime('%d-%m-%Y %H:%M')} · {_fmt(lectura_hoy, 0)} m³",
+        )
 
     horas_ventana = (WES_HASTA_DT - LECTURA_AYER_DT).total_seconds() / 3600.0
     _add_tabla_validacion_7(
