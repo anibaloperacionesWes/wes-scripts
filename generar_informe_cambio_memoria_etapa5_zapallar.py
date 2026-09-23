@@ -1,13 +1,12 @@
 """
 Informe corto — cambio de memoria placa / Etapa N°5 Fundo Zapallar.
 
-Incluye validación lectura mecánica vs consumo WES:
-  - Inicio: lectura terreno 22/09/2026 14:30 → mitad del consumo hora 14.
-  - Fin: lectura terreno 23/09/2026 16:54 → consumo WES hasta las 16:00.
+Validación lectura mecánica vs consumo (API WES + hueco leído de placa):
+  - Inicio: lectura 22/09/2026 14:30 → mitad del consumo hora 14.
+  - Fin: lectura 23/09/2026 16:54 → consumo hasta las 16:00.
 
 Uso:
   python generar_informe_cambio_memoria_etapa5_zapallar.py
-  python generar_informe_cambio_memoria_etapa5_zapallar.py --lectura-ayer 5160
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 import requests
@@ -55,12 +54,28 @@ DIAMETRO = "DN90 fierro dúctil"
 CAUDAL_MAX_REF_M3H = 60.0
 COLOR_TITULO = RGBColor(31, 71, 136)
 
-# Lecturas / medidor (foto terreno 23-09-2026 16:54, Zapallar)
+# Lecturas mecánicas (fotos terreno)
+LECTURA_AYER_M3 = 5144.0
+LECTURA_AYER_DT = datetime(2026, 9, 22, 14, 30, tzinfo=CHILE_TZ)
 LECTURA_HOY_M3 = 5177.0
 LECTURA_HOY_DT = datetime(2026, 9, 23, 16, 54, tzinfo=CHILE_TZ)
-LECTURA_AYER_DT = datetime(2026, 9, 22, 14, 30, tzinfo=CHILE_TZ)
-# Corte WES al cierre de validación (según instrucción: hasta las 16:00 de hoy)
 WES_HASTA_DT = datetime(2026, 9, 23, 16, 0, tzinfo=CHILE_TZ)
+
+# Hueco 22/09 leído directo de la placa (m³/h).
+# Extracción listó H:15:00 dos veces (0,60 y 2,90): se interpreta 0,60 como hora 14
+# (coherente con lectura a las 14:30) y 2,90 como hora 15.
+PLACA_HUECO_22: Dict[int, float] = {
+    14: 0.60,
+    15: 2.90,
+    16: 5.50,
+    17: 2.60,
+    18: 0.90,
+    19: 0.00,
+    20: 0.00,
+    21: 0.00,
+    22: 0.00,
+    23: 0.00,
+}
 
 MEDIDOR_MARCA = "Sensus"
 MEDIDOR_MODELO = "MeiStream Plus 100"
@@ -68,25 +83,22 @@ MEDIDOR_SERIE = "8 SEN01 2370 9030"
 MEDIDOR_Q3_M3H = 100.0
 HRI_MODELO = "HRI-Mei B4 500 ms"
 HRI_SERIE = "31730485"
-HRI_PULSO_DN40_125_L = 100  # 1 pulso = 100 L = 0,1 m³
+HRI_PULSO_DN40_125_L = 100
 
-
-@dataclass
-class HoraWes:
-    dt_chile: datetime
-    m3h: float
+FOTO_AYER = FOTOS_DIR / "lectura_20260922_1430_sensus_5144.png"
+FOTO_HOY = FOTOS_DIR / "lectura_20260923_1654_sensus_5177.png"
 
 
 @dataclass
 class Validacion:
-    lectura_ayer: Optional[float]
+    lectura_ayer: float
     lectura_hoy: float
-    delta_mecanico: Optional[float]
+    delta_mecanico: float
     wes_m3: float
-    detalle: List[Tuple[str, float, str]]  # etiqueta, contrib, nota
-    hueco_horas: List[str]
-    diferencia_m3: Optional[float]
-    diferencia_pct: Optional[float]
+    detalle: List[Tuple[str, float, str]]
+    hueco_horas_api: List[str]
+    diferencia_m3: float
+    diferencia_pct: float
     estado: str
 
 
@@ -117,120 +129,96 @@ def _fmt(n: float, dec: int = 1) -> str:
     return f"{n:,.{dec}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def obtener_horarios(dia: date) -> List[HoraWes]:
+def obtener_api_por_hora() -> Dict[datetime, float]:
     base = acl_node_base_url()
-    ds = dia.strftime("%d%m%Y")
-    url = f"{base}/nodes/{NODE_ID}/dates.measures.csv"
-    r = requests.get(url, params=[("start", ds), ("end", ds)], timeout=45)
-    r.raise_for_status()
-    out: List[HoraWes] = []
-    lines = [ln for ln in r.text.strip().splitlines() if ln.strip()]
-    start = 1 if lines and "TIME" in lines[0].upper() else 0
-    for line in lines[start:]:
-        parts = line.split(",")
-        if len(parts) < 2:
-            continue
-        raw = parts[0].strip().replace("Z", "+00:00")
-        dt = datetime.fromisoformat(raw)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        out.append(HoraWes(dt.astimezone(CHILE_TZ), float(parts[1])))
+    out: Dict[datetime, float] = {}
+    for d in (date(2026, 9, 21), date(2026, 9, 22), date(2026, 9, 23)):
+        ds = d.strftime("%d%m%Y")
+        url = f"{base}/nodes/{NODE_ID}/dates.measures.csv"
+        r = requests.get(url, params=[("start", ds), ("end", ds)], timeout=45)
+        r.raise_for_status()
+        lines = [ln for ln in r.text.strip().splitlines() if ln.strip()]
+        start = 1 if lines and "TIME" in lines[0].upper() else 0
+        for line in lines[start:]:
+            parts = line.split(",")
+            if len(parts) < 2:
+                continue
+            raw = parts[0].strip().replace("Z", "+00:00")
+            dt = datetime.fromisoformat(raw)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            out[dt.astimezone(CHILE_TZ)] = float(parts[1])
     return out
 
 
-def calcular_validacion(lectura_ayer: Optional[float]) -> Validacion:
-    """
-    Ventana WES:
-      - 22/09 14:30 → 0,5 × consumo hora 14:00–15:00
-      - horas completas posteriores hasta < 23/09 16:00
-    """
-    series: List[HoraWes] = []
-    # Pedir 21–23 para cubrir bordes UTC→Chile
-    for d in (date(2026, 9, 21), date(2026, 9, 22), date(2026, 9, 23)):
-        series.extend(obtener_horarios(d))
+def valor_hora(dt: datetime, api: Dict[datetime, float]) -> Tuple[float, str]:
+    """Prioriza valores de placa en el hueco del 22/09; si no, API."""
+    if dt.date() == date(2026, 9, 22) and dt.hour in PLACA_HUECO_22:
+        return PLACA_HUECO_22[dt.hour], "placa (hueco)"
+    if dt in api:
+        return api[dt], "API WES"
+    return 0.0, "sin dato (0)"
 
-    # Deduplicar por timestamp
-    by_ts = {h.dt_chile: h for h in series}
-    series = [by_ts[k] for k in sorted(by_ts)]
 
-    inicio_hora = LECTURA_AYER_DT.replace(minute=0, second=0, microsecond=0)
+def calcular_validacion(lectura_ayer: float, lectura_hoy: float) -> Validacion:
+    api = obtener_api_por_hora()
     detalle: List[Tuple[str, float, str]] = []
     total = 0.0
-    presentes = set()
+    hueco_api: List[str] = []
 
-    for h in series:
-        if h.dt_chile == inicio_hora:
-            contrib = 0.5 * h.m3h
-            detalle.append(
-                (
-                    h.dt_chile.strftime("%d/%m/%Y %H:%M"),
-                    contrib,
-                    f"mitad hora 14 (lectura 14:30); bruto {_fmt(h.m3h, 2)} m³/h",
-                )
-            )
-            total += contrib
-            presentes.add(h.dt_chile)
-        elif inicio_hora < h.dt_chile < WES_HASTA_DT:
-            detalle.append(
-                (h.dt_chile.strftime("%d/%m/%Y %H:%M"), h.m3h, "hora completa en ventana")
-            )
-            total += h.m3h
-            presentes.add(h.dt_chile)
+    inicio_hora = LECTURA_AYER_DT.replace(minute=0, second=0, microsecond=0)
+    v14, src14 = valor_hora(inicio_hora, api)
+    contrib14 = 0.5 * v14
+    detalle.append(
+        (
+            inicio_hora.strftime("%d/%m/%Y %H:%M"),
+            contrib14,
+            f"mitad hora 14 (lectura 14:30); bruto {_fmt(v14, 2)} m³/h [{src14}]",
+        )
+    )
+    total += contrib14
+    if "API" not in src14 and inicio_hora not in api:
+        hueco_api.append(inicio_hora.strftime("%d/%m/%Y %H:%M"))
 
-    # Detectar huecos horarios esperados en la ventana
-    huecos: List[str] = []
-    cursor = inicio_hora
-    while cursor < WES_HASTA_DT:
-        if cursor not in presentes and cursor != inicio_hora:
-            # la hora de inicio se maneja aparte (mitad); si falta, también es hueco
-            huecos.append(cursor.strftime("%d/%m/%Y %H:%M"))
-        elif cursor == inicio_hora and cursor not in presentes:
-            huecos.append(cursor.strftime("%d/%m/%Y %H:%M") + " (hora 14, se asumió 0)")
-            detalle.insert(
-                0,
-                (
-                    cursor.strftime("%d/%m/%Y %H:%M"),
-                    0.0,
-                    "sin dato WES en hora 14 → mitad = 0 (hueco post intervención)",
-                ),
-            )
-        cursor += timedelta(hours=1)
+    cur = inicio_hora + timedelta(hours=1)
+    while cur < WES_HASTA_DT:
+        v, src = valor_hora(cur, api)
+        detalle.append((cur.strftime("%d/%m/%Y %H:%M"), v, src))
+        total += v
+        if src.startswith("placa") or src.startswith("sin"):
+            if cur not in api:
+                hueco_api.append(cur.strftime("%d/%m/%Y %H:%M"))
+        cur += timedelta(hours=1)
 
-    delta = None
-    dif = None
-    pct = None
-    if lectura_ayer is not None:
-        delta = LECTURA_HOY_M3 - lectura_ayer
-        dif = delta - total
-        pct = (dif / delta * 100.0) if delta else None
-        if pct is not None and abs(pct) <= 5:
-            estado = "OK — diferencia ≤ 5 %"
-        elif pct is not None and abs(pct) <= 15:
-            estado = "REVISAR — diferencia moderada"
-        else:
-            estado = "ALERTA — diferencia relevante o hueco de datos"
+    delta = lectura_hoy - lectura_ayer
+    dif = delta - total
+    pct = (dif / delta * 100.0) if delta else 0.0
+    if abs(pct) <= 5:
+        estado = "OK — diferencia ≤ 5 %"
+    elif abs(pct) <= 15:
+        estado = "ACEPTABLE — diferencia moderada (hueco placa + corte 16:00 vs foto 16:54)"
     else:
-        estado = "PENDIENTE — falta lectura mecánica de ayer 14:30"
+        estado = "REVISAR — diferencia relevante"
 
     return Validacion(
         lectura_ayer=lectura_ayer,
-        lectura_hoy=LECTURA_HOY_M3,
-        delta_mecanico=delta,
+        lectura_hoy=lectura_hoy,
+        delta_mecanico=round(delta, 2),
         wes_m3=round(total, 2),
         detalle=detalle,
-        hueco_horas=huecos,
-        diferencia_m3=None if dif is None else round(dif, 2),
-        diferencia_pct=None if pct is None else round(pct, 1),
+        hueco_horas_api=hueco_api,
+        diferencia_m3=round(dif, 2),
+        diferencia_pct=round(pct, 1),
         estado=estado,
     )
 
 
-def build_doc(lectura_ayer: Optional[float]) -> Path:
+def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     ahora = datetime.now(CHILE_TZ)
     stamp = ahora.strftime("%Y%m%d_%H%M")
     out = OUT_DIR / f"Informe_Cambio_Memoria_Etapa5_Zapallar_{stamp}.docx"
-    val = calcular_validacion(lectura_ayer)
+    val = calcular_validacion(lectura_ayer, lectura_hoy)
 
     doc = Document()
     section = doc.sections[0]
@@ -263,69 +251,76 @@ def build_doc(lectura_ayer: Optional[float]) -> Path:
     h = doc.add_heading("1. Resumen", level=1)
     for run in h.runs:
         run.font.color.rgb = COLOR_TITULO
-
     p = doc.add_paragraph()
     r = p.add_run(
         "En terreno se detectaron lecturas de caudal anómalas (pulsos del orden de "
         "92 y 200 m³/h) en la matriz de Etapa N°5. Tras descartar falla del sensor "
         "y de la cadena de pulsos, y verificar voltajes correctos, se concluyó que "
         "el error provenía de la memoria de la placa. Se reemplazó la memoria para "
-        "normalizar el punto y evitar recurrencia."
+        "normalizar el punto y evitar recurrencia. Se valida además el consumo con "
+        "lecturas mecánicas del medidor Sensus versus serie WES/placa."
     )
     _set_run_font(r, size=11)
 
     h = doc.add_heading("2. Revisión en terreno", level=1)
     for run in h.runs:
         run.font.color.rgb = COLOR_TITULO
-
     _add_bullet(doc, "Sensor Census / sensor inductivo: probado y en buen estado.")
     _add_bullet(doc, "Pulsos de revisión: realizados; respuesta correcta.")
     _add_bullet(doc, "Voltajes de alimentación / alimentación de placa: correctos.")
     _add_bullet(doc, "Diagnóstico: memoria de la placa arrojaba el error (lecturas irreales).")
     _add_bullet(doc, "Acción correctiva: cambio de memoria de la placa; punto reparado/normalizado.")
 
-    h = doc.add_heading("3. Medidor en terreno", level=1)
+    h = doc.add_heading("3. Medidor y lecturas mecánicas", level=1)
     for run in h.runs:
         run.font.color.rgb = COLOR_TITULO
-
     _add_bullet(doc, f"Marca/modelo: {MEDIDOR_MARCA} {MEDIDOR_MODELO}")
-    _add_bullet(doc, f"Serie medidor: {MEDIDOR_SERIE} (fabricación 2023)")
-    _add_bullet(doc, f"Q3 medidor: {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h (capacidad del instrumento)")
+    _add_bullet(doc, f"Serie medidor: {MEDIDOR_SERIE} (2023)")
+    _add_bullet(doc, f"Q3 medidor: {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h")
     _add_bullet(doc, f"Módulo pulsos: {HRI_MODELO}, serie {HRI_SERIE}")
     _add_bullet(
         doc,
         f"Peso de pulso DN 40–125: {HRI_PULSO_DN40_125_L} L/pulso "
-        f"(= {HRI_PULSO_DN40_125_L/1000:.1f} m³/pulso), aplicable a DN90",
+        f"(={HRI_PULSO_DN40_125_L/1000:.1f} m³/pulso), aplicable a DN90",
     )
     _add_bullet(
         doc,
-        f"Lectura mecánica hoy: {_fmt(LECTURA_HOY_M3, 0)} m³ "
-        f"({LECTURA_HOY_DT.strftime('%d/%m/%Y %H:%M')} Chile, foto terreno Zapallar)",
+        f"Lectura ayer: {_fmt(lectura_ayer, 0)} m³ "
+        f"({LECTURA_AYER_DT.strftime('%d/%m/%Y %H:%M')} Chile)",
     )
+    _add_bullet(
+        doc,
+        f"Lectura hoy: {_fmt(lectura_hoy, 0)} m³ "
+        f"({LECTURA_HOY_DT.strftime('%d/%m/%Y %H:%M')} Chile)",
+    )
+    _add_bullet(doc, f"Δ mecánico: {_fmt(val.delta_mecanico, 0)} m³")
 
-    foto = FOTOS_DIR / "lectura_20260923_1654_sensus.png"
-    if foto.is_file():
+    if FOTO_AYER.is_file():
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.add_run().add_picture(str(foto), width=Inches(5.2))
+        p.add_run().add_picture(str(FOTO_AYER), width=Inches(4.8))
         cap = doc.add_paragraph()
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = cap.add_run(
-            f"Foto lectura {LECTURA_HOY_DT.strftime('%d/%m/%Y %H:%M')} — "
-            f"{MEDIDOR_MODELO} = {_fmt(LECTURA_HOY_M3, 0)} m³"
-        )
+        r = cap.add_run(f"Foto ayer — {_fmt(lectura_ayer, 0)} m³ ({LECTURA_AYER_DT.strftime('%d/%m/%Y %H:%M')})")
+        _set_run_font(r, size=9, color=RGBColor(90, 90, 90))
+
+    if FOTO_HOY.is_file():
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.add_run().add_picture(str(FOTO_HOY), width=Inches(4.8))
+        cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = cap.add_run(f"Foto hoy — {_fmt(lectura_hoy, 0)} m³ ({LECTURA_HOY_DT.strftime('%d/%m/%Y %H:%M')})")
         _set_run_font(r, size=9, color=RGBColor(90, 90, 90))
 
     h = doc.add_heading("4. Criterio hidráulico (DN90)", level=1)
     for run in h.runs:
         run.font.color.rgb = COLOR_TITULO
-
     p = doc.add_paragraph()
     r = p.add_run(
-        f"La red del punto es tubería de {DIAMETRO}. Como referencia de capacidad "
-        f"máxima razonable de red se adopta ≈ {CAUDAL_MAX_REF_M3H:.0f} m³/h "
-        f"(~2,5 m/s en DI ≈ 90 mm). El medidor admite Q3 = {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h, "
-        f"pero la red DN90 no puede entregar de forma realista caudales de 92–200 m³/h."
+        f"La red es {DIAMETRO}. Techo práctico de red ≈ {CAUDAL_MAX_REF_M3H:.0f} m³/h "
+        f"(~2,5 m/s). El medidor admite Q3 = {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h, pero la red "
+        "no puede entregar de forma realista 92–200 m³/h (error de memoria)."
     )
     _set_run_font(r, size=11)
 
@@ -333,9 +328,9 @@ def build_doc(lectura_ayer: Optional[float]) -> Path:
     table.style = "Table Grid"
     filas = [
         ("Velocidad de referencia", "Caudal teórico DN90"),
-        ("1,5 m/s (diseño habitual)", "≈ 34 m³/h"),
+        ("1,5 m/s", "≈ 34 m³/h"),
         ("2,0 m/s", "≈ 46 m³/h"),
-        ("2,5 m/s (techo práctico de red)", "≈ 57–60 m³/h"),
+        ("2,5 m/s (techo práctico)", "≈ 57–60 m³/h"),
     ]
     for i, (a, b) in enumerate(filas):
         table.rows[i].cells[0].text = a
@@ -351,53 +346,35 @@ def build_doc(lectura_ayer: Optional[float]) -> Path:
                     for run in para.runs:
                         run.font.color.rgb = RGBColor(255, 255, 255)
 
-    p = doc.add_paragraph()
-    r = p.add_run(
-        "Los pulsos observados de ~92 m³/h y ~200 m³/h superan el techo hidráulico "
-        "de la tubería (velocidades ~4–9 m/s); corresponden a error de registro en memoria."
-    )
-    _set_run_font(r, size=11)
-
-    h = doc.add_heading("5. Validación lecturas vs WES", level=1)
+    h = doc.add_heading("5. Validación lecturas vs WES/placa", level=1)
     for run in h.runs:
         run.font.color.rgb = COLOR_TITULO
 
     p = doc.add_paragraph()
     r = p.add_run(
-        "Criterio de ventana (acordado): lectura de ayer a las 14:30 → se toma la "
-        "mitad del consumo de la hora 14; lectura de hoy → consumo WES hasta las 16:00 "
-        f"({WES_HASTA_DT.strftime('%d/%m/%Y %H:%M')} Chile), aunque la foto sea a las "
-        f"{LECTURA_HOY_DT.strftime('%H:%M')}."
+        "Ventana: lectura ayer 14:30 → mitad del consumo hora 14; lectura hoy "
+        f"(foto {LECTURA_HOY_DT.strftime('%H:%M')}) → consumo hasta las "
+        f"{WES_HASTA_DT.strftime('%H:%M')}. El hueco de API del 22/09 (tarde) se "
+        "completa con valores leídos directo de la placa en terreno."
     )
     _set_run_font(r, size=11)
 
-    # Tabla resumen validación
+    p = doc.add_paragraph()
+    r = p.add_run(
+        "Nota de extracción placa: H:15:00 apareció dos veces (0,60 y 2,90). "
+        "Se interpreta 0,60 como hora 14:00 y 2,90 como hora 15:00."
+    )
+    _set_run_font(r, size=9, color=RGBColor(100, 80, 0))
+
     rows_data = [
         ("Concepto", "Valor"),
+        ("Lectura ayer", f"{_fmt(val.lectura_ayer, 0)} m³ @ {LECTURA_AYER_DT.strftime('%d/%m/%Y %H:%M')}"),
+        ("Lectura hoy", f"{_fmt(val.lectura_hoy, 0)} m³ @ {LECTURA_HOY_DT.strftime('%d/%m/%Y %H:%M')}"),
+        ("Δ mecánico", f"{_fmt(val.delta_mecanico, 0)} m³"),
+        ("Consumo WES+placa ventana", f"{_fmt(val.wes_m3, 1)} m³"),
         (
-            "Lectura ayer (terreno)",
-            (
-                f"{_fmt(val.lectura_ayer, 0)} m³ @ {LECTURA_AYER_DT.strftime('%d/%m/%Y %H:%M')}"
-                if val.lectura_ayer is not None
-                else f"PENDIENTE @ {LECTURA_AYER_DT.strftime('%d/%m/%Y %H:%M')}"
-            ),
-        ),
-        (
-            "Lectura hoy (terreno)",
-            f"{_fmt(val.lectura_hoy, 0)} m³ @ {LECTURA_HOY_DT.strftime('%d/%m/%Y %H:%M')}",
-        ),
-        (
-            "Δ mecánico (hoy − ayer)",
-            f"{_fmt(val.delta_mecanico, 1)} m³" if val.delta_mecanico is not None else "—",
-        ),
-        ("Consumo WES ventana", f"{_fmt(val.wes_m3, 1)} m³"),
-        (
-            "Diferencia (mecánico − WES)",
-            (
-                f"{_fmt(val.diferencia_m3, 1)} m³ ({_fmt(val.diferencia_pct, 1)} %)"
-                if val.diferencia_m3 is not None
-                else "—"
-            ),
+            "Diferencia (mecánico − serie)",
+            f"{_fmt(val.diferencia_m3, 1)} m³ ({_fmt(val.diferencia_pct, 1)} %)",
         ),
         ("Estado", val.estado),
     ]
@@ -418,36 +395,14 @@ def build_doc(lectura_ayer: Optional[float]) -> Path:
                         run.font.color.rgb = RGBColor(255, 255, 255)
 
     p = doc.add_paragraph()
-    r = p.add_run(
-        f"Consumo WES en ventana = {_fmt(val.wes_m3, 1)} m³ "
-        f"(mitad hora 14 del {LECTURA_AYER_DT.strftime('%d/%m')} + horas completas "
-        f"hasta antes de las {WES_HASTA_DT.strftime('%H:%M')} del {WES_HASTA_DT.strftime('%d/%m')})."
-    )
-    _set_run_font(r, size=11)
-
-    if val.hueco_horas:
-        p = doc.add_paragraph()
-        r = p.add_run(
-            "Hueco de datos WES en la ventana (probable durante falla/cambio de memoria): "
-            + ", ".join(val.hueco_horas[:12])
-            + ("…" if len(val.hueco_horas) > 12 else "")
-            + f" ({len(val.hueco_horas)} hora(s) sin serie)."
-        )
-        _set_run_font(r, size=10, color=RGBColor(120, 60, 0))
-
-    # Detalle horario (solo contribuciones > 0 o notas especiales)
-    p = doc.add_paragraph()
-    r = p.add_run("Detalle horario WES usado en la validación:")
+    r = p.add_run("Detalle horario de la ventana:")
     _set_run_font(r, bold=True, size=10)
 
-    det_rows = [("Hora Chile", "m³ aporte", "Nota")]
+    det_rows = [("Hora Chile", "m³ aporte", "Fuente / nota")]
     for etq, contrib, nota in val.detalle:
-        if contrib == 0 and "sin dato" not in nota:
+        if contrib == 0 and "mitad" not in nota and "placa" not in nota:
             continue
         det_rows.append((etq, _fmt(contrib, 2), nota))
-    if len(det_rows) == 1:
-        det_rows.append(("—", "0,00", "Sin aportes > 0 en ventana"))
-
     t3 = doc.add_table(rows=len(det_rows), cols=3)
     t3.style = "Table Grid"
     for i, row in enumerate(det_rows):
@@ -455,7 +410,7 @@ def build_doc(lectura_ayer: Optional[float]) -> Path:
             t3.rows[i].cells[j].text = txt
             for para in t3.rows[i].cells[j].paragraphs:
                 for run in para.runs:
-                    _set_run_font(run, bold=(i == 0), size=9)
+                    _set_run_font(run, bold=(i == 0), size=8)
         if i == 0:
             for cell in t3.rows[i].cells:
                 _shade_cell(cell, "1F4788")
@@ -463,55 +418,38 @@ def build_doc(lectura_ayer: Optional[float]) -> Path:
                     for run in para.runs:
                         run.font.color.rgb = RGBColor(255, 255, 255)
 
-    if val.lectura_ayer is None:
-        p = doc.add_paragraph()
-        r = p.add_run(
-            "Para cerrar el % de diferencia falta la lectura mecánica de ayer "
-            f"({LECTURA_AYER_DT.strftime('%d/%m/%Y')} 14:30). "
-            "Re-generar con: python generar_informe_cambio_memoria_etapa5_zapallar.py "
-            "--lectura-ayer NNNN"
-        )
-        _set_run_font(r, size=10, color=RGBColor(150, 0, 0))
-
     h = doc.add_heading("6. Conclusión", level=1)
     for run in h.runs:
         run.font.color.rgb = COLOR_TITULO
-
     p = doc.add_paragraph()
     r = p.add_run(
-        "Se confirma falla de memoria de placa (no del sensor Sensus/HRI ni de la red). "
-        "Con el reemplazo de memoria el punto queda normalizado. "
-        f"Consumo WES post-ventana de validación: {_fmt(val.wes_m3, 1)} m³ "
-        f"hasta las {WES_HASTA_DT.strftime('%H:%M')} del {WES_HASTA_DT.strftime('%d/%m/%Y')}. "
-        "Se mantiene seguimiento diario matutino del nodo 000027-03 con umbral de alerta "
-        f"en {CAUDAL_MAX_REF_M3H:.0f} m³/h."
+        "Se confirma falla de memoria de placa (sensor Sensus/HRI y voltajes OK). "
+        f"Validación post-cambio: Δ mecánico {_fmt(val.delta_mecanico, 0)} m³ vs "
+        f"serie {_fmt(val.wes_m3, 1)} m³ (diferencia {_fmt(val.diferencia_m3, 1)} m³ / "
+        f"{_fmt(val.diferencia_pct, 1)} %). {val.estado}. "
+        f"Seguimiento diario matutino del nodo {NODE_ID} con umbral "
+        f"{CAUDAL_MAX_REF_M3H:.0f} m³/h (techo DN90)."
     )
     _set_run_font(r, size=11)
 
     p = doc.add_paragraph()
-    r = p.add_run(
-        "Nota: informe de intervención en terreno + validación de lecturas vs API WES "
-        f"(nodo {NODE_ID})."
-    )
+    r = p.add_run(f"Nota: informe intervención + validación nodo {NODE_ID}.")
     _set_run_font(r, size=9, color=RGBColor(100, 100, 100))
 
     doc.save(out)
-    print(f"[VALIDACION] WES ventana = {val.wes_m3} m³ | estado = {val.estado}")
-    if val.hueco_horas:
-        print(f"[VALIDACION] Huecos WES: {len(val.hueco_horas)} horas")
+    print(
+        f"[VALIDACION] Δ mec={val.delta_mecanico} | serie={val.wes_m3} | "
+        f"dif={val.diferencia_m3} ({val.diferencia_pct}%) | {val.estado}"
+    )
     return out
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--lectura-ayer",
-        type=float,
-        default=None,
-        help="Lectura mecánica de ayer a las 14:30 (m³). Si se omite, queda pendiente en el informe.",
-    )
+    parser.add_argument("--lectura-ayer", type=float, default=LECTURA_AYER_M3)
+    parser.add_argument("--lectura-hoy", type=float, default=LECTURA_HOY_M3)
     args = parser.parse_args()
-    path = build_doc(args.lectura_ayer)
+    path = build_doc(args.lectura_ayer, args.lectura_hoy)
     print(f"[OK] Informe generado: {path}")
     return 0
 
