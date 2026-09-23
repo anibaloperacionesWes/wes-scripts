@@ -2,7 +2,7 @@
 Informe corto — cambio de memoria placa / Etapa N°5 Fundo Zapallar.
 
 Validación al estilo Informe Interno Matriz ESVAL:
-  - Inicio: lectura 22/09/2026 14:30 → mitad del consumo hora 14.
+  - Inicio: lectura 22/09/2026 14:30 → consumo WES con hora 14 completa.
   - Fin: foto 23/09/2026 16:54 → consumo WES hasta las 16:00.
   - Tablas resumen (lectura / consumo / % error); sin tabla de huecos horarios.
   - Fotos compactas (~5,6 cm) lado a lado.
@@ -258,15 +258,14 @@ def calcular_validacion(lectura_ayer: float, lectura_hoy: float) -> Validacion:
 
     inicio_hora = LECTURA_AYER_DT.replace(minute=0, second=0, microsecond=0)
     v14, src14 = valor_hora(inicio_hora, api)
-    contrib14 = 0.5 * v14
     detalle.append(
         (
             inicio_hora.strftime("%d/%m/%Y %H:%M"),
-            contrib14,
-            f"mitad hora 14 (lectura 14:30); bruto {_fmt(v14, 2)} m³/h [{src14}]",
+            v14,
+            f"hora 14 completa; {_fmt(v14, 2)} m³/h [{src14}]",
         )
     )
-    total += contrib14
+    total += v14
     if "API" not in src14 and inicio_hora not in api:
         hueco_api.append(inicio_hora.strftime("%d/%m/%Y %H:%M"))
 
@@ -432,7 +431,7 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         "Validación con lecturas fotográficas del medidor Sensus (Etapa N°5) y el "
         "consumo registrado en la app WES en el mismo periodo. "
         f"Criterio de ventana: lectura inicial {LECTURA_AYER_DT.strftime('%d-%m-%Y %H:%M')} "
-        f"(mitad del consumo de la hora 14) → consumo WES hasta las "
+        f"(hora 14 completa) → consumo WES hasta las "
         f"{WES_HASTA_DT.strftime('%H:%M')} del {WES_HASTA_DT.strftime('%d-%m-%Y')} "
         f"(foto de cierre {LECTURA_HOY_DT.strftime('%H:%M')})."
     )
@@ -447,12 +446,13 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
             f"Sensus — {LECTURA_HOY_DT.strftime('%d-%m-%Y %H:%M')} · {_fmt(lectura_hoy, 0)} m³",
         )
 
-    horas_ventana = (WES_HASTA_DT - LECTURA_AYER_DT).total_seconds() / 3600.0
+    inicio_wes = LECTURA_AYER_DT.replace(minute=0, second=0, microsecond=0)
+    horas_ventana = (WES_HASTA_DT - inicio_wes).total_seconds() / 3600.0
     _add_tabla_validacion_7(
         doc,
         "Validación Etapa N°5 — medidor Sensus (lectura mecánica)",
         NODE_NAME,
-        LECTURA_AYER_DT.strftime("%d-%m-%Y %H:%M"),
+        inicio_wes.strftime("%d-%m-%Y %H:%M"),
         _fmt(val.lectura_ayer, 0),
         LECTURA_HOY_DT.strftime("%d-%m-%Y %H:%M"),
         _fmt(val.lectura_hoy, 0),
