@@ -1,6 +1,6 @@
 """
 Informe interno — Matriz ESVAL (Fundo Zapallar).
-Versión completa + validaciones (Itron/US y Itron/app) con fotos pequeñas estilo CUR.
+Versión completa + validaciones, con estilo visual WES.
 
 Uso:
   python generar_informe_interno_calidad_senal_esval.py
@@ -15,9 +15,11 @@ from datetime import datetime
 from pathlib import Path
 
 from docx import Document
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-from docx.oxml.ns import qn
-from docx.shared import Cm, Pt, RGBColor
+from docx.oxml import OxmlElement, parse_xml
+from docx.oxml.ns import nsdecls, qn
+from docx.shared import Cm, Pt, RGBColor, Twips
 
 if sys.platform == "win32":
     try:
@@ -27,8 +29,18 @@ if sys.platform == "win32":
         pass
 
 ROOT = Path(__file__).resolve().parent
-_HEADING = RGBColor(31, 71, 136)
-_MUTED = RGBColor(89, 89, 89)
+
+# Paleta WES
+_NAVY = RGBColor(31, 71, 136)
+_NAVY_HEX = "1F4788"
+_NAVY_LIGHT_HEX = "D6E3F0"
+_ROW_ALT_HEX = "F5F8FB"
+_OK_HEX = "E8F5E9"
+_OK_TEXT = RGBColor(27, 94, 32)
+_MUTED = RGBColor(100, 110, 120)
+_LINE = RGBColor(31, 71, 136)
+_WHITE = RGBColor(255, 255, 255)
+_BLACK = RGBColor(40, 40, 40)
 
 NODE_ID = "000027-01"
 NODO_NOMBRE = "Matriz ESVAL"
@@ -58,34 +70,31 @@ M45_CAUDAL_ULTRASONIDO_LPM = 87.05
 M45_CALCULADO = 3.1362
 M45_MAXIMO_EQUIPO = 1.5
 
-# Validación A: 22-09-2026 — 11:50 → 15:00 (Itron vs ultrasónico)
 VAL_FECHA = "22-09-2026"
 HORA_INI, HORA_FIN = "11:50", "15:00"
 ITRON_INI, ITRON_FIN = 383956.27, 383978.01
-ITRON_DELTA = round(ITRON_FIN - ITRON_INI, 2)  # 21.74
+ITRON_DELTA = round(ITRON_FIN - ITRON_INI, 2)
 US_NET_CRUDO_INI, US_NET_CRUDO_FIN = 1811906, 1814145
-US_INI = round(US_NET_CRUDO_INI * 0.01, 2)  # 18119.06
-US_FIN = round(US_NET_CRUDO_FIN * 0.01, 2)  # 18141.45
-US_DELTA = round(US_FIN - US_INI, 2)  # 22.39
-ERROR_PCT = round((1 - ITRON_DELTA / US_DELTA) * 100, 1)  # 2.9
+US_INI = round(US_NET_CRUDO_INI * 0.01, 2)
+US_FIN = round(US_NET_CRUDO_FIN * 0.01, 2)
+US_DELTA = round(US_FIN - US_INI, 2)
+ERROR_PCT = round((1 - ITRON_DELTA / US_DELTA) * 100, 1)
 TOL_US_PCT = 1
 TOL_ITRON_PCT = 5
 
-# Validación B: 22-09 15:00 → 23-09 17:00 (Itron vs app WES)
 VAL_FECHA_B_INI = "22-09-2026"
 VAL_FECHA_B_FIN = "23-09-2026"
 HORA_B_INI, HORA_B_FIN = "15:00", "17:00"
-ITRON_B_INI = ITRON_FIN  # 383978.01
+ITRON_B_INI = ITRON_FIN
 ITRON_B_FIN = 384148.9
-ITRON_B_DELTA = round(ITRON_B_FIN - ITRON_B_INI, 2)  # 170.89
-# App: horas 16→23 del 22 + horas 00→16 del 23
+ITRON_B_DELTA = round(ITRON_B_FIN - ITRON_B_INI, 2)
 APP_B_DELTA = 175.41
-ERROR_B_PCT = round((1 - ITRON_B_DELTA / APP_B_DELTA) * 100, 1)  # 2.6
+ERROR_B_PCT = round((1 - ITRON_B_DELTA / APP_B_DELTA) * 100, 1)
 
 EVIDENCIAS = ROOT / "reports" / "Fundo_Zapallar" / "Informes_Tecnicos" / "_evidencias"
 FOTO_ITRON_1500 = EVIDENCIAS / "itron_1500.jpg"
 FOTO_ITRON_1700 = EVIDENCIAS / "itron_1700_2309.jpg"
-FOTO_ANCHO_CM = 5.6  # estilo Informe Validación CUR
+FOTO_ANCHO_CM = 6.2
 
 
 def _fmt(x: float, dec: int = 2) -> str:
@@ -102,70 +111,178 @@ def _font(run, *, size: int = 11, bold: bool = False, color: RGBColor | None = N
         run.font.color.rgb = color
 
 
+def _shade(cell, hex_color: str) -> None:
+    shading = parse_xml(
+        f'<w:shd {nsdecls("w")} w:val="clear" w:color="auto" w:fill="{hex_color}"/>'
+    )
+    cell._tc.get_or_add_tcPr().append(shading)
+
+
+def _set_cell_borders(cell, color: str = "B0BEC5", sz: str = "4") -> None:
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcBorders = OxmlElement("w:tcBorders")
+    for edge in ("top", "left", "bottom", "right"):
+        el = OxmlElement(f"w:{edge}")
+        el.set(qn("w:val"), "single")
+        el.set(qn("w:sz"), sz)
+        el.set(qn("w:space"), "0")
+        el.set(qn("w:color"), color)
+        tcBorders.append(el)
+    tcPr.append(tcBorders)
+
+
+def _cell_text(
+    cell,
+    text: str,
+    *,
+    bold: bool = False,
+    size: int = 10,
+    color: RGBColor | None = None,
+    align=WD_ALIGN_PARAGRAPH.LEFT,
+) -> None:
+    cell.text = ""
+    p = cell.paragraphs[0]
+    p.alignment = align
+    p.paragraph_format.space_before = Pt(2)
+    p.paragraph_format.space_after = Pt(2)
+    r = p.add_run(text)
+    _font(r, size=size, bold=bold, color=color or _BLACK)
+
+
+def _style_table(tbl) -> None:
+    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    tbl.autofit = True
+    for row in tbl.rows:
+        for cell in row.cells:
+            _set_cell_borders(cell)
+
+
 def _h(doc: Document, text: str, level: int = 1) -> None:
     p = doc.add_heading(text, level=level)
+    p.paragraph_format.space_before = Pt(14 if level == 1 else 10)
+    p.paragraph_format.space_after = Pt(6)
     for r in p.runs:
-        r.font.color.rgb = _HEADING
+        r.font.color.rgb = _NAVY
         r.font.name = "Calibri"
+        r.font.size = Pt(14 if level == 1 else 12)
 
 
-def _p(doc: Document, text: str) -> None:
+def _p(doc: Document, text: str, *, size: int = 11) -> None:
     para = doc.add_paragraph()
     para.paragraph_format.space_after = Pt(6)
+    para.paragraph_format.space_before = Pt(0)
     para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
     para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     r = para.add_run(text)
-    _font(r, size=11)
+    _font(r, size=size, color=_BLACK)
 
 
 def _bullet(doc: Document, text: str) -> None:
     para = doc.add_paragraph(style="List Bullet")
-    para.paragraph_format.space_after = Pt(3)
+    para.paragraph_format.space_after = Pt(2)
+    para.paragraph_format.space_before = Pt(0)
     para.clear()
     r = para.add_run(text)
-    _font(r, size=11)
+    _font(r, size=10.5, color=_BLACK)
 
 
-def _fill_header(tbl, headers: list[str]) -> None:
+def _hr(doc: Document) -> None:
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(2)
+    p.paragraph_format.space_after = Pt(8)
+    pPr = p._p.get_or_add_pPr()
+    pBdr = OxmlElement("w:pBdr")
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "single")
+    bottom.set(qn("w:sz"), "12")
+    bottom.set(qn("w:space"), "1")
+    bottom.set(qn("w:color"), _NAVY_HEX)
+    pBdr.append(bottom)
+    pPr.append(pBdr)
+
+
+def _kpi_strip(doc: Document) -> None:
+    """Franja de resultados clave al inicio."""
+    tbl = doc.add_table(rows=2, cols=3)
+    _style_table(tbl)
+    headers = ["Itron vs ultrasónico", "Itron vs app WES", "Config. final"]
+    values = [
+        f"Error {_fmt(ERROR_PCT, 1)} %",
+        f"Error {_fmt(ERROR_B_PCT, 1)} %",
+        f"Ø {DIAMETRO_FINAL_MM} mm · mortero {ESPESOR_MORTERO_MM} mm",
+    ]
+    subs = [
+        f"{_fmt(ITRON_DELTA)} / {_fmt(US_DELTA)} m³",
+        f"{_fmt(ITRON_B_DELTA)} / {_fmt(APP_B_DELTA)} m³",
+        f"M45 tope {_fmt(M45_MAXIMO_EQUIPO, 1)}",
+    ]
+    for j, h in enumerate(headers):
+        _shade(tbl.rows[0].cells[j], _NAVY_HEX)
+        _cell_text(tbl.rows[0].cells[j], h, bold=True, size=9, color=_WHITE, align=WD_ALIGN_PARAGRAPH.CENTER)
+        _shade(tbl.rows[1].cells[j], _OK_HEX)
+        cell = tbl.rows[1].cells[j]
+        cell.text = ""
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r1 = p.add_run(values[j] + "\n")
+        _font(r1, size=12, bold=True, color=_OK_TEXT)
+        r2 = p.add_run(subs[j])
+        _font(r2, size=8, color=_MUTED)
+    doc.add_paragraph()
+
+
+def _fill_header_styled(tbl, headers: list[str]) -> None:
     for j, h in enumerate(headers):
         cell = tbl.rows[0].cells[j]
-        cell.text = ""
-        r = cell.paragraphs[0].add_run(h)
-        _font(r, size=10, bold=True, color=_HEADING)
+        _shade(cell, _NAVY_HEX)
+        _cell_text(cell, h, bold=True, size=9, color=_WHITE, align=WD_ALIGN_PARAGRAPH.CENTER)
 
 
-def _fill_row(tbl, i: int, values: list[str], *, bold: bool = False) -> None:
+def _fill_row_styled(tbl, i: int, values: list[str], *, bold: bool = False, accent: bool = False) -> None:
     for j, val in enumerate(values):
         cell = tbl.rows[i].cells[j]
-        cell.text = ""
-        r = cell.paragraphs[0].add_run(val)
-        _font(r, size=10, bold=bold)
+        if accent:
+            _shade(cell, _OK_HEX)
+        elif i % 2 == 0:
+            _shade(cell, _ROW_ALT_HEX)
+        align = WD_ALIGN_PARAGRAPH.CENTER if j > 0 else WD_ALIGN_PARAGRAPH.LEFT
+        _cell_text(
+            cell,
+            val,
+            bold=bold or accent,
+            size=9.5,
+            color=_OK_TEXT if accent else _BLACK,
+            align=align,
+        )
 
 
-def _merge_title(tbl, text: str, cols: int) -> None:
+def _tabla_simple(doc: Document, headers: list[str], rows: list[list[str]], *, highlight_last: bool = False) -> None:
+    tbl = doc.add_table(rows=1 + len(rows), cols=len(headers))
+    tbl.style = "Table Grid"
+    _style_table(tbl)
+    _fill_header_styled(tbl, headers)
+    for i, row in enumerate(rows, start=1):
+        last = highlight_last and i == len(rows)
+        _fill_row_styled(tbl, i, row, bold=last, accent=last)
+    spacer = doc.add_paragraph()
+    spacer.paragraph_format.space_after = Pt(4)
+
+
+def _merge_title_styled(tbl, text: str, cols: int) -> None:
     cell = tbl.rows[0].cells[0]
     for j in range(1, cols):
         cell.merge(tbl.rows[0].cells[j])
-    cell.text = ""
-    r = cell.paragraphs[0].add_run(text)
-    _font(r, size=11, bold=True, color=_HEADING)
-    cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-
-def _set_row(row, values: list[str], *, bold: bool = False, size: int = 9) -> None:
-    for j, v in enumerate(values):
-        cell = row.cells[j]
-        cell.text = ""
-        r = cell.paragraphs[0].add_run(v)
-        _font(r, size=size, bold=bold, color=_HEADING if bold else None)
+    _shade(cell, _NAVY_HEX)
+    _cell_text(cell, text, bold=True, size=10, color=_WHITE, align=WD_ALIGN_PARAGRAPH.CENTER)
 
 
 def _fotos_pequenas(doc: Document, pares: list[tuple[Path, str]], out_dir: Path) -> None:
-    """Inserta fotos pequeñas en una fila (estilo CUR ~5,6 cm)."""
     n = len(pares)
     if n == 0:
         return
     tbl = doc.add_table(rows=2, cols=n)
+    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
     for j, (src, caption) in enumerate(pares):
         if not src.is_file():
             continue
@@ -173,13 +290,17 @@ def _fotos_pequenas(doc: Document, pares: list[tuple[Path, str]], out_dir: Path)
         if src.resolve() != dst.resolve():
             shutil.copy2(src, dst)
         cell = tbl.rows[0].cells[j]
-        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = cell.paragraphs[0].add_run()
-        run.add_picture(str(dst), width=Cm(FOTO_ANCHO_CM))
-        cap_cell = tbl.rows[1].cells[j]
-        cap_cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = cap_cell.paragraphs[0].add_run(caption)
-        _font(r, size=8, color=_MUTED)
+        _shade(cell, "FAFBFC")
+        _set_cell_borders(cell, "CFD8DC", "6")
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.space_before = Pt(4)
+        p.paragraph_format.space_after = Pt(2)
+        p.add_run().add_picture(str(dst), width=Cm(FOTO_ANCHO_CM))
+        cap = tbl.rows[1].cells[j]
+        _shade(cap, _NAVY_LIGHT_HEX)
+        _set_cell_borders(cap, "CFD8DC", "6")
+        _cell_text(cap, caption, size=8, color=_NAVY, align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
     doc.add_paragraph()
 
 
@@ -205,21 +326,47 @@ def _tabla_validacion(
     ]
     tbl = doc.add_table(rows=3, cols=7)
     tbl.style = "Table Grid"
-    _merge_title(tbl, titulo, 7)
-    _set_row(tbl.rows[1], headers, bold=True, size=9)
-    _set_row(
-        tbl.rows[2],
-        [
-            analisis,
-            fecha_ini,
-            _fmt(lectura_ini),
-            fecha_fin,
-            _fmt(lectura_fin),
-            _fmt(consumo),
-            horas_label,
-        ],
-        size=9,
-    )
+    _style_table(tbl)
+    _merge_title_styled(tbl, titulo, 7)
+    for j, h in enumerate(headers):
+        cell = tbl.rows[1].cells[j]
+        _shade(cell, _NAVY_LIGHT_HEX)
+        _cell_text(cell, h, bold=True, size=8, color=_NAVY, align=WD_ALIGN_PARAGRAPH.CENTER)
+    vals = [
+        analisis,
+        fecha_ini,
+        _fmt(lectura_ini),
+        fecha_fin,
+        _fmt(lectura_fin),
+        _fmt(consumo),
+        horas_label,
+    ]
+    for j, v in enumerate(vals):
+        align = WD_ALIGN_PARAGRAPH.CENTER if j > 0 else WD_ALIGN_PARAGRAPH.LEFT
+        _cell_text(tbl.rows[2].cells[j], v, size=9, align=align, bold=(j == 5))
+        if j == 5:
+            _shade(tbl.rows[2].cells[j], _OK_HEX)
+    spacer = doc.add_paragraph()
+    spacer.paragraph_format.space_after = Pt(2)
+
+
+def _tabla_error(doc: Document, filas: list[tuple[str, str]]) -> None:
+    tbl = doc.add_table(rows=len(filas), cols=2)
+    tbl.style = "Table Grid"
+    _style_table(tbl)
+    for i, (k, v) in enumerate(filas):
+        last = i == len(filas) - 1
+        if last:
+            _shade(tbl.rows[i].cells[0], _OK_HEX)
+            _shade(tbl.rows[i].cells[1], _OK_HEX)
+            _cell_text(tbl.rows[i].cells[0], k, bold=True, size=10, color=_OK_TEXT)
+            _cell_text(tbl.rows[i].cells[1], v, bold=True, size=11, color=_OK_TEXT, align=WD_ALIGN_PARAGRAPH.CENTER)
+        else:
+            if i % 2 == 1:
+                _shade(tbl.rows[i].cells[0], _ROW_ALT_HEX)
+                _shade(tbl.rows[i].cells[1], _ROW_ALT_HEX)
+            _cell_text(tbl.rows[i].cells[0], k, size=10)
+            _cell_text(tbl.rows[i].cells[1], v, size=10, align=WD_ALIGN_PARAGRAPH.CENTER)
     doc.add_paragraph()
 
 
@@ -230,10 +377,10 @@ def generar_informe(out_dir: Path) -> Path:
 
     doc = Document()
     section = doc.sections[0]
-    section.top_margin = Cm(2.0)
-    section.bottom_margin = Cm(2.0)
-    section.left_margin = Cm(2.2)
-    section.right_margin = Cm(2.2)
+    section.top_margin = Cm(1.6)
+    section.bottom_margin = Cm(1.6)
+    section.left_margin = Cm(1.9)
+    section.right_margin = Cm(1.9)
     doc.styles["Normal"].font.name = "Calibri"
     doc.styles["Normal"].font.size = Pt(11)
 
@@ -244,25 +391,26 @@ def generar_informe(out_dir: Path) -> Path:
     except Exception as exc:
         print(f"[WARN] Logo: {exc}")
 
-    title = doc.add_heading(
-        "Informe interno — Revisión y validación Matriz ESVAL",
-        level=0,
-    )
+    # Portada compacta
+    title = doc.add_heading("Informe interno — Revisión y validación Matriz ESVAL", level=0)
+    title.paragraph_format.space_after = Pt(2)
     for run in title.runs:
-        run.font.color.rgb = _HEADING
+        run.font.color.rgb = _NAVY
         run.font.name = "Calibri"
+        run.font.size = Pt(18)
 
     meta = doc.add_paragraph()
-    for line in (
-        f"Empresa: {EMPRESA} ({COMPANY_ID})",
-        f"Punto: {NODO_NOMBRE} ({NODE_ID})",
-        f"Validación: {VAL_FECHA} · {HORA_INI} → {HORA_FIN}",
-        "Clasificación: Uso interno WES",
-    ):
-        r = meta.add_run(line + "\n")
-        _font(r, size=10, color=_MUTED)
+    meta.paragraph_format.space_after = Pt(4)
+    r = meta.add_run(
+        f"{EMPRESA}  ·  {NODO_NOMBRE} ({NODE_ID})  ·  Uso interno WES\n"
+        f"Validaciones: {VAL_FECHA} {HORA_INI}–{HORA_FIN}  |  "
+        f"{VAL_FECHA_B_INI} {HORA_B_INI} → {VAL_FECHA_B_FIN} {HORA_B_FIN}"
+    )
+    _font(r, size=9, color=_MUTED)
+    _hr(doc)
 
-    # —— 1. Objetivo ——
+    _kpi_strip(doc)
+
     _h(doc, "1. Objetivo", level=1)
     _p(
         doc,
@@ -271,7 +419,6 @@ def generar_informe(out_dir: Path) -> Path:
         "y presentar el cálculo de validación del periodo revisado.",
     )
 
-    # —— 2. Resumen ——
     _h(doc, "2. Resumen", level=1)
     _p(
         doc,
@@ -280,11 +427,11 @@ def generar_informe(out_dir: Path) -> Path:
         f"({LITROS_ESVAL_ITRON_1} L Itron vs {LITROS_ULTRASONIDO_1} L ultrasónico). "
         "Se verificaron cables, se limpió la tubería y se renovó la silicona; "
         "luego se corrigió la configuración de cañería y el factor de escala. "
-        f"En la validación del {VAL_FECHA} el error entre ambos medidores fue de "
-        f"{_fmt(ERROR_PCT, 1)} %, aceptable según las tolerancias de fabricante.",
+        f"Las validaciones posteriores arrojan errores de {_fmt(ERROR_PCT, 1)} % "
+        f"(Itron vs ultrasónico) y {_fmt(ERROR_B_PCT, 1)} % (Itron vs app), "
+        "aceptables según tolerancias de fabricante.",
     )
 
-    # —— 3. Actividades ——
     _h(doc, "3. Actividades realizadas", level=1)
 
     _h(doc, "3.1 Calidad de señal", level=2)
@@ -294,12 +441,14 @@ def generar_informe(out_dir: Path) -> Path:
         "y la calidad de sonido (Q). Ambos valores iniciales superaban el umbral del fabricante "
         f"(> {UMBRAL_FABRICANTE}).",
     )
-    tbl_q = doc.add_table(rows=3, cols=4)
-    tbl_q.style = "Table Grid"
-    _fill_header(tbl_q, ["Parámetro", "Inicial", "Tras limpieza + silicona", "Recomendación"])
-    _fill_row(tbl_q, 1, ["DN / UP", f"{DN_UP_INICIAL}", f"{DN_UP_POST}", f"> {UMBRAL_FABRICANTE}"])
-    _fill_row(tbl_q, 2, ["Q", f"{Q_INICIAL}", f"{Q_POST}", f"> {UMBRAL_FABRICANTE}"])
-    doc.add_paragraph()
+    _tabla_simple(
+        doc,
+        ["Parámetro", "Inicial", "Tras limpieza + silicona", "Recomendación"],
+        [
+            ["DN / UP", f"{DN_UP_INICIAL}", f"{DN_UP_POST}", f"> {UMBRAL_FABRICANTE}"],
+            ["Q", f"{Q_INICIAL}", f"{Q_POST}", f"> {UMBRAL_FABRICANTE}"],
+        ],
+    )
 
     _h(doc, "3.2 Comparación inicial por pulso", level=2)
     _p(
@@ -307,14 +456,17 @@ def generar_informe(out_dir: Path) -> Path:
         "Se contrastó el volumen del ultrasónico WES contra el medidor de turbina Itron "
         "(referencia ESVAL) en la misma ventana de prueba.",
     )
-    tbl_c = doc.add_table(rows=4, cols=3)
-    tbl_c.style = "Table Grid"
     delta0 = LITROS_ESVAL_ITRON_1 - LITROS_ULTRASONIDO_1
-    _fill_header(tbl_c, ["Equipo", "Volumen", "Observación"])
-    _fill_row(tbl_c, 1, ["Itron / ESVAL", f"{LITROS_ESVAL_ITRON_1} L", "Referencia"])
-    _fill_row(tbl_c, 2, ["Ultrasónico WES", f"{LITROS_ULTRASONIDO_1} L", "Misma ventana"])
-    _fill_row(tbl_c, 3, ["Diferencia", f"{delta0} L", "Desvío relevante"])
-    doc.add_paragraph()
+    _tabla_simple(
+        doc,
+        ["Equipo", "Volumen", "Observación"],
+        [
+            ["Itron / ESVAL", f"{LITROS_ESVAL_ITRON_1} L", "Referencia"],
+            ["Ultrasónico WES", f"{LITROS_ULTRASONIDO_1} L", "Misma ventana"],
+            ["Diferencia", f"{delta0} L", "Desvío relevante"],
+        ],
+        highlight_last=True,
+    )
 
     _h(doc, "3.3 Continuidad de cables", level=2)
     _p(
@@ -363,14 +515,13 @@ def generar_informe(out_dir: Path) -> Path:
     _p(
         doc,
         f"Nuevo M45 = {_fmt(M45_FACTOR_ACTUAL, 4)} × "
-        f"({_fmt(M45_CAUDAL_TURBINA_LPM, 0)} L/min turbina / "
-        f"{_fmt(M45_CAUDAL_ULTRASONIDO_LPM, 2)} L/min ultrasónico) = "
+        f"({_fmt(M45_CAUDAL_TURBINA_LPM, 0)} / {_fmt(M45_CAUDAL_ULTRASONIDO_LPM, 2)}) = "
         f"{_fmt(M45_CALCULADO, 4)}.",
     )
     _p(
         doc,
         f"El valor calculado supera el máximo del equipo ({_fmt(M45_MAXIMO_EQUIPO, 1)}). "
-        f"Se seteó el tope. La diferencia bajó a ~{DIFERENCIA_LITROS_POST_M45} L, aún con desviación.",
+        f"Se seteó el tope. La diferencia bajó a ~{DIFERENCIA_LITROS_POST_M45} L.",
     )
 
     _h(doc, "3.7 Ajuste final de diámetro", level=2)
@@ -380,40 +531,28 @@ def generar_informe(out_dir: Path) -> Path:
         f"{DIAMETRO_ESVAL_MM} → {DIAMETRO_FINAL_MM} mm. Tras ese ajuste ambos medidores "
         "quedaron en el mismo ciclo de lectura en terreno.",
     )
-
-    tbl_cfg = doc.add_table(rows=5, cols=3)
-    tbl_cfg.style = "Table Grid"
-    _fill_header(tbl_cfg, ["Parámetro", "Antes / intermedio", "Final"])
-    _fill_row(tbl_cfg, 1, ["Material", "Sin validar", MATERIAL])
-    _fill_row(
-        tbl_cfg,
-        2,
+    _tabla_simple(
+        doc,
+        ["Parámetro", "Antes / intermedio", "Final"],
         [
-            "Diámetro (mm)",
-            f"{DIAMETRO_CONFIG_ERRONEO_MM} → {DIAMETRO_ESVAL_MM}",
-            f"{DIAMETRO_FINAL_MM}",
+            ["Material", "Sin validar", MATERIAL],
+            ["Diámetro (mm)", f"{DIAMETRO_CONFIG_ERRONEO_MM} → {DIAMETRO_ESVAL_MM}", f"{DIAMETRO_FINAL_MM}"],
+            ["Cobertura", "Sin mortero", f"Mortero {ESPESOR_MORTERO_MM} mm"],
+            [
+                "Factor M45",
+                f"{_fmt(M45_FACTOR_ACTUAL, 4)} → calc. {_fmt(M45_CALCULADO, 4)}",
+                f"Tope {_fmt(M45_MAXIMO_EQUIPO, 1)}",
+            ],
         ],
     )
-    _fill_row(tbl_cfg, 3, ["Cobertura", "Sin mortero", f"Mortero {ESPESOR_MORTERO_MM} mm"])
-    _fill_row(
-        tbl_cfg,
-        4,
-        [
-            "Factor M45",
-            f"{_fmt(M45_FACTOR_ACTUAL, 4)} → calc. {_fmt(M45_CALCULADO, 4)}",
-            f"Tope {_fmt(M45_MAXIMO_EQUIPO, 1)}",
-        ],
-    )
-    doc.add_paragraph()
 
-    # —— 4. Validación ——
     _h(doc, "4. Cálculo de validación", level=1)
 
     _h(doc, "4.1 Itron vs ultrasónico WES (22-09, 11:50 → 15:00)", level=2)
     _p(
         doc,
         "Lecturas del medidor Itron y del ultrasónico WES en la misma ventana. "
-        "En el ultrasónico el totalizador NET se convierte a m³ multiplicando por 0,01.",
+        "En el ultrasónico el NET se convierte a m³ × 0,01.",
     )
     _tabla_validacion(
         doc,
@@ -437,29 +576,31 @@ def generar_informe(out_dir: Path) -> Path:
         US_DELTA,
         "3,2",
     )
-    t_err = doc.add_table(rows=3, cols=2)
-    t_err.style = "Table Grid"
-    _set_row(t_err.rows[0], ["Total Itron (lectura)", f"{_fmt(ITRON_DELTA)} m³"], size=10)
-    _set_row(t_err.rows[1], ["Total ultrasónico WES", f"{_fmt(US_DELTA)} m³"], size=10)
-    _set_row(t_err.rows[2], ["% Error", f"{_fmt(ERROR_PCT, 1)} %"], bold=True, size=10)
-    doc.add_paragraph()
+    _tabla_error(
+        doc,
+        [
+            ("Total Itron (lectura)", f"{_fmt(ITRON_DELTA)} m³"),
+            ("Total ultrasónico WES", f"{_fmt(US_DELTA)} m³"),
+            ("% Error", f"{_fmt(ERROR_PCT, 1)} %"),
+        ],
+    )
     _p(
         doc,
         f"Error = 1 − ({_fmt(ITRON_DELTA)} / {_fmt(US_DELTA)}) = {_fmt(ERROR_PCT, 1)} %. "
-        f"Aceptable frente a tolerancias de fabricante (ultrasónico ±{TOL_US_PCT} %, Itron ±{TOL_ITRON_PCT} %).",
+        f"Aceptable frente a tolerancias (ultrasónico ±{TOL_US_PCT} %, Itron ±{TOL_ITRON_PCT} %).",
     )
 
     _h(doc, "4.2 Itron vs app WES (22-09 15:00 → 23-09 17:00)", level=2)
     _p(
         doc,
-        "Validación con lecturas fotográficas del medidor Itron (ESVAL) y el consumo registrado "
-        "en la app WES en el mismo periodo. App: horas 16 a 23 del 22-09 + horas 00 a 16 del 23-09.",
+        "Validación con lecturas fotográficas del medidor Itron y el consumo de la app WES. "
+        "App: horas 16→23 del 22-09 + horas 00→16 del 23-09.",
     )
     _fotos_pequenas(
         doc,
         [
-            (FOTO_ITRON_1500, f"Itron — {VAL_FECHA_B_INI} {HORA_B_INI}"),
-            (FOTO_ITRON_1700, f"Itron — {VAL_FECHA_B_FIN} {HORA_B_FIN}"),
+            (FOTO_ITRON_1500, f"Itron · {VAL_FECHA_B_INI} {HORA_B_INI}"),
+            (FOTO_ITRON_1700, f"Itron · {VAL_FECHA_B_FIN} {HORA_B_FIN}"),
         ],
         out_dir,
     )
@@ -474,20 +615,20 @@ def generar_informe(out_dir: Path) -> Path:
         ITRON_B_DELTA,
         "26",
     )
-    t_err_b = doc.add_table(rows=3, cols=2)
-    t_err_b.style = "Table Grid"
-    _set_row(t_err_b.rows[0], ["Total App WES", f"{_fmt(APP_B_DELTA)} m³"], size=10)
-    _set_row(t_err_b.rows[1], ["Total Lectura Itron", f"{_fmt(ITRON_B_DELTA)} m³"], size=10)
-    _set_row(t_err_b.rows[2], ["% Error", f"{_fmt(ERROR_B_PCT, 1)} %"], bold=True, size=10)
-    doc.add_paragraph()
+    _tabla_error(
+        doc,
+        [
+            ("Total App WES", f"{_fmt(APP_B_DELTA)} m³"),
+            ("Total Lectura Itron", f"{_fmt(ITRON_B_DELTA)} m³"),
+            ("% Error", f"{_fmt(ERROR_B_PCT, 1)} %"),
+        ],
+    )
     _p(
         doc,
-        f"En base a las lecturas, el rango de error entre la lectura del medidor Itron y la app WES "
-        f"es de un {_fmt(ERROR_B_PCT, 1)} % "
+        f"Error entre lectura Itron y app WES: {_fmt(ERROR_B_PCT, 1)} % "
         f"(1 − {_fmt(ITRON_B_DELTA)}/{_fmt(APP_B_DELTA)}).",
     )
 
-    # —— 5. Conclusión ——
     _h(doc, "5. Conclusión", level=1)
     _p(
         doc,
@@ -495,23 +636,24 @@ def generar_informe(out_dir: Path) -> Path:
         "mejoraron los indicadores de señal, pero no el volumen. La corrección de diámetro, mortero "
         f"y factor de escala (tope {_fmt(M45_MAXIMO_EQUIPO, 1)}), más el ajuste final a "
         f"{DIAMETRO_FINAL_MM} mm, alineó ambos medidores en terreno. "
-        f"Validación Itron vs ultrasónico (22-09): error {_fmt(ERROR_PCT, 1)} %. "
-        f"Validación Itron vs app (15:00 del 22 → 17:00 del 23): error {_fmt(ERROR_B_PCT, 1)} %. "
+        f"Validación Itron vs ultrasónico: {_fmt(ERROR_PCT, 1)} %. "
+        f"Validación Itron vs app: {_fmt(ERROR_B_PCT, 1)} %. "
         "Ambos resultados son aceptables según las tolerancias de fabricante.",
     )
 
+    _hr(doc)
     pie = doc.add_paragraph()
-    pie.paragraph_format.space_before = Pt(14)
+    pie.paragraph_format.space_before = Pt(2)
     r = pie.add_run(
-        f"Documento interno WES · {EMPRESA} · generado {datetime.now().strftime('%d-%m-%Y %H:%M')}."
+        f"WES · Documento interno · {EMPRESA} · {datetime.now().strftime('%d-%m-%Y %H:%M')}"
     )
-    _font(r, size=9, color=_MUTED)
+    _font(r, size=8, color=_MUTED)
 
     doc.save(out_docx)
     print(f"[OK] Word: {out_docx}")
     print(
-        f"[CIFRAS] A: Itron {ITRON_DELTA}/US {US_DELTA} err={ERROR_PCT}% | "
-        f"B: Itron {ITRON_B_DELTA}/App {APP_B_DELTA} err={ERROR_B_PCT}%"
+        f"[CIFRAS] A: {ITRON_DELTA}/{US_DELTA}={ERROR_PCT}% | "
+        f"B: {ITRON_B_DELTA}/{APP_B_DELTA}={ERROR_B_PCT}%"
     )
     return out_docx
 
