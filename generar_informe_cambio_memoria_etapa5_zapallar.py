@@ -4,9 +4,9 @@ Informe de validación — Etapa N°5 Fundo Zapallar.
 Estilo alineado a Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_FINAL:
   - Título + meta + franja KPI (verde #E8F5E9 / #1B5E20)
   - Tablas: header azul, secundario #D6E3F0/#1F4788, filas alt #F5F8FB
-  - Fotos relojería ~2,28" lado a lado + caption azul
+  - Fotos relojería ~1,85" lado a lado + caption azul (§4 completo en una hoja)
   - cantSplit + tblHeader + keepNext (tablas no se cortan entre hojas)
-  - Validación: hora 14 completa → hasta 17:00; §4 arranca en hoja nueva
+  - Validación: hora 14 completa → hasta 17:00; §4 y §5 en hojas propias
 
 Uso:
   python generar_informe_cambio_memoria_etapa5_zapallar.py
@@ -65,7 +65,7 @@ COLOR_KPI_FILL = "E8F5E9"
 COLOR_HEADER2_FILL = "D6E3F0"  # encabezado secundario (letras azules)
 COLOR_ALT_FILL = "F5F8FB"
 COLOR_FOTO_FILL = "FAFBFC"
-FOTO_ANCHO = Inches(2.28)  # mismo ancho que Informe Validación ESVAL FINAL
+FOTO_ANCHO = Inches(1.85)  # más chicas para que §4 quepa entero en una hoja
 
 
 # Lecturas mecánicas (fotos terreno)
@@ -752,6 +752,8 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     )
 
     _add_h(doc, "5. Conclusión", 1)
+    # Conclusión siempre en la última hoja
+    doc.paragraphs[-1].paragraph_format.page_break_before = True
     _add_body(
         doc,
         "Se confirma falla de memoria de placa (sensor Sensus/HRI y voltajes OK). "
