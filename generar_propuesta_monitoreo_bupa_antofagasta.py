@@ -4,6 +4,11 @@ Propuesta de monitoreo hídrico — Clínica Bupa Antofagasta.
 Arma el Word de alcance a partir de la ficha de visita
 (fichas/Clinica_Bupa_Antofagasta/).
 
+Fotos y texto de cada sitio:
+  fichas/Clinica_Bupa_Antofagasta/sitios/<carpeta>/01.jpg
+  fichas/Clinica_Bupa_Antofagasta/sitios/<carpeta>/descripcion.txt
+Hasta 3 fotos por fila. El archivo descripcion.txt es el texto bajo las fotos.
+
 Uso:
   python generar_propuesta_monitoreo_bupa_antofagasta.py
 """
@@ -18,7 +23,8 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm, Inches, Pt, RGBColor
+from docx.shared import Cm, Emu, Inches, Pt, RGBColor
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent
 FICHA = (
@@ -27,25 +33,21 @@ FICHA = (
     / "Clinica_Bupa_Antofagasta"
     / "Ficha_tecnica_Clinica_Bupa_Antofagasta.docx"
 )
+SITIOS_DIR = ROOT / "fichas" / "Clinica_Bupa_Antofagasta" / "sitios"
 OUT_DIR = ROOT / "reports" / "Bupa_Antofagasta" / "PROPUESTA"
 OUT_DOCX = OUT_DIR / "Propuesta_monitoreo_Clinica_Bupa_Antofagasta.docx"
+EXT_FOTO = {".png", ".jpg", ".jpeg", ".webp"}
 
 AZUL = RGBColor(0, 51, 102)
 NEGRO = RGBColor(0, 0, 0)
 
-# Orden de fotos en la ficha (word/media).
+# Logo en la ficha de visita (word/media).
 FOTO_LOGO = "word/media/image5.png"
-FOTOS = {
-    "principal": "word/media/image1.png",
-    "sala2": "word/media/image6.png",
-    "sexto": "word/media/image2.png",
-    "sanitaria": "word/media/image3.png",
-}
 
 PUNTOS = [
     {
         "n": "1",
-        "clave": "principal",
+        "carpeta": "01_sala_principal",
         "nombre": "Sala de impulsión Principal",
         "actividad": "50 % de la clínica y llenado del estanque S.N°2",
         "electrica": "10 m",
@@ -56,7 +58,7 @@ PUNTOS = [
     },
     {
         "n": "2",
-        "clave": "sala2",
+        "carpeta": "02_sala_n2",
         "nombre": "Sala de impulsión N°2",
         "actividad": "Abastece la sala de bombas del sexto piso (S.B. N°3)",
         "electrica": "10 m",
@@ -67,7 +69,7 @@ PUNTOS = [
     },
     {
         "n": "3",
-        "clave": "sexto",
+        "carpeta": "03_sexto_piso",
         "nombre": "Sala de impulsión Sexto Piso (S.B. N°3)",
         "actividad": "50 % de la clínica",
         "electrica": "15 m",
@@ -78,7 +80,7 @@ PUNTOS = [
     },
     {
         "n": "4",
-        "clave": "sanitaria",
+        "carpeta": "04_medidor_sanitaria",
         "nombre": "Medidor principal Sanitaria",
         "actividad": "100 % de la clínica (cuenta de agua)",
         "electrica": "5 m",
@@ -183,18 +185,132 @@ def _resumen_table(doc: Document) -> None:
     doc.add_paragraph().paragraph_format.space_after = Pt(4)
 
 
-def _foto(doc: Document, path: Path, width_in: float, pie: str) -> None:
-    para = doc.add_paragraph()
-    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    para.paragraph_format.space_before = Pt(6)
-    para.paragraph_format.space_after = Pt(2)
-    run = para.add_run()
-    run.add_picture(str(path), width=Inches(width_in))
-    cap = doc.add_paragraph()
-    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    cap.paragraph_format.space_after = Pt(8)
-    r = cap.add_run(pie)
-    _set_run(r, size=9, color=RGBColor(80, 80, 80))
+def _fotos_sitio(carpeta: str) -> list[Path]:
+    directorio = SITIOS_DIR / carpeta
+    if not directorio.is_dir():
+        return []
+    return sorted(
+        p for p in directorio.iterdir() if p.suffix.lower() in EXT_FOTO and p.is_file()
+    )
+
+
+def _descripcion_sitio(punto: dict) -> str:
+    ruta = SITIOS_DIR / punto["carpeta"] / "descripcion.txt"
+    if ruta.is_file():
+        texto = ruta.read_text(encoding="utf-8").strip()
+        if texto:
+            return texto
+    return punto.get("foto_pie", "").strip()
+
+
+def _ancho_foto(path: Path, max_w_cm: float, max_h_cm: float) -> Emu:
+    with Image.open(path) as im:
+        w_px, h_px = im.size
+    if w_px <= 0 or h_px <= 0:
+        return Cm(max_w_cm)
+    ratio = w_px / h_px
+    ancho = max_w_cm
+    alto = ancho / ratio
+    if alto > max_h_cm:
+        alto = max_h_cm
+        ancho = alto * ratio
+    return Cm(ancho)
+
+
+def _bordes(table, color: str = "003366", sz: str = "8") -> None:
+    tbl_pr = table._tbl.tblPr
+    borders = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        el = OxmlElement(f"w:{edge}")
+        el.set(qn("w:val"), "single")
+        el.set(qn("w:sz"), sz)
+        el.set(qn("w:space"), "0")
+        el.set(qn("w:color"), color)
+        borders.append(el)
+    tbl_pr.append(borders)
+
+
+def _margen_celda(cell, dxa: int = 80) -> None:
+    tc_pr = cell._tc.get_or_add_tcPr()
+    tc_mar = OxmlElement("w:tcMar")
+    for lado in ("top", "left", "bottom", "right"):
+        node = OxmlElement(f"w:{lado}")
+        node.set(qn("w:w"), str(dxa))
+        node.set(qn("w:type"), "dxa")
+        tc_mar.append(node)
+    tc_pr.append(tc_mar)
+
+
+def _fila_fotos(doc: Document, fotos: list[Path]) -> None:
+    """Hasta 3 fotos por fila, alto acotado, pie «Foto N»."""
+    if not fotos:
+        aviso = doc.add_paragraph()
+        aviso.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = aviso.add_run("Foto pendiente")
+        _set_run(run, size=10, color=RGBColor(120, 120, 120))
+        return
+    lote = fotos[:3]
+    n = len(lote)
+    cols = n
+    max_h = 8.0 if n == 1 else 6.2
+    max_w = 12.0 if n == 1 else (8.0 if n == 2 else 5.3)
+    table = doc.add_table(rows=1, cols=cols)
+    table.autofit = True
+    _bordes(table, color="D0D7E2", sz="4")
+    for i, path in enumerate(lote):
+        cell = table.rows[0].cells[i]
+        cell.text = ""
+        _shade(cell, "F7F9FC")
+        _margen_celda(cell, 60)
+        p = cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.space_before = Pt(4)
+        p.paragraph_format.space_after = Pt(2)
+        p.add_run().add_picture(str(path), width=_ancho_foto(path, max_w, max_h))
+        pie = cell.add_paragraph()
+        pie.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        pie.paragraph_format.space_after = Pt(2)
+        etiqueta = pie.add_run(f"Foto {i + 1}")
+        _set_run(etiqueta, size=8, bold=True, color=AZUL)
+    if n > 3:
+        _fila_fotos(doc, fotos[3:])
+
+
+def _ficha_sitio(doc: Document, punto: dict) -> None:
+    fotos = _fotos_sitio(punto["carpeta"])
+    descripcion = _descripcion_sitio(punto)
+    _p(
+        doc,
+        f"Punto {punto['n']}. {punto['nombre']}",
+        bold=True,
+        size=12,
+        color=AZUL,
+        space_after=2,
+    )
+    _fila_fotos(doc, fotos)
+    caja = doc.add_table(rows=1, cols=1)
+    _bordes(caja, color="003366", sz="6")
+    cell = caja.cell(0, 0)
+    cell.text = ""
+    _shade(cell, "F4F7FB")
+    _margen_celda(cell, 90)
+    titulo = cell.paragraphs[0]
+    titulo.paragraph_format.space_after = Pt(2)
+    r = titulo.add_run("Descripción del sitio")
+    _set_run(r, size=10, bold=True, color=AZUL)
+    cuerpo = cell.add_paragraph()
+    cuerpo.paragraph_format.space_after = Pt(4)
+    cuerpo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    rc = cuerpo.add_run(descripcion or "Descripción pendiente.")
+    _set_run(rc, size=10)
+    datos = cell.add_paragraph()
+    datos.paragraph_format.space_after = Pt(1)
+    rd = datos.add_run(
+        f"Cobre 2 pulgadas  ·  {punto['actividad']}  ·  220 V a {punto['electrica']}  ·  "
+        "sensores 2 × 5 m  ·  señal M2M buena"
+    )
+    _set_run(rd, size=8, color=RGBColor(70, 70, 70))
+    doc.add_paragraph().paragraph_format.space_after = Pt(6)
 
 
 def _footer(section) -> None:
@@ -218,21 +334,15 @@ def _footer(section) -> None:
     run._r.append(fld_end)
 
 
-def _extraer_fotos(dest: Path) -> dict[str, Path]:
+def _extraer_logo(dest: Path) -> Path:
     dest.mkdir(parents=True, exist_ok=True)
-    out: dict[str, Path] = {}
+    logo = dest / "logo_wes.png"
     with zipfile.ZipFile(FICHA) as zf:
-        logo = dest / "logo_wes.png"
         logo.write_bytes(zf.read(FOTO_LOGO))
-        out["logo"] = logo
-        for clave, interno in FOTOS.items():
-            path = dest / f"{clave}.png"
-            path.write_bytes(zf.read(interno))
-            out[clave] = path
-    return out
+    return logo
 
 
-def construir(fotos: dict[str, Path]) -> Document:
+def construir(logo: Path | None) -> Document:
     doc = Document()
     section = doc.sections[0]
     section.page_width = Cm(21.0)
@@ -248,10 +358,10 @@ def construir(fotos: dict[str, Path]) -> Document:
     normal.font.size = Pt(11)
     normal.font.color.rgb = NEGRO
 
-    if fotos["logo"].exists():
+    if logo and logo.exists():
         logo_p = doc.add_paragraph()
         logo_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        logo_p.add_run().add_picture(str(fotos["logo"]), width=Inches(1.55))
+        logo_p.add_run().add_picture(str(logo), width=Inches(1.55))
 
     _p(doc, "PROPUESTA DE MONITOREO HÍDRICO", bold=True, size=18, center=True, space_after=2, color=AZUL)
     _p(doc, "Clínica Bupa Antofagasta", bold=True, size=16, center=True, space_after=2, color=AZUL)
@@ -334,21 +444,7 @@ def construir(fotos: dict[str, Path]) -> Document:
 
     _heading(doc, "5. Ficha de cada punto")
     for punto in PUNTOS:
-        _p(doc, f"Punto {punto['n']}. {punto['nombre']}", bold=True, size=12, color=AZUL, space_after=4)
-        _kv_table(
-            doc,
-            [
-                ("Diámetro", "2 pulgadas"),
-                ("Material de la matriz", "Cobre"),
-                ("Actividad hídrica", punto["actividad"]),
-                ("Remarcador del cliente", "No existe"),
-                ("Factibilidad eléctrica 220 V", punto["electrica"]),
-                ("Canalización de señal", "No aplica"),
-                ("Canalización sensores ultrasonido", "2 × 5 m"),
-                ("Señal M2M 3G, 4G, 5G", "Buena"),
-            ],
-        )
-        _foto(doc, fotos[punto["clave"]], 4.6, punto["foto_pie"])
+        _ficha_sitio(doc, punto)
 
     _heading(doc, "6. Condiciones de instalación a cuidar en terreno")
     _bullet(
@@ -425,8 +521,8 @@ def main() -> None:
         raise SystemExit(f"No está la ficha de visita: {FICHA}")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
-        fotos = _extraer_fotos(Path(tmp))
-        doc = construir(fotos)
+        logo = _extraer_logo(Path(tmp))
+        doc = construir(logo)
     doc.save(OUT_DOCX)
     print(f"[OK] {OUT_DOCX}")
 
