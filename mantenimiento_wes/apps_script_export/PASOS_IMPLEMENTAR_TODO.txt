@@ -1,0 +1,55 @@
+IMPLEMENTAR LO QUE FALTA — 5 MINUTOS
+====================================
+
+Hoy el /exec SOLO tiene catálogos actualizados.
+Faltan 2 archivos: Codigo + Formulario
+(correo opcional + lógica nueva).
+
+Abrí el proyecto:
+https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd2reLwCrSsZ_nMlWLn/edit
+
+------------------------------------
+ARCHIVO 1: Codigo  (izquierda)
+------------------------------------
+1) Clic en "Codigo"
+2) Ctrl+A → Supr (borrar TODO)
+3) Abrí este link, copiá TODO el texto:
+   https://drive.google.com/file/d/1k_AIjuH-1TJN7baXhUVPAQ0rKzxlnCja/view
+   (Abrir con Bloc de notas → Ctrl+A → Ctrl+C)
+4) Volvé al Apps Script → Ctrl+V
+5) Ctrl+S
+
+------------------------------------
+ARCHIVO 2: Formulario  (izquierda)
+------------------------------------
+1) Clic en "Formulario"
+2) Ctrl+A → Supr
+3) Copiá TODO de:
+   https://drive.google.com/file/d/1iHXMTSx8Wjaj7WeNgmH9Yhps4r-hdhSG/view
+4) Pegá (Ctrl+V) → Ctrl+S
+
+------------------------------------
+(Opcional) ARCHIVO 3: catalogos
+------------------------------------
+Si querés asegurar On/Off + RENCA:
+https://drive.google.com/file/d/1HEckdogPSdZY-XcMGZRK-DZSmsX2n2UG/view
+Mismo método: borrar todo → pegar → guardar.
+
+------------------------------------
+PUBLICAR
+------------------------------------
+1) Arriba derecha: Implementar
+2) Administrar implementaciones
+3) Lápiz ✏️ de la app web
+4) Versión → Nueva versión
+5) Implementar
+
+------------------------------------
+PROBAR EN EL /exec
+------------------------------------
+https://script.google.com/macros/s/AKfycbzr5Md52h7yHk4T_UhS1H5RsdIKox49EHB5IkFKPsAU2RA-aLTBIG1NWc50vxbTM601/exec
+
+Debés ver:
+✓ Check "Enviar PDF por correo al cliente"
+✓ Tecnología On/Off
+✓ RENCA: ICCO, ICCP, GIMNASIO MUNICIPAL, etc.

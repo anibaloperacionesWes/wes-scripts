@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Firma visita WES</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --ink: #1f4e79;
+      --muted: #5b6b7c;
+      --line: #c9d6e5;
+      --accent: #2e75b6;
+      --ok: #1b7a4e;
+      --warn: #9a6b00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: linear-gradient(180deg, #e8f1fa 0%, var(--bg) 40%);
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 12px;
+    }
+    .wrap { max-width: 560px; margin: 0 auto; }
+    h1 {
+      margin: 8px 0 4px;
+      font-size: 1.35rem;
+      color: var(--ink);
+    }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 14px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 6px 18px rgba(31, 78, 121, 0.06);
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 650;
+      color: var(--ink);
+      margin: 8px 0 4px;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-size: 1rem;
+      background: #fff;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 420px) { .row { grid-template-columns: 1fr; } }
+    .pad-wrap {
+      border: 2px dashed var(--accent);
+      border-radius: 12px;
+      background: #fafcff;
+      overflow: hidden;
+      touch-action: none;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 220px;
+      touch-action: none;
+    }
+    .hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8aa0b5;
+      pointer-events: none;
+      font-size: 0.95rem;
+    }
+    .hint.hide { display: none; }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    button {
+      border: 0;
+      border-radius: 11px;
+      padding: 13px 12px;
+      font-size: 1rem;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    .btn-clear { background: #eef2f7; color: #334; }
+    .btn-save { background: var(--accent); color: #fff; grid-column: 1 / -1; }
+    .btn-save:disabled { opacity: 0.5; }
+    .status {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: var(--ok);
+      min-height: 1.2em;
+    }
+    .status.err { color: #a11; }
+    .status.warn { color: var(--warn); }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.75rem;
+      margin: 8px 0 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Firma de visita WES</h1>
+    <p class="sub">Gratis · sin Google Form · firmá en la pantalla y descargá la imagen</p>
+
+    <div class="card">
+      <label for="cliente">Cliente</label>
+      <input id="cliente" autocomplete="organization" placeholder="Ej: CORMUP" />
+
+      <label for="maquina">Máquina / sitio</label>
+      <input id="maquina" placeholder="Ej: TOBALABA" />
+
+      <div class="row">
+        <div>
+          <label for="fecha">Fecha</label>
+          <input id="fecha" type="date" />
+        </div>
+        <div>
+          <label for="ot">N° OT / formulario</label>
+          <input id="ot" placeholder="Opcional" />
+        </div>
+      </div>
+
+      <label for="nombre">Nombre quien recibe / firma</label>
+      <input id="nombre" autocomplete="name" placeholder="Nombre y apellido" />
+
+      <label for="cargo">Cargo</label>
+      <input id="cargo" placeholder="Ej: Encargado mantención" />
+    </div>
+
+    <div class="card">
+      <label>Firma (dedo o lápiz)</label>
+      <div class="pad-wrap" id="padWrap">
+        <div class="hint" id="hint">Firmá aquí</div>
+        <canvas id="pad" width="1000" height="440"></canvas>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-clear" id="btnClear">Borrar</button>
+        <button type="button" class="btn-save" id="btnSave">Guardar firma (PNG)</button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <footer>WES · la firma queda como imagen PNG en el teléfono · luego se adjunta a la visita</footer>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("pad");
+    const ctx = canvas.getContext("2d");
+    const hint = document.getElementById("hint");
+    const statusEl = document.getElementById("status");
+    let drawing = false;
+    let dirty = false;
+    let last = null;
+
+    function todayISO() {
+      const d = new Date();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${d.getFullYear()}-${m}-${day}`;
+    }
+    document.getElementById("fecha").value = todayISO();
+
+    function resizeCanvas() {
+      const ratio = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const w = Math.max(320, Math.floor(rect.width * ratio));
+      const h = Math.max(180, Math.floor(220 * ratio));
+      if (canvas.width !== w || canvas.height !== h) {
+        const prev = dirty ? canvas.toDataURL() : null;
+        canvas.width = w;
+        canvas.height = h;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#12263a";
+        ctx.lineWidth = Math.max(2.2, 2.4 * ratio);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+        if (prev) {
+          const img = new Image();
+          img.onload = () => ctx.drawImage(img, 0, 0, w, h);
+          img.src = prev;
+        }
+      }
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    function pos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      const ratioX = canvas.width / rect.width;
+      const ratioY = canvas.height / rect.height;
+      return {
+        x: (t.clientX - rect.left) * ratioX,
+        y: (t.clientY - rect.top) * ratioY,
+      };
+    }
+
+    function start(e) {
+      e.preventDefault();
+      drawing = true;
+      dirty = true;
+      hint.classList.add("hide");
+      last = pos(e);
+    }
+    function move(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      const p = pos(e);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last = p;
+    }
+    function end(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      drawing = false;
+      last = null;
+    }
+
+    canvas.addEventListener("mousedown", start);
+    canvas.addEventListener("mousemove", move);
+    canvas.addEventListener("mouseup", end);
+    canvas.addEventListener("mouseleave", end);
+    canvas.addEventListener("touchstart", start, { passive: false });
+    canvas.addEventListener("touchmove", move, { passive: false });
+    canvas.addEventListener("touchend", end, { passive: false });
+
+    document.getElementById("btnClear").onclick = () => {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      dirty = false;
+      hint.classList.remove("hide");
+      statusEl.textContent = "";
+      statusEl.className = "status";
+    };
+
+    function slug(s) {
+      return (s || "sin-dato")
+        .toString()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "_")
+        .replace(/^_|_$/g, "")
+        .slice(0, 40) || "sin-dato";
+    }
+
+    document.getElementById("btnSave").onclick = async () => {
+      const cliente = document.getElementById("cliente").value.trim();
+      const maquina = document.getElementById("maquina").value.trim();
+      const fecha = document.getElementById("fecha").value.trim();
+      const nombre = document.getElementById("nombre").value.trim();
+      const cargo = document.getElementById("cargo").value.trim();
+      const ot = document.getElementById("ot").value.trim();
+
+      if (!nombre) {
+        statusEl.textContent = "Falta el nombre de quien firma.";
+        statusEl.className = "status err";
+        return;
+      }
+      if (!dirty) {
+        statusEl.textContent = "Todavía no hay firma en el recuadro.";
+        statusEl.className = "status err";
+        return;
+      }
+
+      // Componer PNG con metadatos arriba
+      const metaH = 110;
+      const out = document.createElement("canvas");
+      out.width = canvas.width;
+      out.height = canvas.height + metaH;
+      const octx = out.getContext("2d");
+      octx.fillStyle = "#ffffff";
+      octx.fillRect(0, 0, out.width, out.height);
+      octx.fillStyle = "#1f4e79";
+      octx.font = "bold 28px Segoe UI, sans-serif";
+      octx.fillText("WES — Constancia de firma de visita", 24, 36);
+      octx.font = "22px Segoe UI, sans-serif";
+      octx.fillStyle = "#222";
+      octx.fillText(`Cliente: ${cliente || "—"}  |  Sitio: ${maquina || "—"}`, 24, 68);
+      octx.fillText(
+        `Fecha: ${fecha || "—"}  |  Firma: ${nombre}${cargo ? " (" + cargo + ")" : ""}${ot ? "  |  OT: " + ot : ""}`,
+        24,
+        96
+      );
+      octx.drawImage(canvas, 0, metaH);
+
+      const filename = `firma_${slug(fecha)}_${slug(cliente)}_${slug(maquina)}_${slug(nombre)}.png`;
+      const dataUrl = out.toDataURL("image/png");
+
+      // Intentar subir al servidor local si existe
+      let uploaded = false;
+      try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const fd = new FormData();
+        fd.append("file", blob, filename);
+        fd.append("cliente", cliente);
+        fd.append("maquina", maquina);
+        fd.append("fecha", fecha);
+        fd.append("nombre", nombre);
+        fd.append("cargo", cargo);
+        fd.append("ot", ot);
+        const res = await fetch("/api/guardar_firma", { method: "POST", body: fd });
+        if (res.ok) {
+          const info = await res.json();
+          uploaded = true;
+          statusEl.textContent = `Guardada en PC: ${info.saved_as}`;
+          statusEl.className = "status";
+        }
+      } catch (_) {
+        /* sin servidor: solo descarga */
+      }
+
+      if (!uploaded) {
+        const a = document.createElement("a");
+        a.href = dataUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        statusEl.textContent =
+          "PNG descargado en el teléfono. Enviálo / guardalo en mantenimiento wes/firmas/";
+        statusEl.className = "status warn";
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+FORMULARIO WEB (celular / técnicos)
+===================================
+
+Este es el formulario web con firma (NO la planilla de datos):
+
+https://announce-sum-uncertainty-choir.trycloudflare.com/
+
+Mientras este agente esté vivo. Cuando se apague, pedí uno nuevo.
+
+El link de script.google.com/.../edit NO es el formulario.
+Ahí se "Implementa" y sale una URL que termina en /exec (no /shell).
+Ese /exec todavía no se pudo crear porque Google dice Access en el editor.

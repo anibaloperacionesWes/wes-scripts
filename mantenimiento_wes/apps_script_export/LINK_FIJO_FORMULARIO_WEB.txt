@@ -1,0 +1,16 @@
+LINK FIJO FORMULARIO WEB — TÉCNICOS WES
+=======================================
+
+OFICIAL (único — usar este):
+https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+
+Alternativa (mismo deployment, sin dominio wes.cl):
+https://script.google.com/macros/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+
+Entrar con correo @wes.cl.
+Debe mostrar:
+  • Clientes / máquinas (RENCA: ICCO, ICCP, GIMNASIO…)
+  • Tecnología On/Off
+  • Check "Enviar PDF por correo al cliente"
+
+Links viejos: NO USAR (archivados).
