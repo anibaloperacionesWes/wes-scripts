@@ -1,0 +1,20 @@
+{
+  "one_pager": "/workspace/reports/CDUC/GESTION_HIDRICA/One_Pager_Gestion_Hidrica_Club_House_Corte_Total_Sep_2026.pdf",
+  "informe": "/workspace/reports/CDUC/GESTION_HIDRICA/Informe_Gestion_Hidrica_Club_House_Corte_Total_Sep_2026.pdf",
+  "node_id": "000021-01",
+  "nombre": "Club House CDUC",
+  "corte_programado_inicio": "2026-09-17 15:00:00",
+  "reposicion_indicada": "2026-09-29 06:00:00",
+  "reposicion_observada": "2026-09-20 08:00:00",
+  "cierre_datos": "2026-09-21 15:00:00",
+  "horas_cero": 65,
+  "m3_cero": 0.0,
+  "horas_base": 65,
+  "m3_base": 29.67,
+  "ahorro_m3": 29.67,
+  "ahorro_pct": 100.0,
+  "ahorro_clp": 41538.0,
+  "m3_desde_reposicion": 24.37,
+  "precio_clp_m3": 1400.0,
+  "clasificacion": "EN OBSERVACIÓN"
+}
