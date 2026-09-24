@@ -1,11 +1,11 @@
 """
-Informe corto — cambio de memoria placa / Etapa N°5 Fundo Zapallar.
+Informe de validación — Etapa N°5 Fundo Zapallar.
 
-Validación al estilo Informe Interno Matriz ESVAL:
-  - Inicio: lectura 22/09/2026 → consumo WES con hora 14 completa.
-  - Fin: foto 23/09/2026 → consumo WES hasta las 17:00.
-  - Tablas resumen (lectura / consumo / % error); sin tabla de huecos horarios.
-  - Fotos compactas (~5,6 cm) solo relojería, lado a lado.
+Estilo alineado a Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_FINAL:
+  - Título + meta + franja KPI
+  - Tablas con encabezado azul / texto blanco
+  - Fotos relojería ~2,28"
+  - Validación: hora 14 completa → hasta 17:00
 
 Uso:
   python generar_informe_cambio_memoria_etapa5_zapallar.py
@@ -56,7 +56,12 @@ FECHA_INTERVENCION = date(2026, 9, 22)
 DIAMETRO = "DN90 fierro dúctil"
 CAUDAL_MAX_REF_M3H = 60.0
 COLOR_TITULO = RGBColor(0x1F, 0x47, 0x88)
-COLOR_META = RGBColor(0x59, 0x59, 0x59)
+COLOR_META = RGBColor(0x64, 0x6E, 0x78)
+COLOR_TEXTO = RGBColor(0x28, 0x28, 0x28)
+COLOR_HEADER_FILL = "1F4788"
+COLOR_FOTO_FILL = "FAFBFC"
+FOTO_ANCHO = Inches(2.28)  # Informe_Validacion_Matriz_ESVAL FINAL
+
 
 # Lecturas mecánicas (fotos terreno)
 LECTURA_AYER_M3 = 5144.0
@@ -94,10 +99,8 @@ FOTO_AYER = FOTOS_DIR / "lectura_20260922_1430_sensus_5144.png"
 FOTO_HOY = FOTOS_DIR / "lectura_20260923_1654_sensus_5177.png"
 FOTO_AYER_RELOJ = FOTOS_DIR / "lectura_20260922_1430_sensus_5144_reloj.png"
 FOTO_HOY_RELOJ = FOTOS_DIR / "lectura_20260923_1654_sensus_5177_reloj.png"
-# Cara del medidor (relojería / totalizador visible, sin brida)
 CROP_AYER = (210, 340, 770, 840)
 CROP_HOY = (200, 300, 780, 780)
-FOTO_ANCHO = Inches(2.21)  # mismo tamaño que informe ESVAL Zapallar
 
 
 @dataclass
@@ -124,21 +127,25 @@ def _set_run_font(run, *, bold: bool = False, size: int = 11, color: RGBColor | 
 
 def _add_title(doc: Document, text: str) -> None:
     p = doc.add_paragraph(style="Title")
-    p.clear()
+    for child in list(p._element):
+        if child.tag.endswith("}r"):
+            p._element.remove(child)
     r = p.add_run(text)
     _set_run_font(r, bold=True, size=18, color=COLOR_TITULO)
 
 
-def _add_meta(doc: Document, text: str) -> None:
+def _add_meta(doc: Document, text: str, *, size: int = 9) -> None:
     p = doc.add_paragraph()
     r = p.add_run(text)
-    _set_run_font(r, size=10, color=COLOR_META)
+    _set_run_font(r, size=size, color=COLOR_META)
 
 
 def _add_h(doc: Document, text: str, level: int = 1) -> None:
     h = doc.add_heading(text, level=level)
+    size = 14 if level == 1 else 12
     for run in h.runs:
         run.font.name = "Calibri"
+        run.font.size = Pt(size)
         run.font.color.rgb = COLOR_TITULO
         run._element.rPr.rFonts.set(qn("w:eastAsia"), "Calibri")
 
@@ -147,33 +154,51 @@ def _add_body(doc: Document, text: str, *, size: int = 11) -> None:
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     r = p.add_run(text)
-    _set_run_font(r, size=size)
+    _set_run_font(r, size=size, color=COLOR_TEXTO)
 
 
 def _add_line(doc: Document, text: str) -> None:
     p = doc.add_paragraph()
     r = p.add_run(text)
-    _set_run_font(r, size=11, color=RGBColor(0, 0, 0))
+    _set_run_font(r, size=10.5, color=COLOR_TEXTO)
 
 
-def _set_cell_text(cell, text: str, *, bold: bool = False, size: int = 9, color: RGBColor | None = None) -> None:
+def _shade_cell(cell, hex_color: str) -> None:
+    tcPr = cell._tc.get_or_add_tcPr()
+    for old in tcPr.findall(qn("w:shd")):
+        tcPr.remove(old)
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:fill"), hex_color)
+    shd.set(qn("w:val"), "clear")
+    tcPr.append(shd)
+
+
+def _set_cell_text(
+    cell,
+    text: str,
+    *,
+    bold: bool = False,
+    size: int = 9,
+    color: RGBColor | None = None,
+    fill: str | None = None,
+) -> None:
     p = cell.paragraphs[0]
-    # limpiar runs previos (evita run vacío sin formato)
     for child in list(p._element):
         if child.tag.endswith("}r") or child.tag.endswith("}hyperlink"):
             p._element.remove(child)
     r = p.add_run(text)
     _set_run_font(r, bold=bold, size=size, color=color)
+    if fill:
+        _shade_cell(cell, fill)
 
 
-def _set_table_borders(table) -> None:
-    """Bordes finos negros (estilo informe ESVAL Zapallar)."""
+def _set_table_borders(table, color: str = "D0D5DD") -> None:
+    """Bordes suaves estilo Informe Validación ESVAL FINAL."""
     tbl = table._tbl
     tblPr = tbl.tblPr
     if tblPr is None:
         tblPr = OxmlElement("w:tblPr")
         tbl.insert(0, tblPr)
-    # quitar estilo Table Grid si aporta bordes gruesos / sombreado
     borders = tblPr.find(qn("w:tblBorders"))
     if borders is not None:
         tblPr.remove(borders)
@@ -183,21 +208,45 @@ def _set_table_borders(table) -> None:
         el.set(qn("w:val"), "single")
         el.set(qn("w:sz"), "4")
         el.set(qn("w:space"), "0")
-        el.set(qn("w:color"), "000000")
+        el.set(qn("w:color"), color)
         borders.append(el)
     tblPr.append(borders)
 
 
-def _add_tabla_simple(doc: Document, filas: List[Tuple[str, ...]], *, header_blue: bool = True) -> None:
+def _add_kpi_banner(doc: Document, cards: List[Tuple[str, str]]) -> None:
+    """Franja KPI superior (como Informe Validación ESVAL FINAL)."""
+    t = doc.add_table(rows=2, cols=len(cards))
+    _set_table_borders(t, color="1F4788")
+    for j, (titulo, valor) in enumerate(cards):
+        _set_cell_text(
+            t.rows[0].cells[j],
+            titulo,
+            bold=True,
+            size=9,
+            color=RGBColor(255, 255, 255),
+            fill=COLOR_HEADER_FILL,
+        )
+        _set_cell_text(t.rows[1].cells[j], valor, bold=False, size=10, color=COLOR_TEXTO)
+    doc.add_paragraph()
+
+
+def _add_tabla_simple(doc: Document, filas: List[Tuple[str, ...]]) -> None:
     cols = len(filas[0])
     t = doc.add_table(rows=len(filas), cols=cols)
     _set_table_borders(t)
     for i, row in enumerate(filas):
         for j, val in enumerate(row):
-            if i == 0 and header_blue:
-                _set_cell_text(t.rows[i].cells[j], val, bold=True, size=10, color=COLOR_TITULO)
+            if i == 0:
+                _set_cell_text(
+                    t.rows[i].cells[j],
+                    val,
+                    bold=True,
+                    size=9,
+                    color=RGBColor(255, 255, 255),
+                    fill=COLOR_HEADER_FILL,
+                )
             else:
-                _set_cell_text(t.rows[i].cells[j], val, bold=False, size=10)
+                _set_cell_text(t.rows[i].cells[j], val, bold=False, size=10, color=COLOR_TEXTO)
 
 
 def _crop_relojeria(src: Path, dst: Path, box: Tuple[int, int, int, int]) -> Path:
@@ -229,20 +278,24 @@ def _add_fotos_lado_a_lado(
     path_der: Path,
     caption_der: str,
 ) -> None:
-    """Fotos compactas en 2 columnas (mismo layout que informe ESVAL)."""
+    """Fotos en 2 columnas con fondo claro (estilo FINAL ESVAL)."""
     tbl = doc.add_table(rows=2, cols=2)
-    _set_table_borders(tbl)
+    _set_table_borders(tbl, color="E5E7EB")
     for col_i, (path, caption) in enumerate(
         ((path_izq, caption_izq), (path_der, caption_der))
     ):
         cell_img = tbl.rows[0].cells[col_i]
+        _shade_cell(cell_img, COLOR_FOTO_FILL)
         cell_img.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         if path.is_file():
             run = cell_img.paragraphs[0].add_run()
             run.add_picture(str(path), width=FOTO_ANCHO)
         cell_cap = tbl.rows[1].cells[col_i]
+        _shade_cell(cell_cap, COLOR_FOTO_FILL)
         cell_cap.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        cell_cap.text = ""
+        for child in list(cell_cap.paragraphs[0]._element):
+            if child.tag.endswith("}r"):
+                cell_cap.paragraphs[0]._element.remove(child)
         r = cell_cap.paragraphs[0].add_run(caption)
         _set_run_font(r, size=9, color=COLOR_META)
 
@@ -258,11 +311,18 @@ def _add_tabla_validacion_7(
     consumo: str,
     horas: str,
 ) -> None:
-    """Tabla 7 columnas estilo Informe Interno Matriz ESVAL (texto azul, sin relleno)."""
+    """Tabla 7 columnas estilo Informe Validación ESVAL FINAL (header azul)."""
     t = doc.add_table(rows=3, cols=7)
     _set_table_borders(t)
     t.rows[0].cells[0].merge(t.rows[0].cells[6])
-    _set_cell_text(t.rows[0].cells[0], titulo, bold=True, size=11, color=COLOR_TITULO)
+    _set_cell_text(
+        t.rows[0].cells[0],
+        titulo,
+        bold=True,
+        size=10,
+        color=RGBColor(255, 255, 255),
+        fill=COLOR_HEADER_FILL,
+    )
     headers = [
         "ANÁLISIS",
         "FECHA INICIAL",
@@ -273,10 +333,25 @@ def _add_tabla_validacion_7(
         "HORAS",
     ]
     for j, htxt in enumerate(headers):
-        _set_cell_text(t.rows[1].cells[j], htxt, bold=True, size=9, color=COLOR_TITULO)
+        _set_cell_text(
+            t.rows[1].cells[j],
+            htxt,
+            bold=True,
+            size=9,
+            color=RGBColor(255, 255, 255),
+            fill=COLOR_HEADER_FILL,
+        )
     vals = [analisis, fecha_ini, lectura_ini, fecha_fin, lectura_fin, consumo, horas]
     for j, v in enumerate(vals):
-        _set_cell_text(t.rows[2].cells[j], v, bold=False, size=9)
+        _set_cell_text(t.rows[2].cells[j], v, bold=False, size=9, color=COLOR_TEXTO)
+
+
+def _add_tabla_error(doc: Document, filas: List[Tuple[str, str]]) -> None:
+    t = doc.add_table(rows=len(filas), cols=2)
+    _set_table_borders(t)
+    for i, (a, b) in enumerate(filas):
+        _set_cell_text(t.rows[i].cells[0], a, bold=(i == len(filas) - 1), size=10, color=COLOR_TEXTO)
+        _set_cell_text(t.rows[i].cells[1], b, bold=(i == len(filas) - 1), size=10, color=COLOR_TEXTO)
 
 
 def _fmt(n: float, dec: int = 1) -> str:
@@ -375,24 +450,46 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     ahora = datetime.now(CHILE_TZ)
     stamp = ahora.strftime("%Y%m%d_%H%M")
-    out = OUT_DIR / f"Informe_Cambio_Memoria_Etapa5_Zapallar_{stamp}.docx"
+    out = OUT_DIR / f"Informe_Validacion_Etapa5_Zapallar_{stamp}.docx"
     val = calcular_validacion(lectura_ayer, lectura_hoy)
 
     doc = Document()
     section = doc.sections[0]
-    section.top_margin = Cm(2.0)
-    section.bottom_margin = Cm(2.0)
-    section.left_margin = Cm(2.2)
-    section.right_margin = Cm(2.2)
+    section.top_margin = Cm(1.6)
+    section.bottom_margin = Cm(1.6)
+    section.left_margin = Cm(1.9)
+    section.right_margin = Cm(1.9)
 
-    _add_title(doc, f"Informe interno — Cambio de memoria y validación {NODE_NAME}")
+    _add_title(doc, f"Informe de validación — {NODE_NAME} · {COMPANY}")
     _add_meta(
         doc,
-        f"Empresa: {COMPANY} ({COMPANY_ID})\n"
-        f"Punto: {NODE_NAME} ({NODE_ID})\n"
-        f"Validación: {LECTURA_AYER_DT.strftime('%d-%m-%Y')} 14:00 → "
-        f"{WES_HASTA_DT.strftime('%d-%m-%Y %H:%M')}\n"
-        f"Clasificación: Uso interno WES",
+        f"{COMPANY}  ·  {NODE_NAME} ({NODE_ID})  ·  Informe final\n"
+        f"Validaciones: {LECTURA_AYER_DT.strftime('%d-%m-%Y')} 14:00 → "
+        f"{WES_HASTA_DT.strftime('%d-%m-%Y %H:%M')}  ·  "
+        f"Intervención placa {FECHA_INTERVENCION.strftime('%d-%m-%Y')}",
+    )
+
+    dens = max(val.delta_mecanico, val.wes_m3)
+    num = min(val.delta_mecanico, val.wes_m3)
+    _add_kpi_banner(
+        doc,
+        [
+            (
+                "Sensus vs app WES",
+                f"Error {_fmt(val.diferencia_pct, 1)} %\n"
+                f"{_fmt(val.delta_mecanico, 2)} / {_fmt(val.wes_m3, 2)} m³",
+            ),
+            (
+                "Lecturas Sensus",
+                f"{_fmt(lectura_ayer, 0)} → {_fmt(lectura_hoy, 0)} m³\n"
+                f"Δ {_fmt(val.delta_mecanico, 0)} m³",
+            ),
+            (
+                "Red / medidor",
+                f"DN90 · techo ≈ {CAUDAL_MAX_REF_M3H:.0f} m³/h\n"
+                f"Q3 medidor {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h",
+            ),
+        ],
     )
 
     _add_h(doc, "1. Objetivo", 1)
@@ -434,7 +531,7 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     _add_line(doc, f"Lectura final: {_fmt(lectura_hoy, 0)} m³ ({LECTURA_HOY_DT.strftime('%d-%m-%Y')}).")
     _add_line(doc, f"Δ mecánico: {_fmt(val.delta_mecanico, 0)} m³.")
 
-    _add_h(doc, "4. Criterio hidráulico (DN90)", 1)
+    _add_h(doc, "3.3 Criterio hidráulico (DN90)", 2)
     _add_body(
         doc,
         f"La red es {DIAMETRO}. Techo práctico de red ≈ {CAUDAL_MAX_REF_M3H:.0f} m³/h "
@@ -451,10 +548,10 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         ],
     )
 
-    _add_h(doc, "5. Cálculo de validación", 1)
+    _add_h(doc, "4. Cálculo de validación", 1)
     _add_h(
         doc,
-        f"5.1 Sensus vs app WES ({LECTURA_AYER_DT.strftime('%d-%m')} 14:00 → "
+        f"4.1 Sensus vs app WES ({LECTURA_AYER_DT.strftime('%d-%m')} 14:00 → "
         f"{WES_HASTA_DT.strftime('%d-%m %H:%M')})",
         2,
     )
@@ -470,9 +567,9 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         _add_fotos_lado_a_lado(
             doc,
             foto_ayer,
-            f"Sensus — {LECTURA_AYER_DT.strftime('%d-%m-%Y')}",
+            f"Sensus · {LECTURA_AYER_DT.strftime('%d-%m-%Y')}",
             foto_hoy,
-            f"Sensus — {LECTURA_HOY_DT.strftime('%d-%m-%Y')}",
+            f"Sensus · {LECTURA_HOY_DT.strftime('%d-%m-%Y')}",
         )
 
     inicio_wes = LECTURA_AYER_DT.replace(minute=0, second=0, microsecond=0)
@@ -490,27 +587,22 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     )
 
     doc.add_paragraph()
-    t_err = doc.add_table(rows=3, cols=2)
-    _set_table_borders(t_err)
-    err_rows = [
-        ("Total App WES", f"{_fmt(val.wes_m3, 2)} m³"),
-        ("Total Lectura Sensus", f"{_fmt(val.delta_mecanico, 2)} m³"),
-        ("% Error", f"{_fmt(val.diferencia_pct, 1)} %"),
-    ]
-    for i, (a, b) in enumerate(err_rows):
-        _set_cell_text(t_err.rows[i].cells[0], a, bold=(i == 2), size=10)
-        _set_cell_text(t_err.rows[i].cells[1], b, bold=(i == 2), size=10)
-
-    dens = max(val.delta_mecanico, val.wes_m3)
-    num = min(val.delta_mecanico, val.wes_m3)
-    _add_body(
+    _add_tabla_error(
         doc,
-        f"En base a las lecturas, el rango de error entre la lectura del medidor Sensus "
-        f"y la app WES es de un {_fmt(val.diferencia_pct, 1)} % "
-        f"(1 − {_fmt(num, 2)}/{_fmt(dens, 2)}). {val.estado}.",
+        [
+            ("Total App WES", f"{_fmt(val.wes_m3, 2)} m³"),
+            ("Total Lectura Sensus", f"{_fmt(val.delta_mecanico, 2)} m³"),
+            ("% Error", f"{_fmt(val.diferencia_pct, 1)} %"),
+        ],
     )
 
-    _add_h(doc, "6. Conclusión", 1)
+    _add_body(
+        doc,
+        f"Error entre lectura Sensus y app WES: {_fmt(val.diferencia_pct, 1)} % "
+        f"(1 − {_fmt(num, 2)}/{_fmt(dens, 2)}).",
+    )
+
+    _add_h(doc, "5. Conclusión", 1)
     _add_body(
         doc,
         "Se confirma falla de memoria de placa (sensor Sensus/HRI y voltajes OK). "
@@ -522,7 +614,8 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
 
     _add_meta(
         doc,
-        f"Documento interno WES · {COMPANY} · generado {ahora.strftime('%d-%m-%Y %H:%M')}.",
+        f"WES · Informe final · {COMPANY} · {ahora.strftime('%d-%m-%Y %H:%M')}",
+        size=8,
     )
 
     doc.save(out)
