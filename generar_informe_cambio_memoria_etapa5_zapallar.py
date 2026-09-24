@@ -718,8 +718,9 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         "Se confirma falla de memoria de placa (sensor Sensus/HRI y voltajes OK). "
         f"Validación post-cambio: lectura mecánica {_fmt(val.delta_mecanico, 2)} m³ vs "
         f"app WES {_fmt(val.wes_m3, 2)} m³ (% error {_fmt(val.diferencia_pct, 1)} %). "
-        f"{val.estado}. Seguimiento diario matutino del nodo {NODE_ID} con umbral "
-        f"{CAUDAL_MAX_REF_M3H:.0f} m³/h (techo DN90).",
+        f"{val.estado}. El agente IA de WES revisará de forma diaria que el caudal "
+        "esté de acuerdo al consumo histórico del punto y al máximo de consumo "
+        f"compatible con la matriz DN90 (umbral {_fmt(CAUDAL_MAX_REF_M3H, 0)} m³/h).",
     )
 
     _add_meta(
