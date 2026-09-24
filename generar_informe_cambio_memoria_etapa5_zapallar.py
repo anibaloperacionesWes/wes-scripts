@@ -55,7 +55,8 @@ NODE_NAME = "Etapa N°5"
 FECHA_INTERVENCION = date(2026, 9, 22)
 DIAMETRO = "DN90 fierro dúctil"
 CAUDAL_MAX_REF_M3H = 60.0
-COLOR_TITULO = RGBColor(31, 71, 136)
+COLOR_TITULO = RGBColor(0x1F, 0x47, 0x88)
+COLOR_META = RGBColor(0x59, 0x59, 0x59)
 
 # Lecturas mecánicas (fotos terreno)
 LECTURA_AYER_M3 = 5144.0
@@ -96,7 +97,7 @@ FOTO_HOY_RELOJ = FOTOS_DIR / "lectura_20260923_1654_sensus_5177_reloj.png"
 # Cara del medidor (relojería / totalizador visible, sin brida)
 CROP_AYER = (210, 340, 770, 840)
 CROP_HOY = (200, 300, 780, 780)
-FOTO_ANCHO = Inches(3.0)
+FOTO_ANCHO = Inches(2.21)  # mismo tamaño que informe ESVAL Zapallar
 
 
 @dataclass
@@ -121,33 +122,79 @@ def _set_run_font(run, *, bold: bool = False, size: int = 11, color: RGBColor | 
         run.font.color.rgb = color
 
 
-def _add_bullet(doc: Document, text: str) -> None:
-    p = doc.add_paragraph(style="List Bullet")
-    run = p.add_run(text)
-    _set_run_font(run, size=11)
+def _add_title(doc: Document, text: str) -> None:
+    p = doc.add_paragraph(style="Title")
+    p.clear()
+    r = p.add_run(text)
+    _set_run_font(r, bold=True, size=18, color=COLOR_TITULO)
 
 
-def _shade_cell(cell, hex_color: str) -> None:
-    tcPr = cell._tc.get_or_add_tcPr()
-    shd = OxmlElement("w:shd")
-    shd.set(qn("w:fill"), hex_color)
-    shd.set(qn("w:val"), "clear")
-    tcPr.append(shd)
+def _add_meta(doc: Document, text: str) -> None:
+    p = doc.add_paragraph()
+    r = p.add_run(text)
+    _set_run_font(r, size=10, color=COLOR_META)
 
 
-def _fmt(n: float, dec: int = 1) -> str:
-    return f"{n:,.{dec}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+def _add_h(doc: Document, text: str, level: int = 1) -> None:
+    h = doc.add_heading(text, level=level)
+    for run in h.runs:
+        run.font.name = "Calibri"
+        run.font.color.rgb = COLOR_TITULO
+        run._element.rPr.rFonts.set(qn("w:eastAsia"), "Calibri")
 
 
-def _style_table_cell(cell, *, bold: bool = False, size: int = 9, white: bool = False) -> None:
-    for para in cell.paragraphs:
-        for run in para.runs:
-            _set_run_font(
-                run,
-                bold=bold,
-                size=size,
-                color=RGBColor(255, 255, 255) if white else None,
-            )
+def _add_body(doc: Document, text: str, *, size: int = 11) -> None:
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    r = p.add_run(text)
+    _set_run_font(r, size=size)
+
+
+def _add_line(doc: Document, text: str) -> None:
+    p = doc.add_paragraph()
+    r = p.add_run(text)
+    _set_run_font(r, size=11, color=RGBColor(0, 0, 0))
+
+
+def _set_cell_text(cell, text: str, *, bold: bool = False, size: int = 9, color: RGBColor | None = None) -> None:
+    cell.text = ""
+    p = cell.paragraphs[0]
+    r = p.add_run(text)
+    _set_run_font(r, bold=bold, size=size, color=color)
+
+
+def _set_table_borders(table) -> None:
+    """Bordes finos negros (estilo informe ESVAL Zapallar)."""
+    tbl = table._tbl
+    tblPr = tbl.tblPr
+    if tblPr is None:
+        tblPr = OxmlElement("w:tblPr")
+        tbl.insert(0, tblPr)
+    # quitar estilo Table Grid si aporta bordes gruesos / sombreado
+    borders = tblPr.find(qn("w:tblBorders"))
+    if borders is not None:
+        tblPr.remove(borders)
+    borders = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        el = OxmlElement(f"w:{edge}")
+        el.set(qn("w:val"), "single")
+        el.set(qn("w:sz"), "4")
+        el.set(qn("w:space"), "0")
+        el.set(qn("w:color"), "000000")
+        borders.append(el)
+    tblPr.append(borders)
+
+
+def _add_tabla_simple(doc: Document, filas: List[Tuple[str, ...]], *, header_blue: bool = True) -> None:
+    cols = len(filas[0])
+    t = doc.add_table(rows=len(filas), cols=cols)
+    _set_table_borders(t)
+    for i, row in enumerate(filas):
+        for j, val in enumerate(row):
+            if i == 0 and header_blue:
+                _set_cell_text(t.rows[i].cells[j], val, bold=True, size=10, color=COLOR_TITULO)
+            else:
+                _set_cell_text(t.rows[i].cells[j], val, bold=False, size=10)
 
 
 def _crop_relojeria(src: Path, dst: Path, box: Tuple[int, int, int, int]) -> Path:
@@ -181,7 +228,7 @@ def _add_fotos_lado_a_lado(
 ) -> None:
     """Fotos compactas en 2 columnas (mismo layout que informe ESVAL)."""
     tbl = doc.add_table(rows=2, cols=2)
-    tbl.autofit = True
+    _set_table_borders(tbl)
     for col_i, (path, caption) in enumerate(
         ((path_izq, caption_izq), (path_der, caption_der))
     ):
@@ -192,8 +239,9 @@ def _add_fotos_lado_a_lado(
             run.add_picture(str(path), width=FOTO_ANCHO)
         cell_cap = tbl.rows[1].cells[col_i]
         cell_cap.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        cell_cap.text = ""
         r = cell_cap.paragraphs[0].add_run(caption)
-        _set_run_font(r, size=8, color=RGBColor(90, 90, 90))
+        _set_run_font(r, size=9, color=COLOR_META)
 
 
 def _add_tabla_validacion_7(
@@ -207,11 +255,11 @@ def _add_tabla_validacion_7(
     consumo: str,
     horas: str,
 ) -> None:
-    """Tabla 7 columnas estilo Informe Interno Matriz ESVAL."""
+    """Tabla 7 columnas estilo Informe Interno Matriz ESVAL (texto azul, sin relleno)."""
     t = doc.add_table(rows=3, cols=7)
-    t.style = "Table Grid"
+    _set_table_borders(t)
     t.rows[0].cells[0].merge(t.rows[0].cells[6])
-    t.rows[0].cells[0].text = titulo
+    _set_cell_text(t.rows[0].cells[0], titulo, bold=True, size=11, color=COLOR_TITULO)
     headers = [
         "ANÁLISIS",
         "FECHA INICIAL",
@@ -222,29 +270,14 @@ def _add_tabla_validacion_7(
         "HORAS",
     ]
     for j, htxt in enumerate(headers):
-        t.rows[1].cells[j].text = htxt
+        _set_cell_text(t.rows[1].cells[j], htxt, bold=True, size=9, color=COLOR_TITULO)
     vals = [analisis, fecha_ini, lectura_ini, fecha_fin, lectura_fin, consumo, horas]
     for j, v in enumerate(vals):
-        t.rows[2].cells[j].text = v
-    for ri in range(3):
-        for cell in t.rows[ri].cells:
-            bold = ri < 2
-            white = ri < 2
-            if ri < 2:
-                _shade_cell(cell, "1F4788")
-            # re-apply runs after setting .text
-            for para in cell.paragraphs:
-                if not para.runs and para.text:
-                    para.text = ""
-            # python-docx keeps text in runs after .text=; restyle:
-            for para in cell.paragraphs:
-                for run in para.runs:
-                    _set_run_font(
-                        run,
-                        bold=bold,
-                        size=8,
-                        color=RGBColor(255, 255, 255) if white else None,
-                    )
+        _set_cell_text(t.rows[2].cells[j], v, bold=False, size=9)
+
+
+def _fmt(n: float, dec: int = 1) -> str:
+    return f"{n:,.{dec}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def obtener_api_por_hora() -> Dict[datetime, float]:
@@ -344,123 +377,89 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
 
     doc = Document()
     section = doc.sections[0]
-    section.top_margin = Cm(1.8)
-    section.bottom_margin = Cm(1.8)
-    section.left_margin = Cm(2.0)
-    section.right_margin = Cm(2.0)
+    section.top_margin = Cm(2.0)
+    section.bottom_margin = Cm(2.0)
+    section.left_margin = Cm(2.2)
+    section.right_margin = Cm(2.2)
 
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = title.add_run("INFORME TÉCNICO CORTO")
-    _set_run_font(r, bold=True, size=16, color=COLOR_TITULO)
-
-    sub = doc.add_paragraph()
-    sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = sub.add_run(
-        f"Cambio de memoria de placa — {NODE_NAME} ({NODE_ID})\n"
-        f"{COMPANY} ({COMPANY_ID})"
-    )
-    _set_run_font(r, bold=True, size=12, color=COLOR_TITULO)
-
-    meta = doc.add_paragraph()
-    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = meta.add_run(
-        f"Fecha intervención: {FECHA_INTERVENCION.strftime('%d/%m/%Y')}  ·  "
-        f"Generado: {ahora.strftime('%d/%m/%Y %H:%M')} (Chile)"
-    )
-    _set_run_font(r, size=10, color=RGBColor(90, 90, 90))
-
-    h = doc.add_heading("1. Resumen", level=1)
-    for run in h.runs:
-        run.font.color.rgb = COLOR_TITULO
-    p = doc.add_paragraph()
-    r = p.add_run(
-        "En terreno se detectaron lecturas de caudal anómalas (pulsos del orden de "
-        "92 y 200 m³/h) en la matriz de Etapa N°5. Tras descartar falla del sensor "
-        "y de la cadena de pulsos, y verificar voltajes correctos, se concluyó que "
-        "el error provenía de la memoria de la placa. Se reemplazó la memoria para "
-        "normalizar el punto y evitar recurrencia. Se valida además el consumo con "
-        "lecturas mecánicas del medidor Sensus versus la app WES."
-    )
-    _set_run_font(r, size=11)
-
-    h = doc.add_heading("2. Revisión en terreno", level=1)
-    for run in h.runs:
-        run.font.color.rgb = COLOR_TITULO
-    _add_bullet(doc, "Sensor Census / sensor inductivo: probado y en buen estado.")
-    _add_bullet(doc, "Pulsos de revisión: realizados; respuesta correcta.")
-    _add_bullet(doc, "Voltajes de alimentación / alimentación de placa: correctos.")
-    _add_bullet(doc, "Diagnóstico: memoria de la placa arrojaba el error (lecturas irreales).")
-    _add_bullet(doc, "Acción correctiva: cambio de memoria de la placa; punto reparado/normalizado.")
-
-    h = doc.add_heading("3. Medidor y lecturas mecánicas", level=1)
-    for run in h.runs:
-        run.font.color.rgb = COLOR_TITULO
-    _add_bullet(doc, f"Marca/modelo: {MEDIDOR_MARCA} {MEDIDOR_MODELO}")
-    _add_bullet(doc, f"Serie medidor: {MEDIDOR_SERIE} (2023)")
-    _add_bullet(doc, f"Q3 medidor: {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h")
-    _add_bullet(doc, f"Módulo pulsos: {HRI_MODELO}, serie {HRI_SERIE}")
-    _add_bullet(
+    _add_title(doc, f"Informe interno — Cambio de memoria y validación {NODE_NAME}")
+    _add_meta(
         doc,
-        f"Peso de pulso DN 40–125: {HRI_PULSO_DN40_125_L} L/pulso "
-        f"(={HRI_PULSO_DN40_125_L/1000:.1f} m³/pulso), aplicable a DN90",
+        f"Empresa: {COMPANY} ({COMPANY_ID})\n"
+        f"Punto: {NODE_NAME} ({NODE_ID})\n"
+        f"Validación: {LECTURA_AYER_DT.strftime('%d-%m-%Y')} 14:00 → "
+        f"{WES_HASTA_DT.strftime('%d-%m-%Y %H:%M')}\n"
+        f"Clasificación: Uso interno WES",
     )
-    _add_bullet(
-        doc,
-        f"Lectura inicial: {_fmt(lectura_ayer, 0)} m³ "
-        f"({LECTURA_AYER_DT.strftime('%d-%m-%Y')})",
-    )
-    _add_bullet(
-        doc,
-        f"Lectura final: {_fmt(lectura_hoy, 0)} m³ "
-        f"({LECTURA_HOY_DT.strftime('%d-%m-%Y')})",
-    )
-    _add_bullet(doc, f"Δ mecánico: {_fmt(val.delta_mecanico, 0)} m³")
 
-    h = doc.add_heading("4. Criterio hidráulico (DN90)", level=1)
-    for run in h.runs:
-        run.font.color.rgb = COLOR_TITULO
-    p = doc.add_paragraph()
-    r = p.add_run(
+    _add_h(doc, "1. Objetivo", 1)
+    _add_body(
+        doc,
+        "Documentar la intervención en terreno sobre la placa de Etapa N°5 ante caudales "
+        "anómalos incompatibles con la red DN90, y presentar el cálculo de validación "
+        "entre lecturas mecánicas del medidor Sensus y el consumo de la app WES.",
+    )
+
+    _add_h(doc, "2. Resumen", 1)
+    _add_body(
+        doc,
+        "Se detectaron pulsos del orden de 92 y 200 m³/h. El sensor inductivo, los pulsos "
+        "de revisión y los voltajes estaban correctos; el error provenía de la memoria de "
+        "la placa. Se reemplazó la memoria y se normalizó el punto. La validación posterior "
+        f"entre lectura Sensus y app WES arroja un error de {_fmt(val.diferencia_pct, 1)} % "
+        f"({val.estado.lower()}).",
+    )
+
+    _add_h(doc, "3. Actividades realizadas", 1)
+
+    _add_h(doc, "3.1 Revisión en terreno", 2)
+    _add_body(
+        doc,
+        "Se verificó sensor Census / inductivo (OK), pulsos de revisión (OK) y voltajes de "
+        "alimentación (correctos). El diagnóstico apuntó a falla de memoria de la placa.",
+    )
+    _add_line(doc, "Acción: cambio de memoria de la placa; punto reparado/normalizado.")
+
+    _add_h(doc, "3.2 Medidor instalado", 2)
+    _add_body(
+        doc,
+        f"Medidor {MEDIDOR_MARCA} {MEDIDOR_MODELO}, serie {MEDIDOR_SERIE} (2023), "
+        f"Q3 = {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h. Módulo {HRI_MODELO} (serie {HRI_SERIE}), "
+        f"peso de pulso DN 40–125 = {HRI_PULSO_DN40_125_L} L/pulso.",
+    )
+    _add_line(doc, f"Lectura inicial: {_fmt(lectura_ayer, 0)} m³ ({LECTURA_AYER_DT.strftime('%d-%m-%Y')}).")
+    _add_line(doc, f"Lectura final: {_fmt(lectura_hoy, 0)} m³ ({LECTURA_HOY_DT.strftime('%d-%m-%Y')}).")
+    _add_line(doc, f"Δ mecánico: {_fmt(val.delta_mecanico, 0)} m³.")
+
+    _add_h(doc, "4. Criterio hidráulico (DN90)", 1)
+    _add_body(
+        doc,
         f"La red es {DIAMETRO}. Techo práctico de red ≈ {CAUDAL_MAX_REF_M3H:.0f} m³/h "
         f"(~2,5 m/s). El medidor admite Q3 = {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h, pero la red "
-        "no puede entregar de forma realista 92–200 m³/h (error de memoria)."
+        "no puede entregar de forma realista 92–200 m³/h (error de memoria).",
     )
-    _set_run_font(r, size=11)
-
-    table = doc.add_table(rows=4, cols=2)
-    table.style = "Table Grid"
-    filas = [
-        ("Velocidad de referencia", "Caudal teórico DN90"),
-        ("1,5 m/s", "≈ 34 m³/h"),
-        ("2,0 m/s", "≈ 46 m³/h"),
-        ("2,5 m/s (techo práctico)", "≈ 57–60 m³/h"),
-    ]
-    for i, (a, b) in enumerate(filas):
-        table.rows[i].cells[0].text = a
-        table.rows[i].cells[1].text = b
-        for cell in table.rows[i].cells:
-            for para in cell.paragraphs:
-                for run in para.runs:
-                    _set_run_font(run, bold=(i == 0), size=10)
-        if i == 0:
-            for cell in table.rows[i].cells:
-                _shade_cell(cell, "1F4788")
-                for para in cell.paragraphs:
-                    for run in para.runs:
-                        run.font.color.rgb = RGBColor(255, 255, 255)
-
-    h = doc.add_heading("5. Cálculo de validación", level=1)
-    for run in h.runs:
-        run.font.color.rgb = COLOR_TITULO
-
-    p = doc.add_paragraph()
-    r = p.add_run(
-        "Validación con lecturas fotográficas del medidor Sensus (Etapa N°5) y el "
-        "consumo registrado en la app WES. Ventana: 22-09-2026 desde las 14:00 "
-        f"(hora completa) hasta las {WES_HASTA_DT.strftime('%H:%M')} del 23-09-2026."
+    _add_tabla_simple(
+        doc,
+        [
+            ("Velocidad de referencia", "Caudal teórico DN90"),
+            ("1,5 m/s", "≈ 34 m³/h"),
+            ("2,0 m/s", "≈ 46 m³/h"),
+            ("2,5 m/s (techo práctico)", "≈ 57–60 m³/h"),
+        ],
     )
-    _set_run_font(r, size=11)
+
+    _add_h(doc, "5. Cálculo de validación", 1)
+    _add_h(
+        doc,
+        f"5.1 Sensus vs app WES ({LECTURA_AYER_DT.strftime('%d-%m')} 14:00 → "
+        f"{WES_HASTA_DT.strftime('%d-%m %H:%M')})",
+        2,
+    )
+    _add_body(
+        doc,
+        "Validación con lecturas fotográficas del medidor Sensus y el consumo registrado "
+        "en la app WES. Ventana: hora 14 completa del 22-09-2026 hasta las 17:00 del 23-09-2026.",
+    )
 
     foto_ayer = _crop_relojeria(FOTO_AYER, FOTO_AYER_RELOJ, CROP_AYER)
     foto_hoy = _crop_relojeria(FOTO_HOY, FOTO_HOY_RELOJ, CROP_HOY)
@@ -468,9 +467,9 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         _add_fotos_lado_a_lado(
             doc,
             foto_ayer,
-            f"22-09-2026 · {_fmt(lectura_ayer, 0)} m³",
+            f"Sensus — {LECTURA_AYER_DT.strftime('%d-%m-%Y')}",
             foto_hoy,
-            f"23-09-2026 · {_fmt(lectura_hoy, 0)} m³",
+            f"Sensus — {LECTURA_HOY_DT.strftime('%d-%m-%Y')}",
         )
 
     inicio_wes = LECTURA_AYER_DT.replace(minute=0, second=0, microsecond=0)
@@ -488,53 +487,40 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     )
 
     doc.add_paragraph()
-
-    # Comparación resumen estilo ESVAL (Total App vs Total Lectura vs % Error)
     t_err = doc.add_table(rows=3, cols=2)
-    t_err.style = "Table Grid"
+    _set_table_borders(t_err)
     err_rows = [
         ("Total App WES", f"{_fmt(val.wes_m3, 2)} m³"),
         ("Total Lectura Sensus", f"{_fmt(val.delta_mecanico, 2)} m³"),
         ("% Error", f"{_fmt(val.diferencia_pct, 1)} %"),
     ]
     for i, (a, b) in enumerate(err_rows):
-        t_err.rows[i].cells[0].text = a
-        t_err.rows[i].cells[1].text = b
-        for cell in t_err.rows[i].cells:
-            for para in cell.paragraphs:
-                for run in para.runs:
-                    _set_run_font(run, bold=(i == 2), size=10)
+        _set_cell_text(t_err.rows[i].cells[0], a, bold=(i == 2), size=10)
+        _set_cell_text(t_err.rows[i].cells[1], b, bold=(i == 2), size=10)
 
-    p = doc.add_paragraph()
-    # Misma fórmula narrativa que ESVAL: 1 − (menor/mayor)
     dens = max(val.delta_mecanico, val.wes_m3)
     num = min(val.delta_mecanico, val.wes_m3)
-    r = p.add_run(
+    _add_body(
+        doc,
         f"En base a las lecturas, el rango de error entre la lectura del medidor Sensus "
         f"y la app WES es de un {_fmt(val.diferencia_pct, 1)} % "
-        f"(1 − {_fmt(num, 2)}/{_fmt(dens, 2)}). {val.estado}."
+        f"(1 − {_fmt(num, 2)}/{_fmt(dens, 2)}). {val.estado}.",
     )
-    _set_run_font(r, size=11)
 
-    h = doc.add_heading("6. Conclusión", level=1)
-    for run in h.runs:
-        run.font.color.rgb = COLOR_TITULO
-    p = doc.add_paragraph()
-    r = p.add_run(
+    _add_h(doc, "6. Conclusión", 1)
+    _add_body(
+        doc,
         "Se confirma falla de memoria de placa (sensor Sensus/HRI y voltajes OK). "
         f"Validación post-cambio: lectura mecánica {_fmt(val.delta_mecanico, 2)} m³ vs "
         f"app WES {_fmt(val.wes_m3, 2)} m³ (% error {_fmt(val.diferencia_pct, 1)} %). "
         f"{val.estado}. Seguimiento diario matutino del nodo {NODE_ID} con umbral "
-        f"{CAUDAL_MAX_REF_M3H:.0f} m³/h (techo DN90)."
+        f"{CAUDAL_MAX_REF_M3H:.0f} m³/h (techo DN90).",
     )
-    _set_run_font(r, size=11)
 
-    p = doc.add_paragraph()
-    r = p.add_run(
-        f"Documento interno WES · {COMPANY} · {NODE_NAME} ({NODE_ID}) · "
-        f"generado {ahora.strftime('%d-%m-%Y %H:%M')}."
+    _add_meta(
+        doc,
+        f"Documento interno WES · {COMPANY} · generado {ahora.strftime('%d-%m-%Y %H:%M')}.",
     )
-    _set_run_font(r, size=9, color=RGBColor(100, 100, 100))
 
     doc.save(out)
     print(
