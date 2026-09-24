@@ -3,7 +3,7 @@ Total por colegio: m³ cuenta (Aguas Andinas) vs m³ WES.
 
 El número que importa es el total de cada colegio (ene-2026 en adelante).
 Los meses son el desglose: fila = establecimiento, columnas = mes de emisión
-con m³ cuenta y m³ WES (medido + proyección de huecos).
+con m³ cuenta, m³ WES (medido + proyección de huecos) y % error de lectura.
 
 Uso:
   python generar_totalizados_mensuales_cormup_penalolen.py --skip-download
@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -103,6 +102,13 @@ def _matriz(sitios: List[Sitio], meses: List[Tuple[int, int]]):
     return data
 
 
+def _pct_error_lectura(cuenta: float, wes: float) -> Optional[float]:
+    """Error de lectura WES vs cuenta: (WES − cuenta) / cuenta × 100."""
+    if not cuenta:
+        return None
+    return 100.0 * (wes - cuenta) / cuenta
+
+
 def _totales_colegio(sitios: List[Sitio], meses: List[Tuple[int, int]], data):
     filas = []
     for s in sorted(sitios, key=lambda x: x.node_id):
@@ -129,6 +135,7 @@ def _write_excel(
     blanco = Font(color="FFFFFF", bold=True, size=9)
     tot_fill = PatternFill("solid", fgColor="D9E1F2")
     resalte = PatternFill("solid", fgColor="FFF2CC")
+    err_fill = PatternFill("solid", fgColor="F8CBAD")
     thin = Border(
         left=Side(style="thin", color="B0B0B0"),
         right=Side(style="thin", color="B0B0B0"),
@@ -185,25 +192,29 @@ def _write_excel(
 
     ws = wb.create_sheet("Mensual_cuenta_vs_WES")
 
-    # Colegio | Nodo | TOTAL cta | TOTAL WES | luego meses
+    # Colegio | Nodo | TOTAL cta | WES | % error | luego meses (cta | WES | % error)
     n_meses = len(meses)
+    cols_por_mes = 3
+    first_mes_col = 6
     ws.cell(1, 1, "Colegio")
     ws.merge_cells(start_row=1, start_column=1, end_row=2, end_column=1)
     ws.cell(1, 2, "Nodo")
     ws.merge_cells(start_row=1, start_column=2, end_row=2, end_column=2)
     ws.cell(1, 3, "TOTAL colegio")
-    ws.merge_cells(start_row=1, start_column=3, end_row=1, end_column=4)
+    ws.merge_cells(start_row=1, start_column=3, end_row=1, end_column=5)
     ws.cell(2, 3, "m³ cuenta")
     ws.cell(2, 4, "m³ WES")
-    col = 5
+    ws.cell(2, 5, "% error")
+    col = first_mes_col
     for y, m in meses:
         ws.cell(1, col, _mes_label(y, m).upper())
-        ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 1)
+        ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 2)
         ws.cell(2, col, "m³ cuenta")
         ws.cell(2, col + 1, "m³ WES")
-        col += 2
+        ws.cell(2, col + 2, "% error")
+        col += cols_por_mes
 
-    last_col = 4 + n_meses * 2
+    last_col = 5 + n_meses * cols_por_mes
     for r in (1, 2):
         for c in range(1, last_col + 1):
             cell = ws.cell(r, c)
@@ -214,6 +225,12 @@ def _write_excel(
     ws.row_dimensions[1].height = 20
     ws.row_dimensions[2].height = 18
 
+    def _write_pct(cell, pct: Optional[float]) -> None:
+        cell.value = None if pct is None else round(pct, 1)
+        cell.number_format = "0.0"
+        if pct is not None and abs(pct) >= 15:
+            cell.fill = err_fill
+
     sitios_ord = sorted(sitios, key=lambda s: s.node_id)
     tot_mes = {k: {"cuenta": 0.0, "wes": 0.0} for k in meses}
     tot_c = tot_w = 0.0
@@ -222,7 +239,7 @@ def _write_excel(
         ws.cell(row_i, 1, s.node_name)
         ws.cell(row_i, 2, s.node_id)
         sc = sw = 0.0
-        col = 5
+        col = first_mes_col
         for k in meses:
             cel = data[s.node_id][k]
             cta, wes = cel["cuenta"], cel["wes"]
@@ -230,19 +247,23 @@ def _write_excel(
             c2 = ws.cell(row_i, col + 1, wes if cel["n"] else None)
             c1.number_format = "#,##0"
             c2.number_format = "#,##0.0"
+            if cel["n"]:
+                _write_pct(ws.cell(row_i, col + 2), _pct_error_lectura(cta, wes))
             if cel["n_est"] and cel["n"]:
                 c1.fill = PatternFill("solid", fgColor="FFF2CC")
             sc += cta
             sw += wes
             tot_mes[k]["cuenta"] += cta
             tot_mes[k]["wes"] += wes
-            col += 2
+            col += cols_por_mes
         ws.cell(row_i, 3, sc).number_format = "#,##0"
         ws.cell(row_i, 4, sw).number_format = "#,##0.0"
         ws.cell(row_i, 3).fill = resalte
         ws.cell(row_i, 4).fill = resalte
         ws.cell(row_i, 3).font = Font(bold=True)
         ws.cell(row_i, 4).font = Font(bold=True)
+        _write_pct(ws.cell(row_i, 5), _pct_error_lectura(sc, sw))
+        ws.cell(row_i, 5).font = Font(bold=True)
         tot_c += sc
         tot_w += sw
         for c in range(1, last_col + 1):
@@ -255,24 +276,28 @@ def _write_excel(
     ws.cell(row_i, 2, COMPANY_ID)
     ws.cell(row_i, 3, tot_c).number_format = "#,##0"
     ws.cell(row_i, 4, tot_w).number_format = "#,##0.0"
-    col = 5
+    _write_pct(ws.cell(row_i, 5), _pct_error_lectura(tot_c, tot_w))
+    col = first_mes_col
     for k in meses:
-        ws.cell(row_i, col, tot_mes[k]["cuenta"]).number_format = "#,##0"
-        ws.cell(row_i, col + 1, tot_mes[k]["wes"]).number_format = "#,##0.0"
-        col += 2
+        tc, tw = tot_mes[k]["cuenta"], tot_mes[k]["wes"]
+        ws.cell(row_i, col, tc).number_format = "#,##0"
+        ws.cell(row_i, col + 1, tw).number_format = "#,##0.0"
+        _write_pct(ws.cell(row_i, col + 2), _pct_error_lectura(tc, tw))
+        col += cols_por_mes
     for c in range(1, last_col + 1):
         cell = ws.cell(row_i, c)
         cell.fill = tot_fill
         cell.font = Font(bold=True)
         cell.border = thin
 
-    ws.freeze_panes = "E3"
+    ws.freeze_panes = "F3"
     ws.column_dimensions["A"].width = 26
     ws.column_dimensions["B"].width = 12
     ws.column_dimensions["C"].width = 13
     ws.column_dimensions["D"].width = 13
-    for c in range(5, last_col + 1):
-        ws.column_dimensions[get_column_letter(c)].width = 11
+    ws.column_dimensions["E"].width = 10
+    for c in range(first_mes_col, last_col + 1):
+        ws.column_dimensions[get_column_letter(c)].width = 10
 
     wn = wb.create_sheet("Notas")
     wn["A1"] = "Qué número importa"
@@ -293,7 +318,12 @@ def _write_excel(
         "Celda amarilla en «m³ cuenta» mensual: esa boleta es promedio/estimado. "
         "Igual entra al total del colegio porque es lo que marcó la cuenta."
     )
-    wn["A6"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
+    wn["A6"] = (
+        "% error de lectura = (m³ WES − m³ cuenta) / m³ cuenta × 100. "
+        "Positivo = WES marca más que la turbina de la cuenta. "
+        "Naranja si |error| ≥ 15%. Vacío si la cuenta del mes es 0."
+    )
+    wn["A7"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
     wn.column_dimensions["A"].width = 120
     wb.save(out_xlsx)
 
@@ -420,7 +450,9 @@ def _write_word(
 
     doc.add_paragraph(
         "Mes = fecha de emisión de la boleta. WES = consumo API en el período de lecturas "
-        "de esa misma boleta (más proyección si hubo huecos)."
+        "de esa misma boleta (más proyección si hubo huecos). "
+        "El % de error de lectura por mes (WES − cuenta) / cuenta está en la hoja "
+        "Excel Mensual_cuenta_vs_WES."
     )
     out_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_docx)
