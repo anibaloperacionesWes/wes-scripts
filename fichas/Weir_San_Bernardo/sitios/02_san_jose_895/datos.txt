@@ -1,0 +1,8 @@
+Diámetro: 2 pulgadas
+Actividad hídrica: Alimentación calderas y baños de producción
+Remarcado cliente: No existe
+Material de la matriz: Fierro dúctil
+Factibilidad eléctrica 220 V: 15 mt
+Canalización de señal: No aplica
+Canalización sensores ultrasonido: 2 × 5 mt
+Señal M2M 3G, 4G, 5G: Buena señal
