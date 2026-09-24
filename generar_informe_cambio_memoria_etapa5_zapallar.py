@@ -93,11 +93,10 @@ FOTO_AYER = FOTOS_DIR / "lectura_20260922_1430_sensus_5144.png"
 FOTO_HOY = FOTOS_DIR / "lectura_20260923_1654_sensus_5177.png"
 FOTO_AYER_RELOJ = FOTOS_DIR / "lectura_20260922_1430_sensus_5144_reloj.png"
 FOTO_HOY_RELOJ = FOTOS_DIR / "lectura_20260923_1654_sensus_5177_reloj.png"
-# Crop solo relojería (totalizador + dial)
-CROP_AYER = (310, 590, 670, 770)
-CROP_HOY = (290, 450, 690, 660)
-# Mismo tamaño que Informe Interno Calidad Señal ESVAL (~2,21 in / 5,6 cm)
-FOTO_ANCHO = Inches(2.21)
+# Cara del medidor (relojería / totalizador visible, sin brida)
+CROP_AYER = (210, 340, 770, 840)
+CROP_HOY = (200, 300, 780, 780)
+FOTO_ANCHO = Inches(3.0)
 
 
 @dataclass
@@ -152,11 +151,24 @@ def _style_table_cell(cell, *, bold: bool = False, size: int = 9, white: bool = 
 
 
 def _crop_relojeria(src: Path, dst: Path, box: Tuple[int, int, int, int]) -> Path:
-    """Recorta solo la relojería (totalizador) del medidor."""
+    """Recorta la cara/relojería del medidor, upscale y nítidez leve."""
+    from PIL import ImageEnhance, ImageFilter
+
     FOTOS_DIR.mkdir(parents=True, exist_ok=True)
     if not src.is_file():
         return dst
-    Image.open(src).crop(box).save(dst)
+    im = Image.open(src).convert("RGB").crop(box)
+    target_w = 900
+    if im.width < target_w:
+        scale = target_w / im.width
+        im = im.resize(
+            (int(im.width * scale), int(im.height * scale)),
+            Image.Resampling.LANCZOS,
+        )
+    im = im.filter(ImageFilter.UnsharpMask(radius=1.5, percent=120, threshold=2))
+    im = ImageEnhance.Contrast(im).enhance(1.12)
+    im = ImageEnhance.Sharpness(im).enhance(1.25)
+    im.save(dst, optimize=True)
     return dst
 
 
