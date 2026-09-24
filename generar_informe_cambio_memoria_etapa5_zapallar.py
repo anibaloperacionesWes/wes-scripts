@@ -6,7 +6,7 @@ Estilo alineado a Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_FINAL:
   - Tablas: header azul, secundario #D6E3F0/#1F4788, filas alt #F5F8FB
   - Fotos relojería ~1,55" lado a lado; §4 compacto en la 2ª hoja
   - cantSplit + tblHeader + keepNext (tablas no se cortan entre hojas)
-  - Validación: hora 14 completa → hasta 17:00; §4 y §5 en hojas propias
+  - Paginación: hoja 1 = §1–3.3; hoja 2 = §4; hoja 3 = §5
 
 Uso:
   python generar_informe_cambio_memoria_etapa5_zapallar.py
@@ -304,7 +304,7 @@ def _add_kpi_banner(doc: Document, cards: List[Tuple[str, str, str]]) -> None:
         )
         _set_cell_kpi_value(t.rows[1].cells[j], linea1, linea2)
     _table_no_partir(t)
-    doc.add_paragraph()
+    # sin párrafo vacío extra (ahorrar espacio en hoja 1)
 
 
 def _add_tabla_simple(doc: Document, filas: List[Tuple[str, ...]]) -> None:
@@ -610,8 +610,9 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
 
     doc = Document()
     section = doc.sections[0]
-    section.top_margin = Cm(1.6)
-    section.bottom_margin = Cm(1.6)
+    # Márgenes justos: §1–3.3 en hoja 1; §4 hoja 2; §5 hoja 3
+    section.top_margin = Cm(1.4)
+    section.bottom_margin = Cm(1.4)
     section.left_margin = Cm(1.9)
     section.right_margin = Cm(1.9)
 
@@ -623,6 +624,8 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         f"{WES_HASTA_DT.strftime('%d-%m-%Y %H:%M')}  ·  "
         f"Intervención placa {FECHA_INTERVENCION.strftime('%d-%m-%Y')}",
     )
+    if doc.paragraphs:
+        doc.paragraphs[-1].paragraph_format.space_after = Pt(4)
 
     dens = max(val.delta_mecanico, val.wes_m3)
     num = min(val.delta_mecanico, val.wes_m3)
@@ -647,51 +650,56 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         ],
     )
 
-    _add_h(doc, "1. Objetivo", 1)
+    # --- Hoja 1: §1 · §2 · §3 (incluye 3.3) ---
+    _add_h(doc, "1. Objetivo", 1, compact=True)
     _add_body(
         doc,
         "Documentar la intervención en terreno sobre la placa de Etapa N°5 ante caudales "
         "anómalos incompatibles con la red DN90, y presentar el cálculo de validación "
         "entre lecturas mecánicas del medidor Sensus y el consumo de la app WES.",
+        compact=True,
     )
 
-    _add_h(doc, "2. Resumen", 1)
+    _add_h(doc, "2. Resumen", 1, compact=True)
     _add_body(
         doc,
-        "Se detectaron pulsos del orden de 92 y 200 m³/h. El sensor inductivo, los pulsos "
-        "de revisión y los voltajes estaban correctos; el error provenía de la memoria de "
-        "la placa. Se reemplazó la memoria y se normalizó el punto. La validación posterior "
-        f"entre lectura Sensus y app WES arroja un error de {_fmt(val.diferencia_pct, 1)} % "
-        f"({val.estado.lower()}).",
+        "Se detectaron pulsos del orden de 92 y 200 m³/h. Sensor inductivo, pulsos de "
+        "revisión y voltajes OK; el error era de memoria de placa. Se reemplazó la memoria "
+        f"y se normalizó el punto. Validación Sensus vs app WES: error "
+        f"{_fmt(val.diferencia_pct, 1)} % ({val.estado.lower()}).",
+        compact=True,
     )
 
-    _add_h(doc, "3. Actividades realizadas", 1)
+    _add_h(doc, "3. Actividades realizadas", 1, compact=True)
 
-    _add_h(doc, "3.1 Revisión en terreno", 2)
+    _add_h(doc, "3.1 Revisión en terreno", 2, compact=True)
     _add_body(
         doc,
-        "Se verificó sensor Census / inductivo (OK), pulsos de revisión (OK) y voltajes de "
-        "alimentación (correctos). El diagnóstico apuntó a falla de memoria de la placa.",
+        "Sensor Census / inductivo OK, pulsos de revisión OK y voltajes correctos. "
+        "Diagnóstico: falla de memoria de la placa. "
+        "Acción: cambio de memoria; punto reparado/normalizado.",
+        compact=True,
     )
-    _add_line(doc, "Acción: cambio de memoria de la placa; punto reparado/normalizado.")
 
-    _add_h(doc, "3.2 Medidor instalado", 2)
+    _add_h(doc, "3.2 Medidor instalado", 2, compact=True)
     _add_body(
         doc,
         f"Medidor {MEDIDOR_MARCA} {MEDIDOR_MODELO}, serie {MEDIDOR_SERIE} (2023), "
         f"Q3 = {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h. Módulo {HRI_MODELO} (serie {HRI_SERIE}), "
-        f"peso de pulso DN 40–125 = {HRI_PULSO_DN40_125_L} L/pulso.",
+        f"pulso DN 40–125 = {HRI_PULSO_DN40_125_L} L/pulso. "
+        f"Lecturas: {_fmt(lectura_ayer, 0)} m³ ({LECTURA_AYER_DT.strftime('%d-%m-%Y')}) → "
+        f"{_fmt(lectura_hoy, 0)} m³ ({LECTURA_HOY_DT.strftime('%d-%m-%Y')}); "
+        f"Δ {_fmt(val.delta_mecanico, 0)} m³.",
+        compact=True,
     )
-    _add_line(doc, f"Lectura inicial: {_fmt(lectura_ayer, 0)} m³ ({LECTURA_AYER_DT.strftime('%d-%m-%Y')}).")
-    _add_line(doc, f"Lectura final: {_fmt(lectura_hoy, 0)} m³ ({LECTURA_HOY_DT.strftime('%d-%m-%Y')}).")
-    _add_line(doc, f"Δ mecánico: {_fmt(val.delta_mecanico, 0)} m³.")
 
-    _add_h(doc, "3.3 Criterio hidráulico (DN90)", 2)
+    _add_h(doc, "3.3 Criterio hidráulico (DN90)", 2, compact=True)
     _add_body(
         doc,
-        f"La red es {DIAMETRO}. Techo práctico de red ≈ {CAUDAL_MAX_REF_M3H:.0f} m³/h "
-        f"(~2,5 m/s). El medidor admite Q3 = {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h, pero la red "
-        "no puede entregar de forma realista 92–200 m³/h (error de memoria).",
+        f"Red {DIAMETRO}. Techo práctico ≈ {CAUDAL_MAX_REF_M3H:.0f} m³/h (~2,5 m/s). "
+        f"El medidor admite Q3 = {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h, pero la red no entrega "
+        "de forma realista 92–200 m³/h (error de memoria).",
+        compact=True,
     )
     _add_tabla_simple(
         doc,
@@ -703,8 +711,8 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         ],
     )
 
+    # --- Hoja 2: §4 completo ---
     _add_h(doc, "4. Cálculo de validación", 1, compact=True)
-    # Empezar validación + fotos en hoja nueva para que las tablas no se partan
     doc.paragraphs[-1].paragraph_format.page_break_before = True
     _add_h(
         doc,
@@ -763,8 +771,8 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         compact=True,
     )
 
-    _add_h(doc, "5. Conclusión", 1)
-    # Conclusión siempre en la última hoja
+    # --- Hoja 3: §5 Conclusión ---
+    _add_h(doc, "5. Conclusión", 1, compact=True)
     doc.paragraphs[-1].paragraph_format.page_break_before = True
     _add_body(
         doc,
