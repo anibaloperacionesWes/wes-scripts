@@ -4,7 +4,7 @@ Informe de validación — Etapa N°5 Fundo Zapallar.
 Estilo alineado a Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_FINAL:
   - Título + meta + franja KPI (verde #E8F5E9 / #1B5E20)
   - Tablas: header azul, secundario #D6E3F0/#1F4788, filas alt #F5F8FB
-  - Fotos relojería ~1,85" lado a lado + caption azul (§4 completo en una hoja)
+  - Fotos relojería ~1,55" lado a lado; §4 compacto en la 2ª hoja
   - cantSplit + tblHeader + keepNext (tablas no se cortan entre hojas)
   - Validación: hora 14 completa → hasta 17:00; §4 y §5 en hojas propias
 
@@ -65,7 +65,7 @@ COLOR_KPI_FILL = "E8F5E9"
 COLOR_HEADER2_FILL = "D6E3F0"  # encabezado secundario (letras azules)
 COLOR_ALT_FILL = "F5F8FB"
 COLOR_FOTO_FILL = "FAFBFC"
-FOTO_ANCHO = Inches(1.85)  # más chicas para que §4 quepa entero en una hoja
+FOTO_ANCHO = Inches(1.55)  # compacto: §4 completo en la 2ª hoja
 
 
 # Lecturas mecánicas (fotos terreno)
@@ -148,9 +148,13 @@ def _add_meta(doc: Document, text: str, *, size: int = 9) -> None:
     _set_run_font(r, size=size, color=COLOR_META)
 
 
-def _add_h(doc: Document, text: str, level: int = 1) -> None:
+def _add_h(doc: Document, text: str, level: int = 1, *, compact: bool = False) -> None:
     h = doc.add_heading(text, level=level)
     size = 14 if level == 1 else 12
+    if compact:
+        size = 12 if level == 1 else 11
+        h.paragraph_format.space_before = Pt(6)
+        h.paragraph_format.space_after = Pt(2)
     for run in h.runs:
         run.font.name = "Calibri"
         run.font.size = Pt(size)
@@ -160,9 +164,13 @@ def _add_h(doc: Document, text: str, level: int = 1) -> None:
     _p_keep(h, with_next=True, lines=True)
 
 
-def _add_body(doc: Document, text: str, *, size: int = 11) -> None:
+def _add_body(doc: Document, text: str, *, size: int = 11, compact: bool = False) -> None:
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    if compact:
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(4)
+        size = min(size, 10)
     r = p.add_run(text)
     _set_run_font(r, size=size, color=COLOR_TEXTO)
 
@@ -215,6 +223,8 @@ def _table_no_partir(table) -> None:
         _row_no_partir(row, as_header=True)
         for cell in row.cells:
             for p in cell.paragraphs:
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(1)
                 # Encadena filas: todas menos la última quedan unidas a la siguiente
                 _p_keep(p, with_next=(i < n - 1), lines=True)
 
@@ -380,7 +390,7 @@ def _add_foto_tabla(doc: Document, path: Path, caption: str) -> None:
     r = cell_cap.paragraphs[0].add_run(caption)
     _set_run_font(r, bold=True, size=8, color=COLOR_TITULO)
     _table_no_partir(tbl)
-    doc.add_paragraph()
+    # sin párrafo vacío: compactar §4 en una sola hoja
 
 
 def _add_fotos_lado_a_lado(
@@ -423,7 +433,7 @@ def _add_fotos_lado_a_lado(
         _set_run_font(r, bold=True, size=8, color=COLOR_TITULO)
 
     _table_no_partir(tbl)
-    doc.add_paragraph()
+    # sin párrafo vacío tras fotos (compactar §4)
 
 
 def _add_tabla_validacion_7(
@@ -446,7 +456,7 @@ def _add_tabla_validacion_7(
         t.rows[0].cells[0],
         titulo,
         bold=True,
-        size=10,
+        size=9,
         color=RGBColor(255, 255, 255),
         fill=COLOR_HEADER_FILL,
     )
@@ -464,13 +474,13 @@ def _add_tabla_validacion_7(
             t.rows[1].cells[j],
             htxt,
             bold=True,
-            size=9,
+            size=8,
             color=COLOR_TITULO,
             fill=COLOR_HEADER2_FILL,
         )
     vals = [analisis, fecha_ini, lectura_ini, fecha_fin, lectura_fin, consumo, horas]
     for j, v in enumerate(vals):
-        _set_cell_text(t.rows[2].cells[j], v, bold=False, size=9, color=COLOR_TEXTO)
+        _set_cell_text(t.rows[2].cells[j], v, bold=False, size=8, color=COLOR_TEXTO)
     _table_no_partir(t)
 
 
@@ -693,7 +703,7 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         ],
     )
 
-    _add_h(doc, "4. Cálculo de validación", 1)
+    _add_h(doc, "4. Cálculo de validación", 1, compact=True)
     # Empezar validación + fotos en hoja nueva para que las tablas no se partan
     doc.paragraphs[-1].paragraph_format.page_break_before = True
     _add_h(
@@ -701,14 +711,16 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         f"4.1 Sensus vs app WES ({LECTURA_AYER_DT.strftime('%d-%m')} 14:00 → "
         f"{WES_HASTA_DT.strftime('%d-%m %H:%M')})",
         2,
+        compact=True,
     )
     _add_body(
         doc,
-        "Validación con lecturas fotográficas del medidor Sensus y el consumo de la app WES. "
-        "App: hora 14 completa del 22-09-2026 hasta las 17:00 del 23-09-2026.",
+        "Lecturas fotográficas Sensus vs consumo app WES "
+        "(hora 14 completa del 22-09 → 17:00 del 23-09).",
+        compact=True,
     )
 
-    # Tabla de fotos lado a lado (mismo layout que FINAL ESVAL)
+    # Tabla de fotos lado a lado (compacta para caber en hoja 2)
     foto_ayer = _crop_relojeria(FOTO_AYER, FOTO_AYER_RELOJ, CROP_AYER)
     foto_hoy = _crop_relojeria(FOTO_HOY, FOTO_HOY_RELOJ, CROP_HOY)
     if foto_ayer.is_file() or foto_hoy.is_file():
@@ -735,7 +747,6 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         _fmt(horas_ventana, 0),
     )
 
-    doc.add_paragraph()
     _add_tabla_error(
         doc,
         [
@@ -747,8 +758,9 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
 
     _add_body(
         doc,
-        f"Error entre lectura Sensus y app WES: {_fmt(val.diferencia_pct, 1)} % "
+        f"Error Sensus vs app WES: {_fmt(val.diferencia_pct, 1)} % "
         f"(1 − {_fmt(num, 2)}/{_fmt(dens, 2)}).",
+        compact=True,
     )
 
     _add_h(doc, "5. Conclusión", 1)
