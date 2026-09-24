@@ -60,7 +60,7 @@ COLOR_META = RGBColor(0x64, 0x6E, 0x78)
 COLOR_TEXTO = RGBColor(0x28, 0x28, 0x28)
 COLOR_HEADER_FILL = "1F4788"
 COLOR_FOTO_FILL = "FAFBFC"
-FOTO_ANCHO = Inches(2.28)  # Informe_Validacion_Matriz_ESVAL FINAL
+FOTO_ANCHO = Inches(4.5)  # una foto por tabla (legible); no lado a lado
 
 
 # Lecturas mecánicas (fotos terreno)
@@ -285,33 +285,38 @@ def _crop_relojeria(
     return dst
 
 
-def _add_fotos_lado_a_lado(
+def _add_foto_tabla(doc: Document, path: Path, caption: str) -> None:
+    """Una foto por tabla a ancho legible (no lado a lado)."""
+    if not path.is_file():
+        return
+    tbl = doc.add_table(rows=2, cols=1)
+    _set_table_borders(tbl, color="E5E7EB")
+    cell_img = tbl.rows[0].cells[0]
+    _shade_cell(cell_img, COLOR_FOTO_FILL)
+    cell_img.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = cell_img.paragraphs[0].add_run()
+    run.add_picture(str(path), width=FOTO_ANCHO)
+    cell_cap = tbl.rows[1].cells[0]
+    _shade_cell(cell_cap, COLOR_FOTO_FILL)
+    cell_cap.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for child in list(cell_cap.paragraphs[0]._element):
+        if child.tag.endswith("}r"):
+            cell_cap.paragraphs[0]._element.remove(child)
+    r = cell_cap.paragraphs[0].add_run(caption)
+    _set_run_font(r, size=9, color=COLOR_META)
+    doc.add_paragraph()
+
+
+def _add_fotos_separadas(
     doc: Document,
     path_izq: Path,
     caption_izq: str,
     path_der: Path,
     caption_der: str,
 ) -> None:
-    """Fotos en 2 columnas con fondo claro (estilo FINAL ESVAL)."""
-    tbl = doc.add_table(rows=2, cols=2)
-    _set_table_borders(tbl, color="E5E7EB")
-    for col_i, (path, caption) in enumerate(
-        ((path_izq, caption_izq), (path_der, caption_der))
-    ):
-        cell_img = tbl.rows[0].cells[col_i]
-        _shade_cell(cell_img, COLOR_FOTO_FILL)
-        cell_img.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        if path.is_file():
-            run = cell_img.paragraphs[0].add_run()
-            run.add_picture(str(path), width=FOTO_ANCHO)
-        cell_cap = tbl.rows[1].cells[col_i]
-        _shade_cell(cell_cap, COLOR_FOTO_FILL)
-        cell_cap.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        for child in list(cell_cap.paragraphs[0]._element):
-            if child.tag.endswith("}r"):
-                cell_cap.paragraphs[0]._element.remove(child)
-        r = cell_cap.paragraphs[0].add_run(caption)
-        _set_run_font(r, size=9, color=COLOR_META)
+    """Dos fotos en tablas independientes (legibles)."""
+    _add_foto_tabla(doc, path_izq, caption_izq)
+    _add_foto_tabla(doc, path_der, caption_der)
 
 
 def _add_tabla_validacion_7(
@@ -579,7 +584,7 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     foto_ayer = _crop_relojeria(FOTO_AYER, FOTO_AYER_RELOJ, CROP_AYER)
     foto_hoy = _crop_relojeria(FOTO_HOY, FOTO_HOY_RELOJ, CROP_HOY)
     if foto_ayer.is_file() or foto_hoy.is_file():
-        _add_fotos_lado_a_lado(
+        _add_fotos_separadas(
             doc,
             foto_ayer,
             f"Sensus · {LECTURA_AYER_DT.strftime('%d-%m-%Y')}",
