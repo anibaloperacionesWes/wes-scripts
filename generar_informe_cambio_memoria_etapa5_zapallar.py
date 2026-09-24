@@ -390,7 +390,10 @@ def _add_foto_tabla(doc: Document, path: Path, caption: str) -> None:
     r = cell_cap.paragraphs[0].add_run(caption)
     _set_run_font(r, bold=True, size=8, color=COLOR_TITULO)
     _table_no_partir(tbl)
-    # sin párrafo vacío: compactar §4 en una sola hoja
+    # Separador explícito: la tabla de fotos NO va pegada a la del cálculo
+    sep = doc.add_paragraph()
+    sep.paragraph_format.space_before = Pt(8)
+    sep.paragraph_format.space_after = Pt(8)
 
 
 def _add_fotos_lado_a_lado(
@@ -433,7 +436,10 @@ def _add_fotos_lado_a_lado(
         _set_run_font(r, bold=True, size=8, color=COLOR_TITULO)
 
     _table_no_partir(tbl)
-    # sin párrafo vacío tras fotos (compactar §4)
+    # Separador explícito entre fotos y tablas de cálculo
+    sep = doc.add_paragraph()
+    sep.paragraph_format.space_before = Pt(10)
+    sep.paragraph_format.space_after = Pt(6)
 
 
 def _add_tabla_validacion_7(
@@ -712,23 +718,20 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     )
 
     # --- Hoja 2: §4 completo ---
+    # 4.1 = solo fotos (tabla propia). 4.2 = solo cálculo (tablas propias).
+    # Nunca pegar fotos y cálculo en el mismo bloque visual.
     _add_h(doc, "4. Cálculo de validación", 1, compact=True)
     doc.paragraphs[-1].paragraph_format.page_break_before = True
-    _add_h(
-        doc,
-        f"4.1 Sensus vs app WES ({LECTURA_AYER_DT.strftime('%d-%m')} 14:00 → "
-        f"{WES_HASTA_DT.strftime('%d-%m %H:%M')})",
-        2,
-        compact=True,
-    )
+
+    _add_h(doc, "4.1 Lecturas fotográficas Sensus", 2, compact=True)
     _add_body(
         doc,
-        "Lecturas fotográficas Sensus vs consumo app WES "
-        "(hora 14 completa del 22-09 → 17:00 del 23-09).",
+        f"Relojería del medidor: "
+        f"{LECTURA_AYER_DT.strftime('%d-%m-%Y %H:%M')} → "
+        f"{LECTURA_HOY_DT.strftime('%d-%m-%Y %H:%M')}.",
         compact=True,
     )
 
-    # Tabla de fotos lado a lado (compacta para caber en hoja 2)
     foto_ayer = _crop_relojeria(FOTO_AYER, FOTO_AYER_RELOJ, CROP_AYER)
     foto_hoy = _crop_relojeria(FOTO_HOY, FOTO_HOY_RELOJ, CROP_HOY)
     if foto_ayer.is_file() or foto_hoy.is_file():
@@ -740,7 +743,21 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
             f"Sensus · {LECTURA_HOY_DT.strftime('%d-%m-%Y %H:%M')}",
         )
 
-    # Detalle del cálculo en tablas propias (después de las fotos)
+    # Bloque separado: tablas de cálculo (no unidas a las fotos)
+    _add_h(
+        doc,
+        f"4.2 Detalle del cálculo ({LECTURA_AYER_DT.strftime('%d-%m')} 14:00 → "
+        f"{WES_HASTA_DT.strftime('%d-%m %H:%M')})",
+        2,
+        compact=True,
+    )
+    _add_body(
+        doc,
+        "Consumo app WES (hora 14 completa del 22-09 → 17:00 del 23-09) "
+        "versus Δ de lecturas mecánicas Sensus.",
+        compact=True,
+    )
+
     inicio_wes = LECTURA_AYER_DT.replace(minute=0, second=0, microsecond=0)
     horas_ventana = (WES_HASTA_DT - inicio_wes).total_seconds() / 3600.0
     _add_tabla_validacion_7(
@@ -754,6 +771,11 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         _fmt(val.delta_mecanico, 2),
         _fmt(horas_ventana, 0),
     )
+
+    # Espacio entre tabla de validación y tabla de error
+    gap = doc.add_paragraph()
+    gap.paragraph_format.space_before = Pt(4)
+    gap.paragraph_format.space_after = Pt(2)
 
     _add_tabla_error(
         doc,
