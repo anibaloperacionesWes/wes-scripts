@@ -22,8 +22,9 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent
 BASE = ROOT / "fichas" / "Weir_San_Bernardo"
-VISTA = BASE / "ubicacion" / "vista_satelital.png"
+VISTA = BASE / "ubicacion" / "baquedano_1215.png"
 LOGO = BASE / "ubicacion" / "logo_wes.png"
+FOTO_MEDIDOR = BASE / "sitios" / "01_baquedano_1215" / "01_medidor.png"
 SITIOS_DIR = BASE / "sitios"
 OUT_DIR = ROOT / "reports" / "Weir_San_Bernardo" / "PROPUESTA"
 OUT_DOCX = OUT_DIR / "Propuesta_monitoreo_Weir_San_Bernardo.docx"
@@ -142,7 +143,7 @@ def construir() -> Document:
     _p(doc, "Weir Minerals Chile", bold=True, size=16, center=True, space_after=2, color=AZUL)
     _p(doc, "Av. San José 0815, San Bernardo", size=12, center=True, space_after=10)
 
-    _heading(doc, "1. Ubicación")
+    _heading(doc, "1. Ubicación de la empresa")
     _kv_table(
         doc,
         [
@@ -153,40 +154,74 @@ def construir() -> Document:
             ("País", "Chile"),
         ],
     )
+
+    _heading(doc, "2. Punto 1 — Baquedano 1215")
+    _kv_table(
+        doc,
+        [
+            ("Dirección del punto", "Baquedano 1215, San Bernardo"),
+            ("Qué se ve en terreno", "Medidor con dos salidas"),
+        ],
+    )
     _p(
         doc,
-        "La planta está en Av. San José, al sur de la calzada, en un recinto industrial "
-        "con galpones, techos claros y patios de acopio. El marcador de la vista satelital "
-        "queda sobre ese recinto.",
+        "En el medidor se separan dos líneas. La que sigue hacia abajo es la Línea A. "
+        "La que sale hacia la derecha, por el costado del camino, es la Línea B. "
+        "Cada una tiene su propia descripción.",
     )
 
     if VISTA.is_file():
         doc.add_page_break()
-        _p(doc, "Vista satelital de la planta", bold=True, size=13, center=True, space_after=4, color=AZUL)
+        _p(doc, "Vista satelital del punto", bold=True, size=12, center=True, space_after=4, color=AZUL)
         foto = doc.add_paragraph()
         foto.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        foto.paragraph_format.space_before = Pt(4)
+        foto.paragraph_format.space_before = Pt(2)
         foto.paragraph_format.space_after = Pt(2)
-        foto.add_run().add_picture(str(VISTA), width=_ancho_foto(VISTA, 16.5, 11.0))
+        foto.add_run().add_picture(str(VISTA), width=_ancho_foto(VISTA, 16.2, 9.2))
         cap = doc.add_paragraph()
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         cap.paragraph_format.space_after = Pt(8)
-        r = cap.add_run(
-            "Vista satelital — Av. San José 0815, San Bernardo. "
-            "Marcador sobre la planta de Weir Minerals."
-        )
+        r = cap.add_run("Vista satelital — Baquedano 1215, San Bernardo. Logo WES en la esquina superior derecha.")
         _set_run(r, size=9, color=RGBColor(80, 80, 80))
 
-    _heading(doc, "2. Sitios de interés")
-    _p(
-        doc,
-        "Los puntos de medición se completan con la visita: foto y descripción de cada sitio.",
+    if FOTO_MEDIDOR.is_file():
+        doc.add_page_break()
+        _p(doc, "Medidor y las dos salidas", bold=True, size=12, center=True, space_after=4, color=AZUL)
+        pic = doc.add_paragraph()
+        pic.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        pic.paragraph_format.space_after = Pt(2)
+        pic.add_run().add_picture(str(FOTO_MEDIDOR), width=_ancho_foto(FOTO_MEDIDOR, 10.5, 9.2))
+        cap = doc.add_paragraph()
+        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        cap.paragraph_format.space_after = Pt(8)
+        r = cap.add_run("Foto 1. Medidor en Baquedano 1215. Hacia abajo: Línea A. Hacia la derecha: Línea B.")
+        _set_run(r, size=9, color=RGBColor(80, 80, 80))
+
+    def _caja(titulo: str, texto: str) -> None:
+        caja = doc.add_table(rows=1, cols=1)
+        cell = caja.cell(0, 0)
+        cell.text = ""
+        _shade(cell, "F4F7FB")
+        titulo_p = cell.paragraphs[0]
+        titulo_p.paragraph_format.space_after = Pt(2)
+        rt = titulo_p.add_run(titulo)
+        _set_run(rt, size=11, bold=True, color=AZUL)
+        cuerpo = cell.add_paragraph()
+        cuerpo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        cuerpo.paragraph_format.space_after = Pt(2)
+        _set_run(cuerpo.add_run(texto), size=11)
+        doc.add_paragraph().paragraph_format.space_after = Pt(6)
+
+    _caja(
+        "Línea A — sale del medidor hacia abajo",
+        "Va desde la alimentación de camión aljibe, el llenado de estanque, el riego y "
+        "camarines frontera, hasta la alimentación de riego de las canchas de tenis y "
+        "el baño del estadio.",
     )
-    sitios = []
-    if SITIOS_DIR.is_dir():
-        sitios = sorted(p for p in SITIOS_DIR.iterdir() if p.is_dir())
-    if not sitios:
-        _p(doc, "Pendiente de fotos y descripción de terreno.", size=11, color=RGBColor(90, 90, 90))
+    _caja(
+        "Línea B — sale del medidor hacia la derecha",
+        "Sigue por el costado del camino hasta los baños de logística. Solo alimenta baños.",
+    )
     return doc
 
 
