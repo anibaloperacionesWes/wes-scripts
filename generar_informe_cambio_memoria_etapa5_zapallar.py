@@ -2,10 +2,10 @@
 Informe corto — cambio de memoria placa / Etapa N°5 Fundo Zapallar.
 
 Validación al estilo Informe Interno Matriz ESVAL:
-  - Inicio: lectura 22/09/2026 14:30 → consumo WES con hora 14 completa.
-  - Fin: foto 23/09/2026 16:54 → consumo WES hasta las 16:00.
+  - Inicio: lectura 22/09/2026 → consumo WES con hora 14 completa.
+  - Fin: foto 23/09/2026 → consumo WES hasta las 17:00.
   - Tablas resumen (lectura / consumo / % error); sin tabla de huecos horarios.
-  - Fotos compactas (~5,6 cm) lado a lado.
+  - Fotos compactas (~5,6 cm) solo relojería, lado a lado.
 
 Uso:
   python generar_informe_cambio_memoria_etapa5_zapallar.py
@@ -27,6 +27,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Inches, Pt, RGBColor
+from PIL import Image
 
 if sys.platform == "win32":
     try:
@@ -61,7 +62,8 @@ LECTURA_AYER_M3 = 5144.0
 LECTURA_AYER_DT = datetime(2026, 9, 22, 14, 30, tzinfo=CHILE_TZ)
 LECTURA_HOY_M3 = 5177.0
 LECTURA_HOY_DT = datetime(2026, 9, 23, 16, 54, tzinfo=CHILE_TZ)
-WES_HASTA_DT = datetime(2026, 9, 23, 16, 0, tzinfo=CHILE_TZ)
+# Suma WES hasta las 17:00 (incluye hora 16)
+WES_HASTA_DT = datetime(2026, 9, 23, 17, 0, tzinfo=CHILE_TZ)
 
 # Hueco 22/09 leído directo de la placa (m³/h).
 # Extracción listó H:15:00 dos veces (0,60 y 2,90): se interpreta 0,60 como hora 14
@@ -89,6 +91,11 @@ HRI_PULSO_DN40_125_L = 100
 
 FOTO_AYER = FOTOS_DIR / "lectura_20260922_1430_sensus_5144.png"
 FOTO_HOY = FOTOS_DIR / "lectura_20260923_1654_sensus_5177.png"
+FOTO_AYER_RELOJ = FOTOS_DIR / "lectura_20260922_1430_sensus_5144_reloj.png"
+FOTO_HOY_RELOJ = FOTOS_DIR / "lectura_20260923_1654_sensus_5177_reloj.png"
+# Crop solo relojería (totalizador + dial)
+CROP_AYER = (310, 590, 670, 770)
+CROP_HOY = (290, 450, 690, 660)
 # Mismo tamaño que Informe Interno Calidad Señal ESVAL (~2,21 in / 5,6 cm)
 FOTO_ANCHO = Inches(2.21)
 
@@ -142,6 +149,15 @@ def _style_table_cell(cell, *, bold: bool = False, size: int = 9, white: bool = 
                 size=size,
                 color=RGBColor(255, 255, 255) if white else None,
             )
+
+
+def _crop_relojeria(src: Path, dst: Path, box: Tuple[int, int, int, int]) -> Path:
+    """Recorta solo la relojería (totalizador) del medidor."""
+    FOTOS_DIR.mkdir(parents=True, exist_ok=True)
+    if not src.is_file():
+        return dst
+    Image.open(src).crop(box).save(dst)
+    return dst
 
 
 def _add_fotos_lado_a_lado(
@@ -379,13 +395,13 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     )
     _add_bullet(
         doc,
-        f"Lectura ayer: {_fmt(lectura_ayer, 0)} m³ "
-        f"({LECTURA_AYER_DT.strftime('%d/%m/%Y %H:%M')} Chile)",
+        f"Lectura inicial: {_fmt(lectura_ayer, 0)} m³ "
+        f"({LECTURA_AYER_DT.strftime('%d-%m-%Y')})",
     )
     _add_bullet(
         doc,
-        f"Lectura hoy: {_fmt(lectura_hoy, 0)} m³ "
-        f"({LECTURA_HOY_DT.strftime('%d/%m/%Y %H:%M')} Chile)",
+        f"Lectura final: {_fmt(lectura_hoy, 0)} m³ "
+        f"({LECTURA_HOY_DT.strftime('%d-%m-%Y')})",
     )
     _add_bullet(doc, f"Δ mecánico: {_fmt(val.delta_mecanico, 0)} m³")
 
@@ -429,21 +445,20 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     p = doc.add_paragraph()
     r = p.add_run(
         "Validación con lecturas fotográficas del medidor Sensus (Etapa N°5) y el "
-        "consumo registrado en la app WES en el mismo periodo. "
-        f"Criterio de ventana: lectura inicial {LECTURA_AYER_DT.strftime('%d-%m-%Y %H:%M')} "
-        f"(hora 14 completa) → consumo WES hasta las "
-        f"{WES_HASTA_DT.strftime('%H:%M')} del {WES_HASTA_DT.strftime('%d-%m-%Y')} "
-        f"(foto de cierre {LECTURA_HOY_DT.strftime('%H:%M')})."
+        "consumo registrado en la app WES. Ventana: 22-09-2026 desde las 14:00 "
+        f"(hora completa) hasta las {WES_HASTA_DT.strftime('%H:%M')} del 23-09-2026."
     )
     _set_run_font(r, size=11)
 
-    if FOTO_AYER.is_file() or FOTO_HOY.is_file():
+    foto_ayer = _crop_relojeria(FOTO_AYER, FOTO_AYER_RELOJ, CROP_AYER)
+    foto_hoy = _crop_relojeria(FOTO_HOY, FOTO_HOY_RELOJ, CROP_HOY)
+    if foto_ayer.is_file() or foto_hoy.is_file():
         _add_fotos_lado_a_lado(
             doc,
-            FOTO_AYER,
-            f"Sensus — {LECTURA_AYER_DT.strftime('%d-%m-%Y %H:%M')} · {_fmt(lectura_ayer, 0)} m³",
-            FOTO_HOY,
-            f"Sensus — {LECTURA_HOY_DT.strftime('%d-%m-%Y %H:%M')} · {_fmt(lectura_hoy, 0)} m³",
+            foto_ayer,
+            f"22-09-2026 · {_fmt(lectura_ayer, 0)} m³",
+            foto_hoy,
+            f"23-09-2026 · {_fmt(lectura_hoy, 0)} m³",
         )
 
     inicio_wes = LECTURA_AYER_DT.replace(minute=0, second=0, microsecond=0)
@@ -454,10 +469,10 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         NODE_NAME,
         inicio_wes.strftime("%d-%m-%Y %H:%M"),
         _fmt(val.lectura_ayer, 0),
-        LECTURA_HOY_DT.strftime("%d-%m-%Y %H:%M"),
+        WES_HASTA_DT.strftime("%d-%m-%Y %H:%M"),
         _fmt(val.lectura_hoy, 0),
         _fmt(val.delta_mecanico, 2),
-        _fmt(horas_ventana, 1),
+        _fmt(horas_ventana, 0),
     )
 
     doc.add_paragraph()
