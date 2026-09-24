@@ -17,11 +17,16 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 from docx import Document
 from docx.enum.section import WD_ORIENT
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.shared import Cm, Pt, RGBColor
 from openpyxl import Workbook
+from openpyxl.formatting.rule import DataBarRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -187,6 +192,76 @@ def _totales_colegio(sitios: List[Sitio], meses: List[Tuple[int, int]], data):
     return filas
 
 
+def _escala_desvio(filas):
+    """Más desviado → menos, por |% error| = |(WES − cuenta) / cuenta|."""
+    scored = []
+    for t in filas:
+        pct = _pct_error_lectura(t[1], t[2])
+        scored.append((abs(pct) if pct is not None else -1.0, pct, t))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return scored
+
+
+def _barra_escala(abs_pct: float, max_abs: float, width: int = 18) -> str:
+    if max_abs <= 0 or abs_pct < 0:
+        return ""
+    n = int(round(width * min(abs_pct, max_abs) / max_abs))
+    return "█" * n + "░" * (width - n)
+
+
+def _fill_desvio(abs_pct: float) -> PatternFill:
+    if abs_pct >= 100:
+        return PatternFill("solid", fgColor="C00000")
+    if abs_pct >= 50:
+        return PatternFill("solid", fgColor="E67E22")
+    if abs_pct >= 15:
+        return PatternFill("solid", fgColor="F4B183")
+    return PatternFill("solid", fgColor="C6EFCE")
+
+
+def _sentido(pct: Optional[float]) -> str:
+    if pct is None:
+        return "—"
+    if abs(pct) < UMBRAL_FUERA_PCT:
+        return "Cercano"
+    return "WES marca más" if pct > 0 else "WES marca menos"
+
+
+def _grafico_escala(scored, out_png: Path) -> Path:
+    names = [t[2][0].node_name for t in scored]
+    vals = [max(t[0], 0.0) for t in scored]
+    colors = []
+    for a, _pct, _t in scored:
+        if a >= 100:
+            colors.append("#C00000")
+        elif a >= 50:
+            colors.append("#E67E22")
+        elif a >= 15:
+            colors.append("#F4B183")
+        else:
+            colors.append("#548235")
+    fig, ax = plt.subplots(figsize=(11.2, 6.4))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+    ax.barh(names, vals, color=colors, height=0.72)
+    ax.invert_yaxis()
+    ax.set_xlabel("|% desvío|   (WES − cuenta) / cuenta")
+    ax.set_title("Escala de desvío porcentual — del más desviado al menos")
+    ax.axvline(UMBRAL_FUERA_PCT, color="#888888", linestyle="--", linewidth=0.8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.xaxis.grid(True, linestyle="--", linewidth=0.6, color="#cbd5e1")
+    ax.set_axisbelow(True)
+    for i, (a, pct, _t) in enumerate(scored):
+        if pct is None:
+            continue
+        ax.text(a + max(vals) * 0.012, i, f"{pct:+.1f}%", va="center", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=180, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return out_png
+
+
 def _write_excel(
     sitios: List[Sitio],
     meses: List[Tuple[int, int]],
@@ -208,9 +283,86 @@ def _write_excel(
         bottom=Side(style="thin", color="B0B0B0"),
     )
 
-    # Hoja principal: listado por colegio + cuántos meses no cuadran
-    wp = wb.active
-    wp.title = "Total_por_colegio"
+    filas_tot = _totales_colegio(sitios, meses, data)
+    scored = _escala_desvio(filas_tot)
+    max_abs = max((a for a, _p, _t in scored), default=0.0)
+
+    we = wb.active
+    we.title = "Escala_desvio"
+    headers_e = [
+        "#",
+        "Colegio",
+        "|% desvío|",
+        "% desvío",
+        "Escala",
+        "Sentido",
+        "m³ cuenta",
+        "m³ WES",
+        "Dif m³",
+        "Fuera s/prom.",
+    ]
+    we.append(headers_e)
+    for col in range(1, 11):
+        c = we.cell(1, col)
+        c.fill = azul
+        c.font = blanco
+        c.alignment = Alignment(horizontal="center", wrap_text=True)
+    blanco_txt = Font(color="FFFFFF", bold=True, size=9)
+    for i, (abs_pct, pct, t) in enumerate(scored, start=1):
+        s, sc, sw, dif = t[0], t[1], t[2], t[3]
+        n_fuera_sp = t[9]
+        we.append(
+            [
+                i,
+                s.node_name,
+                None if abs_pct < 0 else round(abs_pct, 1),
+                None if pct is None else round(pct, 1),
+                _barra_escala(abs_pct, max_abs) if abs_pct >= 0 else "",
+                _sentido(pct),
+                sc,
+                round(sw, 1),
+                round(dif, 1),
+                n_fuera_sp,
+            ]
+        )
+        fill = _fill_desvio(abs_pct if abs_pct >= 0 else 0)
+        we.cell(we.max_row, 1).fill = fill
+        we.cell(we.max_row, 3).fill = fill
+        we.cell(we.max_row, 4).fill = fill
+        if abs_pct >= 50:
+            we.cell(we.max_row, 1).font = blanco_txt
+            we.cell(we.max_row, 3).font = blanco_txt
+            we.cell(we.max_row, 4).font = blanco_txt
+    for row in we.iter_rows(min_row=2, max_row=we.max_row):
+        row[2].number_format = "0.0"
+        row[3].number_format = "+0.0;-0.0;0.0"
+        row[6].number_format = "#,##0"
+        row[7].number_format = "#,##0.0"
+        row[8].number_format = "#,##0.0"
+        for cell in row:
+            cell.border = thin
+            cell.alignment = Alignment(horizontal="center")
+        row[1].alignment = Alignment(horizontal="left")
+        row[4].alignment = Alignment(horizontal="left")
+    if we.max_row >= 2:
+        we.conditional_formatting.add(
+            f"C2:C{we.max_row}",
+            DataBarRule(
+                start_type="num",
+                start_value=0,
+                end_type="num",
+                end_value=max(max_abs, 1),
+                color="C00000",
+                showValue=True,
+            ),
+        )
+    we.freeze_panes = "A2"
+    we.row_dimensions[1].height = 22
+    for i, w in enumerate([5, 28, 12, 12, 22, 16, 14, 14, 14, 14], start=1):
+        we.column_dimensions[get_column_letter(i)].width = w
+
+    # Listado por colegio + cuántos meses no cuadran
+    wp = wb.create_sheet("Total_por_colegio")
     headers_p = [
         "Colegio",
         "Meses fuera (sin promedio)",
@@ -426,7 +578,11 @@ def _write_excel(
         ws.column_dimensions[get_column_letter(c)].width = 10
 
     wn = wb.create_sheet("Notas")
-    wn["A1"] = "Qué número importa"
+    wn["A1"] = (
+        "Hoja Escala_desvio: colegios del MÁS desviado al MENOS, "
+        "según |% desvío| = |(m³ WES − m³ cuenta) / m³ cuenta|. "
+        "Positivo = WES marca más que la turbina. #1 = peor."
+    )
     wn["A2"] = (
         "El total que importa es el de CADA COLEGIO (hoja Total_por_colegio): "
         "suma de todas las boletas ene-2026 en adelante, m³ cuenta vs m³ WES. "
@@ -472,6 +628,7 @@ def _write_word(
     data,
     out_docx: Path,
     generado: datetime,
+    out_png: Optional[Path] = None,
 ) -> None:
     doc = Document()
     section = doc.sections[0]
@@ -486,18 +643,51 @@ def _write_word(
     style.font.name = "Calibri"
     style.font.size = Pt(10)
 
-    title = doc.add_heading("Total por colegio — cuenta vs WES", level=1)
+    title = doc.add_heading("Escala de desvío — cuenta vs WES", level=1)
     if title.runs:
         title.runs[0].font.color.rgb = HEADING_RGB
     p = doc.add_paragraph()
     p.add_run("CORMUP / Peñalolén. ").bold = True
     p.add_run(
-        "Listado: colegio y meses fuera sin contar boletas a promedio. "
-        f"Fuera = |error| ≥ {UMBRAL_FUERA_PCT:.0f}%. "
+        "Escala del más desviado al menos, por |% desvío| "
+        "= |(WES − cuenta) / cuenta|. "
         f"Generado {generado.strftime('%d-%m-%Y %H:%M')}."
     )
 
-    add_formatted_heading(doc, "1. Total de cada colegio", level=1)
+    add_formatted_heading(doc, "1. Escala de desvío porcentual", level=1)
+    scored = _escala_desvio(_totales_colegio(sitios, meses, data))
+    headers_e = ["#", "Colegio", "|% desvío|", "% desvío", "Sentido", "m³ cuenta", "m³ WES"]
+    rows_e: List[List[str]] = []
+    hi_e: List[int] = []
+    for i, (abs_pct, pct, t) in enumerate(scored, start=1):
+        s, sc, sw = t[0], t[1], t[2]
+        rows_e.append(
+            [
+                str(i),
+                s.node_name,
+                format_number_chilean(abs_pct, 1) if abs_pct >= 0 else "—",
+                format_number_chilean(pct, 1) if pct is not None else "—",
+                _sentido(pct),
+                format_number_chilean(sc, 0),
+                format_number_chilean(sw, 0),
+            ]
+        )
+        if abs_pct >= UMBRAL_FUERA_PCT:
+            hi_e.append(i)
+    table_e = doc.add_table(rows=1 + len(rows_e), cols=len(headers_e))
+    table_e.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _tbl_full_width(table_e)
+    for j, h in enumerate(headers_e):
+        _set_cell(table_e.rows[0].cells[j], h, bold=True, size=9)
+    for i, row in enumerate(rows_e, start=1):
+        for j, val in enumerate(row):
+            _set_cell(table_e.rows[i].cells[j], val, bold=(j == 0), size=9)
+    estilizar_tabla_wes(table_e, highlight_rows=hi_e, has_total_row=False)
+    if out_png and out_png.is_file():
+        doc.add_paragraph()
+        doc.add_picture(str(out_png), width=Cm(22))
+
+    add_formatted_heading(doc, "2. Total de cada colegio", level=1)
     headers_c = [
         "Colegio",
         "Fuera s/prom.",
@@ -576,7 +766,7 @@ def _write_word(
             _set_cell(table_c.rows[i].cells[j], val, bold=is_tot, size=9)
     estilizar_tabla_wes(table_c, highlight_rows=hi, has_total_row=True)
 
-    add_formatted_heading(doc, "2. Desglose mensual (detalle)", level=1)
+    add_formatted_heading(doc, "3. Desglose mensual (detalle)", level=1)
     headers = ["Colegio", "Total cta", "Total WES"]
     for y, m in meses:
         lab = f"{MESES_CORTOS[m]}-{str(y)[2:]}"
@@ -654,8 +844,10 @@ def generar(skip_download: bool = False) -> Tuple[Path, Optional[Path], Path]:
     stem = f"Totalizados_mensuales_cuenta_vs_WES_CORMUP_{ts}"
     out_xlsx = OUT_DIR / f"{stem}.xlsx"
     out_docx = OUT_DIR / f"{stem}.docx"
+    out_png = OUT_DIR / f"{stem}_escala.png"
+    _grafico_escala(_escala_desvio(_totales_colegio(sitios, meses, data)), out_png)
     _write_excel(sitios, meses, data, out_xlsx, generado)
-    _write_word(sitios, meses, data, out_docx, generado)
+    _write_word(sitios, meses, data, out_docx, generado, out_png=out_png)
     out_pdf = convertir_a_pdf(out_docx)
     print(f"[OK] Excel: {out_xlsx}", flush=True)
     print(f"[OK] Word:  {out_docx}", flush=True)
