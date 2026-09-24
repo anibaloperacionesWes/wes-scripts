@@ -829,28 +829,94 @@ def _write_word(
 HOJAS_PDF = ("Escala_desvio", "Total_por_colegio", "Mensual_cuenta_vs_WES")
 
 
-def _preparar_impresion(ws) -> None:
+def _font_grande(cell, size: int) -> None:
+    f = cell.font
+    cell.font = Font(name="Calibri", size=size, bold=bool(f.bold), color=f.color)
+
+
+def _agrandar_hoja(ws, size: int = 12) -> None:
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, max_col=ws.max_column):
+        for cell in row:
+            _font_grande(cell, size)
+    for r in range(1, ws.max_row + 1):
+        ws.row_dimensions[r].height = 22 if r <= 2 else 20
+    for col in range(1, ws.max_column + 1):
+        letter = get_column_letter(col)
+        cur = ws.column_dimensions[letter].width or 10
+        ws.column_dimensions[letter].width = max(cur * 1.08, 11)
+
+
+def _pagina_horizontal(ws, *, encajar: bool, encabezado_filas: str = "1:1") -> None:
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A3
-    ws.page_setup.fitToPage = True
-    ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 0
-    ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.page_setup.horizontalCentered = True
-    ws.page_margins.left = 0.35
-    ws.page_margins.right = 0.35
-    ws.page_margins.top = 0.4
+    ws.page_setup.verticalCentered = False
+    ws.page_margins.left = 0.4
+    ws.page_margins.right = 0.4
+    ws.page_margins.top = 0.45
     ws.page_margins.bottom = 0.4
     ws.page_margins.header = 0.2
     ws.page_margins.footer = 0.2
-    ws.oddHeader.left.text = "&A"
+    ws.oddHeader.left.text = "&A — CORMUP Peñalolén"
     ws.oddFooter.right.text = "Pág. &P / &N"
-    if ws.max_row >= 2:
-        ws.print_title_rows = "1:2" if ws.title == "Mensual_cuenta_vs_WES" else "1:1"
+    ws.print_title_rows = encabezado_filas
+    if encajar:
+        ws.page_setup.fitToPage = True
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 1
+        ws.sheet_properties.pageSetUpPr.fitToPage = True
+    else:
+        ws.page_setup.fitToPage = False
+        ws.page_setup.scale = 120
+        ws.sheet_properties.pageSetUpPr.fitToPage = False
+
+
+def _cortes_mensual(ws) -> Tuple[int, List[Tuple[int, int]]]:
+    """Columna donde empiezan los meses y rangos (col_ini, col_fin) de cada mes."""
+    bloques = []
+    for rng in ws.merged_cells.ranges:
+        if rng.min_row == 1 and (rng.max_col - rng.min_col + 1) >= 4:
+            bloques.append((rng.min_col, rng.max_col))
+    meses = sorted(set(bloques))
+    if not meses:
+        return 6, []
+    return meses[0][0], meses
+
+
+def _partir_mensual(wb, ws):
+    """Dos hojas horizontales (ene–may / jun–sep) para que el texto no se achique."""
+    first_mes, meses = _cortes_mensual(ws)
+    if len(meses) < 3:
+        _agrandar_hoja(ws, 11)
+        _pagina_horizontal(ws, encajar=True, encabezado_filas="1:2")
+        ws.print_title_cols = "A:E"
+        return [ws]
+    mid = (len(meses) + 1) // 2
+    cortes = [meses[:mid], meses[mid:]]
+    titulos = []
+    for cols in cortes:
+        a, b = cols[0][0], cols[-1][1]
+        lab_a = str(ws.cell(1, cols[0][0]).value or "ini")
+        lab_b = str(ws.cell(1, cols[-1][0]).value or "fin")
+        titulos.append((f"Mensual_{lab_a}_{lab_b}".replace(" ", "")[:31], a, b))
+
+    copias = []
+    for titulo, c0, c1 in titulos:
+        copia = wb.copy_worksheet(ws)
+        copia.title = titulo
+        for col in range(first_mes, ws.max_column + 1):
+            if col < c0 or col > c1:
+                copia.column_dimensions[get_column_letter(col)].hidden = True
+        _agrandar_hoja(copia, 12)
+        _pagina_horizontal(copia, encajar=True, encabezado_filas="1:2")
+        copia.print_title_cols = "A:E"
+        copias.append(copia)
+    del wb[ws.title]
+    return copias
 
 
 def pdf_tres_hojas(xlsx_path: Path) -> Optional[Path]:
-    """PDF solo con Escala_desvio, Total_por_colegio y Mensual_cuenta_vs_WES."""
+    """PDF horizontal de Escala, Total por colegio y Mensual (esta última en 2 páginas)."""
     soffice = shutil.which("soffice") or shutil.which("libreoffice")
     if not soffice:
         print("[WARN] No hay LibreOffice/soffice; se omite PDF de 3 hojas.", flush=True)
@@ -862,9 +928,19 @@ def pdf_tres_hojas(xlsx_path: Path) -> Optional[Path]:
     faltan = [n for n in HOJAS_PDF if n not in wb.sheetnames]
     if faltan:
         raise SystemExit(f"Faltan hojas para el PDF: {faltan}")
-    wb._sheets = [wb[n] for n in HOJAS_PDF]
-    for ws in wb.worksheets:
-        _preparar_impresion(ws)
+
+    we = wb["Escala_desvio"]
+    _agrandar_hoja(we, 12)
+    _pagina_horizontal(we, encajar=True)
+
+    wp = wb["Total_por_colegio"]
+    _agrandar_hoja(wp, 11)
+    _pagina_horizontal(wp, encajar=True)
+
+    _partir_mensual(wb, wb["Mensual_cuenta_vs_WES"])
+
+    orden = [n for n in wb.sheetnames]
+    wb._sheets = [wb[n] for n in orden]
     out_pdf = xlsx_path.with_name(xlsx_path.stem + "_3hojas.pdf")
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td) / "tres_hojas.xlsx"
