@@ -182,36 +182,46 @@ def construir() -> Document:
         r = cap.add_run("Foto 1. Medidor en Baquedano 1215.")
         _set_run(r, size=9, color=RGBColor(80, 80, 80))
 
-    _p(doc, "Datos técnicos – Baquedano 1215", bold=True, size=12, space_after=6, color=NEGRO)
-    filas = [
-        (
-            "Línea A",
-            "Sale del medidor hacia abajo. Alimentación de camión aljibe, llenado de estanque, "
-            "riego y camarines frontera, alimentación de riego de canchas de tenis y baño del estadio.",
-        ),
-        (
-            "Línea B",
-            "Sale del medidor hacia la derecha, por el costado del camino, hasta los baños de logística. "
-            "Solo alimenta baños.",
-        ),
-    ]
-    tabla = doc.add_table(rows=len(filas), cols=3)
-    tabla.autofit = True
-    for i, (etiqueta, valor) in enumerate(filas):
-        c0, c1, c2 = tabla.rows[i].cells
-        c0.text = ""
-        c1.text = ""
-        c2.text = ""
-        c0.paragraphs[0].paragraph_format.space_after = Pt(4)
-        c1.paragraphs[0].paragraph_format.space_after = Pt(4)
-        c2.paragraphs[0].paragraph_format.space_after = Pt(4)
-        c2.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
-        _set_run(c0.paragraphs[0].add_run(etiqueta), size=11, bold=True)
-        _set_run(c1.paragraphs[0].add_run(":"), size=11, bold=True)
-        _set_run(c2.paragraphs[0].add_run(valor), size=11)
-        c0.width = Cm(3.0)
-        c1.width = Cm(0.5)
-        c2.width = Cm(13.0)
+    def _ficha(titulo: str, filas: list[tuple[str, str]]) -> None:
+        _p(doc, titulo, bold=True, size=12, space_after=6, color=NEGRO)
+        tabla = doc.add_table(rows=len(filas), cols=3)
+        tabla.autofit = True
+        for etiqueta, valor in filas:
+            c0, c1, c2 = tabla.rows[filas.index((etiqueta, valor))].cells
+            for cell in (c0, c1, c2):
+                cell.text = ""
+                cell.paragraphs[0].paragraph_format.space_after = Pt(2)
+                cell.paragraphs[0].paragraph_format.space_before = Pt(0)
+            _set_run(c0.paragraphs[0].add_run(etiqueta), size=11, bold=True)
+            _set_run(c1.paragraphs[0].add_run(":"), size=11, bold=True)
+            _set_run(c2.paragraphs[0].add_run(valor), size=11)
+            c0.width = Cm(8.2)
+            c1.width = Cm(0.5)
+            c2.width = Cm(7.6)
+        doc.add_paragraph().paragraph_format.space_after = Pt(6)
+
+    _ficha(
+        "Datos técnicos – Línea A",
+        [
+            ("Diámetro", "1 1/2 pulgada"),
+            ("Actividad hídrica", "Abastecimiento camión"),
+            ("Remarcado cliente", "No existe"),
+            ("Material de la matriz", "PVC"),
+            ("Factibilidad eléctrica 220 V", "35 mt"),
+            ("Canalización de señal", "No aplica"),
+            ("Canalización sensores ultrasonido", "2 × 5 mt"),
+            ("Señal M2M 3G, 4G, 5G", "Buena señal"),
+        ],
+    )
+    _ficha(
+        "Datos técnicos – Línea B",
+        [
+            (
+                "Actividad hídrica",
+                "Sale hacia la derecha, por el costado del camino, hasta los baños de logística. Solo alimenta baños.",
+            ),
+        ],
+    )
     return doc
 
 

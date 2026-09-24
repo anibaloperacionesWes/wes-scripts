@@ -1,1 +1,8 @@
-Sale del medidor hacia abajo. Va desde la alimentación de camión aljibe, el llenado de estanque, el riego y camarines frontera, hasta la alimentación de riego de las canchas de tenis y el baño del estadio.
+Diámetro: 1 1/2 pulgada
+Actividad hídrica: Abastecimiento camión
+Remarcado cliente: No existe
+Material de la matriz: PVC
+Factibilidad eléctrica 220 V: 35 mt
+Canalización de señal: No aplica
+Canalización sensores ultrasonido: 2 × 5 mt
+Señal M2M 3G, 4G, 5G: Buena señal
