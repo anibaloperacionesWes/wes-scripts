@@ -156,72 +156,62 @@ def construir() -> Document:
     )
 
     _heading(doc, "2. Punto 1 — Baquedano 1215")
-    _kv_table(
-        doc,
-        [
-            ("Dirección del punto", "Baquedano 1215, San Bernardo"),
-            ("Qué se ve en terreno", "Medidor con dos salidas"),
-        ],
-    )
-    _p(
-        doc,
-        "En el medidor se separan dos líneas. La que sigue hacia abajo es la Línea A. "
-        "La que sale hacia la derecha, por el costado del camino, es la Línea B. "
-        "Cada una tiene su propia descripción.",
-    )
 
     if VISTA.is_file():
         doc.add_page_break()
-        _p(doc, "Vista satelital del punto", bold=True, size=12, center=True, space_after=4, color=AZUL)
         foto = doc.add_paragraph()
         foto.alignment = WD_ALIGN_PARAGRAPH.CENTER
         foto.paragraph_format.space_before = Pt(2)
         foto.paragraph_format.space_after = Pt(2)
-        foto.add_run().add_picture(str(VISTA), width=_ancho_foto(VISTA, 16.2, 9.2))
+        foto.add_run().add_picture(str(VISTA), width=_ancho_foto(VISTA, 15.6, 7.2))
         cap = doc.add_paragraph()
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
         cap.paragraph_format.space_after = Pt(8)
-        r = cap.add_run("Vista satelital — Baquedano 1215, San Bernardo. Logo WES en la esquina superior derecha.")
+        r = cap.add_run("Vista satelital — Baquedano 1215, San Bernardo.")
         _set_run(r, size=9, color=RGBColor(80, 80, 80))
 
     if FOTO_MEDIDOR.is_file():
-        doc.add_page_break()
-        _p(doc, "Medidor y las dos salidas", bold=True, size=12, center=True, space_after=4, color=AZUL)
         pic = doc.add_paragraph()
         pic.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        pic.paragraph_format.space_before = Pt(6)
         pic.paragraph_format.space_after = Pt(2)
-        pic.add_run().add_picture(str(FOTO_MEDIDOR), width=_ancho_foto(FOTO_MEDIDOR, 10.5, 9.2))
+        pic.add_run().add_picture(str(FOTO_MEDIDOR), width=_ancho_foto(FOTO_MEDIDOR, 9.2, 7.4))
         cap = doc.add_paragraph()
         cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        cap.paragraph_format.space_after = Pt(8)
-        r = cap.add_run("Foto 1. Medidor en Baquedano 1215. Hacia abajo: Línea A. Hacia la derecha: Línea B.")
+        cap.paragraph_format.space_after = Pt(10)
+        r = cap.add_run("Foto 1. Medidor en Baquedano 1215.")
         _set_run(r, size=9, color=RGBColor(80, 80, 80))
 
-    def _caja(titulo: str, texto: str) -> None:
-        caja = doc.add_table(rows=1, cols=1)
-        cell = caja.cell(0, 0)
-        cell.text = ""
-        _shade(cell, "F4F7FB")
-        titulo_p = cell.paragraphs[0]
-        titulo_p.paragraph_format.space_after = Pt(2)
-        rt = titulo_p.add_run(titulo)
-        _set_run(rt, size=11, bold=True, color=AZUL)
-        cuerpo = cell.add_paragraph()
-        cuerpo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        cuerpo.paragraph_format.space_after = Pt(2)
-        _set_run(cuerpo.add_run(texto), size=11)
-        doc.add_paragraph().paragraph_format.space_after = Pt(6)
-
-    _caja(
-        "Línea A — sale del medidor hacia abajo",
-        "Va desde la alimentación de camión aljibe, el llenado de estanque, el riego y "
-        "camarines frontera, hasta la alimentación de riego de las canchas de tenis y "
-        "el baño del estadio.",
-    )
-    _caja(
-        "Línea B — sale del medidor hacia la derecha",
-        "Sigue por el costado del camino hasta los baños de logística. Solo alimenta baños.",
-    )
+    _p(doc, "Datos técnicos – Baquedano 1215", bold=True, size=12, space_after=6, color=NEGRO)
+    filas = [
+        (
+            "Línea A",
+            "Sale del medidor hacia abajo. Alimentación de camión aljibe, llenado de estanque, "
+            "riego y camarines frontera, alimentación de riego de canchas de tenis y baño del estadio.",
+        ),
+        (
+            "Línea B",
+            "Sale del medidor hacia la derecha, por el costado del camino, hasta los baños de logística. "
+            "Solo alimenta baños.",
+        ),
+    ]
+    tabla = doc.add_table(rows=len(filas), cols=3)
+    tabla.autofit = True
+    for i, (etiqueta, valor) in enumerate(filas):
+        c0, c1, c2 = tabla.rows[i].cells
+        c0.text = ""
+        c1.text = ""
+        c2.text = ""
+        c0.paragraphs[0].paragraph_format.space_after = Pt(4)
+        c1.paragraphs[0].paragraph_format.space_after = Pt(4)
+        c2.paragraphs[0].paragraph_format.space_after = Pt(4)
+        c2.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+        _set_run(c0.paragraphs[0].add_run(etiqueta), size=11, bold=True)
+        _set_run(c1.paragraphs[0].add_run(":"), size=11, bold=True)
+        _set_run(c2.paragraphs[0].add_run(valor), size=11)
+        c0.width = Cm(3.0)
+        c1.width = Cm(0.5)
+        c2.width = Cm(13.0)
     return doc
 
 
