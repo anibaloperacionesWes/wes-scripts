@@ -47,6 +47,7 @@ from generar_reporte_word import (
 )
 
 MES_DESDE = date(2026, 1, 1)
+UMBRAL_FUERA_PCT = 15.0
 
 
 def _mes_key(d: date) -> Tuple[int, int]:
@@ -109,6 +110,30 @@ def _pct_error_lectura(cuenta: float, wes: float) -> Optional[float]:
     return 100.0 * (wes - cuenta) / cuenta
 
 
+def _mes_fuera(cel) -> Optional[bool]:
+    """True = no cuadra, False = cuadra, None = mes no evaluado."""
+    if not cel["n"] or cel["cuenta"] <= 0:
+        return None
+    pct = _pct_error_lectura(cel["cuenta"], cel["wes"])
+    if pct is None:
+        return None
+    return abs(pct) >= UMBRAL_FUERA_PCT
+
+
+def _fuera_colegio(s: Sitio, meses: List[Tuple[int, int]], data):
+    n_eval = n_fuera = 0
+    labels: List[str] = []
+    for k in meses:
+        st = _mes_fuera(data[s.node_id][k])
+        if st is None:
+            continue
+        n_eval += 1
+        if st:
+            n_fuera += 1
+            labels.append(MESES_CORTOS[k[1]])
+    return n_fuera, n_eval, labels
+
+
 def _totales_colegio(sitios: List[Sitio], meses: List[Tuple[int, int]], data):
     filas = []
     for s in sorted(sitios, key=lambda x: x.node_id):
@@ -117,8 +142,9 @@ def _totales_colegio(sitios: List[Sitio], meses: List[Tuple[int, int]], data):
             cel = data[s.node_id][k]
             sc += cel["cuenta"]
             sw += cel["wes"]
-        filas.append((s, sc, sw, sc - sw))
-    filas.sort(key=lambda t: abs(t[3]), reverse=True)
+        n_fuera, n_eval, labels = _fuera_colegio(s, meses, data)
+        filas.append((s, sc, sw, sc - sw, n_fuera, n_eval, labels))
+    filas.sort(key=lambda t: (t[4], abs(t[3])), reverse=True)
     return filas
 
 
@@ -143,51 +169,74 @@ def _write_excel(
         bottom=Side(style="thin", color="B0B0B0"),
     )
 
-    # Hoja principal: un total por colegio (lo que importa)
+    # Hoja principal: listado por colegio + cuántos meses no cuadran
     wp = wb.active
     wp.title = "Total_por_colegio"
     headers_p = [
         "Colegio",
+        "Meses fuera",
+        "Meses evaluados",
         "Nodo",
         "m³ cuenta (total)",
         "m³ WES (total)",
         "Dif m³ (cuenta − WES)",
         "% vs cuenta",
+        "Meses que no cuadran",
     ]
     wp.append(headers_p)
-    for col in range(1, 7):
+    for col in range(1, 10):
         c = wp.cell(1, col)
         c.fill = azul
         c.font = blanco
         c.alignment = Alignment(horizontal="center", wrap_text=True)
     tot_c = tot_w = 0.0
-    for s, sc, sw, dif in _totales_colegio(sitios, meses, data):
+    tot_fuera = tot_eval = 0
+    for s, sc, sw, dif, n_fuera, n_eval, labels in _totales_colegio(sitios, meses, data):
         pct = (100.0 * dif / sc) if sc else None
-        wp.append([s.node_name, s.node_id, sc, round(sw, 1), round(dif, 1), None if pct is None else round(pct, 1)])
+        wp.append(
+            [
+                s.node_name,
+                n_fuera,
+                n_eval,
+                s.node_id,
+                sc,
+                round(sw, 1),
+                round(dif, 1),
+                None if pct is None else round(pct, 1),
+                ", ".join(labels) if labels else "—",
+            ]
+        )
         tot_c += sc
         tot_w += sw
+        tot_fuera += n_fuera
+        tot_eval += n_eval
+        if n_fuera:
+            wp.cell(wp.max_row, 2).fill = err_fill
     wp.append(
         [
             "TOTAL",
+            tot_fuera,
+            tot_eval,
             COMPANY_ID,
             tot_c,
             round(tot_w, 1),
             round(tot_c - tot_w, 1),
             round(100.0 * (tot_c - tot_w) / tot_c, 1) if tot_c else None,
+            "",
         ]
     )
     for row in wp.iter_rows(min_row=2, max_row=wp.max_row):
-        row[2].number_format = "#,##0"
-        row[3].number_format = "#,##0.0"
-        row[4].number_format = "#,##0.0"
-        row[5].number_format = "0.0"
+        row[4].number_format = "#,##0"
+        row[5].number_format = "#,##0.0"
+        row[6].number_format = "#,##0.0"
+        row[7].number_format = "0.0"
         for cell in row:
             cell.border = thin
     for cell in wp[wp.max_row]:
         cell.fill = tot_fill
         cell.font = Font(bold=True)
     wp.freeze_panes = "A2"
-    for i, w in enumerate([28, 12, 18, 16, 22, 12], start=1):
+    for i, w in enumerate([28, 13, 16, 12, 18, 16, 22, 12, 36], start=1):
         wp.column_dimensions[get_column_letter(i)].width = w
 
     ws = wb.create_sheet("Mensual_cuenta_vs_WES")
@@ -321,9 +370,15 @@ def _write_excel(
     wn["A6"] = (
         "% error de lectura = (m³ WES − m³ cuenta) / m³ cuenta × 100. "
         "Positivo = WES marca más que la turbina de la cuenta. "
-        "Naranja si |error| ≥ 15%. Vacío si la cuenta del mes es 0."
+        f"Naranja si |error| ≥ {UMBRAL_FUERA_PCT:.0f}%. Vacío si la cuenta del mes es 0."
     )
-    wn["A7"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
+    wn["A7"] = (
+        "Meses fuera = cuántos meses evaluados no cuadran "
+        f"(|% error| ≥ {UMBRAL_FUERA_PCT:.0f}%). "
+        "Mes evaluado = hay boleta ese mes con m³ cuenta > 0. "
+        "Mes sin boleta o con 0 m³ no se cuenta."
+    )
+    wn["A8"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
     wn.column_dimensions["A"].width = 120
     wb.save(out_xlsx)
 
@@ -354,21 +409,36 @@ def _write_word(
     p = doc.add_paragraph()
     p.add_run("CORMUP / Peñalolén. ").bold = True
     p.add_run(
-        "El número que importa es el total de cada colegio (ene-2026 en adelante). "
-        "Los meses van después, como desglose. "
+        "Listado: colegio y cuántos meses evaluados no cuadran "
+        f"(|error| ≥ {UMBRAL_FUERA_PCT:.0f}%). "
+        "Después el total cuenta vs WES. "
         f"Generado {generado.strftime('%d-%m-%Y %H:%M')}."
     )
 
     add_formatted_heading(doc, "1. Total de cada colegio", level=1)
-    headers_c = ["Colegio", "Nodo", "m³ cuenta", "m³ WES", "Dif m³", "% vs cuenta"]
+    headers_c = [
+        "Colegio",
+        "Meses fuera",
+        "Meses eval.",
+        "Nodo",
+        "m³ cuenta",
+        "m³ WES",
+        "Dif m³",
+        "% vs cuenta",
+    ]
     rows_c: List[List[str]] = []
     hi: List[int] = []
     gt_c = gt_w = 0.0
-    for i, (s, sc, sw, dif) in enumerate(_totales_colegio(sitios, meses, data), start=1):
+    gt_fuera = gt_eval = 0
+    for i, (s, sc, sw, dif, n_fuera, n_eval, _labels) in enumerate(
+        _totales_colegio(sitios, meses, data), start=1
+    ):
         pct = (100.0 * dif / sc) if sc else 0.0
         rows_c.append(
             [
                 s.node_name,
+                str(n_fuera),
+                str(n_eval),
                 s.node_id,
                 format_number_chilean(sc, 0),
                 format_number_chilean(sw, 0),
@@ -376,13 +446,17 @@ def _write_word(
                 format_number_chilean(pct, 1),
             ]
         )
-        if abs(pct) >= 15:
+        if n_fuera:
             hi.append(i)
         gt_c += sc
         gt_w += sw
+        gt_fuera += n_fuera
+        gt_eval += n_eval
     rows_c.append(
         [
             "TOTAL",
+            str(gt_fuera),
+            str(gt_eval),
             COMPANY_ID,
             format_number_chilean(gt_c, 0),
             format_number_chilean(gt_w, 0),
