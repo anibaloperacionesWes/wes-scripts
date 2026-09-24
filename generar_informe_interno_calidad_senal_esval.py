@@ -1,6 +1,5 @@
 """
-Informe interno — Matriz ESVAL (Fundo Zapallar).
-Versión completa + validaciones, con estilo visual WES.
+Informe final — Validación Matriz ESVAL (Fundo Zapallar).
 
 Uso:
   python generar_informe_interno_calidad_senal_esval.py
@@ -434,7 +433,7 @@ def _tabla_error(doc: Document, filas: list[tuple[str, str]]) -> None:
 def generar_informe(out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
-    out_docx = out_dir / f"Informe_Interno_Calidad_Senal_ESVAL_{stamp}.docx"
+    out_docx = out_dir / f"Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_{stamp}.docx"
 
     doc = Document()
     section = doc.sections[0]
@@ -453,7 +452,7 @@ def generar_informe(out_dir: Path) -> Path:
         print(f"[WARN] Logo: {exc}")
 
     # Portada compacta
-    title = doc.add_heading("Informe interno — Revisión y validación Matriz ESVAL", level=0)
+    title = doc.add_heading("Informe de validación — Matriz ESVAL · Fundo Zapallar", level=0)
     title.paragraph_format.space_after = Pt(2)
     for run in title.runs:
         run.font.color.rgb = _NAVY
@@ -463,7 +462,7 @@ def generar_informe(out_dir: Path) -> Path:
     meta = doc.add_paragraph()
     meta.paragraph_format.space_after = Pt(4)
     r = meta.add_run(
-        f"{EMPRESA}  ·  {NODO_NOMBRE} ({NODE_ID})  ·  Uso interno WES\n"
+        f"{EMPRESA}  ·  {NODO_NOMBRE} ({NODE_ID})  ·  Informe final\n"
         f"Validaciones: {VAL_FECHA} {HORA_INI}–{HORA_FIN}  |  "
         f"{VAL_FECHA_B_INI} {HORA_B_INI} → {VAL_FECHA_B_FIN} {HORA_B_FIN}"
     )
@@ -707,7 +706,7 @@ def generar_informe(out_dir: Path) -> Path:
     pie = doc.add_paragraph()
     pie.paragraph_format.space_before = Pt(2)
     r = pie.add_run(
-        f"WES · Documento interno · {EMPRESA} · {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+        f"WES · Informe final · {EMPRESA} · {datetime.now().strftime('%d-%m-%Y %H:%M')}"
     )
     _font(r, size=8, color=_MUTED)
 
