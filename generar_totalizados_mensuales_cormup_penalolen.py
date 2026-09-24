@@ -1,8 +1,9 @@
 """
-Totalizados mensuales por colegio: m³ cuenta (Aguas Andinas) vs m³ WES.
+Total por colegio: m³ cuenta (Aguas Andinas) vs m³ WES.
 
-Fila = establecimiento. Columnas = ene-2026 en adelante (emisión de la boleta):
-por cada mes, m³ que marcó la cuenta y m³ que marcó WES (medido + proyección de huecos).
+El número que importa es el total de cada colegio (ene-2026 en adelante).
+Los meses son el desglose: fila = establecimiento, columnas = mes de emisión
+con m³ cuenta y m³ WES (medido + proyección de huecos).
 
 Uso:
   python generar_totalizados_mensuales_cormup_penalolen.py --skip-download
@@ -20,8 +21,6 @@ from typing import Dict, List, Optional, Tuple
 from docx import Document
 from docx.enum.section import WD_ORIENT
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -104,6 +103,19 @@ def _matriz(sitios: List[Sitio], meses: List[Tuple[int, int]]):
     return data
 
 
+def _totales_colegio(sitios: List[Sitio], meses: List[Tuple[int, int]], data):
+    filas = []
+    for s in sorted(sitios, key=lambda x: x.node_id):
+        sc = sw = 0.0
+        for k in meses:
+            cel = data[s.node_id][k]
+            sc += cel["cuenta"]
+            sw += cel["wes"]
+        filas.append((s, sc, sw, sc - sw))
+    filas.sort(key=lambda t: abs(t[3]), reverse=True)
+    return filas
+
+
 def _write_excel(
     sitios: List[Sitio],
     meses: List[Tuple[int, int]],
@@ -112,13 +124,11 @@ def _write_excel(
     generado: datetime,
 ) -> None:
     wb = Workbook()
-    ws = wb.active
-    ws.title = "Mensual_cuenta_vs_WES"
-
     azul = PatternFill("solid", fgColor="003366")
     azul2 = PatternFill("solid", fgColor="1F4E79")
     blanco = Font(color="FFFFFF", bold=True, size=9)
     tot_fill = PatternFill("solid", fgColor="D9E1F2")
+    resalte = PatternFill("solid", fgColor="FFF2CC")
     thin = Border(
         left=Side(style="thin", color="B0B0B0"),
         right=Side(style="thin", color="B0B0B0"),
@@ -126,25 +136,74 @@ def _write_excel(
         bottom=Side(style="thin", color="B0B0B0"),
     )
 
-    # Fila 1: colegio | ene-2026 (merge 2) | feb-2026 ... | TOTAL
+    # Hoja principal: un total por colegio (lo que importa)
+    wp = wb.active
+    wp.title = "Total_por_colegio"
+    headers_p = [
+        "Colegio",
+        "Nodo",
+        "m³ cuenta (total)",
+        "m³ WES (total)",
+        "Dif m³ (cuenta − WES)",
+        "% vs cuenta",
+    ]
+    wp.append(headers_p)
+    for col in range(1, 7):
+        c = wp.cell(1, col)
+        c.fill = azul
+        c.font = blanco
+        c.alignment = Alignment(horizontal="center", wrap_text=True)
+    tot_c = tot_w = 0.0
+    for s, sc, sw, dif in _totales_colegio(sitios, meses, data):
+        pct = (100.0 * dif / sc) if sc else None
+        wp.append([s.node_name, s.node_id, sc, round(sw, 1), round(dif, 1), None if pct is None else round(pct, 1)])
+        tot_c += sc
+        tot_w += sw
+    wp.append(
+        [
+            "TOTAL",
+            COMPANY_ID,
+            tot_c,
+            round(tot_w, 1),
+            round(tot_c - tot_w, 1),
+            round(100.0 * (tot_c - tot_w) / tot_c, 1) if tot_c else None,
+        ]
+    )
+    for row in wp.iter_rows(min_row=2, max_row=wp.max_row):
+        row[2].number_format = "#,##0"
+        row[3].number_format = "#,##0.0"
+        row[4].number_format = "#,##0.0"
+        row[5].number_format = "0.0"
+        for cell in row:
+            cell.border = thin
+    for cell in wp[wp.max_row]:
+        cell.fill = tot_fill
+        cell.font = Font(bold=True)
+    wp.freeze_panes = "A2"
+    for i, w in enumerate([28, 12, 18, 16, 22, 12], start=1):
+        wp.column_dimensions[get_column_letter(i)].width = w
+
+    ws = wb.create_sheet("Mensual_cuenta_vs_WES")
+
+    # Colegio | Nodo | TOTAL cta | TOTAL WES | luego meses
     n_meses = len(meses)
     ws.cell(1, 1, "Colegio")
     ws.merge_cells(start_row=1, start_column=1, end_row=2, end_column=1)
     ws.cell(1, 2, "Nodo")
     ws.merge_cells(start_row=1, start_column=2, end_row=2, end_column=2)
-    col = 3
+    ws.cell(1, 3, "TOTAL colegio")
+    ws.merge_cells(start_row=1, start_column=3, end_row=1, end_column=4)
+    ws.cell(2, 3, "m³ cuenta")
+    ws.cell(2, 4, "m³ WES")
+    col = 5
     for y, m in meses:
         ws.cell(1, col, _mes_label(y, m).upper())
         ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 1)
         ws.cell(2, col, "m³ cuenta")
         ws.cell(2, col + 1, "m³ WES")
         col += 2
-    ws.cell(1, col, "TOTAL ene→")
-    ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 1)
-    ws.cell(2, col, "m³ cuenta")
-    ws.cell(2, col + 1, "m³ WES")
 
-    last_col = 2 + n_meses * 2 + 2
+    last_col = 4 + n_meses * 2
     for r in (1, 2):
         for c in range(1, last_col + 1):
             cell = ws.cell(r, c)
@@ -162,8 +221,8 @@ def _write_excel(
     for s in sitios_ord:
         ws.cell(row_i, 1, s.node_name)
         ws.cell(row_i, 2, s.node_id)
-        col = 3
         sc = sw = 0.0
+        col = 5
         for k in meses:
             cel = data[s.node_id][k]
             cta, wes = cel["cuenta"], cel["wes"]
@@ -178,8 +237,12 @@ def _write_excel(
             tot_mes[k]["cuenta"] += cta
             tot_mes[k]["wes"] += wes
             col += 2
-        ws.cell(row_i, col, sc).number_format = "#,##0"
-        ws.cell(row_i, col + 1, sw).number_format = "#,##0.0"
+        ws.cell(row_i, 3, sc).number_format = "#,##0"
+        ws.cell(row_i, 4, sw).number_format = "#,##0.0"
+        ws.cell(row_i, 3).fill = resalte
+        ws.cell(row_i, 4).fill = resalte
+        ws.cell(row_i, 3).font = Font(bold=True)
+        ws.cell(row_i, 4).font = Font(bold=True)
         tot_c += sc
         tot_w += sw
         for c in range(1, last_col + 1):
@@ -190,40 +253,47 @@ def _write_excel(
 
     ws.cell(row_i, 1, "TOTAL colegios")
     ws.cell(row_i, 2, COMPANY_ID)
-    col = 3
+    ws.cell(row_i, 3, tot_c).number_format = "#,##0"
+    ws.cell(row_i, 4, tot_w).number_format = "#,##0.0"
+    col = 5
     for k in meses:
         ws.cell(row_i, col, tot_mes[k]["cuenta"]).number_format = "#,##0"
         ws.cell(row_i, col + 1, tot_mes[k]["wes"]).number_format = "#,##0.0"
         col += 2
-    ws.cell(row_i, col, tot_c).number_format = "#,##0"
-    ws.cell(row_i, col + 1, tot_w).number_format = "#,##0.0"
     for c in range(1, last_col + 1):
         cell = ws.cell(row_i, c)
         cell.fill = tot_fill
         cell.font = Font(bold=True)
         cell.border = thin
 
-    ws.freeze_panes = "C3"
+    ws.freeze_panes = "E3"
     ws.column_dimensions["A"].width = 26
     ws.column_dimensions["B"].width = 12
-    for c in range(3, last_col + 1):
+    ws.column_dimensions["C"].width = 13
+    ws.column_dimensions["D"].width = 13
+    for c in range(5, last_col + 1):
         ws.column_dimensions[get_column_letter(c)].width = 11
 
     wn = wb.create_sheet("Notas")
-    wn["A1"] = "Cómo se arma el mes"
+    wn["A1"] = "Qué número importa"
     wn["A2"] = (
+        "El total que importa es el de CADA COLEGIO (hoja Total_por_colegio): "
+        "suma de todas las boletas ene-2026 en adelante, m³ cuenta vs m³ WES. "
+        "Los meses son el desglose, no el consolidado principal."
+    )
+    wn["A3"] = (
         "Cada boleta se asigna al mes de FECHA DE EMISIÓN (ene-2026 en adelante). "
         "Si un colegio tiene más de una boleta en el mismo mes, se suman."
     )
-    wn["A3"] = (
+    wn["A4"] = (
         "m³ cuenta = consumo total de la boleta Aguas Andinas. "
         "m³ WES = registro API del mismo período de lecturas + proyección de días sin dato."
     )
-    wn["A4"] = (
-        "Celda amarilla en «m³ cuenta»: esa boleta es promedio/estimado (no es lectura real de turbina). "
-        "Igual se totaliza porque es lo que marcó la cuenta ese mes."
+    wn["A5"] = (
+        "Celda amarilla en «m³ cuenta» mensual: esa boleta es promedio/estimado. "
+        "Igual entra al total del colegio porque es lo que marcó la cuenta."
     )
-    wn["A5"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
+    wn["A6"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
     wn.column_dimensions["A"].width = 120
     wb.save(out_xlsx)
 
@@ -248,55 +318,93 @@ def _write_word(
     style.font.name = "Calibri"
     style.font.size = Pt(10)
 
-    title = doc.add_heading("Totalizados mensuales — cuenta vs WES", level=1)
+    title = doc.add_heading("Total por colegio — cuenta vs WES", level=1)
     if title.runs:
         title.runs[0].font.color.rgb = HEADING_RGB
     p = doc.add_paragraph()
     p.add_run("CORMUP / Peñalolén. ").bold = True
     p.add_run(
-        "Fila = colegio. Por cada mes (emisión de la boleta, ene-2026 en adelante): "
-        "m³ que marcó la cuenta y m³ que marcó WES. "
+        "El número que importa es el total de cada colegio (ene-2026 en adelante). "
+        "Los meses van después, como desglose. "
         f"Generado {generado.strftime('%d-%m-%Y %H:%M')}."
     )
 
-    # Encabezado de dos niveles no cabe fácil: una fila de headers compactos
-    # "ene-26 Cta" / "ene-26 WES"
-    headers = ["Colegio"]
+    add_formatted_heading(doc, "1. Total de cada colegio", level=1)
+    headers_c = ["Colegio", "Nodo", "m³ cuenta", "m³ WES", "Dif m³", "% vs cuenta"]
+    rows_c: List[List[str]] = []
+    hi: List[int] = []
+    gt_c = gt_w = 0.0
+    for i, (s, sc, sw, dif) in enumerate(_totales_colegio(sitios, meses, data), start=1):
+        pct = (100.0 * dif / sc) if sc else 0.0
+        rows_c.append(
+            [
+                s.node_name,
+                s.node_id,
+                format_number_chilean(sc, 0),
+                format_number_chilean(sw, 0),
+                format_number_chilean(dif, 0),
+                format_number_chilean(pct, 1),
+            ]
+        )
+        if abs(pct) >= 15:
+            hi.append(i)
+        gt_c += sc
+        gt_w += sw
+    rows_c.append(
+        [
+            "TOTAL",
+            COMPANY_ID,
+            format_number_chilean(gt_c, 0),
+            format_number_chilean(gt_w, 0),
+            format_number_chilean(gt_c - gt_w, 0),
+            format_number_chilean(100.0 * (gt_c - gt_w) / gt_c, 1) if gt_c else "0",
+        ]
+    )
+    table_c = doc.add_table(rows=1 + len(rows_c), cols=len(headers_c))
+    table_c.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _tbl_full_width(table_c)
+    for j, h in enumerate(headers_c):
+        _set_cell(table_c.rows[0].cells[j], h, bold=True, size=9)
+    for i, row in enumerate(rows_c, start=1):
+        is_tot = i == len(rows_c)
+        for j, val in enumerate(row):
+            _set_cell(table_c.rows[i].cells[j], val, bold=is_tot, size=9)
+    estilizar_tabla_wes(table_c, highlight_rows=hi, has_total_row=True)
+
+    add_formatted_heading(doc, "2. Desglose mensual (detalle)", level=1)
+    headers = ["Colegio", "Total cta", "Total WES"]
     for y, m in meses:
         lab = f"{MESES_CORTOS[m]}-{str(y)[2:]}"
         headers.append(f"{lab} cta")
         headers.append(f"{lab} WES")
-    headers += ["Total cta", "Total WES"]
 
     sitios_ord = sorted(sitios, key=lambda s: s.node_id)
     rows: List[List[str]] = []
     tot_mes = {k: {"cuenta": 0.0, "wes": 0.0} for k in meses}
-    gt_c = gt_w = 0.0
     for s in sitios_ord:
-        line = [s.node_name]
         sc = sw = 0.0
+        meses_txt: List[str] = []
         for k in meses:
             cel = data[s.node_id][k]
             if cel["n"]:
-                line.append(format_number_chilean(cel["cuenta"], 0))
-                line.append(format_number_chilean(cel["wes"], 0))
+                meses_txt.append(format_number_chilean(cel["cuenta"], 0))
+                meses_txt.append(format_number_chilean(cel["wes"], 0))
                 sc += cel["cuenta"]
                 sw += cel["wes"]
                 tot_mes[k]["cuenta"] += cel["cuenta"]
                 tot_mes[k]["wes"] += cel["wes"]
             else:
-                line.append("—")
-                line.append("—")
-        line.append(format_number_chilean(sc, 0))
-        line.append(format_number_chilean(sw, 0))
-        gt_c += sc
-        gt_w += sw
-        rows.append(line)
-    tot_line = ["TOTAL"]
+                meses_txt.append("—")
+                meses_txt.append("—")
+        rows.append([s.node_name, format_number_chilean(sc, 0), format_number_chilean(sw, 0), *meses_txt])
+    tot_line = [
+        "TOTAL",
+        format_number_chilean(gt_c, 0),
+        format_number_chilean(gt_w, 0),
+    ]
     for k in meses:
         tot_line.append(format_number_chilean(tot_mes[k]["cuenta"], 0))
         tot_line.append(format_number_chilean(tot_mes[k]["wes"], 0))
-    tot_line += [format_number_chilean(gt_c, 0), format_number_chilean(gt_w, 0)]
     rows.append(tot_line)
 
     table = doc.add_table(rows=1 + len(rows), cols=len(headers))
@@ -307,13 +415,12 @@ def _write_word(
     for i, row in enumerate(rows, start=1):
         is_tot = i == len(rows)
         for j, val in enumerate(row):
-            _set_cell(table.rows[i].cells[j], val, bold=is_tot, size=7)
+            _set_cell(table.rows[i].cells[j], val, bold=is_tot or j in (1, 2), size=7)
     estilizar_tabla_wes(table, has_total_row=True)
 
     doc.add_paragraph(
         "Mes = fecha de emisión de la boleta. WES = consumo API en el período de lecturas "
-        "de esa misma boleta (más proyección si hubo huecos). "
-        "En el Excel, la cuenta en amarillo es boleta a promedio (no lectura real)."
+        "de esa misma boleta (más proyección si hubo huecos)."
     )
     out_docx.parent.mkdir(parents=True, exist_ok=True)
     doc.save(out_docx)
