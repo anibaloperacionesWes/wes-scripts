@@ -157,8 +157,11 @@ def _add_line(doc: Document, text: str) -> None:
 
 
 def _set_cell_text(cell, text: str, *, bold: bool = False, size: int = 9, color: RGBColor | None = None) -> None:
-    cell.text = ""
     p = cell.paragraphs[0]
+    # limpiar runs previos (evita run vacío sin formato)
+    for child in list(p._element):
+        if child.tag.endswith("}r") or child.tag.endswith("}hyperlink"):
+            p._element.remove(child)
     r = p.add_run(text)
     _set_run_font(r, bold=bold, size=size, color=color)
 
