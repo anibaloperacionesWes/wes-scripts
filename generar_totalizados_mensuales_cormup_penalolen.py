@@ -12,7 +12,10 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import shutil
+import subprocess
 import sys
+import tempfile
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -25,7 +28,7 @@ from docx import Document
 from docx.enum.section import WD_ORIENT
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.shared import Cm, Pt, RGBColor
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.formatting.rule import DataBarRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -823,6 +826,73 @@ def _write_word(
     doc.save(out_docx)
 
 
+HOJAS_PDF = ("Escala_desvio", "Total_por_colegio", "Mensual_cuenta_vs_WES")
+
+
+def _preparar_impresion(ws) -> None:
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A3
+    ws.page_setup.fitToPage = True
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.horizontalCentered = True
+    ws.page_margins.left = 0.35
+    ws.page_margins.right = 0.35
+    ws.page_margins.top = 0.4
+    ws.page_margins.bottom = 0.4
+    ws.page_margins.header = 0.2
+    ws.page_margins.footer = 0.2
+    ws.oddHeader.left.text = "&A"
+    ws.oddFooter.right.text = "Pág. &P / &N"
+    if ws.max_row >= 2:
+        ws.print_title_rows = "1:2" if ws.title == "Mensual_cuenta_vs_WES" else "1:1"
+
+
+def pdf_tres_hojas(xlsx_path: Path) -> Optional[Path]:
+    """PDF solo con Escala_desvio, Total_por_colegio y Mensual_cuenta_vs_WES."""
+    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    if not soffice:
+        print("[WARN] No hay LibreOffice/soffice; se omite PDF de 3 hojas.", flush=True)
+        return None
+    wb = load_workbook(xlsx_path)
+    for name in list(wb.sheetnames):
+        if name not in HOJAS_PDF:
+            del wb[name]
+    faltan = [n for n in HOJAS_PDF if n not in wb.sheetnames]
+    if faltan:
+        raise SystemExit(f"Faltan hojas para el PDF: {faltan}")
+    wb._sheets = [wb[n] for n in HOJAS_PDF]
+    for ws in wb.worksheets:
+        _preparar_impresion(ws)
+    out_pdf = xlsx_path.with_name(xlsx_path.stem + "_3hojas.pdf")
+    with tempfile.TemporaryDirectory() as td:
+        tmp = Path(td) / "tres_hojas.xlsx"
+        wb.save(tmp)
+        subprocess.run(
+            [
+                soffice,
+                "--headless",
+                "--nologo",
+                "--nofirststartwizard",
+                "--convert-to",
+                "pdf:calc_pdf_Export",
+                "--outdir",
+                td,
+                str(tmp),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        produced = Path(td) / "tres_hojas.pdf"
+        if not produced.is_file():
+            print("[WARN] LibreOffice no generó el PDF de 3 hojas.", flush=True)
+            return None
+        shutil.copy2(produced, out_pdf)
+    return out_pdf
+
+
 def generar(skip_download: bool = False) -> Tuple[Path, Optional[Path], Path]:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     generado = datetime.now(timezone.utc).astimezone()
@@ -849,10 +919,13 @@ def generar(skip_download: bool = False) -> Tuple[Path, Optional[Path], Path]:
     _write_excel(sitios, meses, data, out_xlsx, generado)
     _write_word(sitios, meses, data, out_docx, generado, out_png=out_png)
     out_pdf = convertir_a_pdf(out_docx)
+    out_pdf_hojas = pdf_tres_hojas(out_xlsx)
     print(f"[OK] Excel: {out_xlsx}", flush=True)
     print(f"[OK] Word:  {out_docx}", flush=True)
     if out_pdf:
         print(f"[OK] PDF:   {out_pdf}", flush=True)
+    if out_pdf_hojas:
+        print(f"[OK] PDF 3 hojas: {out_pdf_hojas}", flush=True)
     return out_docx, out_pdf, out_xlsx
 
 
