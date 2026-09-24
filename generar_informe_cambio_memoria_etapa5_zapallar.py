@@ -97,10 +97,13 @@ HRI_PULSO_DN40_125_L = 100
 
 FOTO_AYER = FOTOS_DIR / "lectura_20260922_1430_sensus_5144.png"
 FOTO_HOY = FOTOS_DIR / "lectura_20260923_1654_sensus_5177.png"
-FOTO_AYER_RELOJ = FOTOS_DIR / "lectura_20260922_1430_sensus_5144_reloj.png"
-FOTO_HOY_RELOJ = FOTOS_DIR / "lectura_20260923_1654_sensus_5177_reloj.png"
-CROP_AYER = (210, 340, 770, 840)
-CROP_HOY = (200, 300, 780, 780)
+FOTO_AYER_RELOJ = FOTOS_DIR / "lectura_20260922_1430_sensus_5144_reloj.jpg"
+FOTO_HOY_RELOJ = FOTOS_DIR / "lectura_20260923_1654_sensus_5177_reloj.jpg"
+# Encuadre vertical tipo Informe Validación ESVAL FINAL (cara circular centrada)
+# (cx, cy, half_w, half_h) sobre original 960x1280
+CROP_AYER = (480, 580, 320, 380)
+CROP_HOY = (480, 540, 320, 380)
+FOTO_SIZE = (768, 900)
 
 
 @dataclass
@@ -249,25 +252,36 @@ def _add_tabla_simple(doc: Document, filas: List[Tuple[str, ...]]) -> None:
                 _set_cell_text(t.rows[i].cells[j], val, bold=False, size=10, color=COLOR_TEXTO)
 
 
-def _crop_relojeria(src: Path, dst: Path, box: Tuple[int, int, int, int]) -> Path:
-    """Recorta la cara/relojería del medidor, upscale y nítidez leve."""
-    from PIL import ImageEnhance, ImageFilter
+def _crop_relojeria(
+    src: Path,
+    dst: Path,
+    crop: Tuple[int, int, int, int],
+) -> Path:
+    """Recorte vertical centrado en la relojería (mismo encuadre que ESVAL FINAL)."""
+    from PIL import ImageEnhance, ImageFilter, ImageOps
 
     FOTOS_DIR.mkdir(parents=True, exist_ok=True)
     if not src.is_file():
         return dst
-    im = Image.open(src).convert("RGB").crop(box)
-    target_w = 900
-    if im.width < target_w:
-        scale = target_w / im.width
-        im = im.resize(
-            (int(im.width * scale), int(im.height * scale)),
-            Image.Resampling.LANCZOS,
-        )
-    im = im.filter(ImageFilter.UnsharpMask(radius=1.5, percent=120, threshold=2))
-    im = ImageEnhance.Contrast(im).enhance(1.12)
-    im = ImageEnhance.Sharpness(im).enhance(1.25)
-    im.save(dst, optimize=True)
+    im = Image.open(src).convert("RGB")
+    cx, cy, half_w, half_h = crop
+    box = (
+        max(0, cx - half_w),
+        max(0, cy - half_h),
+        min(im.width, cx + half_w),
+        min(im.height, cy + half_h),
+    )
+    c = im.crop(box)
+    c = ImageOps.fit(
+        c,
+        FOTO_SIZE,
+        method=Image.Resampling.LANCZOS,
+        centering=(0.5, 0.42),
+    )
+    c = c.filter(ImageFilter.UnsharpMask(radius=1.2, percent=110, threshold=2))
+    c = ImageEnhance.Contrast(c).enhance(1.08)
+    c = ImageEnhance.Color(c).enhance(1.05)
+    c.save(dst, quality=95, optimize=True)
     return dst
 
 
