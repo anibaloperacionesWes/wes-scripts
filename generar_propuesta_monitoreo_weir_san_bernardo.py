@@ -1,7 +1,6 @@
 """
 Propuesta de monitoreo hídrico — Weir Minerals, San Bernardo.
 
-La vista satelital está en fichas/Weir_San_Bernardo/ubicacion/vista_satelital.png.
 Los sitios de la visita se agregan en fichas/Weir_San_Bernardo/sitios/<carpeta>/
 con fotos (jpg/png) y descripcion.txt.
 
@@ -22,7 +21,6 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent
 BASE = ROOT / "fichas" / "Weir_San_Bernardo"
-VISTA = BASE / "ubicacion" / "baquedano_1215.png"
 LOGO = BASE / "ubicacion" / "logo_wes.png"
 FOTO_MEDIDOR = BASE / "sitios" / "01_baquedano_1215" / "01_medidor.png"
 SITIOS_DIR = BASE / "sitios"
@@ -157,19 +155,6 @@ def construir() -> Document:
 
     _heading(doc, "2. Punto 1 — Baquedano 1215")
 
-    if VISTA.is_file():
-        doc.add_page_break()
-        foto = doc.add_paragraph()
-        foto.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        foto.paragraph_format.space_before = Pt(2)
-        foto.paragraph_format.space_after = Pt(2)
-        foto.add_run().add_picture(str(VISTA), width=_ancho_foto(VISTA, 15.6, 7.2))
-        cap = doc.add_paragraph()
-        cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        cap.paragraph_format.space_after = Pt(8)
-        r = cap.add_run("Vista satelital — Baquedano 1215, San Bernardo.")
-        _set_run(r, size=9, color=RGBColor(80, 80, 80))
-
     if FOTO_MEDIDOR.is_file():
         pic = doc.add_paragraph()
         pic.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -226,8 +211,6 @@ def construir() -> Document:
 
 
 def main() -> None:
-    if not VISTA.is_file():
-        raise SystemExit(f"Falta la vista satelital: {VISTA}")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     construir().save(OUT_DOCX)
     print(f"[OK] {OUT_DOCX}")
