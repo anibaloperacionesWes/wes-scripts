@@ -5,8 +5,8 @@ Estilo alineado a Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_FINAL:
   - Título + meta + franja KPI (verde #E8F5E9 / #1B5E20)
   - Tablas: header azul, secundario #D6E3F0/#1F4788, filas alt #F5F8FB
   - Fotos relojería ~2,28" lado a lado + caption azul
-  - cantSplit en todas las filas (no cortar tablas entre hojas)
-  - Validación: hora 14 completa → hasta 17:00
+  - cantSplit + tblHeader + keepNext (tablas no se cortan entre hojas)
+  - Validación: hora 14 completa → hasta 17:00; §4 arranca en hoja nueva
 
 Uso:
   python generar_informe_cambio_memoria_etapa5_zapallar.py
@@ -156,6 +156,8 @@ def _add_h(doc: Document, text: str, level: int = 1) -> None:
         run.font.size = Pt(size)
         run.font.color.rgb = COLOR_TITULO
         run._element.rPr.rFonts.set(qn("w:eastAsia"), "Calibri")
+    # Mantener título junto al contenido / tabla siguiente
+    _p_keep(h, with_next=True, lines=True)
 
 
 def _add_body(doc: Document, text: str, *, size: int = 11) -> None:
@@ -181,17 +183,46 @@ def _shade_cell(cell, hex_color: str) -> None:
     tcPr.append(shd)
 
 
-def _row_cant_split(row) -> None:
-    """Evita que la fila se corte entre páginas (estilo FINAL)."""
-    tr = row._tr
-    trPr = tr.get_or_add_trPr()
+def _p_keep(paragraph, *, with_next: bool = True, lines: bool = True) -> None:
+    """keepNext / keepLines en un párrafo (no partir bloques)."""
+    pPr = paragraph._p.get_or_add_pPr()
+    if with_next and pPr.find(qn("w:keepNext")) is None:
+        pPr.append(OxmlElement("w:keepNext"))
+    if lines and pPr.find(qn("w:keepLines")) is None:
+        pPr.append(OxmlElement("w:keepLines"))
+
+
+def _row_no_partir(row, *, as_header: bool = True) -> None:
+    """Fila indivisible: cantSplit + tblHeader (igual que FINAL ESVAL)."""
+    trPr = row._tr.get_or_add_trPr()
     if trPr.find(qn("w:cantSplit")) is None:
         trPr.append(OxmlElement("w:cantSplit"))
+    if as_header and trPr.find(qn("w:tblHeader")) is None:
+        hdr = OxmlElement("w:tblHeader")
+        hdr.set(qn("w:val"), "true")
+        trPr.append(hdr)
 
 
-def _table_cant_split(table) -> None:
-    for row in table.rows:
-        _row_cant_split(row)
+def _table_no_partir(table) -> None:
+    """
+    Evita que la tabla se corte entre hojas:
+      - cantSplit + tblHeader en todas las filas (estilo FINAL)
+      - keepNext en párrafos de filas intermedias (encadena filas)
+      - keepLines en todos los párrafos de celdas
+    """
+    n = len(table.rows)
+    for i, row in enumerate(table.rows):
+        _row_no_partir(row, as_header=True)
+        for cell in row.cells:
+            for p in cell.paragraphs:
+                # Encadena filas: todas menos la última quedan unidas a la siguiente
+                _p_keep(p, with_next=(i < n - 1), lines=True)
+
+
+def _keep_prev_with_table(doc: Document) -> None:
+    """El párrafo/título previo a la tabla no queda huérfano en la hoja anterior."""
+    if doc.paragraphs:
+        _p_keep(doc.paragraphs[-1], with_next=True, lines=True)
 
 
 def _set_cell_text(
@@ -249,6 +280,7 @@ def _set_table_borders(table, color: str = "D0D5DD") -> None:
 
 def _add_kpi_banner(doc: Document, cards: List[Tuple[str, str, str]]) -> None:
     """Franja KPI: header azul + valor verde sobre fondo #E8F5E9 (FINAL)."""
+    _keep_prev_with_table(doc)
     t = doc.add_table(rows=2, cols=len(cards))
     _set_table_borders(t, color="1F4788")
     for j, (titulo, linea1, linea2) in enumerate(cards):
@@ -261,12 +293,13 @@ def _add_kpi_banner(doc: Document, cards: List[Tuple[str, str, str]]) -> None:
             fill=COLOR_HEADER_FILL,
         )
         _set_cell_kpi_value(t.rows[1].cells[j], linea1, linea2)
-    _table_cant_split(t)
+    _table_no_partir(t)
     doc.add_paragraph()
 
 
 def _add_tabla_simple(doc: Document, filas: List[Tuple[str, ...]]) -> None:
     cols = len(filas[0])
+    _keep_prev_with_table(doc)
     t = doc.add_table(rows=len(filas), cols=cols)
     _set_table_borders(t)
     for i, row in enumerate(filas):
@@ -290,7 +323,7 @@ def _add_tabla_simple(doc: Document, filas: List[Tuple[str, ...]]) -> None:
                     color=COLOR_TEXTO,
                     fill=fill,
                 )
-    _table_cant_split(t)
+    _table_no_partir(t)
 
 
 def _crop_relojeria(
@@ -330,6 +363,7 @@ def _add_foto_tabla(doc: Document, path: Path, caption: str) -> None:
     """Una foto por tabla (fallback); caption azul sobre #D6E3F0 como FINAL."""
     if not path.is_file():
         return
+    _keep_prev_with_table(doc)
     tbl = doc.add_table(rows=2, cols=1)
     _set_table_borders(tbl, color="E5E7EB")
     cell_img = tbl.rows[0].cells[0]
@@ -345,7 +379,7 @@ def _add_foto_tabla(doc: Document, path: Path, caption: str) -> None:
             cell_cap.paragraphs[0]._element.remove(child)
     r = cell_cap.paragraphs[0].add_run(caption)
     _set_run_font(r, bold=True, size=8, color=COLOR_TITULO)
-    _table_cant_split(tbl)
+    _table_no_partir(tbl)
     doc.add_paragraph()
 
 
@@ -367,6 +401,7 @@ def _add_fotos_lado_a_lado(
             _add_foto_tabla(doc, path_der, caption_der)
         return
 
+    _keep_prev_with_table(doc)
     tbl = doc.add_table(rows=2, cols=2)
     _set_table_borders(tbl, color="E5E7EB")
     for j, (path, caption) in enumerate(
@@ -387,7 +422,7 @@ def _add_fotos_lado_a_lado(
         r = cell_cap.paragraphs[0].add_run(caption)
         _set_run_font(r, bold=True, size=8, color=COLOR_TITULO)
 
-    _table_cant_split(tbl)
+    _table_no_partir(tbl)
     doc.add_paragraph()
 
 
@@ -403,6 +438,7 @@ def _add_tabla_validacion_7(
     horas: str,
 ) -> None:
     """Tabla 7 columnas estilo FINAL: título azul/blanco + headers #D6E3F0/#1F4788."""
+    _keep_prev_with_table(doc)
     t = doc.add_table(rows=3, cols=7)
     _set_table_borders(t)
     t.rows[0].cells[0].merge(t.rows[0].cells[6])
@@ -435,11 +471,12 @@ def _add_tabla_validacion_7(
     vals = [analisis, fecha_ini, lectura_ini, fecha_fin, lectura_fin, consumo, horas]
     for j, v in enumerate(vals):
         _set_cell_text(t.rows[2].cells[j], v, bold=False, size=9, color=COLOR_TEXTO)
-    _table_cant_split(t)
+    _table_no_partir(t)
 
 
 def _add_tabla_error(doc: Document, filas: List[Tuple[str, str]]) -> None:
     """Fila final % Error en verde #E8F5E9 / #1B5E20 (FINAL)."""
+    _keep_prev_with_table(doc)
     t = doc.add_table(rows=len(filas), cols=2)
     _set_table_borders(t)
     last = len(filas) - 1
@@ -459,7 +496,7 @@ def _add_tabla_error(doc: Document, filas: List[Tuple[str, str]]) -> None:
             _set_cell_text(
                 t.rows[i].cells[1], b, bold=False, size=10, color=COLOR_TEXTO, fill=fill
             )
-    _table_cant_split(t)
+    _table_no_partir(t)
 
 
 def _fmt(n: float, dec: int = 1) -> str:
@@ -657,6 +694,8 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     )
 
     _add_h(doc, "4. Cálculo de validación", 1)
+    # Empezar validación + fotos en hoja nueva para que las tablas no se partan
+    doc.paragraphs[-1].paragraph_format.page_break_before = True
     _add_h(
         doc,
         f"4.1 Sensus vs app WES ({LECTURA_AYER_DT.strftime('%d-%m')} 14:00 → "
