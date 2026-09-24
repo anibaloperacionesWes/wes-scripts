@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "node_id": "000027-03",
+  "node_name": "Etapa N°5",
+  "umbral_alerta_m3h": 60.0,
+  "umbral_aviso_m3h": 45.0,
+  "desde": "2026-09-22",
+  "hasta": "2026-09-23",
+  "horas_revisadas": 29,
+  "max_m3h": 4.1,
+  "picos_alerta": [],
+  "picos_aviso": [],
+  "estado": "OK",
+  "mensaje": "OK: sin caudales anómalos. Máximo del período: 4.1 m³/h (umbral alerta 60 m³/h).",
+  "generado": "2026-09-23 13:35:30 -03"
+}
