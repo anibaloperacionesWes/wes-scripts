@@ -720,8 +720,8 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     # --- Hoja 2: §4 completo ---
     # 4.1 = solo fotos (tabla propia). 4.2 = solo cálculo (tablas propias).
     # Nunca pegar fotos y cálculo en el mismo bloque visual.
+    doc.add_page_break()  # salto duro (Google Docs lo respeta mejor que page_break_before)
     _add_h(doc, "4. Cálculo de validación", 1, compact=True)
-    doc.paragraphs[-1].paragraph_format.page_break_before = True
 
     _add_h(doc, "4.1 Lecturas fotográficas Sensus", 2, compact=True)
     _add_body(
@@ -793,9 +793,9 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         compact=True,
     )
 
-    # --- Hoja 3: §5 Conclusión ---
+    # --- Hoja 3: §5 Conclusión (siempre sola en su hoja) ---
+    doc.add_page_break()  # salto duro: la conclusión no debe quedar en la hoja 2
     _add_h(doc, "5. Conclusión", 1, compact=True)
-    doc.paragraphs[-1].paragraph_format.page_break_before = True
     _add_body(
         doc,
         "Se confirma falla de memoria de placa (sensor Sensus/HRI y voltajes OK). "
