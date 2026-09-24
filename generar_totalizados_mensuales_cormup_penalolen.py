@@ -120,11 +120,20 @@ def _mes_fuera(cel) -> Optional[bool]:
     return abs(pct) >= UMBRAL_FUERA_PCT
 
 
-def _fuera_colegio(s: Sitio, meses: List[Tuple[int, int]], data):
+def _fuera_colegio(
+    s: Sitio,
+    meses: List[Tuple[int, int]],
+    data,
+    *,
+    excluir_promedio: bool = False,
+):
     n_eval = n_fuera = 0
     labels: List[str] = []
     for k in meses:
-        st = _mes_fuera(data[s.node_id][k])
+        cel = data[s.node_id][k]
+        if excluir_promedio and cel["n_est"]:
+            continue
+        st = _mes_fuera(cel)
         if st is None:
             continue
         n_eval += 1
@@ -154,9 +163,27 @@ def _totales_colegio(sitios: List[Sitio], meses: List[Tuple[int, int]], data):
             sc += cel["cuenta"]
             sw += cel["wes"]
         n_fuera, n_eval, labels = _fuera_colegio(s, meses, data)
+        n_fuera_sp, n_eval_sp, labels_sp = _fuera_colegio(
+            s, meses, data, excluir_promedio=True
+        )
         n_prom, labels_prom = _promedio_colegio(s, meses, data)
-        filas.append((s, sc, sw, sc - sw, n_fuera, n_eval, labels, n_prom, labels_prom))
-    filas.sort(key=lambda t: (t[4], abs(t[3])), reverse=True)
+        filas.append(
+            (
+                s,
+                sc,
+                sw,
+                sc - sw,
+                n_fuera,
+                n_eval,
+                labels,
+                n_prom,
+                labels_prom,
+                n_fuera_sp,
+                n_eval_sp,
+                labels_sp,
+            )
+        )
+    filas.sort(key=lambda t: (t[9], abs(t[3])), reverse=True)
     return filas
 
 
@@ -186,7 +213,8 @@ def _write_excel(
     wp.title = "Total_por_colegio"
     headers_p = [
         "Colegio",
-        "Meses fuera",
+        "Meses fuera (sin promedio)",
+        "Meses fuera (todos)",
         "Meses evaluados",
         "Meses promedio",
         "Nodo",
@@ -194,24 +222,37 @@ def _write_excel(
         "m³ WES (total)",
         "Dif m³ (cuenta − WES)",
         "% vs cuenta",
-        "Meses que no cuadran",
+        "Meses fuera sin promedio",
+        "Meses que no cuadran (todos)",
         "Meses con cuenta promedio",
     ]
     wp.append(headers_p)
-    for col in range(1, 12):
+    for col in range(1, 14):
         c = wp.cell(1, col)
         c.fill = azul
         c.font = blanco
         c.alignment = Alignment(horizontal="center", wrap_text=True)
     tot_c = tot_w = 0.0
-    tot_fuera = tot_eval = tot_prom = 0
-    for s, sc, sw, dif, n_fuera, n_eval, labels, n_prom, labels_prom in _totales_colegio(
-        sitios, meses, data
-    ):
+    tot_fuera = tot_eval = tot_prom = tot_fuera_sp = 0
+    for (
+        s,
+        sc,
+        sw,
+        dif,
+        n_fuera,
+        n_eval,
+        labels,
+        n_prom,
+        labels_prom,
+        n_fuera_sp,
+        _n_eval_sp,
+        labels_sp,
+    ) in _totales_colegio(sitios, meses, data):
         pct = (100.0 * dif / sc) if sc else None
         wp.append(
             [
                 s.node_name,
+                n_fuera_sp,
                 n_fuera,
                 n_eval,
                 n_prom,
@@ -220,6 +261,7 @@ def _write_excel(
                 round(sw, 1),
                 round(dif, 1),
                 None if pct is None else round(pct, 1),
+                ", ".join(labels_sp) if labels_sp else "—",
                 ", ".join(labels) if labels else "—",
                 ", ".join(labels_prom) if labels_prom else "—",
             ]
@@ -229,13 +271,15 @@ def _write_excel(
         tot_fuera += n_fuera
         tot_eval += n_eval
         tot_prom += n_prom
-        if n_fuera:
+        tot_fuera_sp += n_fuera_sp
+        if n_fuera_sp:
             wp.cell(wp.max_row, 2).fill = err_fill
         if n_prom:
-            wp.cell(wp.max_row, 4).fill = resalte
+            wp.cell(wp.max_row, 5).fill = resalte
     wp.append(
         [
             "TOTAL",
+            tot_fuera_sp,
             tot_fuera,
             tot_eval,
             tot_prom,
@@ -246,20 +290,21 @@ def _write_excel(
             round(100.0 * (tot_c - tot_w) / tot_c, 1) if tot_c else None,
             "",
             "",
+            "",
         ]
     )
     for row in wp.iter_rows(min_row=2, max_row=wp.max_row):
-        row[5].number_format = "#,##0"
-        row[6].number_format = "#,##0.0"
+        row[6].number_format = "#,##0"
         row[7].number_format = "#,##0.0"
-        row[8].number_format = "0.0"
+        row[8].number_format = "#,##0.0"
+        row[9].number_format = "0.0"
         for cell in row:
             cell.border = thin
     for cell in wp[wp.max_row]:
         cell.fill = tot_fill
         cell.font = Font(bold=True)
     wp.freeze_panes = "A2"
-    for i, w in enumerate([28, 13, 16, 15, 12, 18, 16, 22, 12, 36, 36], start=1):
+    for i, w in enumerate([28, 22, 16, 16, 15, 12, 18, 16, 22, 12, 36, 36, 36], start=1):
         wp.column_dimensions[get_column_letter(i)].width = w
 
     ws = wb.create_sheet("Mensual_cuenta_vs_WES")
@@ -407,12 +452,16 @@ def _write_excel(
         f"Naranja si |error| ≥ {UMBRAL_FUERA_PCT:.0f}%. Vacío si la cuenta del mes es 0."
     )
     wn["A7"] = (
-        "Meses fuera = cuántos meses evaluados no cuadran "
-        f"(|% error| ≥ {UMBRAL_FUERA_PCT:.0f}%). "
-        "Mes evaluado = hay boleta ese mes con m³ cuenta > 0. "
-        "Mes sin boleta o con 0 m³ no se cuenta."
+        "Meses fuera (todos) = cuántos meses evaluados no cuadran "
+        f"(|% error| ≥ {UMBRAL_FUERA_PCT:.0f}%), incluyendo boletas a promedio. "
+        "Mes evaluado = hay boleta ese mes con m³ cuenta > 0."
     )
-    wn["A8"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
+    wn["A8"] = (
+        "Meses fuera (sin promedio) = los mismos meses fuera, "
+        "pero sin contar boletas a promedio/estimado. "
+        "Es el número que sirve para alinear ultrasónico vs turbina."
+    )
+    wn["A9"] = f"Generado: {generado.strftime('%d-%m-%Y %H:%M')}"
     wn.column_dimensions["A"].width = 120
     wb.save(out_xlsx)
 
@@ -443,16 +492,16 @@ def _write_word(
     p = doc.add_paragraph()
     p.add_run("CORMUP / Peñalolén. ").bold = True
     p.add_run(
-        "Listado: colegio, meses que no cuadran "
-        f"(|error| ≥ {UMBRAL_FUERA_PCT:.0f}%) y meses con cuenta a promedio. "
-        "Después el total cuenta vs WES. "
+        "Listado: colegio y meses fuera sin contar boletas a promedio. "
+        f"Fuera = |error| ≥ {UMBRAL_FUERA_PCT:.0f}%. "
         f"Generado {generado.strftime('%d-%m-%Y %H:%M')}."
     )
 
     add_formatted_heading(doc, "1. Total de cada colegio", level=1)
     headers_c = [
         "Colegio",
-        "Meses fuera",
+        "Fuera s/prom.",
+        "Fuera todos",
         "Meses eval.",
         "Meses prom.",
         "Nodo",
@@ -464,14 +513,26 @@ def _write_word(
     rows_c: List[List[str]] = []
     hi: List[int] = []
     gt_c = gt_w = 0.0
-    gt_fuera = gt_eval = gt_prom = 0
-    for i, (s, sc, sw, dif, n_fuera, n_eval, _labels, n_prom, _lp) in enumerate(
-        _totales_colegio(sitios, meses, data), start=1
-    ):
+    gt_fuera = gt_eval = gt_prom = gt_fuera_sp = 0
+    for i, (
+        s,
+        sc,
+        sw,
+        dif,
+        n_fuera,
+        n_eval,
+        _labels,
+        n_prom,
+        _lp,
+        n_fuera_sp,
+        _nes,
+        _lsp,
+    ) in enumerate(_totales_colegio(sitios, meses, data), start=1):
         pct = (100.0 * dif / sc) if sc else 0.0
         rows_c.append(
             [
                 s.node_name,
+                str(n_fuera_sp),
                 str(n_fuera),
                 str(n_eval),
                 str(n_prom),
@@ -482,16 +543,18 @@ def _write_word(
                 format_number_chilean(pct, 1),
             ]
         )
-        if n_fuera:
+        if n_fuera_sp:
             hi.append(i)
         gt_c += sc
         gt_w += sw
         gt_fuera += n_fuera
         gt_eval += n_eval
         gt_prom += n_prom
+        gt_fuera_sp += n_fuera_sp
     rows_c.append(
         [
             "TOTAL",
+            str(gt_fuera_sp),
             str(gt_fuera),
             str(gt_eval),
             str(gt_prom),
