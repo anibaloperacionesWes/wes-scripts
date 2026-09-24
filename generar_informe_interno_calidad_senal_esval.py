@@ -19,7 +19,12 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
-from docx.shared import Cm, Pt, RGBColor, Twips
+from docx.shared import Cm, Pt, RGBColor
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None  # type: ignore
 
 if sys.platform == "win32":
     try:
@@ -94,7 +99,12 @@ ERROR_B_PCT = round((1 - ITRON_B_DELTA / APP_B_DELTA) * 100, 1)
 EVIDENCIAS = ROOT / "reports" / "Fundo_Zapallar" / "Informes_Tecnicos" / "_evidencias"
 FOTO_ITRON_1500 = EVIDENCIAS / "itron_1500.jpg"
 FOTO_ITRON_1700 = EVIDENCIAS / "itron_1700_2309.jpg"
-FOTO_ANCHO_CM = 6.2
+# Rotación por foto para odómetro horizontal (PIL: 90=CCW, 270=CW)
+FOTO_ROTACION = {
+    FOTO_ITRON_1500.name: Image.ROTATE_90 if Image else None,    # CCW
+    FOTO_ITRON_1700.name: Image.ROTATE_270 if Image else None,   # CW
+}
+FOTO_ANCHO_CM = 5.8
 
 
 def _fmt(x: float, dec: int = 2) -> str:
@@ -121,6 +131,10 @@ def _shade(cell, hex_color: str) -> None:
 def _set_cell_borders(cell, color: str = "B0BEC5", sz: str = "4") -> None:
     tc = cell._tc
     tcPr = tc.get_or_add_tcPr()
+    # quitar bordes previos si existen
+    for child in list(tcPr):
+        if child.tag == qn("w:tcBorders"):
+            tcPr.remove(child)
     tcBorders = OxmlElement("w:tcBorders")
     for edge in ("top", "left", "bottom", "right"):
         el = OxmlElement(f"w:{edge}")
@@ -130,6 +144,49 @@ def _set_cell_borders(cell, color: str = "B0BEC5", sz: str = "4") -> None:
         el.set(qn("w:color"), color)
         tcBorders.append(el)
     tcPr.append(tcBorders)
+
+
+def _row_cant_split(row) -> None:
+    """Impide que la fila de tabla se parta entre páginas."""
+    tr = row._tr
+    trPr = tr.get_or_add_trPr()
+    # evitar duplicados
+    for child in list(trPr):
+        if child.tag == qn("w:cantSplit"):
+            return
+    cant = OxmlElement("w:cantSplit")
+    trPr.append(cant)
+
+
+def _keep_table_on_one_page(tbl) -> None:
+    """Evita cortes de tabla entre páginas (todas las filas cantSplit)."""
+    for row in tbl.rows:
+        _row_cant_split(row)
+
+
+def _para_keep_with_next(paragraph) -> None:
+    pPr = paragraph._p.get_or_add_pPr()
+    for child in list(pPr):
+        if child.tag == qn("w:keepNext"):
+            return
+    kn = OxmlElement("w:keepNext")
+    pPr.append(kn)
+
+
+def _foto_horizontal(src: Path, out_dir: Path) -> Path:
+    """Copia la foto rotada para que los números del medidor se lean en horizontal."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rot = FOTO_ROTACION.get(src.name)
+    dst = out_dir / f"{src.stem}_horiz.jpg"
+    if Image is None or rot is None:
+        shutil.copy2(src, dst if not dst.exists() else dst)
+        if not dst.exists():
+            shutil.copy2(src, dst)
+        return dst if dst.exists() else src
+    im = Image.open(src).convert("RGB")
+    im = im.transpose(rot)
+    im.save(dst, quality=92, optimize=True)
+    return dst
 
 
 def _cell_text(
@@ -156,24 +213,28 @@ def _style_table(tbl) -> None:
     for row in tbl.rows:
         for cell in row.cells:
             _set_cell_borders(cell)
+    _keep_table_on_one_page(tbl)
 
 
 def _h(doc: Document, text: str, level: int = 1) -> None:
     p = doc.add_heading(text, level=level)
     p.paragraph_format.space_before = Pt(14 if level == 1 else 10)
     p.paragraph_format.space_after = Pt(6)
+    _para_keep_with_next(p)
     for r in p.runs:
         r.font.color.rgb = _NAVY
         r.font.name = "Calibri"
         r.font.size = Pt(14 if level == 1 else 12)
 
 
-def _p(doc: Document, text: str, *, size: int = 11) -> None:
+def _p(doc: Document, text: str, *, size: int = 11, keep_next: bool = False) -> None:
     para = doc.add_paragraph()
     para.paragraph_format.space_after = Pt(6)
     para.paragraph_format.space_before = Pt(0)
     para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
     para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    if keep_next:
+        _para_keep_with_next(para)
     r = para.add_run(text)
     _font(r, size=size, color=_BLACK)
 
@@ -286,9 +347,7 @@ def _fotos_pequenas(doc: Document, pares: list[tuple[Path, str]], out_dir: Path)
     for j, (src, caption) in enumerate(pares):
         if not src.is_file():
             continue
-        dst = out_dir / src.name
-        if src.resolve() != dst.resolve():
-            shutil.copy2(src, dst)
+        foto = _foto_horizontal(src, out_dir)
         cell = tbl.rows[0].cells[j]
         _shade(cell, "FAFBFC")
         _set_cell_borders(cell, "CFD8DC", "6")
@@ -296,11 +355,13 @@ def _fotos_pequenas(doc: Document, pares: list[tuple[Path, str]], out_dir: Path)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.paragraph_format.space_before = Pt(4)
         p.paragraph_format.space_after = Pt(2)
-        p.add_run().add_picture(str(dst), width=Cm(FOTO_ANCHO_CM))
+        # Ancho acotado; fotos ya rotadas con odómetro horizontal
+        p.add_run().add_picture(str(foto), width=Cm(FOTO_ANCHO_CM))
         cap = tbl.rows[1].cells[j]
         _shade(cap, _NAVY_LIGHT_HEX)
         _set_cell_borders(cap, "CFD8DC", "6")
         _cell_text(cap, caption, size=8, color=_NAVY, align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+    _keep_table_on_one_page(tbl)
     doc.add_paragraph()
 
 
@@ -595,6 +656,7 @@ def generar_informe(out_dir: Path) -> Path:
         doc,
         "Validación con lecturas fotográficas del medidor Itron y el consumo de la app WES. "
         "App: horas 16→23 del 22-09 + horas 00→16 del 23-09.",
+        keep_next=True,
     )
     _fotos_pequenas(
         doc,
