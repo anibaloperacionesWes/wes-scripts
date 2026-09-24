@@ -2,9 +2,10 @@
 Informe de validación — Etapa N°5 Fundo Zapallar.
 
 Estilo alineado a Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_FINAL:
-  - Título + meta + franja KPI
-  - Tablas con encabezado azul / texto blanco
-  - Fotos relojería ~2,28"
+  - Título + meta + franja KPI (verde #E8F5E9 / #1B5E20)
+  - Tablas: header azul, secundario #D6E3F0/#1F4788, filas alt #F5F8FB
+  - Fotos relojería ~2,28" lado a lado + caption azul
+  - cantSplit en todas las filas (no cortar tablas entre hojas)
   - Validación: hora 14 completa → hasta 17:00
 
 Uso:
@@ -58,9 +59,13 @@ CAUDAL_MAX_REF_M3H = 60.0
 COLOR_TITULO = RGBColor(0x1F, 0x47, 0x88)
 COLOR_META = RGBColor(0x64, 0x6E, 0x78)
 COLOR_TEXTO = RGBColor(0x28, 0x28, 0x28)
+COLOR_KPI = RGBColor(0x1B, 0x5E, 0x20)
 COLOR_HEADER_FILL = "1F4788"
+COLOR_KPI_FILL = "E8F5E9"
+COLOR_HEADER2_FILL = "D6E3F0"  # encabezado secundario (letras azules)
+COLOR_ALT_FILL = "F5F8FB"
 COLOR_FOTO_FILL = "FAFBFC"
-FOTO_ANCHO = Inches(4.5)  # una foto por tabla (legible); no lado a lado
+FOTO_ANCHO = Inches(2.28)  # mismo ancho que Informe Validación ESVAL FINAL
 
 
 # Lecturas mecánicas (fotos terreno)
@@ -176,6 +181,19 @@ def _shade_cell(cell, hex_color: str) -> None:
     tcPr.append(shd)
 
 
+def _row_cant_split(row) -> None:
+    """Evita que la fila se corte entre páginas (estilo FINAL)."""
+    tr = row._tr
+    trPr = tr.get_or_add_trPr()
+    if trPr.find(qn("w:cantSplit")) is None:
+        trPr.append(OxmlElement("w:cantSplit"))
+
+
+def _table_cant_split(table) -> None:
+    for row in table.rows:
+        _row_cant_split(row)
+
+
 def _set_cell_text(
     cell,
     text: str,
@@ -193,6 +211,19 @@ def _set_cell_text(
     _set_run_font(r, bold=bold, size=size, color=color)
     if fill:
         _shade_cell(cell, fill)
+
+
+def _set_cell_kpi_value(cell, linea1: str, linea2: str) -> None:
+    """Valor KPI: línea 1 verde bold + línea 2 gris (como FINAL)."""
+    p = cell.paragraphs[0]
+    for child in list(p._element):
+        if child.tag.endswith("}r") or child.tag.endswith("}hyperlink"):
+            p._element.remove(child)
+    r1 = p.add_run(f"{linea1}\n")
+    _set_run_font(r1, bold=True, size=12, color=COLOR_KPI)
+    r2 = p.add_run(linea2)
+    _set_run_font(r2, bold=False, size=8, color=COLOR_META)
+    _shade_cell(cell, COLOR_KPI_FILL)
 
 
 def _set_table_borders(table, color: str = "D0D5DD") -> None:
@@ -216,11 +247,11 @@ def _set_table_borders(table, color: str = "D0D5DD") -> None:
     tblPr.append(borders)
 
 
-def _add_kpi_banner(doc: Document, cards: List[Tuple[str, str]]) -> None:
-    """Franja KPI superior (como Informe Validación ESVAL FINAL)."""
+def _add_kpi_banner(doc: Document, cards: List[Tuple[str, str, str]]) -> None:
+    """Franja KPI: header azul + valor verde sobre fondo #E8F5E9 (FINAL)."""
     t = doc.add_table(rows=2, cols=len(cards))
     _set_table_borders(t, color="1F4788")
-    for j, (titulo, valor) in enumerate(cards):
+    for j, (titulo, linea1, linea2) in enumerate(cards):
         _set_cell_text(
             t.rows[0].cells[j],
             titulo,
@@ -229,7 +260,8 @@ def _add_kpi_banner(doc: Document, cards: List[Tuple[str, str]]) -> None:
             color=RGBColor(255, 255, 255),
             fill=COLOR_HEADER_FILL,
         )
-        _set_cell_text(t.rows[1].cells[j], valor, bold=False, size=10, color=COLOR_TEXTO)
+        _set_cell_kpi_value(t.rows[1].cells[j], linea1, linea2)
+    _table_cant_split(t)
     doc.add_paragraph()
 
 
@@ -249,7 +281,16 @@ def _add_tabla_simple(doc: Document, filas: List[Tuple[str, ...]]) -> None:
                     fill=COLOR_HEADER_FILL,
                 )
             else:
-                _set_cell_text(t.rows[i].cells[j], val, bold=False, size=10, color=COLOR_TEXTO)
+                fill = COLOR_ALT_FILL if i % 2 == 0 else None
+                _set_cell_text(
+                    t.rows[i].cells[j],
+                    val,
+                    bold=False,
+                    size=10,
+                    color=COLOR_TEXTO,
+                    fill=fill,
+                )
+    _table_cant_split(t)
 
 
 def _crop_relojeria(
@@ -286,7 +327,7 @@ def _crop_relojeria(
 
 
 def _add_foto_tabla(doc: Document, path: Path, caption: str) -> None:
-    """Una foto por tabla a ancho legible (no lado a lado)."""
+    """Una foto por tabla (fallback); caption azul sobre #D6E3F0 como FINAL."""
     if not path.is_file():
         return
     tbl = doc.add_table(rows=2, cols=1)
@@ -297,26 +338,57 @@ def _add_foto_tabla(doc: Document, path: Path, caption: str) -> None:
     run = cell_img.paragraphs[0].add_run()
     run.add_picture(str(path), width=FOTO_ANCHO)
     cell_cap = tbl.rows[1].cells[0]
-    _shade_cell(cell_cap, COLOR_FOTO_FILL)
+    _shade_cell(cell_cap, COLOR_HEADER2_FILL)
     cell_cap.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     for child in list(cell_cap.paragraphs[0]._element):
         if child.tag.endswith("}r"):
             cell_cap.paragraphs[0]._element.remove(child)
     r = cell_cap.paragraphs[0].add_run(caption)
-    _set_run_font(r, size=9, color=COLOR_META)
+    _set_run_font(r, bold=True, size=8, color=COLOR_TITULO)
+    _table_cant_split(tbl)
     doc.add_paragraph()
 
 
-def _add_fotos_separadas(
+def _add_fotos_lado_a_lado(
     doc: Document,
     path_izq: Path,
     caption_izq: str,
     path_der: Path,
     caption_der: str,
 ) -> None:
-    """Dos fotos en tablas independientes (legibles)."""
-    _add_foto_tabla(doc, path_izq, caption_izq)
-    _add_foto_tabla(doc, path_der, caption_der)
+    """Dos fotos en una sola tabla 2×2 (estilo FINAL: ~2,28\" + caption azul)."""
+    if not path_izq.is_file() and not path_der.is_file():
+        return
+    if not path_izq.is_file() or not path_der.is_file():
+        # fallback a tablas separadas si falta una
+        if path_izq.is_file():
+            _add_foto_tabla(doc, path_izq, caption_izq)
+        if path_der.is_file():
+            _add_foto_tabla(doc, path_der, caption_der)
+        return
+
+    tbl = doc.add_table(rows=2, cols=2)
+    _set_table_borders(tbl, color="E5E7EB")
+    for j, (path, caption) in enumerate(
+        ((path_izq, caption_izq), (path_der, caption_der))
+    ):
+        cell_img = tbl.rows[0].cells[j]
+        _shade_cell(cell_img, COLOR_FOTO_FILL)
+        cell_img.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = cell_img.paragraphs[0].add_run()
+        run.add_picture(str(path), width=FOTO_ANCHO)
+
+        cell_cap = tbl.rows[1].cells[j]
+        _shade_cell(cell_cap, COLOR_HEADER2_FILL)
+        cell_cap.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for child in list(cell_cap.paragraphs[0]._element):
+            if child.tag.endswith("}r"):
+                cell_cap.paragraphs[0]._element.remove(child)
+        r = cell_cap.paragraphs[0].add_run(caption)
+        _set_run_font(r, bold=True, size=8, color=COLOR_TITULO)
+
+    _table_cant_split(tbl)
+    doc.add_paragraph()
 
 
 def _add_tabla_validacion_7(
@@ -330,7 +402,7 @@ def _add_tabla_validacion_7(
     consumo: str,
     horas: str,
 ) -> None:
-    """Tabla 7 columnas estilo Informe Validación ESVAL FINAL (header azul)."""
+    """Tabla 7 columnas estilo FINAL: título azul/blanco + headers #D6E3F0/#1F4788."""
     t = doc.add_table(rows=3, cols=7)
     _set_table_borders(t)
     t.rows[0].cells[0].merge(t.rows[0].cells[6])
@@ -357,20 +429,37 @@ def _add_tabla_validacion_7(
             htxt,
             bold=True,
             size=9,
-            color=RGBColor(255, 255, 255),
-            fill=COLOR_HEADER_FILL,
+            color=COLOR_TITULO,
+            fill=COLOR_HEADER2_FILL,
         )
     vals = [analisis, fecha_ini, lectura_ini, fecha_fin, lectura_fin, consumo, horas]
     for j, v in enumerate(vals):
         _set_cell_text(t.rows[2].cells[j], v, bold=False, size=9, color=COLOR_TEXTO)
+    _table_cant_split(t)
 
 
 def _add_tabla_error(doc: Document, filas: List[Tuple[str, str]]) -> None:
+    """Fila final % Error en verde #E8F5E9 / #1B5E20 (FINAL)."""
     t = doc.add_table(rows=len(filas), cols=2)
     _set_table_borders(t)
+    last = len(filas) - 1
     for i, (a, b) in enumerate(filas):
-        _set_cell_text(t.rows[i].cells[0], a, bold=(i == len(filas) - 1), size=10, color=COLOR_TEXTO)
-        _set_cell_text(t.rows[i].cells[1], b, bold=(i == len(filas) - 1), size=10, color=COLOR_TEXTO)
+        if i == last:
+            _set_cell_text(
+                t.rows[i].cells[0], a, bold=True, size=10, color=COLOR_KPI, fill=COLOR_KPI_FILL
+            )
+            _set_cell_text(
+                t.rows[i].cells[1], b, bold=True, size=10, color=COLOR_KPI, fill=COLOR_KPI_FILL
+            )
+        else:
+            fill = COLOR_ALT_FILL if i % 2 == 1 else None
+            _set_cell_text(
+                t.rows[i].cells[0], a, bold=False, size=10, color=COLOR_TEXTO, fill=fill
+            )
+            _set_cell_text(
+                t.rows[i].cells[1], b, bold=False, size=10, color=COLOR_TEXTO, fill=fill
+            )
+    _table_cant_split(t)
 
 
 def _fmt(n: float, dec: int = 1) -> str:
@@ -495,17 +584,17 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         [
             (
                 "Sensus vs app WES",
-                f"Error {_fmt(val.diferencia_pct, 1)} %\n"
+                f"Error {_fmt(val.diferencia_pct, 1)} %",
                 f"{_fmt(val.delta_mecanico, 2)} / {_fmt(val.wes_m3, 2)} m³",
             ),
             (
                 "Lecturas Sensus",
-                f"{_fmt(lectura_ayer, 0)} → {_fmt(lectura_hoy, 0)} m³\n"
+                f"{_fmt(lectura_ayer, 0)} → {_fmt(lectura_hoy, 0)} m³",
                 f"Δ {_fmt(val.delta_mecanico, 0)} m³",
             ),
             (
                 "Red / medidor",
-                f"DN90 · techo ≈ {CAUDAL_MAX_REF_M3H:.0f} m³/h\n"
+                f"DN90 · techo ≈ {CAUDAL_MAX_REF_M3H:.0f} m³/h",
                 f"Q3 medidor {_fmt(MEDIDOR_Q3_M3H, 0)} m³/h",
             ),
         ],
@@ -580,16 +669,16 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
         "App: hora 14 completa del 22-09-2026 hasta las 17:00 del 23-09-2026.",
     )
 
-    # Tabla de fotos (separada del detalle numérico), igual que FINAL ESVAL §4.2
+    # Tabla de fotos lado a lado (mismo layout que FINAL ESVAL)
     foto_ayer = _crop_relojeria(FOTO_AYER, FOTO_AYER_RELOJ, CROP_AYER)
     foto_hoy = _crop_relojeria(FOTO_HOY, FOTO_HOY_RELOJ, CROP_HOY)
     if foto_ayer.is_file() or foto_hoy.is_file():
-        _add_fotos_separadas(
+        _add_fotos_lado_a_lado(
             doc,
             foto_ayer,
-            f"Sensus · {LECTURA_AYER_DT.strftime('%d-%m-%Y')}",
+            f"Sensus · {LECTURA_AYER_DT.strftime('%d-%m-%Y %H:%M')}",
             foto_hoy,
-            f"Sensus · {LECTURA_HOY_DT.strftime('%d-%m-%Y')}",
+            f"Sensus · {LECTURA_HOY_DT.strftime('%d-%m-%Y %H:%M')}",
         )
 
     # Detalle del cálculo en tablas propias (después de las fotos)
