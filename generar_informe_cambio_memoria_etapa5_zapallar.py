@@ -563,18 +563,14 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
     )
 
     _add_h(doc, "4. Cálculo de validación", 1)
-    _add_h(
-        doc,
-        f"4.1 Sensus vs app WES ({LECTURA_AYER_DT.strftime('%d-%m')} 14:00 → "
-        f"{WES_HASTA_DT.strftime('%d-%m %H:%M')})",
-        2,
-    )
     _add_body(
         doc,
         "Validación con lecturas fotográficas del medidor Sensus y el consumo registrado "
         "en la app WES. Ventana: hora 14 completa del 22-09-2026 hasta las 17:00 del 23-09-2026.",
     )
 
+    # --- Fotos (tablas propias, separadas del detalle numérico) ---
+    _add_h(doc, "4.1 Lecturas fotográficas", 2)
     foto_ayer = _crop_relojeria(FOTO_AYER, FOTO_AYER_RELOJ, CROP_AYER)
     foto_hoy = _crop_relojeria(FOTO_HOY, FOTO_HOY_RELOJ, CROP_HOY)
     if foto_ayer.is_file() or foto_hoy.is_file():
@@ -586,6 +582,13 @@ def build_doc(lectura_ayer: float, lectura_hoy: float) -> Path:
             f"Sensus · {LECTURA_HOY_DT.strftime('%d-%m-%Y')}",
         )
 
+    # --- Detalle del cálculo (tablas aparte) ---
+    _add_h(
+        doc,
+        f"4.2 Detalle del cálculo ({LECTURA_AYER_DT.strftime('%d-%m')} 14:00 → "
+        f"{WES_HASTA_DT.strftime('%d-%m %H:%M')})",
+        2,
+    )
     inicio_wes = LECTURA_AYER_DT.replace(minute=0, second=0, microsecond=0)
     horas_ventana = (WES_HASTA_DT - inicio_wes).total_seconds() / 3600.0
     _add_tabla_validacion_7(
