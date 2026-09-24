@@ -2,8 +2,8 @@
 Informe formal — Colegio Juan Pablo II (CORMUP), nodo 000008-14.
 
 Cruza las facturaciones Aguas Andinas de lectura real (cuenta 364260-7,
-medidor 130738981) con el consumo del nodo WES y grafica el histórico y
-la diferencia mensual (m³ facturados − m³ WES).
+medidor 130738981) con el consumo del nodo WES. El ahorro mensual y sus
+gráficos parten en 2025 y usan la eficiencia de la auditoría de diciembre 2024.
 
 Las boletas y sus m³ provienen del comparativo CORMUP / Peñalolén
 (facturas en Drive, lectura real). El m³ WES se vuelve a leer de la API
@@ -53,17 +53,19 @@ NODE_NOMBRE = "Juan Pablo II"
 CUENTA = "364260-7"
 MEDIDOR = "130738981"
 TARIFA_CLP_M3 = 1270  # KPI vigente del nodo desde 2024-12-09
-# Auditoría de habilitación CORMUP, marzo 2024 (hoja AUDITORIAS / Cormup y el informe Word).
-# Escuela Especial Juan Pablo II, cuenta 364260-7. Dos días sin control y dos con control.
-AUD_SIN_M3 = 96.0
-AUD_SIN_DIA = 48.0
-AUD_CON_M3 = 17.0
-AUD_CON_DIA = 8.5
-AUD_AHORRO_DIA = 39.5
-AUD_EFICIENCIA = AUD_AHORRO_DIA / AUD_SIN_DIA  # 82,2917 % = (sin − con) / sin
-TARIFA_AUDITORIA = 1169  # tarifa del cuadro de la auditoría
-AUD_PROY_MES_M3 = AUD_AHORRO_DIA * 30  # 1.185 m³
-AUD_PROY_MES_CLP = AUD_PROY_MES_M3 * TARIFA_AUDITORIA  # $1.385.265
+# Auditoría más cercana: CORMUP diciembre 2024 (hoja AUDITORIAS / Cormup y el informe Word).
+# Escuela Especial Juan Pablo II, cuenta 364260-7.
+# En esta campaña el orden es al revés que en marzo: primero con WES (9 al 11 dic) y después sin control (11 al 13 dic).
+AUD_SIN_M3 = 13.0
+AUD_SIN_DIA = 6.5
+AUD_CON_M3 = 10.0
+AUD_CON_DIA = 5.0
+AUD_AHORRO_DIA = 1.5
+AUD_EFICIENCIA = AUD_AHORRO_DIA / AUD_SIN_DIA  # 23,0769 % = (sin − con) / sin
+TARIFA_AUDITORIA = 1169  # tarifa del cuadro PROY. MES $ de la planilla
+AUD_PROY_MES_M3 = AUD_AHORRO_DIA * 30  # 45 m³
+AUD_PROY_MES_CLP = AUD_PROY_MES_M3 * TARIFA_AUDITORIA  # $52.605
+SERIE_DESDE = (2025, 1)
 MESES = (
     "enero",
     "febrero",
@@ -300,11 +302,11 @@ def _sin_y_ahorro(con_m3: float) -> tuple[float, float]:
 def grafico_auditoria(out: Path) -> None:
     fig, ax = plt.subplots(figsize=(7.2, 4.4), dpi=140)
     fig.patch.set_facecolor("white")
-    labels = ["Sin control\n11 al 13 mar 2024", "Con WES\n13 al 15 mar 2024"]
+    labels = ["Sin control\n11 al 13 dic 2024", "Con WES\n9 al 11 dic 2024"]
     vals = [AUD_SIN_DIA, AUD_CON_DIA]
     bars = ax.bar(labels, vals, color=["#b42318", "#1d7a46"], width=0.55)
     ax.set_ylabel("m³ / día")
-    ax.set_title("Auditoría Juan Pablo II — consumo diario del medidor\nEficiencia 82,3 %  ·  ahorro 39,5 m³/día")
+    ax.set_title("Auditoría Juan Pablo II — consumo diario del medidor\nDiciembre 2024  ·  eficiencia 23,1 %  ·  ahorro 1,5 m³/día")
     ax.bar_label(bars, labels=[_fmt_m3(v, 1) for v in vals], fontsize=11, padding=4)
     _estilo_ejes(ax)
     fig.tight_layout()
@@ -326,7 +328,7 @@ def grafico_con_vs_sin_mensual(serie: list[tuple[str, float]], out: Path) -> Non
     ax.set_xticks(list(x))
     ax.set_xticklabels(labels, rotation=55, ha="right", fontsize=7)
     ax.set_ylabel("m³ / mes")
-    ax.set_title("Histórico mensual — consumo con WES y sin WES estimado\nEficiencia de la auditoría 2024 aplicada al registro del nodo")
+    ax.set_title("Histórico desde 2025 — consumo con WES y sin WES estimado\nEficiencia de la auditoría de diciembre 2024 (23,1 %)")
     ax.legend(frameon=False, fontsize=9)
     _estilo_ejes(ax)
     fig.tight_layout()
@@ -342,7 +344,7 @@ def grafico_ahorro_mensual(serie: list[tuple[str, float]], out: Path) -> None:
     fig.patch.set_facecolor("white")
     bars = ax.bar(labels, vals, color="#1d7a46", width=0.62)
     ax.set_ylabel("m³ ahorrados / mes")
-    ax.set_title("Ahorro mensual estimado — Juan Pablo II (000008-14)\n(sin WES estimado − consumo WES medido)")
+    ax.set_title("Ahorro mensual estimado desde 2025 — Juan Pablo II (000008-14)\n(sin WES estimado − consumo WES medido)")
     ax.bar_label(bars, labels=[_fmt_m3(v, 0) for v in vals], fontsize=7, padding=2)
     _estilo_ejes(ax)
     fig.tight_layout()
@@ -358,7 +360,7 @@ def grafico_ahorro_clp(serie: list[tuple[str, float]], out: Path) -> None:
     fig.patch.set_facecolor("white")
     bars = ax.bar(labels, [v / 1000 for v in vals], color="#0f4c81", width=0.62)
     ax.set_ylabel("Miles de CLP")
-    ax.set_title(f"Ahorro mensual valorizado a {_fmt_clp(TARIFA_AUDITORIA)} / m³\nTarifa del informe de auditoría CORMUP, marzo 2024")
+    ax.set_title(f"Ahorro mensual valorizado a {_fmt_clp(TARIFA_AUDITORIA)} / m³\nTarifa de la auditoría CORMUP, diciembre 2024")
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v:,.0f}".replace(",", ".")))
     ax.bar_label(bars, labels=[_fmt_clp(v) for v in vals], fontsize=6, padding=2)
     _estilo_ejes(ax)
@@ -377,7 +379,7 @@ def grafico_serie_mensual(serie: list[tuple[str, float]], out: Path) -> None:
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=55, ha="right", fontsize=7)
     ax.set_ylabel("m³ / mes")
-    ax.set_title("Consumo mensual registrado por WES — Juan Pablo II (000008-14)")
+    ax.set_title("Consumo mensual WES desde 2025 — Juan Pablo II (000008-14)")
     _estilo_ejes(ax)
     fig.tight_layout()
     fig.savefig(out, bbox_inches="tight")
@@ -463,21 +465,22 @@ def escribir_word(
     rm.font.name = "Calibri"
     rm.font.color.rgb = RGBColor(71, 85, 105)
 
-    add_formatted_heading(doc, "1. Auditoría de habilitación (marzo 2024)", 1)
+    add_formatted_heading(doc, "1. Auditoría de diciembre 2024", 1)
     _para(
         doc,
-        "Fuente: Informe de Auditorías WES CORMUP, marzo 2024, y planilla "
-        "«AUDITORIA CORMUP & PUENTE ALTO 2024», hoja AUDITORIAS, establecimiento "
+        "Fuente: Informe de Auditorías CORMUP, diciembre 2024, y planilla "
+        "«AUDITORIA CORMUP & PUENTE ALTO DIC 2024», hoja AUDITORIAS, establecimiento "
         "Escuela Especial Juan Pablo II (cuenta Aguas Andinas 364260-7, nodo 000008-14). "
-        "El control estuvo apagado del 11 al 13 de marzo y encendido del 13 al 15 de marzo. "
+        "Es la auditoría más cercana al período que se informa. "
+        "El control estuvo encendido del 9 al 11 de diciembre y apagado del 11 al 13 de diciembre. "
         "Las dos muestras son lecturas del mismo medidor.",
     )
     _tabla(
         doc,
         ["Período", "Lectura inicial", "Lectura final", "Consumo", "m³/día"],
         [
-            ["11-mar-2024 → 13-mar-2024 (sin control)", "69.135", "69.231", _fmt_m3(AUD_SIN_M3, 0), _fmt_m3(AUD_SIN_DIA, 1)],
-            ["13-mar-2024 → 15-mar-2024 (con WES)", "69.231", "69.248", _fmt_m3(AUD_CON_M3, 0), _fmt_m3(AUD_CON_DIA, 1)],
+            ["09-dic-2024 → 11-dic-2024 (con WES)", "70.885", "70.895", _fmt_m3(AUD_CON_M3, 0), _fmt_m3(AUD_CON_DIA, 1)],
+            ["11-dic-2024 → 13-dic-2024 (sin control)", "70.895", "70.908", _fmt_m3(AUD_SIN_M3, 0), _fmt_m3(AUD_SIN_DIA, 1)],
             ["Ahorro", "", "", _fmt_m3(AUD_SIN_M3 - AUD_CON_M3, 0) + " m³ / 2 días", _fmt_m3(AUD_AHORRO_DIA, 1)],
         ],
     )
@@ -486,8 +489,9 @@ def escribir_word(
         f"Eficiencia de la auditoría: {AUD_EFICIENCIA * 100:.1f} % "
         f"(ahorro diario ÷ consumo sin control). "
         f"Proyección a 30 días: {_fmt_m3(AUD_PROY_MES_M3, 0)} m³ y "
-        f"{_fmt_clp(AUD_PROY_MES_CLP)} a la tarifa del informe ({_fmt_clp(TARIFA_AUDITORIA)}/m³). "
-        "El informe Word redondea el ahorro a 40 m³/día y la eficiencia a 82,2 %.",
+        f"{_fmt_clp(AUD_PROY_MES_CLP)} a la tarifa de la planilla ({_fmt_clp(TARIFA_AUDITORIA)}/m³). "
+        "El informe Word redondea la eficiencia a 23 % y el ahorro mensual a 45 m³. "
+        "Ese rendimiento es menor porque, durante los días auditados, el colegio estuvo un día sin funcionamiento.",
     )
     add_picture_with_pagination(doc, str(pngs["auditoria"]), Inches(5.6))
 
@@ -496,14 +500,14 @@ def escribir_word(
     sum_sin = sum(p[2] for p in pares)
     sum_ahorro = sum(p[3] for p in pares)
 
-    add_formatted_heading(doc, "2. Ahorro mensual sobre el histórico WES", 1)
+    add_formatted_heading(doc, "2. Ahorro mensual desde 2025", 1)
     _para(
         doc,
+        "Los gráficos y el ahorro parten en enero de 2025, después de la auditoría de diciembre 2024. "
         "El consumo con WES es el registro mensual de la API del nodo 000008-14. "
-        "El consumo sin WES de cada mes se estima con la eficiencia de la auditoría: "
-        "sin WES = consumo WES ÷ (1 − 0,8229). El ahorro del mes es la diferencia. "
-        "No se proyectan los meses con consumo medido nulo o casi nulo "
-        "(arranque del punto y enero–febrero 2025).",
+        "El consumo sin WES de cada mes se estima con la eficiencia de esa auditoría: "
+        "sin WES = consumo WES ÷ (1 − 0,2308). El ahorro del mes es la diferencia. "
+        "No se proyectan los meses con consumo medido nulo o casi nulo (enero y febrero 2025).",
     )
     _para(
         doc,
@@ -693,7 +697,7 @@ def escribir_word(
         "Fuente de las boletas: facturaciones Aguas Andinas del establecimiento "
         "(carpeta Colegios / Peñalolén / Facturaciones). "
         "Fuente del consumo: API WES, nodo 000008-14. "
-        f"El rendimiento que fija la auditoría de marzo 2024 es {AUD_EFICIENCIA * 100:.1f} % "
+        f"El rendimiento que fija la auditoría de diciembre 2024 es {AUD_EFICIENCIA * 100:.1f} % "
         f"({_fmt_m3(AUD_AHORRO_DIA, 1)} m³/día; {_fmt_m3(AUD_PROY_MES_M3, 0)} m³ y "
         f"{_fmt_clp(AUD_PROY_MES_CLP)} al mes, a {_fmt_clp(TARIFA_AUDITORIA)}/m³). "
         "Esa eficiencia es la que se aplica al histórico del nodo para el ahorro mensual. "
@@ -734,7 +738,7 @@ def main() -> int:
         )
     print("[2] Serie mensual API…", flush=True)
     serie: list[tuple[str, float]] = []
-    y, m = 2024, 11
+    y, m = SERIE_DESDE
     hoy = date.today()
     while (y, m) <= (hoy.year, hoy.month):
         total, dias = _mes_wes(y, m)
