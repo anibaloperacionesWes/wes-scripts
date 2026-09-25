@@ -4,12 +4,13 @@ Una hoja por colegio CORMUP: lecturas de la cuenta vs WES (día completo y medio
 Columnas:
   1 Mes
   2 Lectura inicial (fecha)
-  3 Fecha lectura final
+  3 Fecha lectura final y lectura (m³ del medidor)
   4 Diferencia entre lecturas (m³ cuenta / turbina)
   5 Consumo app WES entre las fechas de lectura (días completos)
   6 Consumo app WES medio día: día inicio 12:00–23:59 + intermedios + día final 00:00–12:00
   7 Diferencia de consumo (WES medio día − m³ cuenta)
     Azul = la app marca más que la cuenta; rojo = la cuenta marca más que la app.
+    Verde = el mes se cobró a promedio.
 
 Uso:
   python generar_hojas_lecturas_medio_dia_cormup.py
@@ -45,7 +46,7 @@ from wes_estilo_graficos_app import horas_api_chile
 
 AZUL_APP = PatternFill("solid", fgColor="2E75B6")
 ROJO_CTA = PatternFill("solid", fgColor="C00000")
-AMARILLO = PatternFill("solid", fgColor="FFF2CC")
+VERDE_PROM = PatternFill("solid", fgColor="C6EFCE")
 AZUL_HDR = PatternFill("solid", fgColor="003366")
 GRIS = PatternFill("solid", fgColor="D9E1F2")
 BLANCO = Font(color="FFFFFF", bold=True, size=9)
@@ -191,7 +192,7 @@ def _write_sheet(ws, sitio: Sitio, filas: List[dict]) -> None:
         [
             "Mes",
             "Lectura inicial",
-            "Fecha lectura final",
+            "Fecha lectura final y lectura",
             "Diferencia entre lecturas (m³)",
             "Consumo app WES (fechas completas)",
             "Consumo app WES (medio día)",
@@ -223,11 +224,14 @@ def _write_sheet(ws, sitio: Sitio, filas: List[dict]) -> None:
         ini = r["lect_ini_fecha"].strftime("%d-%m-%Y")
         if r["lect_ini_m3"] is not None:
             ini = f"{ini}  ({format_number_chilean(r['lect_ini_m3'], 0)} m³)"
+        fin = r["lect_fin_fecha"].strftime("%d-%m-%Y")
+        if r["lect_fin_m3"] is not None:
+            fin = f"{fin}  ({format_number_chilean(r['lect_fin_m3'], 0)} m³)"
         ws.append(
             [
                 r["mes"],
                 ini,
-                r["lect_fin_fecha"].strftime("%d-%m-%Y"),
+                fin,
                 round(r["dif_lect"], 1),
                 round(r["wes_full"], 1),
                 round(r["wes_mid"], 1),
@@ -251,7 +255,9 @@ def _write_sheet(ws, sitio: Sitio, filas: List[dict]) -> None:
             ws.cell(row, 6).fill = fill
             ws.cell(row, 6).font = font
         if r["estimado"]:
-            ws.cell(row, 4).fill = AMARILLO
+            for col in (1, 2, 3, 4):
+                ws.cell(row, col).fill = VERDE_PROM
+            ws.cell(row, 1).font = Font(bold=True, size=10, color="006100")
         for col in range(1, 8):
             ws.cell(row, col).border = THIN
             ws.cell(row, col).alignment = Alignment(horizontal="center")
@@ -287,8 +293,17 @@ def _write_sheet(ws, sitio: Sitio, filas: List[dict]) -> None:
         ws.cell(last, 7).font = Font(bold=True, color="FFFFFF")
 
     ws.freeze_panes = "A3"
-    for i, w in enumerate([12, 28, 18, 22, 28, 26, 28], start=1):
+    for i, w in enumerate([12, 28, 28, 22, 28, 26, 28], start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
+    nota = last + 2
+    ws.cell(
+        nota,
+        1,
+        "Verde = ese mes se cobró a promedio/estimado. "
+        "Azul = la app WES marca más que la cuenta. Rojo = la cuenta marca más que la app.",
+    )
+    ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=7)
+    ws.cell(nota, 1).font = Font(size=9, italic=True, color="006100")
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A3
     ws.page_setup.fitToPage = True
@@ -357,7 +372,7 @@ def _write_resumen(ws, bloques: List[Tuple[Sitio, List[dict]]]) -> None:
         nota + 1,
         1,
         "WES medio día: día de lectura inicial 12:00–23:59; días intermedios completos; "
-        "día de lectura final 00:00–12:00. Celda amarilla en diferencia de lecturas = boleta a promedio.",
+        "día de lectura final 00:00–12:00. Verde = ese mes se cobró a promedio/estimado.",
     )
     ws.merge_cells(start_row=nota + 1, start_column=1, end_row=nota + 1, end_column=7)
 
