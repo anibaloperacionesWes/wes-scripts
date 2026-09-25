@@ -34,7 +34,6 @@ BASE = "http://104.248.53.141:7003/wes/api/acl-node/v1"
 
 MATRIZ_ID = "000027-01"
 INFERIOR_ID = "000027-02"
-ETAPA5_ID = "000027-03"
 
 ITRON_B_M3 = 170.89
 APP_MATRIZ_B_REF = 175.41
@@ -42,7 +41,6 @@ APP_MATRIZ_B_REF = 175.41
 # Paleta WES
 COLOR_MATRIZ = "#1F4E79"
 COLOR_INFERIOR = "#2E7D32"
-COLOR_ETAPA5 = "#C62828"
 COLOR_GRID = "#E0E0E0"
 
 
@@ -102,14 +100,6 @@ def sum_ventana_a(node_id: str) -> float:
     return sum(h22.get(h, 0.0) for h in (12, 13, 14))
 
 
-def sum_ventana_etapa5(node_id: str) -> float:
-    h22 = hours_app(node_id, date(2026, 9, 22))
-    h23 = hours_app(node_id, date(2026, 9, 23))
-    return sum(h22.get(h, 0.0) for h in range(14, 24)) + sum(
-        h23.get(h, 0.0) for h in range(0, 17)
-    )
-
-
 def _add_heading(doc: Document, text: str, level: int = 1) -> None:
     p = doc.add_heading(text, level=level)
     for run in p.runs:
@@ -148,10 +138,8 @@ def build_charts(
     labels: list[str],
     matriz_vals: list[float],
     inferior_vals: list[float],
-    etapa5_vals: list[float],
     matriz_total: float,
     inferior_total: float,
-    etapa5_total: float,
 ) -> tuple[Path, Path]:
     # --- Gráfico horario Matriz vs Inferior ---
     fig, ax = plt.subplots(figsize=(12, 4.8))
@@ -184,11 +172,11 @@ def build_charts(
     fig.savefig(chart_horario, dpi=150)
     plt.close(fig)
 
-    # --- Gráfico totales ---
-    fig2, ax2 = plt.subplots(figsize=(7.2, 4.2))
-    cats = ["Matriz ESVAL\n(App)", "Matriz ESVAL\n(Itron)", "Estanque\nInferior", "Etapa N°5"]
-    vals = [matriz_total, ITRON_B_M3, inferior_total, etapa5_total]
-    colors = [COLOR_MATRIZ, "#5B9BD5", COLOR_INFERIOR, COLOR_ETAPA5]
+    # --- Gráfico totales (sin Etapa 5) ---
+    fig2, ax2 = plt.subplots(figsize=(6.5, 4.2))
+    cats = ["Matriz ESVAL\n(App)", "Matriz ESVAL\n(Itron)", "Estanque\nInferior"]
+    vals = [matriz_total, ITRON_B_M3, inferior_total]
+    colors = [COLOR_MATRIZ, "#5B9BD5", COLOR_INFERIOR]
     bars = ax2.bar(cats, vals, color=colors, width=0.65)
     ax2.set_ylabel("m³ en la ventana")
     ax2.set_title("Totales en ventana de validación (22-09 15:00 → 23-09 17:00)")
@@ -204,12 +192,11 @@ def build_charts(
             fontsize=10,
             fontweight="bold",
         )
-    # Anotar ratio Inferior/Matriz
     ratio = 100.0 * inferior_total / matriz_total if matriz_total else 0.0
     ax2.annotate(
         f"Inferior = {_fmt(ratio, 1)} % de Matriz App",
         xy=(2, inferior_total),
-        xytext=(1.2, max(vals) * 0.72),
+        xytext=(0.85, max(vals) * 0.72),
         arrowprops=dict(arrowstyle="->", color="#424242"),
         fontsize=9,
         color="#424242",
@@ -225,16 +212,11 @@ def build_charts(
 def build_report() -> tuple[Path, dict]:
     _, detail_matriz = sum_ventana_b(MATRIZ_ID)
     inferior_b, detail_inf = sum_ventana_b(INFERIOR_ID)
-    _, detail_e5 = sum_ventana_b(ETAPA5_ID)
 
     matriz_b = sum(v for _, _, v in detail_matriz)
-    etapa5_b = sum(v for _, _, v in detail_e5)
 
     matriz_a = sum_ventana_a(MATRIZ_ID)
     inferior_a = sum_ventana_a(INFERIOR_ID)
-    matriz_e5 = sum_ventana_etapa5(MATRIZ_ID)
-    inferior_e5 = sum_ventana_etapa5(INFERIOR_ID)
-    etapa5_e5 = sum_ventana_etapa5(ETAPA5_ID)
 
     assert abs(matriz_b - APP_MATRIZ_B_REF) < 0.05, (
         f"Matriz B={matriz_b} no coincide con referencia {APP_MATRIZ_B_REF}"
@@ -247,7 +229,6 @@ def build_report() -> tuple[Path, dict]:
     labels = [lab for _, _, lab in slots]
     matriz_vals = [v for _, _, v in detail_matriz]
     inferior_vals = [v for _, _, v in detail_inf]
-    etapa5_vals = [v for _, _, v in detail_e5]
 
     out_dir = ROOT / "reports" / "Fundo_Zapallar" / "Informes_Tecnicos"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -259,13 +240,11 @@ def build_report() -> tuple[Path, dict]:
         labels,
         matriz_vals,
         inferior_vals,
-        etapa5_vals,
         matriz_b,
         inferior_b,
-        etapa5_b,
     )
 
-    # CSV tabla horaria
+    # CSV tabla horaria (solo Matriz vs Inferior)
     csv_path = out_dir / f"tabla_horaria_validacion_matriz_inferior_{stamp}.csv"
     with csv_path.open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f, delimiter=";")
@@ -276,13 +255,10 @@ def build_report() -> tuple[Path, dict]:
                 "Etiqueta",
                 "Matriz_ESVAL_m3",
                 "Estanque_Inferior_m3",
-                "Etapa_N5_m3",
                 "Dif_Matriz_menos_Inferior_m3",
             ]
         )
-        for (fecha, hora, lab), vm, vi, ve in zip(
-            slots, matriz_vals, inferior_vals, etapa5_vals
-        ):
+        for (fecha, hora, lab), vm, vi in zip(slots, matriz_vals, inferior_vals):
             w.writerow(
                 [
                     fecha,
@@ -290,7 +266,6 @@ def build_report() -> tuple[Path, dict]:
                     lab,
                     f"{vm:.2f}".replace(".", ","),
                     f"{vi:.2f}".replace(".", ","),
-                    f"{ve:.2f}".replace(".", ","),
                     f"{vm - vi:.2f}".replace(".", ","),
                 ]
             )
@@ -301,7 +276,6 @@ def build_report() -> tuple[Path, dict]:
                 "",
                 f"{matriz_b:.2f}".replace(".", ","),
                 f"{inferior_b:.2f}".replace(".", ","),
-                f"{etapa5_b:.2f}".replace(".", ","),
                 f"{dif:.2f}".replace(".", ","),
             ]
         )
@@ -314,18 +288,12 @@ def build_report() -> tuple[Path, dict]:
             "matriz_app_m3": round(matriz_b, 2),
             "itron_matriz_m3": ITRON_B_M3,
             "estanque_inferior_m3": round(inferior_b, 2),
-            "etapa5_m3": round(etapa5_b, 2),
             "inferior_sobre_matriz_pct": round(ratio, 1),
             "diferencia_matriz_menos_inferior_m3": round(dif, 2),
         },
         "ventana_A_h12_14": {
             "matriz_m3": round(matriz_a, 2),
             "estanque_inferior_m3": round(inferior_a, 2),
-        },
-        "ventana_etapa5_14_17": {
-            "matriz_m3": round(matriz_e5, 2),
-            "estanque_inferior_m3": round(inferior_e5, 2),
-            "etapa5_m3": round(etapa5_e5, 2),
         },
         "tabla_horaria": [
             {
@@ -334,12 +302,9 @@ def build_report() -> tuple[Path, dict]:
                 "etiqueta": lab,
                 "matriz_m3": round(vm, 2),
                 "inferior_m3": round(vi, 2),
-                "etapa5_m3": round(ve, 2),
                 "dif_m3": round(vm - vi, 2),
             }
-            for (fecha, hora, lab), vm, vi, ve in zip(
-                slots, matriz_vals, inferior_vals, etapa5_vals
-            )
+            for (fecha, hora, lab), vm, vi in zip(slots, matriz_vals, inferior_vals)
         ],
         "archivos": {
             "csv": str(csv_path),
@@ -366,7 +331,8 @@ def build_report() -> tuple[Path, dict]:
         "Ventana de validación Matriz ESVAL (Itron vs App, §4.2): "
         "22-09-2026 15:00 → 23-09-2026 17:00 (Chile). "
         "Horas app: 22-09 h16→23 + 23-09 h00→16. "
-        "Misma metodología CSV TIME del informe Matriz.",
+        "Misma metodología CSV TIME del informe Matriz. "
+        "Comparación solo Matriz ESVAL vs Estanque Inferior.",
     )
 
     _add_heading(doc, "1. Totales en la ventana", level=1)
@@ -383,10 +349,9 @@ def build_report() -> tuple[Path, dict]:
             ["Matriz ESVAL (App)", MATRIZ_ID, _fmt(matriz_b)],
             ["Matriz ESVAL (Itron)", MATRIZ_ID, _fmt(ITRON_B_M3)],
             ["Estanque Inferior (App)", INFERIOR_ID, _fmt(inferior_b)],
-            ["Etapa N°5 (App)", ETAPA5_ID, _fmt(etapa5_b)],
         ],
     )
-    doc.add_picture(str(chart_totales), width=Cm(16))
+    doc.add_picture(str(chart_totales), width=Cm(14.5))
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     _add_heading(doc, "2. Gráfico horario Matriz vs Estanque Inferior", level=1)
@@ -395,31 +360,13 @@ def build_report() -> tuple[Path, dict]:
 
     _add_heading(doc, "3. Tabla horaria comparativa", level=1)
     rows = [
-        [
-            lab,
-            f"{hora:02d}:00",
-            _fmt(vm),
-            _fmt(vi),
-            _fmt(ve),
-            _fmt(vm - vi),
-        ]
-        for (fecha, hora, lab), vm, vi, ve in zip(
-            slots, matriz_vals, inferior_vals, etapa5_vals
-        )
+        [lab, f"{hora:02d}:00", _fmt(vm), _fmt(vi), _fmt(vm - vi)]
+        for (fecha, hora, lab), vm, vi in zip(slots, matriz_vals, inferior_vals)
     ]
-    rows.append(
-        ["TOTAL", "", _fmt(matriz_b), _fmt(inferior_b), _fmt(etapa5_b), _fmt(dif)]
-    )
+    rows.append(["TOTAL", "", _fmt(matriz_b), _fmt(inferior_b), _fmt(dif)])
     _add_table(
         doc,
-        [
-            "Etiqueta",
-            "Hora",
-            "Matriz (m³)",
-            "Inferior (m³)",
-            "Etapa 5 (m³)",
-            "Dif M−I (m³)",
-        ],
+        ["Etiqueta", "Hora", "Matriz (m³)", "Inferior (m³)", "Dif M−I (m³)"],
         rows,
     )
 
