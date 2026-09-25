@@ -1,0 +1,254 @@
+{
+  "ventana_matriz_B": {
+    "inicio": "2026-09-22 15:00",
+    "fin": "2026-09-23 17:00",
+    "horas_app": "22-09 h16-23 + 23-09 h00-16",
+    "matriz_app_m3": 175.41,
+    "itron_matriz_m3": 170.89,
+    "estanque_inferior_m3": 150.8,
+    "etapa5_m3": 18.0,
+    "inferior_sobre_matriz_pct": 86.0,
+    "diferencia_matriz_menos_inferior_m3": 24.61
+  },
+  "ventana_A_h12_14": {
+    "matriz_m3": 18.22,
+    "estanque_inferior_m3": 12.21
+  },
+  "ventana_etapa5_14_17": {
+    "matriz_m3": 185.83,
+    "estanque_inferior_m3": 160.99,
+    "etapa5_m3": 18.2
+  },
+  "tabla_horaria": [
+    {
+      "fecha": "2026-09-22",
+      "hora": 16,
+      "etiqueta": "22/16",
+      "matriz_m3": 3.31,
+      "inferior_m3": 1.2,
+      "etapa5_m3": 0.0,
+      "dif_m3": 2.11
+    },
+    {
+      "fecha": "2026-09-22",
+      "hora": 17,
+      "etiqueta": "22/17",
+      "matriz_m3": 11.88,
+      "inferior_m3": 11.58,
+      "etapa5_m3": 0.0,
+      "dif_m3": 0.3
+    },
+    {
+      "fecha": "2026-09-22",
+      "hora": 18,
+      "etiqueta": "22/18",
+      "matriz_m3": 9.13,
+      "inferior_m3": 6.74,
+      "etapa5_m3": 0.0,
+      "dif_m3": 2.39
+    },
+    {
+      "fecha": "2026-09-22",
+      "hora": 19,
+      "etiqueta": "22/19",
+      "matriz_m3": 3.43,
+      "inferior_m3": 1.87,
+      "etapa5_m3": 0.0,
+      "dif_m3": 1.56
+    },
+    {
+      "fecha": "2026-09-22",
+      "hora": 20,
+      "etiqueta": "22/20",
+      "matriz_m3": 0.25,
+      "inferior_m3": 0.0,
+      "etapa5_m3": 0.0,
+      "dif_m3": 0.25
+    },
+    {
+      "fecha": "2026-09-22",
+      "hora": 21,
+      "etiqueta": "22/21",
+      "matriz_m3": 0.22,
+      "inferior_m3": 0.0,
+      "etapa5_m3": 0.0,
+      "dif_m3": 0.22
+    },
+    {
+      "fecha": "2026-09-22",
+      "hora": 22,
+      "etiqueta": "22/22",
+      "matriz_m3": 2.64,
+      "inferior_m3": 4.03,
+      "etapa5_m3": 0.0,
+      "dif_m3": -1.39
+    },
+    {
+      "fecha": "2026-09-22",
+      "hora": 23,
+      "etiqueta": "22/23",
+      "matriz_m3": 16.99,
+      "inferior_m3": 14.93,
+      "etapa5_m3": 0.0,
+      "dif_m3": 2.06
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 0,
+      "etiqueta": "23/00",
+      "matriz_m3": 2.81,
+      "inferior_m3": 0.0,
+      "etapa5_m3": 0.0,
+      "dif_m3": 2.81
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 1,
+      "etiqueta": "23/01",
+      "matriz_m3": 0.54,
+      "inferior_m3": 0.0,
+      "etapa5_m3": 0.0,
+      "dif_m3": 0.54
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 2,
+      "etiqueta": "23/02",
+      "matriz_m3": 16.64,
+      "inferior_m3": 16.94,
+      "etapa5_m3": 0.0,
+      "dif_m3": -0.3
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 3,
+      "etiqueta": "23/03",
+      "matriz_m3": 14.79,
+      "inferior_m3": 12.47,
+      "etapa5_m3": 0.0,
+      "dif_m3": 2.32
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 4,
+      "etiqueta": "23/04",
+      "matriz_m3": 0.29,
+      "inferior_m3": 0.0,
+      "etapa5_m3": 0.0,
+      "dif_m3": 0.29
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 5,
+      "etiqueta": "23/05",
+      "matriz_m3": 12.67,
+      "inferior_m3": 13.21,
+      "etapa5_m3": 0.0,
+      "dif_m3": -0.54
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 6,
+      "etiqueta": "23/06",
+      "matriz_m3": 6.87,
+      "inferior_m3": 5.1,
+      "etapa5_m3": 3.2,
+      "dif_m3": 1.77
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 7,
+      "etiqueta": "23/07",
+      "matriz_m3": 1.0,
+      "inferior_m3": 0.0,
+      "etapa5_m3": 0.8,
+      "dif_m3": 1.0
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 8,
+      "etiqueta": "23/08",
+      "matriz_m3": 0.65,
+      "inferior_m3": 0.0,
+      "etapa5_m3": 0.0,
+      "dif_m3": 0.65
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 9,
+      "etiqueta": "23/09",
+      "matriz_m3": 12.11,
+      "inferior_m3": 12.85,
+      "etapa5_m3": 2.2,
+      "dif_m3": -0.74
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 10,
+      "etiqueta": "23/10",
+      "matriz_m3": 8.13,
+      "inferior_m3": 5.88,
+      "etapa5_m3": 4.1,
+      "dif_m3": 2.25
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 11,
+      "etiqueta": "23/11",
+      "matriz_m3": 0.6,
+      "inferior_m3": 0.0,
+      "etapa5_m3": 0.9,
+      "dif_m3": 0.6
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 12,
+      "etiqueta": "23/12",
+      "matriz_m3": 18.79,
+      "inferior_m3": 17.81,
+      "etapa5_m3": 0.4,
+      "dif_m3": 0.98
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 13,
+      "etiqueta": "23/13",
+      "matriz_m3": 13.02,
+      "inferior_m3": 10.7,
+      "etapa5_m3": 1.5,
+      "dif_m3": 2.32
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 14,
+      "etiqueta": "23/14",
+      "matriz_m3": 0.5,
+      "inferior_m3": 0.26,
+      "etapa5_m3": 1.8,
+      "dif_m3": 0.24
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 15,
+      "etiqueta": "23/15",
+      "matriz_m3": 17.53,
+      "inferior_m3": 15.23,
+      "etapa5_m3": 2.5,
+      "dif_m3": 2.3
+    },
+    {
+      "fecha": "2026-09-23",
+      "hora": 16,
+      "etiqueta": "23/16",
+      "matriz_m3": 0.62,
+      "inferior_m3": 0.0,
+      "etapa5_m3": 0.6,
+      "dif_m3": 0.62
+    }
+  ],
+  "archivos": {
+    "csv": "/workspace/reports/Fundo_Zapallar/Informes_Tecnicos/tabla_horaria_validacion_matriz_inferior_20260925_1548.csv",
+    "chart_horario": "/workspace/reports/Fundo_Zapallar/Informes_Tecnicos/chart_horario_matriz_vs_inferior_20260925_1548.png",
+    "chart_totales": "/workspace/reports/Fundo_Zapallar/Informes_Tecnicos/chart_totales_validacion_20260925_1548.png"
+  }
+}
