@@ -132,6 +132,14 @@ Crea un usuario en WES API con los siguientes datos:
 El usuario debe tener acceso a TODOS los nodos de la empresa especificada.
 ```
 
+## Alertas propias del agente
+
+La primera alerta está en `alertas_agente.json`: Etapa N°5 de Fundo Zapallar (`000027-03`). A las 08:00, 16:00 y 23:00 (hora Chile) revisa si alguna hora superó 60 m³/h, el caudal de una tubería de 3". Solo en ese caso envía correo a Aníbal y Juan.
+
+```powershell
+python revisar_alerta_etapa5_zapallar.py --revision 16:00 --sin-correo
+```
+
 ## ❓ ¿Necesitas Ayuda?
 
 Consulta la [Guía Completa](GUIA_CREACION_USUARIOS.md) que incluye:

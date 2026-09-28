@@ -1,0 +1,105 @@
+{
+  "descripcion": "Alertas propias del agente WES. Se configuran de a una. La primera es Etapa N°5 de Fundo Zapallar.",
+  "alertas": [
+    {
+      "id": "fundo-zapallar-etapa-5-maximo",
+      "activa": true,
+      "cliente": "Fundo Zapallar",
+      "companyId": "000027",
+      "nodeId": "000027-03",
+      "punto": "Etapa N°5",
+      "umbral_m3h": 60,
+      "motivo": "Una tubería de 3 pulgadas entrega como máximo 60 m³/h.",
+      "revisiones": ["08:00", "16:00", "23:00"],
+      "correos": ["anibal.aoperaciones@wes.cl", "juanlopez@wes.cl"],
+      "notificar": "solo_si_supera"
+    }
+  ],
+  "umbral_m3h": 0.5,
+  "ventana_horas": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "minimo_dia_m3": 0.01,
+  "horas_minimas_para_dia": 18,
+  "reglas": {
+    "consumo_fuera_de_horario": false,
+    "dia_sin_consumo": false,
+    "sin_datos": false
+  },
+  "clientes": {
+    "000002": {
+      "nombre": "Lo valledor",
+      "activa": true
+    },
+    "000006": {
+      "nombre": "Providencia",
+      "activa": true
+    },
+    "000007": {
+      "nombre": "Nido de Aguilas",
+      "activa": true
+    },
+    "000008": {
+      "nombre": "CORMUP",
+      "activa": true
+    },
+    "000009": {
+      "nombre": "COPEC",
+      "activa": true
+    },
+    "000010": {
+      "nombre": "Corporación Puente Alto",
+      "activa": true
+    },
+    "000012": {
+      "nombre": "DERCO",
+      "activa": true
+    },
+    "000017": {
+      "nombre": "Renca",
+      "activa": true
+    },
+    "000020": {
+      "nombre": "AGUNSA",
+      "activa": true
+    },
+    "000021": {
+      "nombre": "CDUC",
+      "activa": true
+    },
+    "000022": {
+      "nombre": "Las Condes",
+      "activa": true
+    },
+    "000024": {
+      "nombre": "La Reina",
+      "activa": true
+    },
+    "000025": {
+      "nombre": "Parque Arauco",
+      "activa": true
+    },
+    "000026": {
+      "nombre": "UDD",
+      "activa": true
+    },
+    "000027": {
+      "nombre": "Fundo Zapallar",
+      "activa": true
+    },
+    "000028": {
+      "nombre": "La Florida",
+      "activa": true
+    },
+    "000031": {
+      "nombre": "Club Providencia",
+      "activa": true
+    }
+  }
+}
