@@ -11,6 +11,8 @@ import io
 import json
 import os
 import smtplib
+import subprocess
+import tempfile
 from datetime import date, datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -236,7 +238,7 @@ def _set_cell(cell, text, *, bold=False, size=9, color=None, fill=None, center=F
 
 
 def _recolor_all_tables(doc: Document):
-    """Restaura colores del PDF original en tablas existentes (Google export las pierde)."""
+    """Restaura colores del PDF original y bloquea partición de TODAS las tablas."""
     for ti, table in enumerate(doc.tables):
         _borders(table, "D0D5DD")
         n = len(table.rows)
@@ -261,6 +263,56 @@ def _recolor_all_tables(doc: Document):
                                     r.font.color.rgb = COLOR_META
                     else:
                         _shade(cell, ALT if ri % 2 == 0 else "FFFFFF")
+        _table_no_partir(table)
+
+
+def _insert_page_break_before(element) -> None:
+    """Salto de página duro justo antes de un elemento del body (tabla)."""
+    p = OxmlElement("w:p")
+    r = OxmlElement("w:r")
+    br = OxmlElement("w:br")
+    br.set(qn("w:type"), "page")
+    r.append(br)
+    p.append(r)
+    element.addprevious(p)
+
+
+def _lock_tables_and_titles(doc: Document) -> None:
+    """cantSplit + keepNext; salto de página antes de tablas de §3 que no deben partirse.
+
+    LibreOffice/Word pueden repartir filas aunque haya cantSplit; el salto duro
+    garantiza que la tabla completa empiece en hoja nueva con espacio.
+    """
+    from docx.text.paragraph import Paragraph
+
+    body = doc.element.body
+    prev_p = None
+    # Tablas de actividades (§3) que el usuario vio cortadas
+    force_break_headers = ("equipo", "parámetro")
+    seen_kpi = False
+    for child in list(body):
+        tag = child.tag.split("}")[-1]
+        if tag == "p":
+            prev_p = child
+            continue
+        if tag != "tbl":
+            continue
+        # texto primera celda
+        texts = [n.text or "" for n in child.iter(qn("w:t"))]
+        head = "".join(texts[:6]).strip().lower()
+        if not seen_kpi:
+            # primera tabla = KPI portada; no saltar
+            seen_kpi = True
+        else:
+            if any(h in head for h in force_break_headers):
+                # evitar doble salto si ya hay uno justo antes
+                if prev_p is None or not prev_p.xpath('.//w:br[@w:type="page"]'):
+                    _insert_page_break_before(child)
+        if prev_p is not None:
+            _p_keep(Paragraph(prev_p, doc), with_next=True, lines=True)
+        prev_p = None
+    for table in doc.tables:
+        _table_no_partir(table)
 
 
 def _prep(
@@ -516,9 +568,9 @@ def build_matriz(app_m, err, estado, horas) -> Path:
     )
     _p_keep(p3, with_next=True, lines=True)
 
-    f_ini = _prep(EVID / "itron_1500.jpg", OUT / "foto_matriz_ini.jpg", rotate_cw90=True)
-    # Foto 28/09 de costado → mismo criterio que la del 22 (90° horario)
-    f_fin = _prep(ASSET_M, OUT / "foto_matriz_fin.jpg", rotate_cw90=True, crop=True)
+    # Números de frente al lector
+    f_ini = _prep(EVID / "itron_1500.jpg", OUT / "foto_matriz_ini.jpg", rotate_cw90=True, rotate_180=True)
+    f_fin = _prep(ASSET_M, OUT / "foto_matriz_fin.jpg", rotate_180=True, crop=True)
     _fotos(
         doc,
         f_ini,
@@ -579,6 +631,7 @@ def build_matriz(app_m, err, estado, horas) -> Path:
         color=COLOR_META,
     )
 
+    _lock_tables_and_titles(doc)
     OUT.mkdir(parents=True, exist_ok=True)
     out = OUT / "Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_FINAL.docx"
     doc.save(str(out))
@@ -689,9 +742,9 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
     f_ini = FOTOS_E5 / "lectura_20260922_1430_sensus_5144.png"
     if not f_ini.is_file():
         f_ini = FOTOS_E5 / "lectura_20260922_1430_sensus_5144_reloj.jpg"
+    # Números de frente al lector (22 ya upright; 28 sin girar + crop)
     f_ini_p = _prep(f_ini, OUT / "foto_e5_ini.jpg", crop=True)
-    # Foto 28/09 de costado → 90° antihorario para odómetro horizontal
-    f_fin_p = _prep(ASSET_E, OUT / "foto_e5_fin.jpg", rotate_ccw90=True, crop=True)
+    f_fin_p = _prep(ASSET_E, OUT / "foto_e5_fin.jpg", crop=True)
     _fotos(
         doc,
         f_ini_p,
@@ -753,13 +806,39 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
         color=COLOR_META,
     )
 
+    _lock_tables_and_titles(doc)
     OUT.mkdir(parents=True, exist_ok=True)
     out = OUT / "Informe_Validacion_Etapa5_Zapallar_20260924_1136.docx"
     doc.save(str(out))
     return out
 
 
+def _pdf_libreoffice(docx: Path, pdf_name: str) -> Path:
+    """PDF local con LibreOffice: respeta cantSplit (Google Docs lo ignora y parte tablas)."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="lo_pdf_") as tmp:
+        cmd = [
+            "libreoffice",
+            "--headless",
+            "--nologo",
+            "--nolockcheck",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            tmp,
+            str(docx.resolve()),
+        ]
+        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=180)
+        produced = Path(tmp) / (docx.stem + ".pdf")
+        if not produced.is_file():
+            raise FileNotFoundError(f"LibreOffice no generó PDF para {docx.name}")
+        dest = OUT / pdf_name
+        dest.write_bytes(produced.read_bytes())
+    return dest
+
+
 def drive_pdf(file_id: str, docx: Path, pdf_name: str) -> Path:
+    """Actualiza el Doc en Drive y genera PDF local (sin partir tablas)."""
     svc = obtener_servicio_drive()
     media = MediaFileUpload(
         str(docx),
@@ -767,15 +846,7 @@ def drive_pdf(file_id: str, docx: Path, pdf_name: str) -> Path:
         resumable=True,
     )
     svc.files().update(fileId=file_id, media_body=media, fields="id").execute()
-    req = svc.files().export_media(fileId=file_id, mimeType="application/pdf")
-    buf = io.BytesIO()
-    dl = MediaIoBaseDownload(buf, req)
-    done = False
-    while not done:
-        _, done = dl.next_chunk()
-    pdf = OUT / pdf_name
-    pdf.write_bytes(buf.getvalue())
-    return pdf
+    return _pdf_libreoffice(docx, pdf_name)
 
 
 def enviar(pdfs: list[Path], resumen: str):
