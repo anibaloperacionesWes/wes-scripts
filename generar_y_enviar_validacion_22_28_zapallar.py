@@ -11,12 +11,11 @@ import io
 import json
 import os
 import smtplib
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import requests
 from docx import Document
@@ -30,9 +29,10 @@ from PIL import Image, ImageOps
 
 from wes_google_drive import obtener_servicio_drive
 
-CHILE_TZ = ZoneInfo("America/Santiago")
-# Hueco API del 22/09 tras cambio de placa (m³/h) — mismo criterio del informe Etapa 5 original
-PLACA_HUECO_22: dict[int, float] = {
+# Listado horario 22-09-2026 14:00→23:00 (enviado por terreno / placa).
+# La API quedó truncada ese día tras el cambio de memoria; estas horas NO se
+# toman del CSV. H:15 apareció dos veces (0,60 y 2,90) → 0,60 = h14 / 2,90 = h15.
+LISTADO_HORARIO_22: dict[int, float] = {
     14: 0.60,
     15: 2.90,
     16: 5.50,
@@ -121,7 +121,7 @@ def _slots_m():
 
 
 def _slots_e():
-    """Horas Chile 22-09 14:00 → 28-09 09:00 (excl.)."""
+    """Horas etiqueta TIME 22-09 14:00 → 28-09 09:00 (excl.)."""
     out = [(date(2026, 9, 22), h) for h in range(14, 24)]
     for d in range(23, 28):
         out += [(date(2026, 9, d), h) for h in range(24)]
@@ -129,42 +129,19 @@ def _slots_e():
     return out
 
 
-def _sum_etapa5_chile() -> float:
-    """App Etapa 5: TIME en UTC → hora Chile + hueco placa 22/09.
+def _sum_etapa5() -> float:
+    """App Etapa 5 = listado 22/09 14→23 + API TIME etiqueta 23/09→28/09 h08.
 
-    Igual que generar_informe_cambio_memoria_etapa5_zapallar.py.
-    Sin esto el 22/09 queda truncado en la API y el total app sale bajo.
+    Misma metodología TIME etiqueta que Matriz / validación terreno; el día 22
+    usa el listado horario de placa (no el CSV truncado).
     """
-    api: dict[datetime, float] = {}
-    for d in range(22, 29):
-        dia = date(2026, 9, d)
-        r = requests.get(
-            f"{BASE}/nodes/000027-03/dates.measures.csv",
-            params={"start": dia.strftime("%d%m%Y"), "end": dia.strftime("%d%m%Y")},
-            timeout=60,
-        )
-        r.raise_for_status()
-        for row in csv.DictReader(io.StringIO(r.text)):
-            dt = datetime.fromisoformat(row["TIME"].strip().replace("Z", "+00:00"))
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            api[dt.astimezone(CHILE_TZ)] = float(row["VALUE"].strip())
-
-    start = datetime(2026, 9, 22, 14, 0, tzinfo=CHILE_TZ)
-    end = datetime(2026, 9, 28, 9, 0, tzinfo=CHILE_TZ)
-    total = 0.0
-    cur = start
-    while cur < end:
-        if cur.date() == date(2026, 9, 22) and cur.hour in PLACA_HUECO_22:
-            total += PLACA_HUECO_22[cur.hour]
-        elif cur in api:
-            total += api[cur]
-        else:
-            for k, v in api.items():
-                if k.date() == cur.date() and k.hour == cur.hour:
-                    total += v
-                    break
-        cur += timedelta(hours=1)
+    total = sum(LISTADO_HORARIO_22.values())
+    # 23→27 días completos + 28 h00→h08
+    for d in range(23, 28):
+        by = _hours("000027-03", date(2026, 9, d))
+        total += sum(by.get(h, 0.0) for h in range(24))
+    by28 = _hours("000027-03", date(2026, 9, 28))
+    total += sum(by28.get(h, 0.0) for h in range(0, 9))
     return round(total, 2)
 
 
@@ -609,12 +586,39 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
     p3 = doc.add_paragraph()
     _run(
         p3,
-        "Una sola validación con lecturas fotográficas Sensus y el consumo de la app WES "
-        "(hora Chile 14 del 22-09 → hora 08 del 28-09). El 22/09 la API quedó truncada tras el "
-        "cambio de placa: esas horas se completan con el registro de placa (mismo criterio del "
-        "informe original). App WES resulta mayor que el Δ Sensus.",
+        "Una sola validación con lecturas fotográficas Sensus y el consumo app WES "
+        "(hora 14 del 22-09 → hora 08 del 28-09). El 22/09 14:00–23:00 se toma del "
+        "listado horario de placa (API truncada tras cambio de memoria); del 23/09 en "
+        "adelante, CSV TIME etiqueta.",
         size=10.5,
         color=COLOR_TEXTO,
+    )
+
+    # Tabla del listado 22/09 14→23
+    _fix_margins(doc)
+    p_list = doc.add_paragraph()
+    _run(p_list, "Listado horario 22-09-2026 (14:00 → 23:00) — placa", bold=True, size=10, color=COLOR_TITULO)
+    t_list = doc.add_table(rows=2, cols=10)
+    t_list.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _borders(t_list, "D0D5DD")
+    horas_l = list(range(14, 24))
+    for j, h in enumerate(horas_l):
+        _set_cell(t_list.rows[0].cells[j], f"{h:02d}:00", bold=True, size=8, color=COLOR_WHITE, fill=NAVY, center=True)
+        _set_cell(
+            t_list.rows[1].cells[j],
+            _fmt(LISTADO_HORARIO_22[h], 2),
+            size=9,
+            color=COLOR_TEXTO,
+            fill=OK if LISTADO_HORARIO_22[h] else "FFFFFF",
+            center=True,
+        )
+    doc.add_paragraph()
+    p_sum = doc.add_paragraph()
+    _run(
+        p_sum,
+        f"Subtotal listado 22/09: {_fmt(sum(LISTADO_HORARIO_22.values()), 2)} m³.",
+        size=10,
+        color=COLOR_META,
     )
 
     f_ini = FOTOS_E5 / "lectura_20260922_1430_sensus_5144.png"
@@ -652,11 +656,11 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
         ],
     )
     p4 = doc.add_paragraph()
-    # App > Sensus → 1 − Sensus/App
+    lo, hi = (delta, app_e) if delta <= app_e else (app_e, delta)
     _run(
         p4,
         f"Error Sensus vs app: {err:.1f}% "
-        f"(1 − {_fmt(delta, 0)}/{_fmt(app_e)}). {estado}.",
+        f"(1 − {_fmt(lo, 2 if lo != int(lo) else 0)}/{_fmt(hi, 2 if hi != int(hi) else 0)}). {estado}.",
         size=10.5,
         color=COLOR_TEXTO,
     )
@@ -739,12 +743,15 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     sm, se = _slots_m(), _slots_e()
     app_m = _sum("000027-01", sm)
-    app_e = _sum_etapa5_chile()  # Chile TZ + hueco placa (app > Sensus)
+    app_e = _sum_etapa5()  # listado 22/09 14→23 + API TIME etiqueta
     dm, de = round(ITRON_FIN - ITRON_INI, 2), round(SENSUS_FIN - SENSUS_INI, 2)
     em, ee = round(_err(dm, app_m), 1), round(_err(de, app_e), 1)
     stm, ste = _estado(em), _estado(ee)
     print(f"Matriz UNA validación: {dm} vs {app_m} → {em}%")
-    print(f"Etapa5 UNA validación: Sensus {de} vs App {app_e} → {ee}% (app>sensus={app_e > de})")
+    print(
+        f"Etapa5 UNA validación: Sensus {de} vs App {app_e} → {ee}% "
+        f"(listado22={sum(LISTADO_HORARIO_22.values()):.2f})"
+    )
 
     docx_m = build_matriz(app_m, em, stm, len(sm))
     docx_e = build_etapa5(app_e, ee, ste, len(se))
