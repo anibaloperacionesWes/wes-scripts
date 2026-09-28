@@ -517,8 +517,8 @@ def build_matriz(app_m, err, estado, horas) -> Path:
     _p_keep(p3, with_next=True, lines=True)
 
     f_ini = _prep(EVID / "itron_1500.jpg", OUT / "foto_matriz_ini.jpg", rotate_cw90=True)
-    # Foto 28/09 de costado → 90° antihorario para odómetro horizontal
-    f_fin = _prep(ASSET_M, OUT / "foto_matriz_fin.jpg", rotate_ccw90=True, crop=True)
+    # Foto 28/09 de costado → mismo criterio que la del 22 (90° horario)
+    f_fin = _prep(ASSET_M, OUT / "foto_matriz_fin.jpg", rotate_cw90=True, crop=True)
     _fotos(
         doc,
         f_ini,
@@ -690,8 +690,8 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
     if not f_ini.is_file():
         f_ini = FOTOS_E5 / "lectura_20260922_1430_sensus_5144_reloj.jpg"
     f_ini_p = _prep(f_ini, OUT / "foto_e5_ini.jpg", crop=True)
-    # Foto 28/09 de costado → 90° horario para odómetro horizontal
-    f_fin_p = _prep(ASSET_E, OUT / "foto_e5_fin.jpg", rotate_cw90=True, crop=True)
+    # Foto 28/09 de costado → 180° para odómetro horizontal legible
+    f_fin_p = _prep(ASSET_E, OUT / "foto_e5_fin.jpg", rotate_180=True, crop=True)
     _fotos(
         doc,
         f_ini_p,
