@@ -690,8 +690,8 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
     if not f_ini.is_file():
         f_ini = FOTOS_E5 / "lectura_20260922_1430_sensus_5144_reloj.jpg"
     f_ini_p = _prep(f_ini, OUT / "foto_e5_ini.jpg", crop=True)
-    # Foto 28/09 de costado → 180° para odómetro horizontal legible
-    f_fin_p = _prep(ASSET_E, OUT / "foto_e5_fin.jpg", rotate_180=True, crop=True)
+    # Foto 28/09 de costado → 90° antihorario para odómetro horizontal
+    f_fin_p = _prep(ASSET_E, OUT / "foto_e5_fin.jpg", rotate_ccw90=True, crop=True)
     _fotos(
         doc,
         f_ini_p,
