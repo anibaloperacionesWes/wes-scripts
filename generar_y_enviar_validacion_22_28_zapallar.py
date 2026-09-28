@@ -263,14 +263,26 @@ def _recolor_all_tables(doc: Document):
                         _shade(cell, ALT if ri % 2 == 0 else "FFFFFF")
 
 
-def _prep(src: Path, dest: Path, *, rotate_cw90=False, crop=False) -> Path:
+def _prep(
+    src: Path,
+    dest: Path,
+    *,
+    rotate_cw90: bool = False,
+    rotate_ccw90: bool = False,
+    rotate_180: bool = False,
+    crop: bool = False,
+) -> Path:
     img = ImageOps.exif_transpose(Image.open(src)).convert("RGB")
     if rotate_cw90:
-        img = img.transpose(Image.ROTATE_270)
+        img = img.transpose(Image.ROTATE_270)  # 90° horario
+    if rotate_ccw90:
+        img = img.transpose(Image.ROTATE_90)  # 90° antihorario
+    if rotate_180:
+        img = img.transpose(Image.ROTATE_180)
     if crop:
         w, h = img.size
-        cx, cy = w // 2, int(h * 0.42)
-        hw, hh = int(w * 0.36), int(h * 0.30)
+        cx, cy = w // 2, int(h * 0.45)
+        hw, hh = int(w * 0.40), int(h * 0.34)
         img = img.crop((max(0, cx - hw), max(0, cy - hh), min(w, cx + hw), min(h, cy + hh)))
     w, h = img.size
     s = min(1.0, 1100 / max(w, h))
@@ -279,6 +291,38 @@ def _prep(src: Path, dest: Path, *, rotate_cw90=False, crop=False) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     img.save(dest, quality=92)
     return dest
+
+
+def _p_keep(paragraph, *, with_next: bool = True, lines: bool = True) -> None:
+    """keepNext / keepLines — no partir bloques entre hojas."""
+    pPr = paragraph._p.get_or_add_pPr()
+    if with_next and pPr.find(qn("w:keepNext")) is None:
+        pPr.append(OxmlElement("w:keepNext"))
+    if lines and pPr.find(qn("w:keepLines")) is None:
+        pPr.append(OxmlElement("w:keepLines"))
+
+
+def _table_no_partir(table) -> None:
+    """Evita que la tabla se corte en el salto de página (cantSplit + keep)."""
+    n = len(table.rows)
+    for i, row in enumerate(table.rows):
+        trPr = row._tr.get_or_add_trPr()
+        if trPr.find(qn("w:cantSplit")) is None:
+            trPr.append(OxmlElement("w:cantSplit"))
+        if trPr.find(qn("w:tblHeader")) is None:
+            hdr = OxmlElement("w:tblHeader")
+            hdr.set(qn("w:val"), "true")
+            trPr.append(hdr)
+        for cell in row.cells:
+            for p in cell.paragraphs:
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(1)
+                _p_keep(p, with_next=(i < n - 1), lines=True)
+
+
+def _keep_prev_with_table(doc: Document) -> None:
+    if doc.paragraphs:
+        _p_keep(doc.paragraphs[-1], with_next=True, lines=True)
 
 
 def _clear_from(doc, start_prefix: str):
@@ -314,6 +358,7 @@ def _clear_from(doc, start_prefix: str):
 def _kpi3(doc, cards: list[tuple[str, str, str]]):
     """Franja KPI 3 columnas — estilo PDF original."""
     _fix_margins(doc)
+    _keep_prev_with_table(doc)
     t = doc.add_table(rows=2, cols=3)
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
     _borders(t, NAVY)
@@ -325,11 +370,14 @@ def _kpi3(doc, cards: list[tuple[str, str, str]]):
         _run(c.paragraphs[0], v1 + "\n", bold=True, size=12, color=COLOR_KPI)
         _run(c.paragraphs[0], v2, size=8, color=COLOR_META)
         _shade(c, OK)
+    _table_no_partir(t)
     doc.add_paragraph()
 
 
-def _fotos(doc, a, ca, b, cb, ancho=3.35):
+def _fotos(doc, a, ca, b, cb, ancho=3.0):
+    """Fotos lado a lado; tabla indivisible para no cortar al cambiar de hoja."""
     _fix_margins(doc)
+    _keep_prev_with_table(doc)
     t = doc.add_table(rows=2, cols=2)
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
     _borders(t, "D0D5DD")
@@ -341,6 +389,7 @@ def _fotos(doc, a, ca, b, cb, ancho=3.35):
         p.add_run().add_picture(str(path), width=Inches(ancho))
         c1 = t.rows[1].cells[col]
         _set_cell(c1, cap, bold=True, size=9, color=COLOR_TITULO, fill="D6E3F0", center=True)
+    _table_no_partir(t)
     doc.add_paragraph()
 
 
@@ -348,6 +397,7 @@ def _tabla_val(doc, titulo, row7):
     _fix_margins(doc)
     p = doc.add_paragraph()
     _run(p, titulo, bold=True, size=10, color=COLOR_TITULO)
+    _p_keep(p, with_next=True, lines=True)
     headers = ["ANÁLISIS", "FECHA INICIAL", "LECTURA (m³)", "FECHA FINAL", "LECTURA (m³)", "CONSUMO m³", "HORAS"]
     t = doc.add_table(rows=2, cols=7)
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -356,11 +406,13 @@ def _tabla_val(doc, titulo, row7):
         _set_cell(t.rows[0].cells[i], h, bold=True, size=8, color=COLOR_WHITE, fill=NAVY, center=True)
     for i, v in enumerate(row7):
         _set_cell(t.rows[1].cells[i], v, size=9, color=COLOR_TEXTO, fill="FFFFFF", center=True)
+    _table_no_partir(t)
     doc.add_paragraph()
 
 
 def _totales(doc, items):
     _fix_margins(doc)
+    _keep_prev_with_table(doc)
     t = doc.add_table(rows=len(items), cols=2)
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
     _borders(t, NAVY)
@@ -369,6 +421,7 @@ def _totales(doc, items):
         color = COLOR_KPI if i == len(items) - 1 else COLOR_TEXTO
         _set_cell(t.rows[i].cells[0], k, bold=True, size=10, color=color, fill=fill)
         _set_cell(t.rows[i].cells[1], v, bold=True, size=10, color=color, fill=fill)
+    _table_no_partir(t)
     doc.add_paragraph()
 
 
@@ -435,11 +488,14 @@ def build_matriz(app_m, err, estado, horas) -> Path:
 
     _clear_from(doc, "4. Cálculo")
 
+    # §4 en hoja nueva: fotos + tablas no quedan cortadas tras el cambio de página
+    doc.add_page_break()
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(6)
     _run(p, "4. Cálculo de validación", bold=True, size=14, color=COLOR_TITULO)
+    _p_keep(p, with_next=True, lines=True)
     p2 = doc.add_paragraph()
     _run(p2, "4.1 Itron vs app WES (22-09 15:00 → 28-09 09:05)", bold=True, size=12, color=COLOR_TITULO)
+    _p_keep(p2, with_next=True, lines=True)
 
     _kpi3(
         doc,
@@ -458,9 +514,11 @@ def build_matriz(app_m, err, estado, horas) -> Path:
         size=10.5,
         color=COLOR_TEXTO,
     )
+    _p_keep(p3, with_next=True, lines=True)
 
     f_ini = _prep(EVID / "itron_1500.jpg", OUT / "foto_matriz_ini.jpg", rotate_cw90=True)
-    f_fin = _prep(ASSET_M, OUT / "foto_matriz_fin.jpg", crop=True)
+    # Foto 28/09 de costado → 90° antihorario para odómetro horizontal
+    f_fin = _prep(ASSET_M, OUT / "foto_matriz_fin.jpg", rotate_ccw90=True, crop=True)
     _fotos(
         doc,
         f_ini,
@@ -499,8 +557,8 @@ def build_matriz(app_m, err, estado, horas) -> Path:
         color=COLOR_TEXTO,
     )
 
+    doc.add_page_break()
     p5 = doc.add_paragraph()
-    p5.paragraph_format.space_before = Pt(10)
     _run(p5, "5. Conclusión", bold=True, size=14, color=COLOR_TITULO)
     p6 = doc.add_paragraph()
     _run(
@@ -569,10 +627,13 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
     _recolor_all_tables(doc)
     _clear_from(doc, "4. Cálculo")
 
+    doc.add_page_break()
     p = doc.add_paragraph()
     _run(p, "4. Cálculo de validación", bold=True, size=14, color=COLOR_TITULO)
+    _p_keep(p, with_next=True, lines=True)
     p2 = doc.add_paragraph()
     _run(p2, "4.1 Sensus vs app WES (22-09 14:30 → 28-09 08:57)", bold=True, size=12, color=COLOR_TITULO)
+    _p_keep(p2, with_next=True, lines=True)
 
     _kpi3(
         doc,
@@ -593,11 +654,13 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
         size=10.5,
         color=COLOR_TEXTO,
     )
+    _p_keep(p3, with_next=True, lines=True)
 
     # Tabla del listado 22/09 14→23
     _fix_margins(doc)
     p_list = doc.add_paragraph()
     _run(p_list, "Listado horario 22-09-2026 (14:00 → 23:00) — placa", bold=True, size=10, color=COLOR_TITULO)
+    _p_keep(p_list, with_next=True, lines=True)
     t_list = doc.add_table(rows=2, cols=10)
     t_list.alignment = WD_TABLE_ALIGNMENT.CENTER
     _borders(t_list, "D0D5DD")
@@ -612,6 +675,7 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
             fill=OK if LISTADO_HORARIO_22[h] else "FFFFFF",
             center=True,
         )
+    _table_no_partir(t_list)
     doc.add_paragraph()
     p_sum = doc.add_paragraph()
     _run(
@@ -620,12 +684,14 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
         size=10,
         color=COLOR_META,
     )
+    _p_keep(p_sum, with_next=True, lines=True)
 
     f_ini = FOTOS_E5 / "lectura_20260922_1430_sensus_5144.png"
     if not f_ini.is_file():
         f_ini = FOTOS_E5 / "lectura_20260922_1430_sensus_5144_reloj.jpg"
     f_ini_p = _prep(f_ini, OUT / "foto_e5_ini.jpg", crop=True)
-    f_fin_p = _prep(ASSET_E, OUT / "foto_e5_fin.jpg", crop=True)
+    # Foto 28/09 de costado → 90° horario para odómetro horizontal
+    f_fin_p = _prep(ASSET_E, OUT / "foto_e5_fin.jpg", rotate_cw90=True, crop=True)
     _fotos(
         doc,
         f_ini_p,
@@ -665,8 +731,8 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
         color=COLOR_TEXTO,
     )
 
+    doc.add_page_break()
     p5 = doc.add_paragraph()
-    p5.paragraph_format.space_before = Pt(10)
     _run(p5, "5. Conclusión", bold=True, size=14, color=COLOR_TITULO)
     p6 = doc.add_paragraph()
     _run(
