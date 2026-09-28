@@ -1,5 +1,20 @@
 {
-  "descripcion": "Alertas propias del agente WES. No usan las alertas de filtración o fuga de la plataforma.",
+  "descripcion": "Alertas propias del agente WES. Se configuran de a una. La primera es Etapa N°5 de Fundo Zapallar.",
+  "alertas": [
+    {
+      "id": "fundo-zapallar-etapa-5-maximo",
+      "activa": true,
+      "cliente": "Fundo Zapallar",
+      "companyId": "000027",
+      "nodeId": "000027-03",
+      "punto": "Etapa N°5",
+      "umbral_m3h": 60,
+      "motivo": "Una tubería de 3 pulgadas entrega como máximo 60 m³/h.",
+      "revisiones": ["08:00", "16:00", "23:00"],
+      "correos": ["anibal.aoperaciones@wes.cl", "juanlopez@wes.cl"],
+      "notificar": "solo_si_supera"
+    }
+  ],
   "umbral_m3h": 0.5,
   "ventana_horas": [
     0,
@@ -13,9 +28,9 @@
   "minimo_dia_m3": 0.01,
   "horas_minimas_para_dia": 18,
   "reglas": {
-    "consumo_fuera_de_horario": true,
-    "dia_sin_consumo": true,
-    "sin_datos": true
+    "consumo_fuera_de_horario": false,
+    "dia_sin_consumo": false,
+    "sin_datos": false
   },
   "clientes": {
     "000002": {

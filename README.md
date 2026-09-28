@@ -134,13 +134,10 @@ El usuario debe tener acceso a TODOS los nodos de la empresa especificada.
 
 ## Alertas propias del agente
 
-`generar_alertas_agente.py` revisa el consumo de cada cliente y escribe alertas del agente. No usa las alertas de filtración o fuga de la plataforma.
-
-La configuración está en `alertas_agente.json`: umbral, horario y reglas generales, y un bloque por cliente para cambiarlos. Por defecto alerta si entre 00:00 y 06:00 hay una hora sobre 0,5 m³/h, si el día quedó en cero o si el punto no tiene lecturas.
+La primera alerta está en `alertas_agente.json`: Etapa N°5 de Fundo Zapallar (`000027-03`). A las 08:00, 16:00 y 23:00 (hora Chile) revisa si alguna hora superó 60 m³/h, el caudal de una tubería de 3". Solo en ese caso envía correo a Aníbal y Juan.
 
 ```powershell
-python generar_alertas_agente.py --empresa "Club Providencia"
-python generar_alertas_agente.py --fecha 2026-09-27
+python revisar_alerta_etapa5_zapallar.py --revision 16:00 --sin-correo
 ```
 
 ## ❓ ¿Necesitas Ayuda?

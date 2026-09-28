@@ -2,8 +2,8 @@
 
 Las alertas de clientes las genera este agente. No se crean ni se editan alertas de la plataforma (FILTRATION, LEAK, umbral o destinatarios en `/configuration/companies/.../alert`).
 
-- Configuración: `alertas_agente.json` (un bloque por cliente).
-- Ejecución: `python generar_alertas_agente.py`.
-- Salida: `reports/alertas_agente/<fecha>/`, un CSV por cliente con hallazgos y `resumen.txt`.
+La primera alerta configurada es Etapa N°5 de Fundo Zapallar (`000027-03`): avisar solo si alguna hora supera 60 m³/h. Revisiones a las 08:00, 16:00 y 23:00, hora Chile. Correo a Aníbal y Juan.
 
-Para un cliente distinto del umbral general (0,5 m³/h entre 00:00 y 06:00), cambia su bloque en `alertas_agente.json` (`umbral_m3h`, `ventana_horas`, `reglas` o `puntos`).
+- Definición: `alertas_agente.json`, lista `alertas`.
+- Ejecución: `python revisar_alerta_etapa5_zapallar.py`.
+- Con `--programado` solo corre si la hora Chile es 08, 16 o 23.
