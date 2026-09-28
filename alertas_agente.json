@@ -1,0 +1,90 @@
+{
+  "descripcion": "Alertas propias del agente WES. No usan las alertas de filtración o fuga de la plataforma.",
+  "umbral_m3h": 0.5,
+  "ventana_horas": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "minimo_dia_m3": 0.01,
+  "horas_minimas_para_dia": 18,
+  "reglas": {
+    "consumo_fuera_de_horario": true,
+    "dia_sin_consumo": true,
+    "sin_datos": true
+  },
+  "clientes": {
+    "000002": {
+      "nombre": "Lo valledor",
+      "activa": true
+    },
+    "000006": {
+      "nombre": "Providencia",
+      "activa": true
+    },
+    "000007": {
+      "nombre": "Nido de Aguilas",
+      "activa": true
+    },
+    "000008": {
+      "nombre": "CORMUP",
+      "activa": true
+    },
+    "000009": {
+      "nombre": "COPEC",
+      "activa": true
+    },
+    "000010": {
+      "nombre": "Corporación Puente Alto",
+      "activa": true
+    },
+    "000012": {
+      "nombre": "DERCO",
+      "activa": true
+    },
+    "000017": {
+      "nombre": "Renca",
+      "activa": true
+    },
+    "000020": {
+      "nombre": "AGUNSA",
+      "activa": true
+    },
+    "000021": {
+      "nombre": "CDUC",
+      "activa": true
+    },
+    "000022": {
+      "nombre": "Las Condes",
+      "activa": true
+    },
+    "000024": {
+      "nombre": "La Reina",
+      "activa": true
+    },
+    "000025": {
+      "nombre": "Parque Arauco",
+      "activa": true
+    },
+    "000026": {
+      "nombre": "UDD",
+      "activa": true
+    },
+    "000027": {
+      "nombre": "Fundo Zapallar",
+      "activa": true
+    },
+    "000028": {
+      "nombre": "La Florida",
+      "activa": true
+    },
+    "000031": {
+      "nombre": "Club Providencia",
+      "activa": true
+    }
+  }
+}

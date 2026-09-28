@@ -1,0 +1,9 @@
+# Alertas propias del agente WES
+
+Las alertas de clientes las genera este agente. No se crean ni se editan alertas de la plataforma (FILTRATION, LEAK, umbral o destinatarios en `/configuration/companies/.../alert`).
+
+- Configuración: `alertas_agente.json` (un bloque por cliente).
+- Ejecución: `python generar_alertas_agente.py`.
+- Salida: `reports/alertas_agente/<fecha>/`, un CSV por cliente con hallazgos y `resumen.txt`.
+
+Para un cliente distinto del umbral general (0,5 m³/h entre 00:00 y 06:00), cambia su bloque en `alertas_agente.json` (`umbral_m3h`, `ventana_horas`, `reglas` o `puntos`).

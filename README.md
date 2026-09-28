@@ -132,16 +132,16 @@ Crea un usuario en WES API con los siguientes datos:
 El usuario debe tener acceso a TODOS los nodos de la empresa especificada.
 ```
 
-## Configurar una alerta desde la nube
+## Alertas propias del agente
 
-`configurar_alerta.py` crea o actualiza la alerta de un punto (filtración o fuga), los correos que la reciben y el umbral. Sin `--confirmar` solo muestra el plan.
+`generar_alertas_agente.py` revisa el consumo de cada cliente y escribe alertas del agente. No usa las alertas de filtración o fuga de la plataforma.
+
+La configuración está en `alertas_agente.json`: umbral, horario y reglas generales, y un bloque por cliente para cambiarlos. Por defecto alerta si entre 00:00 y 06:00 hay una hora sobre 0,5 m³/h, si el día quedó en cero o si el punto no tiene lecturas.
 
 ```powershell
-python configurar_alerta.py ver --empresa "Parque Arauco" --punto "000025-01"
-python configurar_alerta.py crear --empresa "Parque Arauco" --punto "000025-01" --tipo FILTRATION --correo tecnico@cliente.cl --umbral 30 --confirmar
+python generar_alertas_agente.py --empresa "Club Providencia"
+python generar_alertas_agente.py --fecha 2026-09-27
 ```
-
-Para que el asistente la deje aplicada, el mensaje tiene que traer la empresa, el punto (o todos los puntos), el tipo (`FILTRATION` o `LEAK`), los correos y, si corresponde, el umbral.
 
 ## ❓ ¿Necesitas Ayuda?
 
