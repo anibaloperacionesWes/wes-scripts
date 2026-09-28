@@ -1,0 +1,157 @@
+{
+  "fuente": "reports/Fundo_Zapallar/ANALISIS/tabla_mensual_esval_inferior_20260922_1510/mensual_esval_matriz_inferior.json",
+  "filas": [
+    {
+      "mes": "Sep-25",
+      "ciclo": "28/08–27/09/25",
+      "boleta": "90097803",
+      "esval": 3375.0,
+      "inf": 3080.8,
+      "dif": -294.2,
+      "pct": -8.72,
+      "chk": "cerca",
+      "transicion": false,
+      "fase": "Inductivo ESVAL"
+    },
+    {
+      "mes": "Oct-25",
+      "ciclo": "27/09–29/10/25",
+      "boleta": "90777916",
+      "esval": 3973.0,
+      "inf": 4397.07,
+      "dif": 424.07,
+      "pct": 10.67,
+      "chk": "cerca",
+      "transicion": false,
+      "fase": "Inductivo ESVAL"
+    },
+    {
+      "mes": "Nov-25",
+      "ciclo": "29/10–28/11/25",
+      "boleta": "91459036",
+      "esval": 5711.0,
+      "inf": 5217.73,
+      "dif": -493.27,
+      "pct": -8.64,
+      "chk": "cerca",
+      "transicion": false,
+      "fase": "Inductivo ESVAL"
+    },
+    {
+      "mes": "Dic-25",
+      "ciclo": "28/11–30/12/25",
+      "boleta": "92141513",
+      "esval": 6319.0,
+      "inf": 5543.47,
+      "dif": -775.53,
+      "pct": -12.27,
+      "chk": "cerca",
+      "transicion": false,
+      "fase": "Inductivo ESVAL"
+    },
+    {
+      "mes": "Ene-26",
+      "ciclo": "30/12/25–30/01/26",
+      "boleta": "92825564",
+      "esval": 7193.0,
+      "inf": 6341.39,
+      "dif": -851.61,
+      "pct": -11.84,
+      "chk": "cerca",
+      "transicion": false,
+      "fase": "Inductivo ESVAL"
+    },
+    {
+      "mes": "Feb-26",
+      "ciclo": "30/01–27/02/26",
+      "boleta": "93509803",
+      "esval": 6478.0,
+      "inf": 6755.5,
+      "dif": 277.5,
+      "pct": 4.28,
+      "chk": "—",
+      "transicion": true,
+      "fase": "Transición (desconex./cambio)"
+    },
+    {
+      "mes": "Mar-26",
+      "ciclo": "27/02–30/03/26",
+      "boleta": "94194644",
+      "esval": 6793.0,
+      "inf": 12227.96,
+      "dif": 5434.96,
+      "pct": 80.01,
+      "chk": "—",
+      "transicion": true,
+      "fase": "Transición (desconex./cambio)"
+    },
+    {
+      "mes": "Abr-26",
+      "ciclo": "30/03–29/04/26",
+      "boleta": "94879773",
+      "esval": 6034.0,
+      "inf": 9172.86,
+      "dif": 3138.86,
+      "pct": 52.02,
+      "chk": "NO",
+      "transicion": false,
+      "fase": "Ultrasónico WES"
+    },
+    {
+      "mes": "May-26",
+      "ciclo": "29/04–29/05/26",
+      "boleta": "95565463",
+      "esval": 4566.0,
+      "inf": 3056.09,
+      "dif": -1509.91,
+      "pct": -33.07,
+      "chk": "NO",
+      "transicion": false,
+      "fase": "Ultrasónico WES"
+    },
+    {
+      "mes": "Jun-26",
+      "ciclo": "29/05–27/06/26",
+      "boleta": "96251613",
+      "esval": 3707.0,
+      "inf": 3055.15,
+      "dif": -651.85,
+      "pct": -17.58,
+      "chk": "NO",
+      "transicion": false,
+      "fase": "Ultrasónico WES"
+    },
+    {
+      "mes": "Jul-26",
+      "ciclo": "27/06–29/07/26",
+      "boleta": "96937917",
+      "esval": 5067.0,
+      "inf": 2433.11,
+      "dif": -2633.89,
+      "pct": -51.98,
+      "chk": "NO",
+      "transicion": false,
+      "fase": "Ultrasónico WES"
+    },
+    {
+      "mes": "Ago-26",
+      "ciclo": "29/07–28/08/26",
+      "boleta": "97624985",
+      "esval": 2079.0,
+      "inf": 1676.29,
+      "dif": -402.71,
+      "pct": -19.37,
+      "chk": "NO",
+      "transicion": false,
+      "fase": "Ultrasónico WES"
+    }
+  ],
+  "totales": {
+    "esval": 61295.0,
+    "inferior": 62957.42
+  },
+  "sin_transicion": {
+    "esval": 48024.0,
+    "inferior": 43973.96
+  }
+}

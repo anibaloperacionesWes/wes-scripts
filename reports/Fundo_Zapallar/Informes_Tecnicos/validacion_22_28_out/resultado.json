@@ -1,0 +1,14 @@
+{
+  "matriz": {
+    "delta": 758.49,
+    "app": 785.88,
+    "err": 3.5,
+    "pdf": "/workspace/reports/Fundo_Zapallar/Informes_Tecnicos/validacion_22_28_out/Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_FINAL.pdf"
+  },
+  "etapa5": {
+    "delta": 81.0,
+    "app": 78.1,
+    "err": 3.6,
+    "pdf": "/workspace/reports/Fundo_Zapallar/Informes_Tecnicos/validacion_22_28_out/Informe_Validacion_Etapa5_Zapallar_20260924_1136.pdf"
+  }
+}

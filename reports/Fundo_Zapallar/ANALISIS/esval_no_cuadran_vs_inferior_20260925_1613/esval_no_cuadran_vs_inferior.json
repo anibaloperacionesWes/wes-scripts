@@ -1,0 +1,68 @@
+{
+  "pregunta": "Meses en que cuenta ESVAL no calza con Matriz — ¿cuadran con Estanque Inferior?",
+  "veredicto": "NO",
+  "fuente": "reports/Fundo_Zapallar/ANALISIS/tabla_mensual_esval_inferior_20260922_1510/mensual_esval_matriz_inferior.json",
+  "meses_matriz_no_cuadra": [
+    {
+      "mes": "Mar-26",
+      "boleta": "94194644",
+      "esval": 6793.0,
+      "matriz": 1905.74,
+      "pct_mat_esval": -71.95,
+      "inferior": 12227.96,
+      "pct_inf_esval": 80.01,
+      "chk_inf_esval": "NO",
+      "rescata": false
+    },
+    {
+      "mes": "Abr-26",
+      "boleta": "94879773",
+      "esval": 6034.0,
+      "matriz": 3113.41,
+      "pct_mat_esval": -48.4,
+      "inferior": 9172.86,
+      "pct_inf_esval": 52.02,
+      "chk_inf_esval": "NO",
+      "rescata": false
+    },
+    {
+      "mes": "May-26",
+      "boleta": "95565463",
+      "esval": 4566.0,
+      "matriz": 3332.53,
+      "pct_mat_esval": -27.01,
+      "inferior": 3056.09,
+      "pct_inf_esval": -33.07,
+      "chk_inf_esval": "NO",
+      "rescata": false
+    },
+    {
+      "mes": "Jun-26",
+      "boleta": "96251613",
+      "esval": 3707.0,
+      "matriz": 2481.49,
+      "pct_mat_esval": -33.06,
+      "inferior": 3055.15,
+      "pct_inf_esval": -17.58,
+      "chk_inf_esval": "NO",
+      "rescata": false
+    },
+    {
+      "mes": "Jul-26",
+      "boleta": "96937917",
+      "esval": 5067.0,
+      "matriz": 3316.93,
+      "pct_mat_esval": -34.54,
+      "inferior": 2433.11,
+      "pct_inf_esval": -51.98,
+      "chk_inf_esval": "NO",
+      "rescata": false
+    }
+  ],
+  "nota_feb": "Único mes donde Inferior cuadra con ESVAL (±4 %) mientras Matriz queda cerca (−10 %): Feb-26.",
+  "suma_no_cuadran": {
+    "esval": 26167.0,
+    "matriz": 14150.1,
+    "inferior": 29945.17
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "matriz": {
+    "itron": 758.49,
+    "app": 785.88,
+    "err": 3.5,
+    "estado": "Aceptable",
+    "pdf": "/workspace/reports/Fundo_Zapallar/Informes_Tecnicos/validacion_22_28_20260928_1839/Informe_Validacion_Matriz_ESVAL_Fundo_Zapallar_FINAL.pdf"
+  },
+  "etapa5": {
+    "sensus": 81.0,
+    "app": 65.8,
+    "err": 18.8,
+    "estado": "Revisar — diferencia relevante",
+    "pdf": "/workspace/reports/Fundo_Zapallar/Informes_Tecnicos/validacion_22_28_20260928_1839/Informe_Validacion_Etapa5_Zapallar_20260924_1136.pdf"
+  },
+  "drive": {
+    "matriz": "https://docs.google.com/document/d/16IlboR89inKpImJSL4j4vNt9Lt0H4MHsf112l5Jjkh4/edit",
+    "etapa5": "https://docs.google.com/document/d/1bJqXMrPc8zSuhfx70YGgFmgxbrMTISipP6rn4Gw4BRU/edit"
+  },
+  "to": [
+    "juanlopez@wes.cl",
+    "anibal.aoperaciones@wes.cl"
+  ]
+}

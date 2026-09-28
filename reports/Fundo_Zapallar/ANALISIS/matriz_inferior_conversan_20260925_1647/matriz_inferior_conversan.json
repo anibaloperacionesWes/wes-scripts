@@ -1,0 +1,77 @@
+{
+  "marco": "No igualdad con boleta ESVAL (tubería). Test correcto: Matriz campo/app vs Inferior se parecen.",
+  "veredicto": "SI conversan",
+  "validacion_terreno": {
+    "inicio": "2026-09-22 15:00",
+    "fin": "2026-09-23 17:00",
+    "horas_app": "22-09 h16-23 + 23-09 h00-16",
+    "matriz_app_m3": 175.41,
+    "itron_matriz_m3": 170.89,
+    "estanque_inferior_m3": 150.8,
+    "inferior_sobre_matriz_pct": 86.0,
+    "diferencia_matriz_menos_inferior_m3": 24.61
+  },
+  "may_ago": {
+    "matriz": 10935.02,
+    "inferior": 10220.64,
+    "esval_ref": 15419.0,
+    "pct_inf_sobre_matriz": -6.532955586729616,
+    "pct_matriz_sobre_esval": -29.080874246060052
+  },
+  "filas_desde_marzo": [
+    {
+      "mes": "Mar-26",
+      "matriz": 1905.74,
+      "inferior": 12227.96,
+      "pct_inf_mat": 541.64,
+      "parecen": "transición",
+      "esval_ref": 6793.0,
+      "chk_mat_esval": "NO"
+    },
+    {
+      "mes": "Abr-26",
+      "matriz": 3113.41,
+      "inferior": 9172.86,
+      "pct_inf_mat": 194.62,
+      "parecen": "transición",
+      "esval_ref": 6034.0,
+      "chk_mat_esval": "NO"
+    },
+    {
+      "mes": "May-26",
+      "matriz": 3332.53,
+      "inferior": 3056.09,
+      "pct_inf_mat": -8.3,
+      "parecen": "SI — conversan",
+      "esval_ref": 4566.0,
+      "chk_mat_esval": "NO"
+    },
+    {
+      "mes": "Jun-26",
+      "matriz": 2481.49,
+      "inferior": 3055.15,
+      "pct_inf_mat": 23.12,
+      "parecen": "cerca",
+      "esval_ref": 3707.0,
+      "chk_mat_esval": "NO"
+    },
+    {
+      "mes": "Jul-26",
+      "matriz": 3316.93,
+      "inferior": 2433.11,
+      "pct_inf_mat": -26.65,
+      "parecen": "NO",
+      "esval_ref": 5067.0,
+      "chk_mat_esval": "NO"
+    },
+    {
+      "mes": "Ago-26",
+      "matriz": 1804.07,
+      "inferior": 1676.29,
+      "pct_inf_mat": -7.08,
+      "parecen": "SI — conversan",
+      "esval_ref": 2079.0,
+      "chk_mat_esval": "cerca"
+    }
+  ]
+}
