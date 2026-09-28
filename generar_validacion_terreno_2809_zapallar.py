@@ -14,7 +14,6 @@ from __future__ import annotations
 import csv
 import io
 import json
-import shutil
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -25,8 +24,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import requests
 from docx import Document
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 from docx.shared import Inches, Pt, RGBColor
+from PIL import Image, ImageOps
 
 from generar_tabla_zapallar_matriz_vs_inferior import (
     HEADER_FILL,
@@ -64,6 +67,71 @@ FOTO_MATRIZ = Path(
 FOTO_ETAPA5 = Path(
     "/home/ubuntu/.cursor/projects/workspace/assets/bf785120-aea0-404f-9fa4-0a4df3dccd62.png"
 )
+FOTO_MATRIZ_PREV = Path(
+    "reports/Fundo_Zapallar/Informes_Tecnicos/_evidencias/itron_1700_2309.jpg"
+)
+FOTO_ETAPA5_PREV = Path(
+    "reports/Fundo_Zapallar/Informes_Tecnicos/fotos_etapa5/lectura_20260923_1654_sensus_5177.png"
+)
+
+
+def _shade_cell(cell, fill: str) -> None:
+    tc_pr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:fill"), fill)
+    shd.set(qn("w:val"), "clear")
+    tc_pr.append(shd)
+
+
+def _prep_foto(src: Path, dest: Path, *, rotate_cw90: bool = False, max_side: int = 1400) -> Path:
+    """Copia/normaliza foto para el informe (odómetro legible)."""
+    img = Image.open(src)
+    img = ImageOps.exif_transpose(img)
+    if rotate_cw90:
+        img = img.transpose(Image.ROTATE_270)  # CW 90
+    # limitar tamaño
+    w, h = img.size
+    scale = min(1.0, max_side / max(w, h))
+    if scale < 1.0:
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    img.convert("RGB").save(dest, quality=92)
+    return dest
+
+
+def _add_fotos_lado_a_lado(
+    doc: Document,
+    path_izq: Path,
+    caption_izq: str,
+    path_der: Path,
+    caption_der: str,
+    *,
+    ancho: float = 4.3,
+) -> None:
+    """Dos fotos con caption, estilo informes de validación previos."""
+    t = doc.add_table(rows=2, cols=2)
+    t.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for col, (path, caption) in enumerate(
+        ((path_izq, caption_izq), (path_der, caption_der))
+    ):
+        cell_img = t.rows[0].cells[col]
+        _shade_cell(cell_img, "FAFBFC")
+        p = cell_img.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        if path.is_file():
+            p.add_run().add_picture(str(path), width=Inches(ancho))
+        else:
+            p.add_run("(foto no disponible)").font.size = Pt(9)
+
+        cell_cap = t.rows[1].cells[col]
+        _shade_cell(cell_cap, "D6E3F0")
+        pc = cell_cap.paragraphs[0]
+        pc.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r = pc.add_run(caption)
+        r.bold = True
+        r.font.size = Pt(9)
+        r.font.color.rgb = RGBColor(31, 78, 121)
+    doc.add_paragraph()
 
 
 def _fmt(x: float, dec: int = 2) -> str:
@@ -127,11 +195,24 @@ def main() -> None:
     out_dir = Path("reports/Fundo_Zapallar/Informes_Tecnicos") / f"validacion_terreno_2809_{stamp}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copiar fotos
-    if FOTO_MATRIZ.is_file():
-        shutil.copy2(FOTO_MATRIZ, out_dir / "foto_matriz_itron_2809_0905.png")
-    if FOTO_ETAPA5.is_file():
-        shutil.copy2(FOTO_ETAPA5, out_dir / "foto_etapa5_sensus_2809_0857.png")
+    # Fotos normalizadas (hoy + lectura previa de cierre de validación)
+    foto_mat_hoy = _prep_foto(
+        FOTO_MATRIZ, out_dir / "foto_matriz_itron_2809_0905.jpg", rotate_cw90=False
+    )
+    # Prior Itron estaba rotada en evidencia; horizontalizar odómetro
+    foto_mat_prev = _prep_foto(
+        FOTO_MATRIZ_PREV,
+        out_dir / "foto_matriz_itron_2309_1705.jpg",
+        rotate_cw90=True,
+    )
+    foto_e5_hoy = _prep_foto(
+        FOTO_ETAPA5, out_dir / "foto_etapa5_sensus_2809_0857.jpg", rotate_cw90=False
+    )
+    foto_e5_prev = _prep_foto(
+        FOTO_ETAPA5_PREV,
+        out_dir / "foto_etapa5_sensus_2309_1654.jpg",
+        rotate_cw90=False,
+    )
 
     app_mat, det_mat = sum_ventana(MATRIZ_ID)
     app_inf, det_inf = sum_ventana(INFERIOR_ID)
@@ -274,6 +355,32 @@ def main() -> None:
         f"Δ Sensus = {_fmt(e5_delta, 0)} m³."
     ).font.size = Pt(10)
 
+    h1b = doc.add_paragraph()
+    hr1b = h1b.add_run("1.1 Matriz ESVAL — fotos Itron (inicio / fin de ventana)")
+    hr1b.bold = True
+    hr1b.font.size = Pt(11)
+    hr1b.font.color.rgb = RGBColor(31, 78, 121)
+    _add_fotos_lado_a_lado(
+        doc,
+        foto_mat_prev,
+        f"Itron · {_fmt(ITRON_INI, 1)} m³ · {ITRON_INI_DT}",
+        foto_mat_hoy,
+        f"Itron · {_fmt(ITRON_FIN, 1)} m³ · {ITRON_FIN_DT}",
+    )
+
+    h1c = doc.add_paragraph()
+    hr1c = h1c.add_run("1.2 Etapa N°5 — fotos Sensus (inicio / fin de ventana)")
+    hr1c.bold = True
+    hr1c.font.size = Pt(11)
+    hr1c.font.color.rgb = RGBColor(31, 78, 121)
+    _add_fotos_lado_a_lado(
+        doc,
+        foto_e5_prev,
+        f"Sensus · {_fmt(ETAPA5_INI, 0)} m³ · {ETAPA5_INI_DT}",
+        foto_e5_hoy,
+        f"Sensus · {_fmt(ETAPA5_FIN, 0)} m³ · {ETAPA5_FIN_DT}",
+    )
+
     # Tabla Matriz
     h2 = doc.add_paragraph()
     hr2 = h2.add_run("2) Matriz ESVAL — Itron vs App (+ Inferior)")
@@ -370,39 +477,80 @@ def main() -> None:
     docx_path = out_dir / "Validacion_terreno_Matriz_Etapa5_2809.docx"
     doc.save(str(docx_path))
 
-    # --- PDF resumen ---
-    fig = plt.figure(figsize=(15.0, 10.0))
-    fig.suptitle(
-        "Validación terreno 28-09-2026 — Matriz ESVAL + Etapa N°5",
-        fontsize=15,
-        fontweight="bold",
-        color=WES_BLUE,
-        y=0.97,
-        x=0.03,
-        ha="left",
-    )
-    fig.text(
-        0.03,
-        0.935,
-        f"Matriz: Itron {_fmt(itron_delta)} vs App {_fmt(app_mat)} → {err_mat:.1f}% ({est_mat}) · "
-        f"Etapa 5: Sensus {_fmt(e5_delta, 0)} vs App {_fmt(app_e5)} → {err_e5:.1f}% ({est_e5}) · "
-        f"Inferior {inf_sobre_mat:.0f}% Matriz",
-        fontsize=9.5,
-        color="#006400",
-        fontweight="bold",
-    )
-    ax1 = fig.add_axes([0.04, 0.52, 0.44, 0.38])
-    ax1.imshow(plt.imread(str(chart_mat)))
-    ax1.axis("off")
-    ax2 = fig.add_axes([0.52, 0.52, 0.44, 0.38])
-    ax2.imshow(plt.imread(str(chart_e5)))
-    ax2.axis("off")
-    ax3 = fig.add_axes([0.10, 0.04, 0.80, 0.42])
-    ax3.imshow(plt.imread(str(chart_dia)))
-    ax3.axis("off")
+    # --- PDF página 1: fotos de validación ---
+    from matplotlib.backends.backend_pdf import PdfPages
+
     pdf_path = out_dir / "Validacion_terreno_Matriz_Etapa5_2809.pdf"
-    fig.savefig(pdf_path, dpi=170)
-    plt.close(fig)
+    with PdfPages(pdf_path) as pdf:
+        fig = plt.figure(figsize=(15.0, 10.0))
+        fig.suptitle(
+            "Validación terreno 28-09-2026 — Fotos de lecturas",
+            fontsize=15,
+            fontweight="bold",
+            color=WES_BLUE,
+            y=0.97,
+            x=0.03,
+            ha="left",
+        )
+        fig.text(
+            0.03,
+            0.935,
+            f"Matriz Itron {_fmt(ITRON_INI, 1)} → {_fmt(ITRON_FIN, 1)} (Δ {_fmt(itron_delta)}) · "
+            f"Etapa 5 Sensus {_fmt(ETAPA5_INI, 0)} → {_fmt(ETAPA5_FIN, 0)} (Δ {_fmt(e5_delta, 0)})",
+            fontsize=10,
+            color="#333333",
+        )
+        ax_a = fig.add_axes([0.04, 0.48, 0.44, 0.42])
+        ax_a.imshow(plt.imread(str(foto_mat_prev)))
+        ax_a.set_title(f"Matriz Itron inicio · {_fmt(ITRON_INI, 1)} m³ · {ITRON_INI_DT}", fontsize=10, color=WES_BLUE)
+        ax_a.axis("off")
+        ax_b = fig.add_axes([0.52, 0.48, 0.44, 0.42])
+        ax_b.imshow(plt.imread(str(foto_mat_hoy)))
+        ax_b.set_title(f"Matriz Itron hoy · {_fmt(ITRON_FIN, 1)} m³ · {ITRON_FIN_DT}", fontsize=10, color=WES_BLUE)
+        ax_b.axis("off")
+        ax_c = fig.add_axes([0.04, 0.04, 0.44, 0.40])
+        ax_c.imshow(plt.imread(str(foto_e5_prev)))
+        ax_c.set_title(f"Etapa 5 Sensus inicio · {_fmt(ETAPA5_INI, 0)} m³ · {ETAPA5_INI_DT}", fontsize=10, color=WES_BLUE)
+        ax_c.axis("off")
+        ax_d = fig.add_axes([0.52, 0.04, 0.44, 0.40])
+        ax_d.imshow(plt.imread(str(foto_e5_hoy)))
+        ax_d.set_title(f"Etapa 5 Sensus hoy · {_fmt(ETAPA5_FIN, 0)} m³ · {ETAPA5_FIN_DT}", fontsize=10, color=WES_BLUE)
+        ax_d.axis("off")
+        pdf.savefig(fig, dpi=160)
+        plt.close(fig)
+
+        # Página 2: gráficos / resultados
+        fig = plt.figure(figsize=(15.0, 10.0))
+        fig.suptitle(
+            "Validación terreno 28-09-2026 — Resultados vs App WES",
+            fontsize=15,
+            fontweight="bold",
+            color=WES_BLUE,
+            y=0.97,
+            x=0.03,
+            ha="left",
+        )
+        fig.text(
+            0.03,
+            0.935,
+            f"Matriz: Itron {_fmt(itron_delta)} vs App {_fmt(app_mat)} → {err_mat:.1f}% ({est_mat}) · "
+            f"Etapa 5: Sensus {_fmt(e5_delta, 0)} vs App {_fmt(app_e5)} → {err_e5:.1f}% ({est_e5}) · "
+            f"Inferior {inf_sobre_mat:.0f}% Matriz",
+            fontsize=9.5,
+            color="#006400",
+            fontweight="bold",
+        )
+        ax1 = fig.add_axes([0.04, 0.52, 0.44, 0.38])
+        ax1.imshow(plt.imread(str(chart_mat)))
+        ax1.axis("off")
+        ax2 = fig.add_axes([0.52, 0.52, 0.44, 0.38])
+        ax2.imshow(plt.imread(str(chart_e5)))
+        ax2.axis("off")
+        ax3 = fig.add_axes([0.10, 0.04, 0.80, 0.42])
+        ax3.imshow(plt.imread(str(chart_dia)))
+        ax3.axis("off")
+        pdf.savefig(fig, dpi=170)
+        plt.close(fig)
 
     payload = {
         "ventana_app": {
