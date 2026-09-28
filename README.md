@@ -132,6 +132,17 @@ Crea un usuario en WES API con los siguientes datos:
 El usuario debe tener acceso a TODOS los nodos de la empresa especificada.
 ```
 
+## Configurar una alerta desde la nube
+
+`configurar_alerta.py` crea o actualiza la alerta de un punto (filtración o fuga), los correos que la reciben y el umbral. Sin `--confirmar` solo muestra el plan.
+
+```powershell
+python configurar_alerta.py ver --empresa "Parque Arauco" --punto "000025-01"
+python configurar_alerta.py crear --empresa "Parque Arauco" --punto "000025-01" --tipo FILTRATION --correo tecnico@cliente.cl --umbral 30 --confirmar
+```
+
+Para que el asistente la deje aplicada, el mensaje tiene que traer la empresa, el punto (o todos los puntos), el tipo (`FILTRATION` o `LEAK`), los correos y, si corresponde, el umbral.
+
 ## ❓ ¿Necesitas Ayuda?
 
 Consulta la [Guía Completa](GUIA_CREACION_USUARIOS.md) que incluye:
