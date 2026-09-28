@@ -11,11 +11,12 @@ import io
 import json
 import os
 import smtplib
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 from docx import Document
@@ -28,6 +29,21 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from PIL import Image, ImageOps
 
 from wes_google_drive import obtener_servicio_drive
+
+CHILE_TZ = ZoneInfo("America/Santiago")
+# Hueco API del 22/09 tras cambio de placa (m³/h) — mismo criterio del informe Etapa 5 original
+PLACA_HUECO_22: dict[int, float] = {
+    14: 0.60,
+    15: 2.90,
+    16: 5.50,
+    17: 2.60,
+    18: 0.90,
+    19: 0.00,
+    20: 0.00,
+    21: 0.00,
+    22: 0.00,
+    23: 0.00,
+}
 
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "reports/Fundo_Zapallar/Informes_Tecnicos/_drive_edit"
@@ -105,11 +121,51 @@ def _slots_m():
 
 
 def _slots_e():
+    """Horas Chile 22-09 14:00 → 28-09 09:00 (excl.)."""
     out = [(date(2026, 9, 22), h) for h in range(14, 24)]
     for d in range(23, 28):
         out += [(date(2026, 9, d), h) for h in range(24)]
     out += [(date(2026, 9, 28), h) for h in range(0, 9)]
     return out
+
+
+def _sum_etapa5_chile() -> float:
+    """App Etapa 5: TIME en UTC → hora Chile + hueco placa 22/09.
+
+    Igual que generar_informe_cambio_memoria_etapa5_zapallar.py.
+    Sin esto el 22/09 queda truncado en la API y el total app sale bajo.
+    """
+    api: dict[datetime, float] = {}
+    for d in range(22, 29):
+        dia = date(2026, 9, d)
+        r = requests.get(
+            f"{BASE}/nodes/000027-03/dates.measures.csv",
+            params={"start": dia.strftime("%d%m%Y"), "end": dia.strftime("%d%m%Y")},
+            timeout=60,
+        )
+        r.raise_for_status()
+        for row in csv.DictReader(io.StringIO(r.text)):
+            dt = datetime.fromisoformat(row["TIME"].strip().replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            api[dt.astimezone(CHILE_TZ)] = float(row["VALUE"].strip())
+
+    start = datetime(2026, 9, 22, 14, 0, tzinfo=CHILE_TZ)
+    end = datetime(2026, 9, 28, 9, 0, tzinfo=CHILE_TZ)
+    total = 0.0
+    cur = start
+    while cur < end:
+        if cur.date() == date(2026, 9, 22) and cur.hour in PLACA_HUECO_22:
+            total += PLACA_HUECO_22[cur.hour]
+        elif cur in api:
+            total += api[cur]
+        else:
+            for k, v in api.items():
+                if k.date() == cur.date() and k.hour == cur.hour:
+                    total += v
+                    break
+        cur += timedelta(hours=1)
+    return round(total, 2)
 
 
 def _err(a, b):
@@ -554,7 +610,9 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
     _run(
         p3,
         "Una sola validación con lecturas fotográficas Sensus y el consumo de la app WES "
-        "(hora 14 del 22-09 → hora 08 del 28-09). Incluye el día de intervención de placa.",
+        "(hora Chile 14 del 22-09 → hora 08 del 28-09). El 22/09 la API quedó truncada tras el "
+        "cambio de placa: esas horas se completan con el registro de placa (mismo criterio del "
+        "informe original). App WES resulta mayor que el Δ Sensus.",
         size=10.5,
         color=COLOR_TEXTO,
     )
@@ -594,10 +652,11 @@ def build_etapa5(app_e, err, estado, horas) -> Path:
         ],
     )
     p4 = doc.add_paragraph()
+    # App > Sensus → 1 − Sensus/App
     _run(
         p4,
         f"Error Sensus vs app: {err:.1f}% "
-        f"(1 − {_fmt(min(delta, app_e))}/{_fmt(max(delta, app_e))}). {estado}.",
+        f"(1 − {_fmt(delta, 0)}/{_fmt(app_e)}). {estado}.",
         size=10.5,
         color=COLOR_TEXTO,
     )
@@ -679,12 +738,13 @@ def enviar(pdfs: list[Path], resumen: str):
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     sm, se = _slots_m(), _slots_e()
-    app_m, app_e = _sum("000027-01", sm), _sum("000027-03", se)
+    app_m = _sum("000027-01", sm)
+    app_e = _sum_etapa5_chile()  # Chile TZ + hueco placa (app > Sensus)
     dm, de = round(ITRON_FIN - ITRON_INI, 2), round(SENSUS_FIN - SENSUS_INI, 2)
     em, ee = round(_err(dm, app_m), 1), round(_err(de, app_e), 1)
     stm, ste = _estado(em), _estado(ee)
     print(f"Matriz UNA validación: {dm} vs {app_m} → {em}%")
-    print(f"Etapa5 UNA validación: {de} vs {app_e} → {ee}%")
+    print(f"Etapa5 UNA validación: Sensus {de} vs App {app_e} → {ee}% (app>sensus={app_e > de})")
 
     docx_m = build_matriz(app_m, em, stm, len(sm))
     docx_e = build_etapa5(app_e, ee, ste, len(se))
