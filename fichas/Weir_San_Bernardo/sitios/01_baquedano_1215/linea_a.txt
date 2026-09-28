@@ -1,5 +1,5 @@
 Diámetro: 1 1/2 pulgada
-Actividad hídrica: Abastecimiento camión
+Actividad hídrica: Abastece camión aljibe, alimenta punto de entrenamiento de brigadistas, camarines frontera y estanques de riego
 Remarcado cliente: No existe
 Material de la matriz: PVC
 Factibilidad eléctrica 220 V: 35 mt
