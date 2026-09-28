@@ -91,6 +91,13 @@ def _fmt_m3(valor: float) -> str:
     return f"{valor:.3f}".replace(".", ",")
 
 
+def _horario(hora: int) -> str:
+    """La lectura de las HH:00 es el caudal de HH:00 a HH+1:00."""
+    fin = hora + 1
+    cierre = "24:00" if fin == 24 else f"{fin:02d}:00"
+    return f"{hora:02d}:00 a {cierre}"
+
+
 def armar_correo(
     alerta: dict,
     dia: date,
@@ -98,25 +105,40 @@ def armar_correo(
     filas: list[tuple[date, int, float]],
 ) -> tuple[str, str]:
     umbral = float(alerta["umbral_m3h"])
+    horarios = [_horario(hora) for _fecha, hora, _valor in filas]
+    if len(horarios) == 1:
+        cuando = f"de {horarios[0]}"
+    elif len(horarios) == 2:
+        cuando = f"de {horarios[0]} y de {horarios[1]}"
+    else:
+        cuando = f"en {len(horarios)} horarios"
     asunto = (
         f"Alerta Fundo Zapallar — Etapa N°5 superó {_fmt_m3(umbral)} m³/h "
-        f"({revision})"
+        f"{cuando}"
     )
     lineas = [
         "Estimados Aníbal y Juan,",
         "",
         (
-            f"En la revisión de las {revision} del {dia.strftime('%d-%m-%Y')}, "
             f"{alerta['punto']} del {alerta['cliente']} ({alerta['nodeId']}) "
-            f"superó {_fmt_m3(umbral)} m³/h."
+            f"superó {_fmt_m3(umbral)} m³/h en este horario:"
         ),
-        alerta.get("motivo") or "Ese es el caudal máximo de la tubería de 3 pulgadas.",
         "",
-        "Horas sobre el umbral:",
     ]
     for fecha, hora, valor in filas:
-        lineas.append(f"- {fecha.strftime('%d-%m-%Y')} {hora:02d}:00 — {_fmt_m3(valor)} m³/h")
-    lineas.extend(["", "Saludos,", "Agente WES"])
+        lineas.append(
+            f"- {fecha.strftime('%d-%m-%Y')}, de {_horario(hora)}: {_fmt_m3(valor)} m³/h"
+        )
+    lineas.extend(
+        [
+            "",
+            alerta.get("motivo") or "Ese es el caudal máximo de la tubería de 3 pulgadas.",
+            f"Revisión de las {revision} del {dia.strftime('%d-%m-%Y')}.",
+            "",
+            "Saludos,",
+            "Agente WES",
+        ]
+    )
     return asunto, "\n".join(lineas) + "\n"
 
 

@@ -2,7 +2,7 @@
 
 Las alertas de clientes las genera este agente. No se crean ni se editan alertas de la plataforma (FILTRATION, LEAK, umbral o destinatarios en `/configuration/companies/.../alert`).
 
-La primera alerta configurada es Etapa N°5 de Fundo Zapallar (`000027-03`): avisar solo si alguna hora supera 60 m³/h. Revisiones a las 08:00, 16:00 y 23:00, hora Chile. Correo a Aníbal y Juan.
+La primera alerta configurada es Etapa N°5 de Fundo Zapallar (`000027-03`): avisar solo si alguna hora supera 60 m³/h. Revisiones a las 08:00, 16:00 y 23:00, hora Chile. El correo a Aníbal y Juan dice el horario en que se superó, por ejemplo «de 14:00 a 15:00».
 
 - Definición: `alertas_agente.json`, lista `alertas`.
 - Ejecución: `python revisar_alerta_etapa5_zapallar.py`.

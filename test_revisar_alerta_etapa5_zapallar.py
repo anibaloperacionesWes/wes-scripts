@@ -52,9 +52,9 @@ class UmbralTests(unittest.TestCase):
             "motivo": "Una tubería de 3 pulgadas entrega como máximo 60 m³/h.",
         }
         asunto, cuerpo = armar_correo(alerta, DIA, "16:00", [(DIA, 14, 72.5)])
-        self.assertIn("16:00", asunto)
-        self.assertIn("14:00", cuerpo)
-        self.assertIn("72,500", cuerpo)
+        self.assertIn("de 14:00 a 15:00", asunto)
+        self.assertIn("de 14:00 a 15:00: 72,500 m³/h", cuerpo)
+        self.assertIn("Revisión de las 16:00", cuerpo)
         self.assertIn("Aníbal y Juan", cuerpo)
 
 
