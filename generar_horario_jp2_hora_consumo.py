@@ -461,6 +461,332 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
     return wb
 
 
+AZUL_HDR = PatternFill("solid", fgColor="1F4E79")
+AZUL_APP = PatternFill("solid", fgColor="2E75B6")
+ROJO_CTA = PatternFill("solid", fgColor="C00000")
+VERDE_PROM = PatternFill("solid", fgColor="C6EFCE")
+GRIS = PatternFill("solid", fgColor="D9E1F2")
+FONT_BLANCO = Font(color="FFFFFF", bold=True, size=9)
+
+# Períodos de boleta Juan Pablo II (Aguas Andinas, corte 12:00).
+PERIODOS_FACTURA = [
+    {
+        "mes": "ene-2026",
+        "d0": date(2025, 11, 29),
+        "d1": date(2025, 12, 30),
+        "ini": "29-11-2025 12:00",
+        "fin": "30-12-2025 12:00",
+        "dif": 90.0,
+        "estimado": True,
+        "hora_fin": 12,
+    },
+    {
+        "mes": "feb-2026",
+        "d0": date(2025, 12, 30),
+        "d1": date(2026, 1, 29),
+        "ini": "30-12-2025 12:00",
+        "fin": "29-01-2026 12:00",
+        "dif": 159.0,
+        "estimado": True,
+        "hora_fin": 12,
+    },
+    {
+        "mes": "mar-2026",
+        "d0": date(2026, 1, 29),
+        "d1": date(2026, 2, 27),
+        "ini": "29-01-2026 12:00",
+        "fin": "27-02-2026 12:00",
+        "dif": 159.0,
+        "estimado": True,
+        "hora_fin": 12,
+    },
+    {
+        "mes": "abr-2026",
+        "d0": date(2026, 2, 27),
+        "d1": date(2026, 3, 30),
+        "ini": "27-02-2026 12:00",
+        "fin": "30-03-2026 12:00",
+        "dif": 159.0,
+        "estimado": True,
+        "hora_fin": 12,
+    },
+    {
+        "mes": "may-2026",
+        "d0": date(2025, 10, 29),
+        "d1": date(2026, 4, 29),
+        "ini": "29-10-2025 12:00  (72.170 m³)",
+        "fin": "29-04-2026 12:00  (72.937 m³)",
+        "dif": 767.0,
+        "estimado": False,
+        "hora_fin": 12,
+    },
+    {
+        "mes": "jun-2026",
+        "d0": date(2026, 4, 29),
+        "d1": date(2026, 5, 29),
+        "ini": "29-04-2026 12:00  (72.937 m³)",
+        "fin": "29-05-2026 12:00  (72.986 m³)",
+        "dif": 49.0,
+        "estimado": False,
+        "hora_fin": 12,
+    },
+    {
+        "mes": "jul-2026",
+        "d0": date(2026, 5, 29),
+        "d1": date(2026, 6, 27),
+        "ini": "29-05-2026 12:00  (72.986 m³)",
+        "fin": "27-06-2026 12:00",
+        "dif": 125.0,
+        "estimado": True,
+        "hora_fin": 12,
+    },
+    {
+        "mes": "ago-2026",
+        "d0": date(2026, 5, 29),
+        "d1": date(2026, 7, 29),
+        "ini": "29-05-2026 12:00  (72.986 m³)",
+        "fin": "29-07-2026 12:00  (73.206 m³)",
+        "dif": 220.0,
+        "estimado": False,
+        "hora_fin": 12,
+    },
+    {
+        "mes": "sep-2026",
+        "d0": date(2026, 7, 29),
+        "d1": date(2026, 8, 29),
+        "ini": "29-07-2026 12:00  (73.206 m³)",
+        "fin": "29-08-2026 12:00  (73.303 m³)",
+        "dif": 97.0,
+        "estimado": False,
+        "hora_fin": 12,
+    },
+    {
+        "mes": "terreno 25-sep",
+        "d0": date(2026, 8, 29),
+        "d1": date(2026, 9, 25),
+        "ini": "29-08-2026 12:00  (73.303 m³)",
+        "fin": "25-09-2026 11:00  (73.385 m³)",
+        "dif": 82.0,
+        "estimado": False,
+        "hora_fin": 11,
+    },
+]
+
+
+def _horas_dia(horas: dict[date, dict[int, float]], dia: date) -> dict[int, float]:
+    return horas.get(dia) or {i: 0.0 for i in range(24)}
+
+
+def _total_placa_periodo(
+    horas: dict[date, dict[int, float]],
+    d0: date,
+    d1: date,
+    hora_fin: int = 12,
+) -> float:
+    """Suma horaria WES con corte mediodía: inicio 12:00–23:59, final 00:00–hora_fin."""
+    if d1 < d0:
+        return 0.0
+    h0 = _horas_dia(horas, d0)
+    if d0 == d1:
+        return sum(h0.get(i, 0.0) for i in range(12, hora_fin)) if hora_fin > 12 else 0.0
+    tot = sum(h0.get(i, 0.0) for i in range(12, 24))
+    d = d0 + timedelta(days=1)
+    while d < d1:
+        tot += sum(_horas_dia(horas, d).values())
+        d += timedelta(days=1)
+    h1 = _horas_dia(horas, d1)
+    tot += sum(h1.get(i, 0.0) for i in range(0, hora_fin))
+    return tot
+
+
+def _fraccion_tarde(horas: dict[date, dict[int, float]], dia: date) -> float:
+    h = _horas_dia(horas, dia)
+    tot = sum(h.values())
+    if tot <= 0:
+        return 0.5
+    return sum(h.get(i, 0.0) for i in range(12, 24)) / tot
+
+
+def _fraccion_manana(horas: dict[date, dict[int, float]], dia: date, hora_fin: int) -> float:
+    h = _horas_dia(horas, dia)
+    tot = sum(h.values())
+    if tot <= 0:
+        return 0.5
+    return sum(h.get(i, 0.0) for i in range(0, hora_fin)) / tot
+
+
+def _listado_periodo(
+    horas: dict[date, dict[int, float]],
+    d0: date,
+    d1: date,
+    hora_fin: int = 12,
+) -> float | None:
+    """Suma Listado CSV del período, partiendo inicio/cierre con el mismo corte 12:00."""
+    if d1 < d0:
+        return None
+    hay = False
+    tot = 0.0
+    if d0 == d1:
+        if d0 in LISTADO:
+            return _num(LISTADO[d0] * _fraccion_tarde(horas, d0))
+        return None
+    if d0 in LISTADO:
+        hay = True
+        tot += LISTADO[d0] * _fraccion_tarde(horas, d0)
+    d = d0 + timedelta(days=1)
+    while d < d1:
+        if d in LISTADO:
+            hay = True
+            tot += LISTADO[d]
+        d += timedelta(days=1)
+    if d1 in LISTADO:
+        hay = True
+        tot += LISTADO[d1] * _fraccion_manana(horas, d1, hora_fin)
+    return _num(tot) if hay else None
+
+
+def _pintar_dif(cell, delta: float | None) -> None:
+    if delta is None:
+        return
+    if delta > 0.05:
+        cell.fill = AZUL_APP
+        cell.font = Font(bold=True, color="FFFFFF", size=10)
+    elif delta < -0.05:
+        cell.fill = ROJO_CTA
+        cell.font = Font(bold=True, color="FFFFFF", size=10)
+
+
+def construir_facturaciones(wb: Workbook, horas: dict[date, dict[int, float]]) -> None:
+    if "Facturaciones" in wb.sheetnames:
+        del wb["Facturaciones"]
+    ws = wb.create_sheet("Facturaciones", 1)
+    headers = [
+        "Mes",
+        "Lectura inicial (12:00)",
+        "Fecha lectura final y lectura (12:00)",
+        "Diferencia entre lecturas (m³)",
+        "Consumo app WES (Total consumo registro de la placa)",
+        "Consumo app WES (Listado consumo sacado del csv de la placa)",
+        "Diferencia lecturas con total",
+        "Diferencia lecturas con Listado",
+    ]
+    ws.append(headers)
+    for col in range(1, 9):
+        c = ws.cell(1, col)
+        c.fill = AZUL_HDR
+        c.font = FONT_BLANCO
+        c.alignment = Alignment(horizontal="center", wrap_text=True, vertical="center")
+        c.border = THIN
+    ws.row_dimensions[1].height = 48
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=8)
+    ws["A2"] = f"{NOMBRE} ({NODE}) — un renglón por período de facturación. Corte Aguas Andinas 12:00."
+    ws["A2"].font = Font(bold=True, size=11, color="003366")
+    ws["A2"].alignment = Alignment(vertical="center")
+
+    tot_cta = tot_placa = tot_lis = 0.0
+    n_lis = 0
+    for p in PERIODOS_FACTURA:
+        placa = _total_placa_periodo(horas, p["d0"], p["d1"], p["hora_fin"])
+        lista = _listado_periodo(horas, p["d0"], p["d1"], p["hora_fin"])
+        dif_cta = float(p["dif"])
+        d_tot = _num(placa) - dif_cta
+        d_lis = (_num(lista) - dif_cta) if lista is not None else None
+        ws.append(
+            [
+                p["mes"],
+                p["ini"],
+                p["fin"],
+                _num(dif_cta),
+                _num(placa),
+                _num(lista) if lista is not None else None,
+                _num(d_tot),
+                _num(d_lis) if d_lis is not None else None,
+            ]
+        )
+        row = ws.max_row
+        if not str(p["mes"]).startswith("terreno"):
+            tot_cta += dif_cta
+            tot_placa += placa
+            if lista is not None:
+                tot_lis += lista
+                n_lis += 1
+        if p["estimado"]:
+            for col in (1, 2, 3, 4):
+                ws.cell(row, col).fill = VERDE_PROM
+            ws.cell(row, 1).font = Font(bold=True, size=10, color="006100")
+        ws.cell(row, 5).fill = CELESTE
+        if lista is not None:
+            ws.cell(row, 6).fill = VERDE
+        _pintar_dif(ws.cell(row, 7), d_tot)
+        _pintar_dif(ws.cell(row, 8), d_lis)
+        for col in range(1, 9):
+            ws.cell(row, col).border = THIN
+            ws.cell(row, col).alignment = Alignment(horizontal="center", wrap_text=True, vertical="center")
+        for col in (4, 5, 6, 7, 8):
+            ws.cell(row, col).number_format = NUM_FMT
+        print(
+            f"  FACT {p['mes']} cta={dif_cta:.1f} total={placa:.2f} listado="
+            f"{lista if lista is not None else '-'} est={p['estimado']}",
+            flush=True,
+        )
+
+    ws.append(
+        [
+            "TOTAL",
+            "",
+            "",
+            _num(tot_cta),
+            _num(tot_placa),
+            _num(tot_lis) if n_lis else None,
+            _num(tot_placa - tot_cta),
+            _num(tot_lis - tot_cta) if n_lis else None,
+        ]
+    )
+    last = ws.max_row
+    for col in range(1, 9):
+        cell = ws.cell(last, col)
+        cell.font = Font(bold=True, size=10)
+        cell.border = THIN
+        cell.fill = GRIS
+        cell.alignment = CENTER
+    for col in (4, 5, 6, 7, 8):
+        ws.cell(last, col).number_format = NUM_FMT
+    ws.cell(last, 5).fill = CELESTE
+    ws.cell(last, 5).font = Font(bold=True, size=10)
+    if n_lis:
+        ws.cell(last, 6).fill = VERDE
+        ws.cell(last, 6).font = Font(bold=True, size=10)
+    _pintar_dif(ws.cell(last, 7), tot_placa - tot_cta)
+    if n_lis:
+        _pintar_dif(ws.cell(last, 8), tot_lis - tot_cta)
+
+    ws.freeze_panes = "A3"
+    anchos = [16, 36, 40, 22, 28, 32, 24, 26]
+    for i, w in enumerate(anchos, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    nota = last + 2
+    ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=8)
+    ws.cell(
+        nota,
+        1,
+        "Corte 12:00: día inicial 12:00–23:59 + días intermedios + día final 00:00–12:00 "
+        "(terreno 25-09 corta a las 11:00). Total = suma horaria de la placa. "
+        "Listado = CSV diario (01/03 a 28/09) partido con el mismo corte. "
+        "Verde en Mes = cobro a promedio. Celeste = Total. Verde = Listado. "
+        "Azul = app > cuenta. Rojo = cuenta > app.",
+    )
+    ws.cell(nota, 1).font = Font(size=9, italic=True, color="006100")
+    ws.cell(nota, 1).alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[nota].height = 42
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A3
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = "1:2"
+    ws.sheet_view.showGridLines = False
+
+
 def _copiar_a_general(ws) -> Path | None:
     gen = OUT_DIR / "Lecturas_vs_WES_medio_dia_CORMUP_20260929_1418.xlsx"
     if not gen.is_file():
@@ -495,7 +821,14 @@ def main() -> None:
     cache = _cargar_horas_xlsx(prev[-1]) if prev else {}
     print(f"[INFO] cache {len(cache)} días; faltan {sum(1 for d in dias if d not in cache)}", flush=True)
     horas = _horas_rango(dias, cache)
+    extra = _dias_unicos(date(2025, 10, 29), D1)
+    print(
+        f"[INFO] facturaciones: extra {sum(1 for d in extra if d not in horas)} días",
+        flush=True,
+    )
+    horas = _horas_rango(extra, horas)
     wb = construir_horario(dias, horas)
+    construir_facturaciones(wb, horas)
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     out = OUT_DIR / f"Horario_JP2_hora_consumo_{ts}.xlsx"
     wb.save(out)
