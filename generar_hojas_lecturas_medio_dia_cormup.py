@@ -3,10 +3,10 @@ Una hoja por colegio CORMUP: lecturas de la cuenta vs WES (día completo y medio
 
 Columnas:
   1 Mes
-  2 Lectura inicial (fecha)
-  3 Fecha lectura final y lectura (m³ del medidor)
+  2 Lectura inicial — siempre 12:00 (Aguas Andinas). Desde las 12:00 en adelante cuenta.
+  3 Fecha lectura final y lectura — boleta también a las 12:00
   4 Diferencia entre lecturas (m³ cuenta / turbina)
-  5 Consumo app WES entre las fechas de lectura (días completos)
+  5 Consumo app WES entre las fechas de lectura (días completos; no usar para cruzar)
   6 Consumo app WES medio día: día inicio 12:00–23:59 + intermedios + día final 00:00–12:00
   7 Diferencia de consumo (WES medio día − m³ cuenta)
     Azul = la app marca más que la cuenta; rojo = la cuenta marca más que la app.
@@ -191,8 +191,8 @@ def _write_sheet(ws, sitio: Sitio, filas: List[dict]) -> None:
     ws.append(
         [
             "Mes",
-            "Lectura inicial",
-            "Fecha lectura final y lectura",
+            "Lectura inicial (12:00)",
+            "Fecha lectura final y lectura (12:00)",
             "Diferencia entre lecturas (m³)",
             "Consumo app WES (fechas completas)",
             "Consumo app WES (medio día)",
@@ -221,10 +221,10 @@ def _write_sheet(ws, sitio: Sitio, filas: List[dict]) -> None:
 
     tot_cta = tot_full = tot_mid = 0.0
     for r in filas:
-        ini = r["lect_ini_fecha"].strftime("%d-%m-%Y")
+        ini = r["lect_ini_fecha"].strftime("%d-%m-%Y") + " 12:00"
         if r["lect_ini_m3"] is not None:
             ini = f"{ini}  ({format_number_chilean(r['lect_ini_m3'], 0)} m³)"
-        fin = r["lect_fin_fecha"].strftime("%d-%m-%Y")
+        fin = r["lect_fin_fecha"].strftime("%d-%m-%Y") + " 12:00"
         if r["lect_fin_m3"] is not None:
             fin = f"{fin}  ({format_number_chilean(r['lect_fin_m3'], 0)} m³)"
         ws.append(
@@ -293,14 +293,14 @@ def _write_sheet(ws, sitio: Sitio, filas: List[dict]) -> None:
         ws.cell(last, 7).font = Font(bold=True, color="FFFFFF")
 
     ws.freeze_panes = "A3"
-    for i, w in enumerate([12, 28, 28, 22, 28, 26, 28], start=1):
+    for i, w in enumerate([12, 32, 32, 22, 28, 26, 28], start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
     nota = last + 2
     ws.cell(
         nota,
         1,
-        "Verde = ese mes se cobró a promedio/estimado. "
-        "Azul = la app WES marca más que la cuenta. Rojo = la cuenta marca más que la app.",
+        "Lectura Aguas Andinas = 12:00. Desde las 12:00 de la inicial cuenta el WES. "
+        "Verde = promedio/estimado. Azul = app > cuenta. Rojo = cuenta > app.",
     )
     ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=7)
     ws.cell(nota, 1).font = Font(size=9, italic=True, color="006100")
@@ -371,8 +371,9 @@ def _write_resumen(ws, bloques: List[Tuple[Sitio, List[dict]]]) -> None:
     ws.cell(
         nota + 1,
         1,
-        "WES medio día: día de lectura inicial 12:00–23:59; días intermedios completos; "
-        "día de lectura final 00:00–12:00. Verde = ese mes se cobró a promedio/estimado.",
+        "Aguas Andinas se considera a las 12:00. Lectura inicial = 12:00 de ese día; "
+        "desde las 12:00 en adelante cuenta el WES (12:00–23:59 + intermedios + día final 00:00–12:00). "
+        "Verde = ese mes se cobró a promedio/estimado.",
     )
     ws.merge_cells(start_row=nota + 1, start_column=1, end_row=nota + 1, end_column=7)
 
