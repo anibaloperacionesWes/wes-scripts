@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from copy import copy
@@ -100,6 +101,11 @@ HDR = PatternFill("solid", fgColor="D9D9D9")
 SUB = PatternFill("solid", fgColor="F2F2F2")
 TOT = PatternFill("solid", fgColor="D9E1F2")
 LIS = PatternFill("solid", fgColor="C6EFCE")
+ROJO = PatternFill("solid", fgColor="FFC7CE")
+ROJO_HDR = PatternFill("solid", fgColor="FF6B6B")
+FONT_OK = Font(bold=True, size=9)
+FONT_ROJO = Font(bold=True, size=9, color="9C0006")
+FONT_ROJO_HDR = Font(bold=True, size=9, color="FFFFFF")
 THIN = Border(
     left=Side(style="thin", color="B0B0B0"),
     right=Side(style="thin", color="B0B0B0"),
@@ -110,11 +116,18 @@ CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 
 NUM_FMT = "0.00"
+TOL_M3 = 0.01  # descuadre Listado vs Total WES (2 decimales)
 
 
 def _num(v: float) -> float:
     """Número real con 2 decimales (punto) para que Excel/Sheets pueda sumar."""
     return round(float(v), 2)
+
+
+def _no_cuadra(listado: float | None, wes_total: float) -> bool:
+    if listado is None:
+        return False
+    return abs(_num(listado) - _num(wes_total)) > TOL_M3
 
 
 def _dias_unicos(d0: date, d1: date) -> list[date]:
@@ -180,7 +193,7 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
     ws["A1"] = (
         f"{NOMBRE} ({NODE}) — 1ª columna Hora; consumo por fecha a la derecha "
         f"({D0.strftime('%d-%m')} a {D1.strftime('%d-%m')}). Día repetido no se suma. "
-        "Fila Listado = valores diarios pegados según fecha."
+        "Fila Listado = valores diarios según fecha. Rojo = Listado no cuadra con Total WES."
     )
     ws["A1"].font = Font(bold=True, size=12, color="003366")
     ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
@@ -197,14 +210,16 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
 
     for i, dia in enumerate(dias):
         col = 2 + i
+        wes_tot = sum(horas[dia].values())
+        descuadre = _no_cuadra(LISTADO.get(dia), wes_tot)
         top = ws.cell(2, col, f"Fecha  {dia.strftime('%d/%m/%Y')}")
-        top.fill = HDR
-        top.font = Font(bold=True, size=9)
+        top.fill = ROJO_HDR if descuadre else HDR
+        top.font = FONT_ROJO_HDR if descuadre else Font(bold=True, size=9)
         top.alignment = Alignment(horizontal="center", wrap_text=True, vertical="center")
         top.border = THIN
         sub = ws.cell(3, col, "Consumo")
-        sub.fill = SUB
-        sub.font = Font(bold=True, size=9)
+        sub.fill = ROJO if descuadre else SUB
+        sub.font = FONT_ROJO if descuadre else Font(bold=True, size=9)
         sub.alignment = CENTER
         sub.border = THIN
         ws.column_dimensions[get_column_letter(col)].width = 14
@@ -234,12 +249,14 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
     t.fill = TOT
     for i, dia in enumerate(dias):
         col = get_column_letter(2 + i)
+        wes_tot = sum(horas[dia].values())
+        descuadre = _no_cuadra(LISTADO.get(dia), wes_tot)
         b = ws.cell(rt, 2 + i, f"=SUM({col}4:{col}27)")
         b.number_format = NUM_FMT
-        b.font = Font(bold=True, size=9)
+        b.font = FONT_ROJO if descuadre else FONT_OK
         b.alignment = CENTER
         b.border = THIN
-        b.fill = TOT
+        b.fill = ROJO if descuadre else TOT
 
     rl = 29
     lab = ws.cell(rl, 1, "Listado")
@@ -247,15 +264,44 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
     lab.alignment = CENTER
     lab.border = THIN
     lab.fill = LIS
+    n_rojo = 0
     for i, dia in enumerate(dias):
         val = LISTADO.get(dia)
+        wes_tot = sum(horas[dia].values())
+        descuadre = _no_cuadra(val, wes_tot)
         cell = ws.cell(rl, 2 + i, _num(val) if val is not None else None)
         if val is not None:
             cell.number_format = NUM_FMT
-        cell.font = Font(bold=True, size=9)
+        cell.font = FONT_ROJO if descuadre else FONT_OK
         cell.alignment = CENTER
         cell.border = THIN
-        cell.fill = LIS
+        cell.fill = ROJO if descuadre else LIS
+        if descuadre:
+            n_rojo += 1
+            print(
+                f"  ROJO {dia.strftime('%d/%m')} listado={_num(val)} total={_num(wes_tot)} "
+                f"delta={(_num(val) - _num(wes_tot)):+.2f}",
+                flush=True,
+            )
+
+    ultima = get_column_letter(1 + len(dias))
+    ws.conditional_formatting.add(
+        f"B29:{ultima}29",
+        FormulaRule(
+            formula=["ABS(B29-B28)>0.01"],
+            fill=ROJO,
+            font=FONT_ROJO,
+        ),
+    )
+    ws.conditional_formatting.add(
+        f"B28:{ultima}28",
+        FormulaRule(
+            formula=["ABS(B29-B28)>0.01"],
+            fill=ROJO,
+            font=FONT_ROJO,
+        ),
+    )
+    print(f"[INFO] {n_rojo} días no cuadran (Listado vs Total)", flush=True)
 
     ws.freeze_panes = "B4"
     ws.page_setup.orientation = "landscape"
