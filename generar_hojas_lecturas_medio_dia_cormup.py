@@ -57,6 +57,47 @@ THIN = Border(
     bottom=Side(style="thin", color="B0B0B0"),
 )
 
+# Lecturas de medidor en terreno (visita 25-09-2026). WES desde las 12:00
+# de la última lectura real de Aguas Andinas hasta la hora de terreno.
+LECTURAS_TERRENO = {
+    "000008-10": {
+        "hora": "25-09-2026 12:00",
+        "indice": 278575.0,
+        "boleta_12": "31-08-2026 12:00  (278.356 m³)",
+        "texto": "25-09-2026 12:00  (278.575 m³)",
+        "delta": 219.0,
+        "wes": 133.2,
+        "nota_hora": "hora no informada; corte 12:00",
+    },
+    "000008-12": {
+        "hora": "25-09-2026 12:41",
+        "indice": 105510.0,
+        "boleta_12": "31-08-2026 12:00  (104.477 m³)",
+        "texto": "25-09-2026 12:41  (105.510 m³)",
+        "delta": 1033.0,
+        "wes": 2011.5,
+        "nota_hora": "",
+    },
+    "000008-13": {
+        "hora": "25-09-2026 11:35",
+        "indice": 59363.0,
+        "boleta_12": "29-08-2026 12:00  (59.257 m³)",
+        "texto": "25-09-2026 11:35  (59.363 m³)",
+        "delta": 106.0,
+        "wes": 277.7,
+        "nota_hora": "",
+    },
+    "000008-14": {
+        "hora": "25-09-2026 11:00",
+        "indice": 73385.0,
+        "boleta_12": "29-08-2026 12:00  (73.303 m³)",
+        "texto": "25-09-2026 11:00  (73.385 m³)",
+        "delta": 82.0,
+        "wes": 104.7,
+        "nota_hora": "",
+    },
+}
+
 
 def _parse_m3_cl(s: str) -> Optional[float]:
     s = (s or "").strip().replace(" ", "")
@@ -314,6 +355,7 @@ def _write_sheet(ws, sitio: Sitio, filas: List[dict]) -> None:
 
 
 def _write_resumen(ws, bloques: List[Tuple[Sitio, List[dict]]]) -> None:
+    ncols = 12
     ws.append(
         [
             "Colegio",
@@ -323,21 +365,34 @@ def _write_resumen(ws, bloques: List[Tuple[Sitio, List[dict]]]) -> None:
             "m³ WES días completos",
             "m³ WES medio día",
             "Dif. (WES ½ día − cuenta)",
+            "Lectura boleta 12:00 (última real)",
+            "Lectura terreno 25-09",
+            "Δ m³ turbina (terreno − boleta)",
+            "m³ WES desde las 12:00",
+            "Dif. WES − turbina (terreno)",
         ]
     )
-    for col in range(1, 8):
+    for col in range(1, ncols + 1):
         c = ws.cell(1, col)
         c.fill = AZUL_HDR
         c.font = BLANCO
         c.alignment = Alignment(horizontal="center", wrap_text=True)
-    ws.row_dimensions[1].height = 28
+    ws.row_dimensions[1].height = 32
     tot = [0.0, 0.0, 0.0]
+    tot_t = [0.0, 0.0, 0.0]
+    n_ter = 0
     for sitio, filas in bloques:
         cta = sum(r["dif_lect"] for r in filas)
         full = sum(r["wes_full"] for r in filas)
         mid = sum(r["wes_mid"] for r in filas)
         dif = mid - cta
-        ws.append([sitio.node_name, sitio.node_id, len(filas), cta, round(full, 1), round(mid, 1), round(dif, 1)])
+        ter = LECTURAS_TERRENO.get(sitio.node_id)
+        extra: list = ["", "", "", ""]
+        if ter:
+            extra = [ter["boleta_12"], ter["texto"], ter["delta"], ter["wes"]]
+        ws.append(
+            [sitio.node_name, sitio.node_id, len(filas), cta, round(full, 1), round(mid, 1), round(dif, 1), *extra]
+        )
         tot[0] += cta
         tot[1] += full
         tot[2] += mid
@@ -348,34 +403,72 @@ def _write_resumen(ws, bloques: List[Tuple[Sitio, List[dict]]]) -> None:
         elif dif < -0.05:
             ws.cell(row, 7).fill = ROJO_CTA
             ws.cell(row, 7).font = Font(bold=True, color="FFFFFF")
-        for col in range(1, 8):
+        if ter:
+            n_ter += 1
+            dter = ter["wes"] - ter["delta"]
+            ws.cell(row, 12, round(dter, 1))
+            tot_t[0] += ter["delta"]
+            tot_t[1] += ter["wes"]
+            tot_t[2] += dter
+            ws.cell(row, 8).fill = VERDE_PROM
+            ws.cell(row, 9).fill = VERDE_PROM
+            ws.cell(row, 9).font = Font(bold=True, size=9, color="006100")
+            if dter > 0.05:
+                ws.cell(row, 11).fill = AZUL_APP
+                ws.cell(row, 11).font = Font(bold=True, color="FFFFFF")
+                ws.cell(row, 12).fill = AZUL_APP
+                ws.cell(row, 12).font = Font(bold=True, color="FFFFFF")
+            elif dter < -0.05:
+                ws.cell(row, 11).fill = ROJO_CTA
+                ws.cell(row, 11).font = Font(bold=True, color="FFFFFF")
+                ws.cell(row, 12).fill = ROJO_CTA
+                ws.cell(row, 12).font = Font(bold=True, color="FFFFFF")
+            ws.cell(row, 10).number_format = "#,##0.0"
+            ws.cell(row, 11).number_format = "#,##0.0"
+            ws.cell(row, 12).number_format = "#,##0.0"
+        for col in range(1, ncols + 1):
             ws.cell(row, col).border = THIN
-            ws.cell(row, col).alignment = Alignment(horizontal="center")
+            ws.cell(row, col).alignment = Alignment(horizontal="center", wrap_text=True)
         ws.cell(row, 1).alignment = Alignment(horizontal="left")
         for col in (4, 5, 6, 7):
             ws.cell(row, col).number_format = "#,##0.0"
-    ws.append(["TOTAL CORMUP", "000008", "", tot[0], round(tot[1], 1), round(tot[2], 1), round(tot[2] - tot[0], 1)])
-    for col in range(1, 8):
+    tot_row = [
+        "TOTAL CORMUP",
+        "000008",
+        "",
+        tot[0],
+        round(tot[1], 1),
+        round(tot[2], 1),
+        round(tot[2] - tot[0], 1),
+        f"{n_ter} colegios con lectura terreno",
+        "",
+        round(tot_t[0], 1) if n_ter else "",
+        round(tot_t[1], 1) if n_ter else "",
+        round(tot_t[2], 1) if n_ter else "",
+    ]
+    ws.append(tot_row)
+    for col in range(1, ncols + 1):
         cell = ws.cell(ws.max_row, col)
         cell.font = Font(bold=True)
         cell.fill = GRIS
         cell.border = THIN
-    for col in (4, 5, 6, 7):
-        ws.cell(ws.max_row, col).number_format = "#,##0.0"
+    for col in (4, 5, 6, 7, 10, 11, 12):
+        if ws.cell(ws.max_row, col).value != "":
+            ws.cell(ws.max_row, col).number_format = "#,##0.0"
     ws.freeze_panes = "A2"
-    for i, w in enumerate([28, 12, 10, 24, 22, 20, 26], start=1):
+    for i, w in enumerate([28, 12, 10, 24, 22, 20, 26, 32, 32, 18, 20, 22], start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
     nota = ws.max_row + 2
     ws.cell(nota, 1, "Azul = la app WES marca más que la cuenta. Rojo = la cuenta marca más que la app.")
-    ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=7)
+    ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=ncols)
     ws.cell(
         nota + 1,
         1,
-        "Aguas Andinas se considera a las 12:00. Lectura inicial = 12:00 de ese día; "
-        "desde las 12:00 en adelante cuenta el WES (12:00–23:59 + intermedios + día final 00:00–12:00). "
-        "Verde = ese mes se cobró a promedio/estimado.",
+        "Aguas Andinas = 12:00. Desde las 12:00 de la lectura inicial cuenta el WES. "
+        "Columnas H–L = visita terreno 25-09 (Matilde, Unión, Likankura, Juan Pablo II). "
+        "Verde = promedio/estimado en las hojas de colegio.",
     )
-    ws.merge_cells(start_row=nota + 1, start_column=1, end_row=nota + 1, end_column=7)
+    ws.merge_cells(start_row=nota + 1, start_column=1, end_row=nota + 1, end_column=ncols)
 
 
 def generar(skip_download: bool = False) -> Path:
