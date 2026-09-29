@@ -2,7 +2,7 @@
 Juan Pablo II (000008-14): 1ª columna Hora, consumo por fecha a la derecha.
 
 Fila 28 = Total (00:00–23:59, suma horaria WES).
-Fila 29 = Listado diario según fecha (29/07 a 28/09).
+Fila 29 = Listado diario según fecha (29/07 a 28/09; 01/03 a 28/07 vacío hasta que lo envíen).
 
 Uso:
   python generar_horario_jp2_hora_consumo.py
@@ -24,7 +24,7 @@ from wes_google_drive import credenciales_configuradas, subir_a_drive
 
 NODE = "000008-14"
 NOMBRE = "Juan Pablo II"
-D0 = date(2026, 7, 29)
+D0 = date(2026, 3, 1)
 D1 = date(2026, 9, 28)
 OUT_DIR = Path("reports/CORMUP/Facturaciones_vs_WES")
 DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
@@ -32,6 +32,7 @@ DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
 DRIVE_NOMBRE = "Horario_JP2_hora_consumo_20260929_1649.xlsx"
 
 # Listado diario pegado bajo Total, alineado por fecha.
+# 01/03 a 28/07: columnas de horas listas; Listado se completa cuando lo envíe el usuario.
 LISTADO = {
     date(2026, 7, 29): 4.17,
     date(2026, 7, 30): 5.16,
