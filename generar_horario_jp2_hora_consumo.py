@@ -1,8 +1,7 @@
 """
 Juan Pablo II (000008-14): 1ª columna Hora, consumo por fecha a la derecha.
 
-Fila 28 = Total (00:00–23:59, suma horaria WES).
-Fila 29 = Listado diario según fecha (29/07 a 28/09; 01/03 a 28/07 vacío hasta que lo envíen).
+Fila 28 = Total (celeste). Fila 29 = Listado (verde). Rojo solo si Listado ≠ Total.
 
 Uso:
   python generar_horario_jp2_hora_consumo.py
@@ -31,9 +30,173 @@ DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
 # Mismo archivo de Drive en el que estamos trabajando.
 DRIVE_NOMBRE = "Horario_JP2_hora_consumo_20260929_1649.xlsx"
 
-# Listado diario pegado bajo Total, alineado por fecha.
-# 01/03 a 28/07: columnas de horas listas; Listado se completa cuando lo envíe el usuario.
+# Listado diario pegado bajo Total, alineado por fecha (marzo–julio en 2026).
+_LISTADO_MAR_JUL = """
+2026-03-01 0.35
+2026-03-02 3.81
+2026-03-03 4.26
+2026-03-04 4.11
+2026-03-05 4.89
+2026-03-06 4.61
+2026-03-07 0.14
+2026-03-08 0.04
+2026-03-09 4.14
+2026-03-10 4.44
+2026-03-11 5.19
+2026-03-12 1.04
+2026-03-13 5.41
+2026-03-14 0.01
+2026-03-15 0.03
+2026-03-16 4.01
+2026-03-17 4.59
+2026-03-18 4.21
+2026-03-19 5.21
+2026-03-20 0.45
+2026-03-21 0.03
+2026-03-22 4.4
+2026-03-23 4.41
+2026-03-24 1.21
+2026-03-25 7.85
+2026-03-26 4.83
+2026-03-27 0.21
+2026-03-28 0.01
+2026-03-29 5.79
+2026-03-30 4.16
+2026-03-31 4.75
+2026-04-01 5.06
+2026-04-02 5.3
+2026-04-03 5.53
+2026-04-04 0.26
+2026-04-05 0.03
+2026-04-06 5.3
+2026-04-07 5.45
+2026-04-08 5.14
+2026-04-09 4.77
+2026-04-10 6.26
+2026-04-11 0.26
+2026-04-12 0.03
+2026-04-13 5.96
+2026-04-14 5.36
+2026-04-15 5.28
+2026-04-16 4.87
+2026-04-17 4.38
+2026-04-18 0.27
+2026-04-19 0.02
+2026-04-20 5.04
+2026-04-21 5.08
+2026-04-22 4.26
+2026-04-23 5.77
+2026-04-24 6.36
+2026-04-25 0.47
+2026-04-26 0.03
+2026-04-27 6.04
+2026-04-28 4.57
+2026-04-29 4.38
+2026-04-30 4.36
+2026-05-01 4.87
+2026-05-02 0.25
+2026-05-03 0.03
+2026-05-04 4.28
+2026-05-05 4.81
+2026-05-06 4.34
+2026-05-07 4.91
+2026-05-08 5.34
+2026-05-09 0.26
+2026-05-10 0.03
+2026-05-11 4.88
+2026-05-12 5.06
+2026-05-13 5.16
+2026-05-14 4.52
+2026-05-15 4.44
+2026-05-16 0.28
+2026-05-17 0.03
+2026-05-18 4.28
+2026-05-19 4.24
+2026-05-20 4.36
+2026-05-21 4.18
+2026-05-22 5.06
+2026-05-23 0.27
+2026-05-24 0.03
+2026-05-25 4.26
+2026-05-26 4.38
+2026-05-27 4.42
+2026-05-28 4.08
+2026-05-29 4.14
+2026-05-30 0.26
+2026-05-31 0.03
+2026-06-01 4.08
+2026-06-02 4.06
+2026-06-03 4.5
+2026-06-04 4.08
+2026-06-05 4.14
+2026-06-06 0.26
+2026-06-07 0.04
+2026-06-08 3.56
+2026-06-09 4.12
+2026-06-10 4.14
+2026-06-11 4.08
+2026-06-12 3.13
+2026-06-13 0.22
+2026-06-14 0.02
+2026-06-15 3.12
+2026-06-16 4.08
+2026-06-17 4.06
+2026-06-18 4.04
+2026-06-19 4.03
+2026-06-20 0.22
+2026-06-21 0.04
+2026-06-22 4.06
+2026-06-23 3.13
+2026-06-24 3.08
+2026-06-25 3.06
+2026-06-26 4.03
+2026-06-27 0.23
+2026-06-28 0.03
+2026-06-29 4.08
+2026-06-30 4.04
+2026-07-01 4.06
+2026-07-02 4.12
+2026-07-03 3.12
+2026-07-04 0.22
+2026-07-05 0.03
+2026-07-06 4.02
+2026-07-07 4.05
+2026-07-08 4.04
+2026-07-09 4.08
+2026-07-10 4.05
+2026-07-11 0.22
+2026-07-12 0.04
+2026-07-13 4.04
+2026-07-14 4.06
+2026-07-15 4.06
+2026-07-16 4.18
+2026-07-17 4.08
+2026-07-18 0.23
+2026-07-19 0.03
+2026-07-20 4.02
+2026-07-21 4.03
+2026-07-22 4.12
+2026-07-23 4.14
+2026-07-24 4.08
+2026-07-25 0.22
+2026-07-26 0.03
+2026-07-27 4.05
+"""
+
+
+def _parse_listado_blob(blob: str) -> dict[date, float]:
+    out: dict[date, float] = {}
+    for line in blob.strip().splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            continue
+        y, m, d = (int(x) for x in parts[0].split("-"))
+        out[date(2026, m, d)] = float(parts[1].replace(",", "."))
+    return out
+
+
 LISTADO = {
+    **_parse_listado_blob(_LISTADO_MAR_JUL),
     date(2026, 7, 29): 4.17,
     date(2026, 7, 30): 5.16,
     date(2026, 7, 31): 4.87,
@@ -100,13 +263,11 @@ LISTADO = {
 
 HDR = PatternFill("solid", fgColor="D9D9D9")
 SUB = PatternFill("solid", fgColor="F2F2F2")
-TOT = PatternFill("solid", fgColor="D9E1F2")
-LIS = PatternFill("solid", fgColor="C6EFCE")
+CELESTE = PatternFill("solid", fgColor="9DC3E6")
+VERDE = PatternFill("solid", fgColor="C6EFCE")
 ROJO = PatternFill("solid", fgColor="FFC7CE")
-ROJO_HDR = PatternFill("solid", fgColor="FF6B6B")
 FONT_OK = Font(bold=True, size=9)
 FONT_ROJO = Font(bold=True, size=9, color="9C0006")
-FONT_ROJO_HDR = Font(bold=True, size=9, color="FFFFFF")
 THIN = Border(
     left=Side(style="thin", color="B0B0B0"),
     right=Side(style="thin", color="B0B0B0"),
@@ -194,7 +355,7 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
     ws["A1"] = (
         f"{NOMBRE} ({NODE}) — 1ª columna Hora; consumo por fecha a la derecha "
         f"({D0.strftime('%d-%m')} a {D1.strftime('%d-%m')}). Día repetido no se suma. "
-        "Fila Listado = valores diarios según fecha. Rojo = Listado no cuadra con Total WES."
+        "Fila Total = celeste. Fila Listado = verde. Rojo solo si Listado no coincide con Total."
     )
     ws["A1"].font = Font(bold=True, size=12, color="003366")
     ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
@@ -211,16 +372,14 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
 
     for i, dia in enumerate(dias):
         col = 2 + i
-        wes_tot = sum(horas[dia].values())
-        descuadre = _no_cuadra(LISTADO.get(dia), wes_tot)
         top = ws.cell(2, col, f"Fecha  {dia.strftime('%d/%m/%Y')}")
-        top.fill = ROJO_HDR if descuadre else HDR
-        top.font = FONT_ROJO_HDR if descuadre else Font(bold=True, size=9)
+        top.fill = HDR
+        top.font = Font(bold=True, size=9)
         top.alignment = Alignment(horizontal="center", wrap_text=True, vertical="center")
         top.border = THIN
         sub = ws.cell(3, col, "Consumo")
-        sub.fill = ROJO if descuadre else SUB
-        sub.font = FONT_ROJO if descuadre else Font(bold=True, size=9)
+        sub.fill = SUB
+        sub.font = Font(bold=True, size=9)
         sub.alignment = CENTER
         sub.border = THIN
         ws.column_dimensions[get_column_letter(col)].width = 14
@@ -247,24 +406,22 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
     t.font = Font(bold=True, size=9)
     t.alignment = CENTER
     t.border = THIN
-    t.fill = TOT
+    t.fill = CELESTE
     for i, dia in enumerate(dias):
         col = get_column_letter(2 + i)
-        wes_tot = sum(horas[dia].values())
-        descuadre = _no_cuadra(LISTADO.get(dia), wes_tot)
         b = ws.cell(rt, 2 + i, f"=SUM({col}4:{col}27)")
         b.number_format = NUM_FMT
-        b.font = FONT_ROJO if descuadre else FONT_OK
+        b.font = FONT_OK
         b.alignment = CENTER
         b.border = THIN
-        b.fill = ROJO if descuadre else TOT
+        b.fill = CELESTE
 
     rl = 29
     lab = ws.cell(rl, 1, "Listado")
     lab.font = Font(bold=True, size=9)
     lab.alignment = CENTER
     lab.border = THIN
-    lab.fill = LIS
+    lab.fill = VERDE
     n_rojo = 0
     for i, dia in enumerate(dias):
         val = LISTADO.get(dia)
@@ -276,7 +433,7 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
         cell.font = FONT_ROJO if descuadre else FONT_OK
         cell.alignment = CENTER
         cell.border = THIN
-        cell.fill = ROJO if descuadre else LIS
+        cell.fill = ROJO if descuadre else VERDE
         if descuadre:
             n_rojo += 1
             print(
@@ -288,14 +445,6 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
     ultima = get_column_letter(1 + len(dias))
     ws.conditional_formatting.add(
         f"B29:{ultima}29",
-        FormulaRule(
-            formula=["ABS(B29-B28)>0.01"],
-            fill=ROJO,
-            font=FONT_ROJO,
-        ),
-    )
-    ws.conditional_formatting.add(
-        f"B28:{ultima}28",
         FormulaRule(
             formula=["ABS(B29-B28)>0.01"],
             fill=ROJO,
