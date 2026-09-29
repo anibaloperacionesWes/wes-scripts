@@ -2,8 +2,7 @@
 Juan Pablo II (000008-14): 1ª columna Hora, consumo por fecha a la derecha.
 
 Fila 28 = Total (00:00–23:59, suma horaria WES).
-Fila 29 = Listado diario solo donde el usuario lo entregó (29/07 a 28/08).
-Las columnas 29/08 a 28/09 son horas WES; Listado queda vacío.
+Fila 29 = Listado diario según fecha (29/07–28/08 y 29/08–28/09).
 
 Uso:
   python generar_horario_jp2_hora_consumo.py
@@ -28,9 +27,10 @@ D0 = date(2026, 7, 29)
 D1 = date(2026, 9, 28)
 OUT_DIR = Path("reports/CORMUP/Facturaciones_vs_WES")
 DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
+# Mismo archivo de Drive en el que estamos trabajando.
+DRIVE_NOMBRE = "Horario_JP2_hora_consumo_20260929_1649.xlsx"
 
-# Listado que el usuario pidió pegar bajo Total (29/07 a 28/08).
-# 29/08 a 28/09: solo columnas de horas; Listado vacío (no entregó esos valores).
+# Listado diario pegado bajo Total, alineado por fecha.
 LISTADO = {
     date(2026, 7, 29): 4.17,
     date(2026, 7, 30): 5.16,
@@ -63,6 +63,37 @@ LISTADO = {
     date(2026, 8, 26): 5.26,
     date(2026, 8, 27): 3.7,
     date(2026, 8, 28): 3.99,
+    date(2026, 8, 29): 5.17,
+    date(2026, 8, 30): 0.4,
+    date(2026, 8, 31): 3.43,
+    date(2026, 9, 1): 3.26,
+    date(2026, 9, 2): 5.68,
+    date(2026, 9, 3): 4.99,
+    date(2026, 9, 4): 4.69,
+    date(2026, 9, 5): 4.85,
+    date(2026, 9, 6): 0.36,
+    date(2026, 9, 7): 5.42,
+    date(2026, 9, 8): 7.21,
+    date(2026, 9, 9): 5.02,
+    date(2026, 9, 10): 5.43,
+    date(2026, 9, 11): 4.01,
+    date(2026, 9, 12): 0.0,
+    date(2026, 9, 13): 0.0,
+    date(2026, 9, 14): 0.0,
+    date(2026, 9, 15): 0.0,
+    date(2026, 9, 16): 0.0,
+    date(2026, 9, 17): 0.0,
+    date(2026, 9, 18): 0.0,
+    date(2026, 9, 19): 0.0,
+    date(2026, 9, 20): 0.0,
+    date(2026, 9, 21): 10.62,
+    date(2026, 9, 22): 11.28,
+    date(2026, 9, 23): 11.36,
+    date(2026, 9, 24): 11.02,
+    date(2026, 9, 25): 7.58,
+    date(2026, 9, 26): 0.0,
+    date(2026, 9, 27): 0.0,
+    date(2026, 9, 28): 12.44,
 }
 
 HDR = PatternFill("solid", fgColor="D9D9D9")
@@ -149,7 +180,7 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
     ws["A1"] = (
         f"{NOMBRE} ({NODE}) — 1ª columna Hora; consumo por fecha a la derecha "
         f"({D0.strftime('%d-%m')} a {D1.strftime('%d-%m')}). Día repetido no se suma. "
-        "Fila Listado: solo 29/07 a 28/08 (valores que enviaste). 29/08 a 28/09 sin listado."
+        "Fila Listado = valores diarios pegados según fecha."
     )
     ws["A1"].font = Font(bold=True, size=12, color="003366")
     ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
@@ -271,14 +302,13 @@ def main() -> None:
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     out = OUT_DIR / f"Horario_JP2_hora_consumo_{ts}.xlsx"
     wb.save(out)
+    estable = OUT_DIR / DRIVE_NOMBRE
+    if out.resolve() != estable.resolve():
+        estable.write_bytes(out.read_bytes())
     print("XLSX", out, "cols", wb.active.max_column)
-    gen = _copiar_a_general(wb.active)
     if credenciales_configuradas():
-        info = subir_a_drive(out, subcarpeta=DRIVE_SUB)
-        print("DRIVE", info["web_view_link"])
-        if gen is not None:
-            info2 = subir_a_drive(gen, subcarpeta=DRIVE_SUB)
-            print("DRIVE general", info2["web_view_link"])
+        info = subir_a_drive(estable, subcarpeta=DRIVE_SUB, nombre=DRIVE_NOMBRE)
+        print("DRIVE", info["id"], info["web_view_link"])
 
 
 if __name__ == "__main__":
