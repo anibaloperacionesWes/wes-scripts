@@ -75,8 +75,12 @@ THIN = Border(
 CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 
-def _fmt_m3(v: float) -> str:
-    return f"{v:.2f}".replace(".", ",")
+NUM_FMT = "0.00"
+
+
+def _num(v: float) -> float:
+    """Número real con 2 decimales (punto) para que Excel/Sheets pueda sumar."""
+    return round(float(v), 2)
 
 
 def _dias_unicos(d0: date, d1: date) -> list[date]:
@@ -145,7 +149,8 @@ def construir_horario(dias: list[date]) -> Workbook:
         a.fill = bg
         a.font = Font(bold=True, size=9)
         for i, dia in enumerate(dias):
-            b = ws.cell(r, 2 + i, _fmt_m3(horas[dia][h]))
+            b = ws.cell(r, 2 + i, _num(horas[dia][h]))
+            b.number_format = NUM_FMT
             b.alignment = CENTER
             b.border = THIN
             b.fill = bg
@@ -157,7 +162,9 @@ def construir_horario(dias: list[date]) -> Workbook:
     t.border = THIN
     t.fill = TOT
     for i, dia in enumerate(dias):
-        b = ws.cell(rt, 2 + i, _fmt_m3(sum(horas[dia].values())))
+        col = get_column_letter(2 + i)
+        b = ws.cell(rt, 2 + i, f"=SUM({col}4:{col}27)")
+        b.number_format = NUM_FMT
         b.font = Font(bold=True, size=9)
         b.alignment = CENTER
         b.border = THIN
@@ -171,7 +178,9 @@ def construir_horario(dias: list[date]) -> Workbook:
     lab.fill = LIS
     for i, dia in enumerate(dias):
         val = LISTADO.get(dia)
-        cell = ws.cell(rl, 2 + i, _fmt_m3(val) if val is not None else "")
+        cell = ws.cell(rl, 2 + i, _num(val) if val is not None else None)
+        if val is not None:
+            cell.number_format = NUM_FMT
         cell.font = Font(bold=True, size=9)
         cell.alignment = CENTER
         cell.border = THIN
