@@ -2,7 +2,8 @@
 Juan Pablo II (000008-14): 1ª columna Hora, consumo por fecha a la derecha.
 
 Fila 28 = Total (00:00–23:59, suma horaria WES).
-Fila 29 = Listado diario pegado por fecha (valores entregados por el usuario).
+Fila 29 = Listado diario solo donde el usuario lo entregó (29/07 a 28/08).
+Las columnas 29/08 a 28/09 son horas WES; Listado queda vacío.
 
 Uso:
   python generar_horario_jp2_hora_consumo.py
@@ -28,7 +29,8 @@ D1 = date(2026, 9, 28)
 OUT_DIR = Path("reports/CORMUP/Facturaciones_vs_WES")
 DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
 
-# Valores diarios del listado (coma decimal chilena → float), alineados por fecha.
+# Listado que el usuario pidió pegar bajo Total (29/07 a 28/08).
+# 29/08 a 28/09: solo columnas de horas; Listado vacío (no entregó esos valores).
 LISTADO = {
     date(2026, 7, 29): 4.17,
     date(2026, 7, 30): 5.16,
@@ -61,37 +63,6 @@ LISTADO = {
     date(2026, 8, 26): 5.26,
     date(2026, 8, 27): 3.7,
     date(2026, 8, 28): 3.99,
-    date(2026, 8, 29): 0.03,
-    date(2026, 8, 30): 0.03,
-    date(2026, 8, 31): 0.03,
-    date(2026, 9, 1): 4.33,
-    date(2026, 9, 2): 3.86,
-    date(2026, 9, 3): 4.26,
-    date(2026, 9, 4): 4.09,
-    date(2026, 9, 5): 0.03,
-    date(2026, 9, 6): 0.03,
-    date(2026, 9, 7): 4.54,
-    date(2026, 9, 8): 3.65,
-    date(2026, 9, 9): 4.16,
-    date(2026, 9, 10): 3.88,
-    date(2026, 9, 11): 4.16,
-    date(2026, 9, 12): 0.03,
-    date(2026, 9, 13): 0.03,
-    date(2026, 9, 14): 3.48,
-    date(2026, 9, 15): 4.24,
-    date(2026, 9, 16): 4.09,
-    date(2026, 9, 17): 4.59,
-    date(2026, 9, 18): 4.14,
-    date(2026, 9, 19): 0.03,
-    date(2026, 9, 20): 0.03,
-    date(2026, 9, 21): 4.16,
-    date(2026, 9, 22): 4.4,
-    date(2026, 9, 23): 3.91,
-    date(2026, 9, 24): 4.07,
-    date(2026, 9, 25): 3.99,
-    date(2026, 9, 26): 0.03,
-    date(2026, 9, 27): 0.03,
-    date(2026, 9, 28): 4.5,
 }
 
 HDR = PatternFill("solid", fgColor="D9D9D9")
@@ -178,7 +149,7 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
     ws["A1"] = (
         f"{NOMBRE} ({NODE}) — 1ª columna Hora; consumo por fecha a la derecha "
         f"({D0.strftime('%d-%m')} a {D1.strftime('%d-%m')}). Día repetido no se suma. "
-        "Fila bajo Total = listado diario según fecha."
+        "Fila Listado: solo 29/07 a 28/08 (valores que enviaste). 29/08 a 28/09 sin listado."
     )
     ws["A1"].font = Font(bold=True, size=12, color="003366")
     ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
