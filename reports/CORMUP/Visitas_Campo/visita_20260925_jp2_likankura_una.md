@@ -1,6 +1,6 @@
 # Visita de campo CORMUP — lecturas, medidor vs cuenta y ajuste ultrasonido
 
-**Fecha registro:** 2026-09-25  
+**Fecha registro:** 2026-09-25 (actualizado 2026-09-29)  
 **Cliente / red:** CORMUP (000008)  
 **Motivo:** Tomar lecturas en terreno, contrastar con cuenta / WES, y ajustar sensor de ultrasonido donde aplica.  
 **Hipótesis a auditar:** Es posible que en el pasado lecturas de Aguas Andinas no se hayan tomado realmente y se facture con un consumo promedio estimado; conviene seguimiento con segunda lectura.
@@ -67,15 +67,30 @@
 
 ---
 
+## 5. CE Valle Hermoso (Colegio Valle Hermoso) — 2026-09-29
+
+| Campo | Valor |
+|-------|--------|
+| Nodo WES | `000008-11` |
+| Nombre | CE Valle Hermoso |
+| Medidor Aguas Andinas | **Registro detenido** (no avanza) |
+| Lectura marcada en medidor | **255.210** (dictado: “dos cincuenta y cinco, dos diez”) |
+| Última lectura de referencia | Corresponde al **31 de julio** |
+
+**Estado:** Medidor de Aguas Andinas detenido en **255.210**, alineado con la última lectura del **31-07**. Revisar si hay consumo posterior solo vía WES / ultrasonido y gestionar con sanitarias / cliente.
+
+---
+
 ## Pendientes / seguimiento
 
 1. Corregir o validar cuenta–medidor en **Juan Pablo II** (`000008-14`) y **Likankura** (`000008-13`).
 2. Programar **segunda lectura** en **Unión Nacional Árabe** (`000008-12`) para auditar consumo entre lecturas vs factura Aguas Andinas vs WES.
 3. Completar / registrar **lectura inicial y final** en **Matilde Huici Navas** (`000008-10`) tras el ajuste de diámetro/ultrasonido.
-4. Documentar números de cuenta, lectura (m³), diámetro configurado y foto/medidor cuando estén disponibles (esta nota no incluye aún los valores numéricos).
+4. **Valle Hermoso** (`000008-11`): medidor Aguas Andinas detenido en 255.210 (última lectura 31-07) — contrastar consumo WES post-julio y escalar si corresponde.
+5. Documentar números de cuenta, fotos de medidor y diámetro configurado cuando falten valores numéricos adicionales.
 
 ---
 
 ## Nota de transcripción
 
-Dictado desde visita: “Juan Pablo Segundo”, “Liga Ancura”, “Unión Nacional Árabe”, “West”, “Matilde Huichinawa” → interpretados como Juan Pablo II, Likankura, Unión Nacional Árabe, WES y Matilde Huici Navas, según catálogo CORMUP del proyecto.
+Dictado desde visita: “Juan Pablo Segundo”, “Liga Ancura”, “Unión Nacional Árabe”, “West”, “Matilde Huichinawa”, “Valle Hermoso” / “dos cincuenta y cinco, dos diez” → interpretados como Juan Pablo II, Likankura, Unión Nacional Árabe, WES, Matilde Huici Navas, CE Valle Hermoso y lectura **255.210**, según catálogo CORMUP del proyecto.
