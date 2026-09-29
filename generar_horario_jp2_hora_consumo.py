@@ -2,7 +2,7 @@
 Juan Pablo II (000008-14): 1ª columna Hora, consumo por fecha a la derecha.
 
 Fila 28 = Total (00:00–23:59, suma horaria WES).
-Fila 29 = Listado diario según fecha (29/07 a 10/11).
+Fila 29 = Listado diario según fecha (29/07 a 28/09).
 
 Uso:
   python generar_horario_jp2_hora_consumo.py
@@ -25,7 +25,7 @@ from wes_google_drive import credenciales_configuradas, subir_a_drive
 NODE = "000008-14"
 NOMBRE = "Juan Pablo II"
 D0 = date(2026, 7, 29)
-D1 = date(2026, 11, 10)
+D1 = date(2026, 9, 28)
 OUT_DIR = Path("reports/CORMUP/Facturaciones_vs_WES")
 DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
 # Mismo archivo de Drive en el que estamos trabajando.
@@ -95,49 +95,6 @@ LISTADO = {
     date(2026, 9, 26): 0.0,
     date(2026, 9, 27): 0.0,
     date(2026, 9, 28): 12.44,
-    date(2026, 9, 29): 11.96,
-    date(2026, 9, 30): 12.16,
-    date(2026, 10, 1): 12.06,
-    date(2026, 10, 2): 11.66,
-    date(2026, 10, 3): 0.0,
-    date(2026, 10, 4): 0.0,
-    date(2026, 10, 5): 10.46,
-    date(2026, 10, 6): 11.08,
-    date(2026, 10, 7): 11.0,
-    date(2026, 10, 8): 10.72,
-    date(2026, 10, 9): 10.9,
-    date(2026, 10, 10): 0.02,
-    date(2026, 10, 11): 0.0,
-    date(2026, 10, 12): 10.52,
-    date(2026, 10, 13): 11.1,
-    date(2026, 10, 14): 10.58,
-    date(2026, 10, 15): 11.08,
-    date(2026, 10, 16): 10.94,
-    date(2026, 10, 17): 0.0,
-    date(2026, 10, 18): 0.0,
-    date(2026, 10, 19): 10.86,
-    date(2026, 10, 20): 11.12,
-    date(2026, 10, 21): 11.16,
-    date(2026, 10, 22): 11.08,
-    date(2026, 10, 23): 11.18,
-    date(2026, 10, 24): 0.0,
-    date(2026, 10, 25): 0.0,
-    date(2026, 10, 26): 11.26,
-    date(2026, 10, 27): 11.16,
-    date(2026, 10, 28): 10.92,
-    date(2026, 10, 29): 10.68,
-    date(2026, 10, 30): 10.7,
-    date(2026, 10, 31): 0.02,
-    date(2026, 11, 1): 0.0,
-    date(2026, 11, 2): 11.18,
-    date(2026, 11, 3): 11.26,
-    date(2026, 11, 4): 11.06,
-    date(2026, 11, 5): 10.98,
-    date(2026, 11, 6): 10.94,
-    date(2026, 11, 7): 0.02,
-    date(2026, 11, 8): 0.0,
-    date(2026, 11, 9): 10.92,
-    date(2026, 11, 10): 7.68,
 }
 
 HDR = PatternFill("solid", fgColor="D9D9D9")
