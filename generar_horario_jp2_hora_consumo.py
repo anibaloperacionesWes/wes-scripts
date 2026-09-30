@@ -4,6 +4,7 @@ Horario JP2 + Likancura y hoja Facturaciones.
 Hojas:
   H. JPII       — Juan Pablo II (000008-14), horas API + fila Listado.
   H. Likancura  — Likancura (000008-13), pegado app WES F/H/M.
+  Duplicados    — horas repetidas del pegado Likancura (no se suman dos veces).
   Facturaciones — comparativo boletas JP2.
 
 Uso:
@@ -39,6 +40,7 @@ DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
 # Mismo archivo de Drive en el que estamos trabajando.
 DRIVE_NOMBRE = "Horario_JP2_hora_consumo_20260929_1649.xlsx"
 LIK_JSON = OUT_DIR / "likancura_horario_horas.json"
+LIK_DUPS = OUT_DIR / "likancura_horario_duplicados.json"
 
 # Listado diario pegado bajo Total, alineado por fecha (marzo–julio en 2026).
 _LISTADO_MAR_JUL = """
@@ -277,6 +279,7 @@ SUB = PatternFill("solid", fgColor="F2F2F2")
 CELESTE = PatternFill("solid", fgColor="9DC3E6")
 VERDE = PatternFill("solid", fgColor="C6EFCE")
 ROJO = PatternFill("solid", fgColor="FFC7CE")
+AMARILLO_DUP = PatternFill("solid", fgColor="FFFF99")
 FONT_OK = Font(bold=True, size=9)
 FONT_ROJO = Font(bold=True, size=9, color="9C0006")
 THIN = Border(
@@ -324,7 +327,9 @@ def _cargar_horas_xlsx(
         return out
     wb = load_workbook(path, data_only=False)
     ws = None
-    if sheet_name and sheet_name in wb.sheetnames:
+    if sheet_name:
+        if sheet_name not in wb.sheetnames:
+            return out
         ws = wb[sheet_name]
     else:
         for name in ("H. JPII", "Horario"):
@@ -333,6 +338,8 @@ def _cargar_horas_xlsx(
                 break
         else:
             ws = wb.active
+    if ws is None:
+        return out
     for col in range(2, ws.max_column + 1):
         hdr = str(ws.cell(2, col).value or "")
         try:
@@ -457,6 +464,7 @@ def construir_horario(
     d1: date = D1,
     listado: dict[date, float] | None = None,
     nota: str | None = None,
+    resaltar: set[tuple[date, int]] | None = None,
 ) -> Workbook:
 
     if wb is None:
@@ -465,8 +473,11 @@ def construir_horario(
         ws.title = sheet_name
     else:
         if sheet_name in wb.sheetnames:
+            idx = wb.sheetnames.index(sheet_name)
             del wb[sheet_name]
-        ws = wb.create_sheet(sheet_name)
+            ws = wb.create_sheet(sheet_name, idx)
+        else:
+            ws = wb.create_sheet(sheet_name)
 
     extra = nota or (
         "Fila Total = celeste. Fila Listado = verde. Rojo solo si Listado no coincide con Total."
@@ -481,7 +492,7 @@ def construir_horario(
     )
     ws["A1"].font = Font(bold=True, size=12, color="003366")
     ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
-    ws.row_dimensions[1].height = 32
+    ws.row_dimensions[1].height = 48
 
     ws.merge_cells(start_row=2, start_column=1, end_row=3, end_column=1)
     c = ws.cell(2, 1, "Hora")
@@ -522,7 +533,11 @@ def construir_horario(
             b.number_format = NUM_FMT
             b.alignment = CENTER
             b.border = THIN
-            b.fill = bg
+            if resaltar and (dia, h) in resaltar:
+                b.fill = AMARILLO_DUP
+                b.font = Font(bold=True, size=9)
+            else:
+                b.fill = bg
 
     rt = 28
     t = ws.cell(rt, 1, "Total")
@@ -582,6 +597,227 @@ def construir_horario(
     ws.page_setup.paperSize = ws.PAPERSIZE_A3
     ws.print_title_rows = "1:3"
     return wb
+
+
+def _cargar_duplicados_likancura() -> dict:
+    if not LIK_DUPS.is_file():
+        return {
+            "triples_totales": 0,
+            "pares_unicos": 0,
+            "pares_duplicados": 0,
+            "conflictos": 0,
+            "secuencia": [],
+            "bloques": [],
+        }
+    return json.loads(LIK_DUPS.read_text(encoding="utf-8"))
+
+
+def _pares_secuencia_duplicados(dups: dict) -> set[tuple[date, int]]:
+    out: set[tuple[date, int]] = set()
+    for item in dups.get("secuencia") or []:
+        out.add((date.fromisoformat(str(item["fecha"])), int(item["hora"])))
+    return out
+
+
+def _fmt_bloque_dt(txt: str) -> str:
+    try:
+        dt = datetime.strptime(txt, "%Y-%m-%d %H:%M")
+    except ValueError:
+        return txt
+    return dt.strftime("%d/%m/%Y %H:%M")
+
+
+def construir_duplicados_likancura(wb: Workbook, dups: dict) -> None:
+    """Hoja con las horas repetidas del pegado F/H/M de Likancura."""
+    name = "Duplicados"
+    idx = wb.sheetnames.index("H. Likancura") + 1 if "H. Likancura" in wb.sheetnames else len(wb.sheetnames)
+    if name in wb.sheetnames:
+        del wb[name]
+        if idx > len(wb.sheetnames):
+            idx = len(wb.sheetnames)
+    ws = wb.create_sheet(name, idx)
+
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
+    ws["A1"] = (
+        f"{NOMBRE_LIK} ({NODE_LIK}) — horarios duplicados en el pegado de la app. "
+        "Cada fecha+hora queda una sola vez en H. Likancura; el Total no suma dos veces. "
+        "Ningún duplicado tenía m³ distintos."
+    )
+    ws["A1"].font = Font(bold=True, size=12, color="003366")
+    ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[1].height = 36
+
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=2)
+    ws["A3"] = "Resumen del pegado"
+    ws["A3"].font = Font(bold=True, size=11, color="FFFFFF")
+    ws["A3"].fill = AZUL_HDR
+    ws["A3"].alignment = Alignment(horizontal="left", vertical="center")
+    ws["B3"].fill = AZUL_HDR
+
+    resumen = [
+        ("Registros F/H/M", dups.get("triples_totales")),
+        ("Pares fecha+hora únicos", dups.get("pares_unicos")),
+        ("Horas duplicadas (mismo día y hora)", dups.get("pares_duplicados")),
+        ("Conflictos de valor (m³ distintos)", dups.get("conflictos")),
+    ]
+    for i, (label, val) in enumerate(resumen):
+        r = 4 + i
+        a = ws.cell(r, 1, label)
+        a.border = THIN
+        a.alignment = Alignment(horizontal="left", vertical="center")
+        a.fill = SUB
+        b = ws.cell(r, 2, val)
+        b.border = THIN
+        b.alignment = CENTER
+        b.font = FONT_OK
+        if label.startswith("Horas duplicadas"):
+            b.fill = AMARILLO_DUP
+        elif label.startswith("Conflictos") and int(val or 0) == 0:
+            b.fill = VERDE
+        else:
+            b.fill = PatternFill("solid", fgColor="FFFFFF")
+
+    ws.merge_cells(start_row=9, start_column=1, end_row=9, end_column=5)
+    ws["A9"] = (
+        "Tipo 1 — misma hora seguida en la secuencia (no es un re-pegue de bloque). "
+        "Celdas amarillas en H. Likancura."
+    )
+    ws["A9"].font = Font(bold=True, size=11, color="FFFFFF")
+    ws["A9"].fill = AZUL_HDR
+    ws["A9"].alignment = Alignment(wrap_text=True, vertical="center")
+    for col in range(2, 6):
+        ws.cell(9, col).fill = AZUL_HDR
+    ws.row_dimensions[9].height = 22
+
+    seq_hdr = ["Fecha", "Hora", "1.er valor (m³)", "2.º valor (m³)", "Qué se hizo"]
+    for col, h in enumerate(seq_hdr, start=1):
+        c = ws.cell(10, col, h)
+        c.fill = HDR
+        c.font = Font(bold=True, size=9)
+        c.alignment = CENTER
+        c.border = THIN
+
+    seq_rows = dups.get("secuencia") or []
+    if not seq_rows:
+        ws.merge_cells(start_row=11, start_column=1, end_row=11, end_column=5)
+        none = ws.cell(11, 1, "No hubo horas seguidas repetidas.")
+        none.alignment = Alignment(horizontal="left", vertical="center")
+        none.border = THIN
+        r_seq_end = 11
+    else:
+        r_seq_end = 10
+        for item in seq_rows:
+            r_seq_end += 1
+            dia = date.fromisoformat(str(item["fecha"]))
+            hora = int(item["hora"])
+            vals = list(item.get("valores") or [])
+            v1 = _num(vals[0]) if vals else None
+            v2 = _num(vals[1]) if len(vals) > 1 else None
+            fila = [
+                dia.strftime("%d/%m/%Y"),
+                f"{hora:02d}:00",
+                v1,
+                v2,
+                "Queda una sola vez. Amarillo en H. Likancura.",
+            ]
+            for col, val in enumerate(fila, start=1):
+                cell = ws.cell(r_seq_end, col, val)
+                cell.border = THIN
+                cell.alignment = CENTER if col < 5 else Alignment(
+                    horizontal="left", vertical="center", wrap_text=True
+                )
+                cell.fill = AMARILLO_DUP
+                if col in (3, 4) and val is not None:
+                    cell.number_format = NUM_FMT
+                    cell.font = FONT_OK
+
+    r_blk = r_seq_end + 2
+    ws.merge_cells(start_row=r_blk, start_column=1, end_row=r_blk, end_column=5)
+    ws.cell(
+        r_blk,
+        1,
+        "Tipo 2 — bloques re-pegados (la app volvió a tirar el mismo tramo al cambiar de columna).",
+    ).font = Font(bold=True, size=11, color="FFFFFF")
+    ws.cell(r_blk, 1).fill = AZUL_HDR
+    ws.cell(r_blk, 1).alignment = Alignment(wrap_text=True, vertical="center")
+    for col in range(2, 6):
+        ws.cell(r_blk, col).fill = AZUL_HDR
+    ws.row_dimensions[r_blk].height = 22
+
+    blk_hdr = ["Desde", "Hasta", "Horas repetidas", "Qué se hizo", ""]
+    for col, h in enumerate(blk_hdr, start=1):
+        if not h:
+            continue
+        c = ws.cell(r_blk + 1, col, h)
+        c.fill = HDR
+        c.font = Font(bold=True, size=9)
+        c.alignment = CENTER
+        c.border = THIN
+
+    wrap = [b for b in (dups.get("bloques") or []) if int(b.get("n") or 0) > 1]
+    if not wrap:
+        ws.merge_cells(start_row=r_blk + 2, start_column=1, end_row=r_blk + 2, end_column=4)
+        ws.cell(r_blk + 2, 1, "No hubo bloques re-pegados.").border = THIN
+        r_end = r_blk + 2
+    else:
+        r_end = r_blk + 1
+        for b in wrap:
+            r_end += 1
+            fila = [
+                _fmt_bloque_dt(str(b.get("desde") or "")),
+                _fmt_bloque_dt(str(b.get("hasta") or "")),
+                int(b.get("n") or 0),
+                "Mismos m³. En H. Likancura queda una sola vez; el Total no los duplica.",
+            ]
+            for col, val in enumerate(fila, start=1):
+                cell = ws.cell(r_end, col, val)
+                cell.border = THIN
+                cell.alignment = CENTER if col < 4 else Alignment(
+                    horizontal="left", vertical="center", wrap_text=True
+                )
+                cell.fill = NARANJA if col < 4 else PatternFill("solid", fgColor="FFFFFF")
+                if col == 3:
+                    cell.font = FONT_OK
+
+    nota = r_end + 2
+    ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=5)
+    n_dups = int(dups.get("pares_duplicados") or 0)
+    seq_txt = (
+        ", ".join(
+            f"{date.fromisoformat(str(it['fecha'])).strftime('%d/%m')} {int(it['hora']):02d}:00"
+            for it in seq_rows
+        )
+        or "ninguna"
+    )
+    wrap_txt = (
+        " y ".join(
+            f"{int(b.get('n') or 0)} h ({_fmt_bloque_dt(str(b.get('desde') or ''))}"
+            f"–{_fmt_bloque_dt(str(b.get('hasta') or ''))})"
+            for b in wrap
+        )
+        or "ningún bloque"
+    )
+    ws.cell(
+        nota,
+        1,
+        f"Los {n_dups} pares duplicados son esos dos tipos: {len(seq_rows)} hora(s) "
+        f"seguida(s) en la secuencia ({seq_txt}) más {wrap_txt}. Como los valores "
+        "coincidían, da lo mismo quedarse con la primera o la última aparición. "
+        "H. Likancura ya está desduplicada.",
+    )
+    ws.cell(nota, 1).font = Font(size=9, italic=True, color="006100")
+    ws.cell(nota, 1).alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[nota].height = 48
+
+    ws.column_dimensions["A"].width = 42
+    ws.column_dimensions["B"].width = 22
+    ws.column_dimensions["C"].width = 22
+    ws.column_dimensions["D"].width = 22
+    ws.column_dimensions["E"].width = 52
+    ws.freeze_panes = "A3"
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A3
+    ws.sheet_view.showGridLines = False
 
 
 AZUL_HDR = PatternFill("solid", fgColor="1F4E79")
@@ -1378,43 +1614,83 @@ def _copiar_a_general(ws) -> Path | None:
 
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    dias = _dias_unicos(D0, D1)
-    prev = sorted(OUT_DIR.glob("Horario_JP2_hora_consumo_*.xlsx"))
-    cache = _cargar_horas_xlsx(prev[-1]) if prev else {}
-    print(f"[INFO] cache {len(cache)} días; faltan {sum(1 for d in dias if d not in cache)}", flush=True)
-    horas = _horas_rango(dias, cache)
-    periodos = periodos_facturacion()
-    d0_extra = min((p["d0"] for p in periodos), default=date(2025, 9, 29))
-    extra = _dias_unicos(d0_extra, D1)
-    print(
-        f"[INFO] facturaciones: extra desde {d0_extra} "
-        f"({sum(1 for d in extra if d not in horas)} días a pedir)",
-        flush=True,
-    )
-    horas = _horas_rango(extra, horas)
-    wb = construir_horario(
-        dias,
-        horas,
-        sheet_name="H. JPII",
-        nombre=NOMBRE,
-        node=NODE,
-        d0=D0,
-        d1=D1,
-        listado=LISTADO,
-    )
+    prev_files = sorted(OUT_DIR.glob("Horario_JP2_hora_consumo_*.xlsx"))
+    prev = prev_files[-1] if prev_files else None
+
     horas_lik = _cargar_horas_likancura()
+    if prev is not None:
+        prev_lik = _cargar_horas_xlsx(prev, sheet_name="H. Likancura")
+        n_from_xlsx = 0
+        for dia, hmap in horas_lik.items():
+            src = prev_lik.get(dia) or {}
+            for h in [x for x in range(24) if x not in hmap and x in src]:
+                hmap[h] = src[h]
+                n_from_xlsx += 1
+        if n_from_xlsx:
+            print(f"[INFO] Likancura huecos desde xlsx: {n_from_xlsx}", flush=True)
     _rellenar_horas_faltantes(horas_lik, NODE_LIK)
     dias_lik = _dias_unicos(D0_LIK, D1_LIK)
     for dia in dias_lik:
         horas_lik.setdefault(dia, {})
         for h in range(24):
             horas_lik[dia].setdefault(h, 0.0)
+    dups = _cargar_duplicados_likancura()
+    resaltar = _pares_secuencia_duplicados(dups)
+    nota_lik = (
+        "Pegado app WES (F/H/M). Si un horario se repetía, queda una sola vez "
+        "(el Total no suma dos veces). Amarillo = hora repetida en la secuencia "
+        "(05/04 00:00 y 06/05 02:00). Bloques re-pegados (15-16/02 y 14-31/08) "
+        "en hoja Duplicados. Huecos puntuales rellenados con API. Fila Total = celeste."
+    )
     print(
         f"[INFO] H. Likancura {len(dias_lik)} días "
         f"{D0_LIK.isoformat()}–{D1_LIK.isoformat()} "
-        f"m³={sum(sum(horas_lik[d].values()) for d in dias_lik):.2f}",
+        f"m³={sum(sum(horas_lik[d].values()) for d in dias_lik):.2f} "
+        f"dups={dups.get('pares_duplicados')} seq={len(resaltar)}",
         flush=True,
     )
+
+    wb: Workbook | None = None
+    reusar = False
+    if prev is not None:
+        try:
+            cand = load_workbook(prev)
+            if "H. JPII" in cand.sheetnames and "Facturaciones" in cand.sheetnames:
+                wb = cand
+                reusar = True
+                print(f"[INFO] reuso {prev.name} (H. JPII + Facturaciones)", flush=True)
+        except Exception as exc:
+            print(f"[WARN] no pude reusar {prev}: {exc}", flush=True)
+
+    if not reusar:
+        dias = _dias_unicos(D0, D1)
+        cache = _cargar_horas_xlsx(prev) if prev else {}
+        print(
+            f"[INFO] cache {len(cache)} días; faltan {sum(1 for d in dias if d not in cache)}",
+            flush=True,
+        )
+        horas = _horas_rango(dias, cache)
+        periodos = periodos_facturacion()
+        d0_extra = min((p["d0"] for p in periodos), default=date(2025, 9, 29))
+        extra = _dias_unicos(d0_extra, D1)
+        print(
+            f"[INFO] facturaciones: extra desde {d0_extra} "
+            f"({sum(1 for d in extra if d not in horas)} días a pedir)",
+            flush=True,
+        )
+        horas = _horas_rango(extra, horas)
+        wb = construir_horario(
+            dias,
+            horas,
+            sheet_name="H. JPII",
+            nombre=NOMBRE,
+            node=NODE,
+            d0=D0,
+            d1=D1,
+            listado=LISTADO,
+        )
+        construir_facturaciones(wb, horas, periodos)
+
     construir_horario(
         dias_lik,
         horas_lik,
@@ -1425,9 +1701,10 @@ def main() -> None:
         d0=D0_LIK,
         d1=D1_LIK,
         listado=None,
-        nota="Pegado app WES (F/H/M). Huecos puntuales rellenados con API. Fila Total = celeste.",
+        nota=nota_lik,
+        resaltar=resaltar,
     )
-    construir_facturaciones(wb, horas, periodos)
+    construir_duplicados_likancura(wb, dups)
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     out = OUT_DIR / f"Horario_JP2_hora_consumo_{ts}.xlsx"
     wb.save(out)
