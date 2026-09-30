@@ -466,10 +466,46 @@ AZUL_APP = PatternFill("solid", fgColor="2E75B6")
 ROJO_CTA = PatternFill("solid", fgColor="C00000")
 VERDE_PROM = PatternFill("solid", fgColor="C6EFCE")
 GRIS = PatternFill("solid", fgColor="D9E1F2")
+DORADO = PatternFill("solid", fgColor="FFE699")
+NARANJA = PatternFill("solid", fgColor="FCE4D6")
 FONT_BLANCO = Font(color="FFFFFF", bold=True, size=9)
+PCT_FMT = '0.00"%"'
+N_FACT_COLS = 11
+MESES_CORTOS_FACT = {
+    1: "ene",
+    2: "feb",
+    3: "mar",
+    4: "abr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "ago",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dic",
+}
+# Hueco de placa: en enero se cambió la memoria; febrero recién desde el 15.
+PLACA_MEMORIA_INI = date(2026, 1, 1)
+PLACA_OK_DESDE = date(2026, 2, 15)
 
 # Períodos de boleta Juan Pablo II (Aguas Andinas, corte 12:00).
+# Fallback si no se pueden leer los PDF de Drive. Incluye la cuenta anterior
+# a enero con lecturas reales (nov-2025) y el terreno 25-sep.
 PERIODOS_FACTURA = [
+    {
+        "mes": "nov-2025",
+        "d0": date(2025, 9, 29),
+        "d1": date(2025, 10, 29),
+        "ini": "29-09-2025 12:00  (72.009 m³)",
+        "fin": "29-10-2025 12:00  (72.170 m³)",
+        "dif": 161.0,
+        "estimado": False,
+        "hora_fin": 12,
+        "lect_ini": 72009.0,
+        "lect_fin": 72170.0,
+        "es_terreno": False,
+    },
     {
         "mes": "ene-2026",
         "d0": date(2025, 11, 29),
@@ -479,6 +515,9 @@ PERIODOS_FACTURA = [
         "dif": 90.0,
         "estimado": True,
         "hora_fin": 12,
+        "lect_ini": None,
+        "lect_fin": None,
+        "es_terreno": False,
     },
     {
         "mes": "feb-2026",
@@ -489,6 +528,9 @@ PERIODOS_FACTURA = [
         "dif": 159.0,
         "estimado": True,
         "hora_fin": 12,
+        "lect_ini": None,
+        "lect_fin": None,
+        "es_terreno": False,
     },
     {
         "mes": "mar-2026",
@@ -499,6 +541,9 @@ PERIODOS_FACTURA = [
         "dif": 159.0,
         "estimado": True,
         "hora_fin": 12,
+        "lect_ini": None,
+        "lect_fin": None,
+        "es_terreno": False,
     },
     {
         "mes": "abr-2026",
@@ -509,6 +554,9 @@ PERIODOS_FACTURA = [
         "dif": 159.0,
         "estimado": True,
         "hora_fin": 12,
+        "lect_ini": None,
+        "lect_fin": None,
+        "es_terreno": False,
     },
     {
         "mes": "may-2026",
@@ -519,6 +567,9 @@ PERIODOS_FACTURA = [
         "dif": 767.0,
         "estimado": False,
         "hora_fin": 12,
+        "lect_ini": 72170.0,
+        "lect_fin": 72937.0,
+        "es_terreno": False,
     },
     {
         "mes": "jun-2026",
@@ -529,6 +580,9 @@ PERIODOS_FACTURA = [
         "dif": 49.0,
         "estimado": False,
         "hora_fin": 12,
+        "lect_ini": 72937.0,
+        "lect_fin": 72986.0,
+        "es_terreno": False,
     },
     {
         "mes": "jul-2026",
@@ -539,6 +593,9 @@ PERIODOS_FACTURA = [
         "dif": 125.0,
         "estimado": True,
         "hora_fin": 12,
+        "lect_ini": 72986.0,
+        "lect_fin": None,
+        "es_terreno": False,
     },
     {
         "mes": "ago-2026",
@@ -549,6 +606,9 @@ PERIODOS_FACTURA = [
         "dif": 220.0,
         "estimado": False,
         "hora_fin": 12,
+        "lect_ini": 72986.0,
+        "lect_fin": 73206.0,
+        "es_terreno": False,
     },
     {
         "mes": "sep-2026",
@@ -559,6 +619,9 @@ PERIODOS_FACTURA = [
         "dif": 97.0,
         "estimado": False,
         "hora_fin": 12,
+        "lect_ini": 73206.0,
+        "lect_fin": 73303.0,
+        "es_terreno": False,
     },
     {
         "mes": "terreno 25-sep",
@@ -569,12 +632,203 @@ PERIODOS_FACTURA = [
         "dif": 82.0,
         "estimado": False,
         "hora_fin": 11,
+        "lect_ini": 73303.0,
+        "lect_fin": 73385.0,
+        "es_terreno": True,
     },
 ]
 
 
+def _fmt_lectura(dia: date, m3: float | None, hora: int = 12) -> str:
+    base = f"{dia.strftime('%d-%m-%Y')} {hora:02d}:00"
+    if m3 is None:
+        return base
+    return f"{base}  ({m3 / 1000:.3f} m³)"
+
+
+def _error_pct(registro: float | None, cuenta: float) -> float | None:
+    if registro is None or cuenta is None or abs(float(cuenta)) < 1e-9:
+        return None
+    return 100.0 * (float(registro) - float(cuenta)) / float(cuenta)
+
+
+def _cobertura_placa(d0: date, d1: date, mes: str) -> str:
+    """completa | ausente | parcial — según cambio de memoria (ene) y febrero desde el 15."""
+    if str(mes).startswith("ene-"):
+        return "ausente"
+    if d1 < PLACA_MEMORIA_INI:
+        return "completa"
+    if d1 < PLACA_OK_DESDE:
+        return "ausente"
+    if d0 >= PLACA_OK_DESDE:
+        return "completa"
+    return "parcial"
+
+
+def _nota_validacion(p: dict) -> str:
+    partes: list[str] = []
+    if p.get("es_terreno"):
+        return "MEJOR para validar placa vs turbina (lectura de terreno 25-09 11:00)."
+    cob = _cobertura_placa(p["d0"], p["d1"], p["mes"])
+    lecturas = p.get("lect_ini") is not None and p.get("lect_fin") is not None
+    if p["estimado"]:
+        partes.append("Cobro a promedio: no cruzar con la cuenta.")
+    elif lecturas:
+        partes.append("Lecturas reales (inicio y fin).")
+    else:
+        partes.append("Sin par de lecturas en la boleta.")
+    if cob == "ausente":
+        if str(p["mes"]).startswith("ene-"):
+            partes.append("Sin registro de la placa (cambio de memoria en enero).")
+        else:
+            partes.append("Sin registro de la placa: el período cae en el hueco de enero / febrero antes del 15.")
+    elif cob == "parcial":
+        partes.append("Poco válido: placa de febrero solo desde el 15 (falta el tramo anterior).")
+    if p["d0"] < date(2026, 3, 1) <= p["d1"] or p["d1"] < date(2026, 3, 1):
+        if not p.get("es_terreno"):
+            partes.append("Listado de la app incompleto o vacío (CSV desde 01/03).")
+    return " ".join(partes)
+
+
+def _descargar_pdfs_jp2() -> Path | None:
+    """Baja solo la carpeta Juan Pablo II de Colegios/Peñalolén/Facturaciones."""
+    try:
+        from generar_comparativo_facturaciones_cormup_penalolen import (
+            PDF_CACHE,
+            _buscar_carpeta_facturaciones,
+            _descargar_archivo,
+            _listar_hijos,
+            obtener_servicio_drive,
+        )
+    except Exception as exc:
+        print(f"[WARN] no pude importar descarga de boletas: {exc}", flush=True)
+        return None
+    if not credenciales_configuradas():
+        local = PDF_CACHE / "Juan Pablo II"
+        return local if local.is_dir() else None
+    try:
+        service = obtener_servicio_drive()
+        folder_id = _buscar_carpeta_facturaciones(service)
+        hijos = _listar_hijos(service, folder_id)
+        jp = next((h for h in hijos if h["name"].lower().startswith("juan pablo")), None)
+        if not jp:
+            print("[WARN] no está la carpeta Juan Pablo II en Drive", flush=True)
+            return None
+        local = PDF_CACHE / jp["name"]
+        local.mkdir(parents=True, exist_ok=True)
+        archivos = [
+            a
+            for a in _listar_hijos(service, jp["id"])
+            if a["name"].lower().endswith(".pdf")
+        ]
+        print(f"[Drive] Juan Pablo II: {len(archivos)} PDF", flush=True)
+        for a in archivos:
+            dest = local / a["name"]
+            if dest.is_file() and dest.stat().st_size > 10_000:
+                continue
+            _descargar_archivo(service, a["id"], dest)
+            print(f"  PDF {a['name']}", flush=True)
+        return local
+    except Exception as exc:
+        print(f"[WARN] descarga JP2: {exc}", flush=True)
+        local = Path("reports/CORMUP/Facturaciones_vs_WES/_pdfs/Juan Pablo II")
+        return local if local.is_dir() else None
+
+
+def _periodos_desde_pdfs(local: Path | None) -> list[dict]:
+    if not local or not local.is_dir():
+        return []
+    try:
+        from facturacion_aguas_andinas_pdf import extraer_texto_pdf, listar_periodos_desde_pdf
+        from generar_comparativo_facturaciones_cormup_penalolen import _es_estimado, _extraer_claves
+        from generar_hojas_lecturas_medio_dia_cormup import _lecturas_medidor
+    except Exception as exc:
+        print(f"[WARN] no pude parsear PDF: {exc}", flush=True)
+        return []
+    out: list[dict] = []
+    vistos: set[tuple[date, date]] = set()
+    for pdf in sorted(local.glob("*.pdf")):
+        if " (1)" in pdf.name:
+            continue
+        try:
+            txt = extraer_texto_pdf(pdf)
+            pers = listar_periodos_desde_pdf(pdf)
+        except Exception as exc:
+            print(f"  [ERR] {pdf.name}: {exc}", flush=True)
+            continue
+        if not pers:
+            continue
+        clave_f, clave_l = _extraer_claves(txt)
+        estimado = _es_estimado(clave_f, clave_l)
+        ant, act, dif_l = _lecturas_medidor(txt)
+        per = pers[0]
+        d0, d1 = per.lectura_anterior.date(), per.lectura_actual.date()
+        if (d0, d1) in vistos:
+            continue
+        vistos.add((d0, d1))
+        emi = per.emision
+        mes = f"{MESES_CORTOS_FACT[emi.month]}-{emi.year}"
+        dif = float(dif_l) if dif_l is not None else float(per.m3_cuenta)
+        row = {
+            "mes": mes,
+            "d0": d0,
+            "d1": d1,
+            "ini": _fmt_lectura(d0, ant),
+            "fin": _fmt_lectura(d1, act),
+            "dif": dif,
+            "estimado": estimado,
+            "hora_fin": 12,
+            "lect_ini": ant,
+            "lect_fin": act,
+            "es_terreno": False,
+            "boleta": per.boleta,
+            "pdf": pdf.name,
+        }
+        out.append(row)
+        print(
+            f"  PDF {mes} {d0}→{d1} dif={dif:.1f} lect={ant}/{act} est={estimado}",
+            flush=True,
+        )
+    out.sort(key=lambda p: (p["d1"], p["d0"]))
+    return out
+
+
+def periodos_facturacion() -> list[dict]:
+    """Boletas de Drive + terreno. Fallback a PERIODOS_FACTURA si no hay PDF."""
+    local = _descargar_pdfs_jp2()
+    loaded = _periodos_desde_pdfs(local)
+    terreno = next(p for p in PERIODOS_FACTURA if p.get("es_terreno"))
+    if loaded:
+        loaded.append(dict(terreno))
+        loaded.sort(key=lambda p: (p["d1"], 1 if p.get("es_terreno") else 0, p["d0"]))
+        return loaded
+    print("[INFO] uso períodos hardcodeados (no hubo PDF JP2)", flush=True)
+    return [dict(p) for p in PERIODOS_FACTURA]
+
+
+def _cadena_lecturas_reales(periodos: list[dict]) -> list[dict]:
+    """Cadena consecutiva de boletas con lectura inicio y fin, sin solapes (sin terreno)."""
+    reales = [
+        p
+        for p in periodos
+        if (not p.get("es_terreno"))
+        and p.get("lect_ini") is not None
+        and p.get("lect_fin") is not None
+        and not p["estimado"]
+    ]
+    reales.sort(key=lambda p: (p["d0"], p["d1"]))
+    cadena: list[dict] = []
+    hasta: date | None = None
+    for p in reales:
+        if hasta is None or p["d0"] >= hasta:
+            cadena.append(p)
+            hasta = p["d1"]
+    return cadena
+
+
 def _horas_dia(horas: dict[date, dict[int, float]], dia: date) -> dict[int, float]:
     return horas.get(dia) or {i: 0.0 for i in range(24)}
+
 
 
 def _total_placa_periodo(
@@ -656,7 +910,11 @@ def _pintar_dif(cell, delta: float | None) -> None:
         cell.font = Font(bold=True, color="FFFFFF", size=10)
 
 
-def construir_facturaciones(wb: Workbook, horas: dict[date, dict[int, float]]) -> None:
+def construir_facturaciones(
+    wb: Workbook,
+    horas: dict[date, dict[int, float]],
+    periodos: list[dict] | None = None,
+) -> None:
     if "Facturaciones" in wb.sheetnames:
         del wb["Facturaciones"]
     ws = wb.create_sheet("Facturaciones", 1)
@@ -665,74 +923,168 @@ def construir_facturaciones(wb: Workbook, horas: dict[date, dict[int, float]]) -
         "Lectura inicial (12:00)",
         "Fecha lectura final y lectura (12:00)",
         "Diferencia entre lecturas (m³)",
-        "Consumo app WES (Total consumo registro de la placa)",
-        "Consumo app WES (Listado consumo sacado del csv de la placa)",
-        "Diferencia lecturas con total",
-        "Diferencia lecturas con Listado",
+        "Registro de la placa",
+        "Registro en la app",
+        "Diferencia lecturas con registro de la placa",
+        "Diferencia lecturas con registro en la app",
+        "Error placa (%)",
+        "Error app (%)",
+        "Validación",
     ]
     ws.append(headers)
-    for col in range(1, 9):
+    for col in range(1, N_FACT_COLS + 1):
         c = ws.cell(1, col)
         c.fill = AZUL_HDR
         c.font = FONT_BLANCO
         c.alignment = Alignment(horizontal="center", wrap_text=True, vertical="center")
         c.border = THIN
     ws.row_dimensions[1].height = 48
-    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=8)
-    ws["A2"] = f"{NOMBRE} ({NODE}) — un renglón por período de facturación. Corte Aguas Andinas 12:00."
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=N_FACT_COLS)
+    ws["A2"] = (
+        f"{NOMBRE} ({NODE}) — un renglón por período de facturación. Corte Aguas Andinas 12:00. "
+        "Error % = (registro − cuenta) / cuenta × 100. Amarillo = mejor para validar."
+    )
     ws["A2"].font = Font(bold=True, size=11, color="003366")
-    ws["A2"].alignment = Alignment(vertical="center")
+    ws["A2"].alignment = Alignment(vertical="center", wrap_text=True)
+    ws.row_dimensions[2].height = 22
 
-    tot_cta = tot_placa = tot_lis = 0.0
-    n_lis = 0
-    for p in PERIODOS_FACTURA:
+    periodos = periodos or periodos_facturacion()
+    cadena = _cadena_lecturas_reales(periodos)
+    ids_cadena = {(p["d0"], p["d1"]) for p in cadena}
+    ultima_real = cadena[-1] if cadena else None
+
+    calc: list[dict] = []
+    for p in periodos:
         placa = _total_placa_periodo(horas, p["d0"], p["d1"], p["hora_fin"])
         lista = _listado_periodo(horas, p["d0"], p["d1"], p["hora_fin"])
         dif_cta = float(p["dif"])
         d_tot = _num(placa) - dif_cta
         d_lis = (_num(lista) - dif_cta) if lista is not None else None
+        err_p = _error_pct(_num(placa), dif_cta)
+        err_a = _error_pct(_num(lista) if lista is not None else None, dif_cta)
+        cob = _cobertura_placa(p["d0"], p["d1"], p["mes"])
+        lecturas = p.get("lect_ini") is not None and p.get("lect_fin") is not None
+        en_tot = (p["d0"], p["d1"]) in ids_cadena
+        calc.append(
+            {
+                "p": p,
+                "placa": placa,
+                "lista": lista,
+                "dif_cta": dif_cta,
+                "d_tot": d_tot,
+                "d_lis": d_lis,
+                "err_p": err_p,
+                "err_a": err_a,
+                "cob": cob,
+                "lecturas": lecturas,
+                "en_tot": en_tot,
+                "nota": _nota_validacion(p),
+            }
+        )
+
+    # Marca los mejores para validar (menor |error| entre casos usables).
+    usables_placa = [
+        r
+        for r in calc
+        if r["lecturas"]
+        and not r["p"]["estimado"]
+        and r["cob"] == "completa"
+        and r["err_p"] is not None
+    ]
+    usables_app = [
+        r
+        for r in usables_placa
+        if r["lista"] is not None and r["err_a"] is not None and r["p"]["d0"] >= date(2026, 3, 1)
+    ]
+    best_placa = min(usables_placa, key=lambda r: abs(r["err_p"])) if usables_placa else None
+    best_app = min(usables_app, key=lambda r: abs(r["err_a"])) if usables_app else None
+    if best_placa is not None:
+        extra = " MEJOR para validar placa vs cuenta."
+        if extra.strip() not in best_placa["nota"]:
+            best_placa["nota"] = (best_placa["nota"] + extra).strip()
+        best_placa["mejor_placa"] = True
+    if best_app is not None:
+        extra = " MEJOR para cruzar placa vs app (y vs cuenta)."
+        if extra.strip() not in best_app["nota"]:
+            best_app["nota"] = (best_app["nota"] + extra).strip()
+        best_app["mejor_app"] = True
+    for r in calc:
+        if r["p"].get("es_terreno"):
+            r["mejor_placa"] = True
+
+    tot_cta = tot_placa = tot_lis = 0.0
+    n_lis = 0
+    for r in calc:
+        p = r["p"]
         ws.append(
             [
                 p["mes"],
                 p["ini"],
                 p["fin"],
-                _num(dif_cta),
-                _num(placa),
-                _num(lista) if lista is not None else None,
-                _num(d_tot),
-                _num(d_lis) if d_lis is not None else None,
+                _num(r["dif_cta"]),
+                _num(r["placa"]),
+                _num(r["lista"]) if r["lista"] is not None else None,
+                _num(r["d_tot"]),
+                _num(r["d_lis"]) if r["d_lis"] is not None else None,
+                _num(r["err_p"]) if r["err_p"] is not None else None,
+                _num(r["err_a"]) if r["err_a"] is not None else None,
+                r["nota"],
             ]
         )
         row = ws.max_row
-        if not str(p["mes"]).startswith("terreno"):
-            tot_cta += dif_cta
-            tot_placa += placa
-            if lista is not None:
-                tot_lis += lista
+        r["row"] = row
+        if r["en_tot"]:
+            tot_cta += r["dif_cta"]
+            tot_placa += r["placa"]
+            if r["lista"] is not None:
+                tot_lis += r["lista"]
                 n_lis += 1
         if p["estimado"]:
             for col in (1, 2, 3, 4):
                 ws.cell(row, col).fill = VERDE_PROM
             ws.cell(row, 1).font = Font(bold=True, size=10, color="006100")
+        elif r["cob"] in ("ausente", "parcial"):
+            for col in (1, 2, 3, 4):
+                ws.cell(row, col).fill = NARANJA
         ws.cell(row, 5).fill = CELESTE
-        if lista is not None:
+        if r["lista"] is not None:
             ws.cell(row, 6).fill = VERDE
-        _pintar_dif(ws.cell(row, 7), d_tot)
-        _pintar_dif(ws.cell(row, 8), d_lis)
-        for col in range(1, 9):
+        _pintar_dif(ws.cell(row, 7), r["d_tot"])
+        _pintar_dif(ws.cell(row, 8), r["d_lis"])
+        _pintar_dif(ws.cell(row, 9), r["d_tot"])
+        _pintar_dif(ws.cell(row, 10), r["d_lis"])
+        if r.get("mejor_placa") or r.get("mejor_app"):
+            ws.cell(row, 11).fill = DORADO
+            ws.cell(row, 1).fill = DORADO
+            ws.cell(row, 1).font = Font(bold=True, size=10)
+        ws.cell(row, 11).alignment = Alignment(horizontal="left", wrap_text=True, vertical="center")
+        for col in range(1, N_FACT_COLS + 1):
             ws.cell(row, col).border = THIN
-            ws.cell(row, col).alignment = Alignment(horizontal="center", wrap_text=True, vertical="center")
+            if col != 11:
+                ws.cell(row, col).alignment = Alignment(
+                    horizontal="center", wrap_text=True, vertical="center"
+                )
         for col in (4, 5, 6, 7, 8):
             ws.cell(row, col).number_format = NUM_FMT
+        for col in (9, 10):
+            ws.cell(row, col).number_format = PCT_FMT
+        ws.row_dimensions[row].height = 36
         print(
-            f"  FACT {p['mes']} cta={dif_cta:.1f} total={placa:.2f} listado="
-            f"{lista if lista is not None else '-'} est={p['estimado']}",
+            f"  FACT {p['mes']} cta={r['dif_cta']:.1f} placa={r['placa']:.2f} app="
+            f"{r['lista'] if r['lista'] is not None else '-'} "
+            f"err_p={r['err_p'] if r['err_p'] is not None else '-'} "
+            f"tot={r['en_tot']} est={p['estimado']}",
             flush=True,
         )
 
+    err_tot_p = _error_pct(_num(tot_placa), tot_cta)
+    err_tot_a = _error_pct(_num(tot_lis) if n_lis else None, tot_cta)
+    etiqueta = "TOTAL lecturas reales (cadena, sin solapes)"
+    if ultima_real:
+        etiqueta += f" hasta {ultima_real['mes']}"
     ws.append(
         [
-            "TOTAL",
+            etiqueta,
             "",
             "",
             _num(tot_cta),
@@ -740,44 +1092,110 @@ def construir_facturaciones(wb: Workbook, horas: dict[date, dict[int, float]]) -
             _num(tot_lis) if n_lis else None,
             _num(tot_placa - tot_cta),
             _num(tot_lis - tot_cta) if n_lis else None,
+            _num(err_tot_p) if err_tot_p is not None else None,
+            _num(err_tot_a) if err_tot_a is not None else None,
+            "Suma solo de boletas con lectura inicial y final, en cadena consecutiva "
+            "(no incluye promedios ni el terreno). Última boleta con ambos índices "
+            + (ultima_real["mes"] if ultima_real else "—")
+            + ".",
         ]
     )
     last = ws.max_row
-    for col in range(1, 9):
+    for col in range(1, N_FACT_COLS + 1):
         cell = ws.cell(last, col)
         cell.font = Font(bold=True, size=10)
         cell.border = THIN
         cell.fill = GRIS
         cell.alignment = CENTER
+    ws.cell(last, 11).alignment = Alignment(horizontal="left", wrap_text=True, vertical="center")
     for col in (4, 5, 6, 7, 8):
         ws.cell(last, col).number_format = NUM_FMT
+    for col in (9, 10):
+        ws.cell(last, col).number_format = PCT_FMT
     ws.cell(last, 5).fill = CELESTE
     ws.cell(last, 5).font = Font(bold=True, size=10)
     if n_lis:
         ws.cell(last, 6).fill = VERDE
         ws.cell(last, 6).font = Font(bold=True, size=10)
     _pintar_dif(ws.cell(last, 7), tot_placa - tot_cta)
+    _pintar_dif(ws.cell(last, 9), tot_placa - tot_cta)
     if n_lis:
         _pintar_dif(ws.cell(last, 8), tot_lis - tot_cta)
+        _pintar_dif(ws.cell(last, 10), tot_lis - tot_cta)
+    ws.row_dimensions[last].height = 36
+
+    terreno = next((r for r in calc if r["p"].get("es_terreno")), None)
+    if terreno:
+        tot2_cta = tot_cta + terreno["dif_cta"]
+        tot2_placa = tot_placa + terreno["placa"]
+        tot2_lis = tot_lis + (terreno["lista"] or 0.0) if (n_lis or terreno["lista"] is not None) else None
+        err2_p = _error_pct(_num(tot2_placa), tot2_cta)
+        err2_a = _error_pct(_num(tot2_lis) if tot2_lis is not None else None, tot2_cta)
+        ws.append(
+            [
+                "TOTAL + terreno 25-sep",
+                "",
+                "",
+                _num(tot2_cta),
+                _num(tot2_placa),
+                _num(tot2_lis) if tot2_lis is not None else None,
+                _num(tot2_placa - tot2_cta),
+                _num((tot2_lis - tot2_cta) if tot2_lis is not None else 0) if tot2_lis is not None else None,
+                _num(err2_p) if err2_p is not None else None,
+                _num(err2_a) if err2_a is not None else None,
+                "Misma cadena de lecturas reales más la visita de terreno (no es boleta).",
+            ]
+        )
+        last = ws.max_row
+        for col in range(1, N_FACT_COLS + 1):
+            cell = ws.cell(last, col)
+            cell.font = Font(bold=True, size=10)
+            cell.border = THIN
+            cell.fill = GRIS
+            cell.alignment = CENTER
+        ws.cell(last, 11).alignment = Alignment(horizontal="left", wrap_text=True, vertical="center")
+        for col in (4, 5, 6, 7, 8):
+            ws.cell(last, col).number_format = NUM_FMT
+        for col in (9, 10):
+            ws.cell(last, col).number_format = PCT_FMT
+        ws.cell(last, 5).fill = CELESTE
+        if tot2_lis is not None:
+            ws.cell(last, 6).fill = VERDE
+        _pintar_dif(ws.cell(last, 7), tot2_placa - tot2_cta)
+        _pintar_dif(ws.cell(last, 9), tot2_placa - tot2_cta)
+        if tot2_lis is not None:
+            _pintar_dif(ws.cell(last, 8), tot2_lis - tot2_cta)
+            _pintar_dif(ws.cell(last, 10), tot2_lis - tot2_cta)
+        ws.row_dimensions[last].height = 32
 
     ws.freeze_panes = "A3"
-    anchos = [16, 36, 40, 22, 28, 32, 24, 26]
+    anchos = [22, 36, 40, 18, 18, 18, 22, 22, 14, 14, 56]
     for i, w in enumerate(anchos, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
     nota = last + 2
-    ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=8)
+    ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=N_FACT_COLS)
+    ultima_txt = (
+        f"{ultima_real['mes']} ({ultima_real['ini']} → {ultima_real['fin']})"
+        if ultima_real
+        else "—"
+    )
     ws.cell(
         nota,
         1,
         "Corte 12:00: día inicial 12:00–23:59 + días intermedios + día final 00:00–12:00 "
-        "(terreno 25-09 corta a las 11:00). Total = suma horaria de la placa. "
-        "Listado = CSV diario (01/03 a 28/09) partido con el mismo corte. "
-        "Verde en Mes = cobro a promedio. Celeste = Total. Verde = Listado. "
-        "Azul = app > cuenta. Rojo = cuenta > app.",
+        "(terreno 25-09 corta a las 11:00). Registro de la placa = suma horaria API. "
+        "Registro en la app = CSV diario (01/03 a 28/09) partido con el mismo corte. "
+        "Verde en Mes = cobro a promedio. Naranja = placa ausente o parcial "
+        "(enero sin registro por cambio de memoria; febrero solo desde el 15). "
+        "Amarillo = mejor período para validar. Celeste = placa. Verde = app. "
+        "Azul = registro > cuenta. Rojo = cuenta > registro. "
+        f"Última boleta con lectura inicio y fin en Drive: {ultima_txt}. "
+        "No hay boleta posterior a sep-2026 con ambos índices. "
+        "El TOTAL no suma los meses a promedio (solapaban el tramo con lecturas reales).",
     )
     ws.cell(nota, 1).font = Font(size=9, italic=True, color="006100")
     ws.cell(nota, 1).alignment = Alignment(wrap_text=True, vertical="center")
-    ws.row_dimensions[nota].height = 42
+    ws.row_dimensions[nota].height = 64
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A3
     ws.page_setup.fitToWidth = 1
@@ -821,14 +1239,17 @@ def main() -> None:
     cache = _cargar_horas_xlsx(prev[-1]) if prev else {}
     print(f"[INFO] cache {len(cache)} días; faltan {sum(1 for d in dias if d not in cache)}", flush=True)
     horas = _horas_rango(dias, cache)
-    extra = _dias_unicos(date(2025, 10, 29), D1)
+    periodos = periodos_facturacion()
+    d0_extra = min((p["d0"] for p in periodos), default=date(2025, 9, 29))
+    extra = _dias_unicos(d0_extra, D1)
     print(
-        f"[INFO] facturaciones: extra {sum(1 for d in extra if d not in horas)} días",
+        f"[INFO] facturaciones: extra desde {d0_extra} "
+        f"({sum(1 for d in extra if d not in horas)} días a pedir)",
         flush=True,
     )
     horas = _horas_rango(extra, horas)
     wb = construir_horario(dias, horas)
-    construir_facturaciones(wb, horas)
+    construir_facturaciones(wb, horas, periodos)
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     out = OUT_DIR / f"Horario_JP2_hora_consumo_{ts}.xlsx"
     wb.save(out)
