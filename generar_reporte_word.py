@@ -4258,6 +4258,7 @@ def generate_aggregated_report(
     parallel_node_fetch: bool = False,
     max_parallel_workers: int = 4,
     company_folder_override: Optional[str] = None,
+    node_start_overrides: Optional[Dict[str, str]] = None,
 ) -> Path:
     """
     Genera un reporte agregado Word que sintetiza estadísticas de múltiples nodos.
@@ -4268,9 +4269,17 @@ def generate_aggregated_report(
     """
     start_dt = parse_date(start_date)
     end_dt = parse_date(end_date, end_of_day=True)
-    
+    starts_por_nodo: Dict[str, datetime] = {
+        nid: parse_date(raw)
+        for nid, raw in (node_start_overrides or {}).items()
+        if raw
+    }
+
     def _format_ddmmyyyy(dt: datetime) -> str:
         return dt.strftime("%d%m%Y")
+
+    def _inicio_nodo(node_id: str) -> datetime:
+        return starts_por_nodo.get(node_id, start_dt)
     
     company_name = get_company_name(company_id)
     if apply_exclusions:
@@ -4306,7 +4315,7 @@ def generate_aggregated_report(
                 f"{acl_node_base_url()}/nodes/measures/dates",
                 params=[
                     ("id", node_id),
-                    ("start", _format_ddmmyyyy(start_dt)),
+                    ("start", _format_ddmmyyyy(_inicio_nodo(node_id))),
                     ("end", _format_ddmmyyyy(end_dt)),
                 ],
             )
@@ -4319,7 +4328,7 @@ def generate_aggregated_report(
                     f"{acl_node_base_url()}/nodes/myalert/alerts",
                     params=[
                         ("id", node_id),
-                        ("start", _format_ddmmyyyy(start_dt)),
+                        ("start", _format_ddmmyyyy(_inicio_nodo(node_id))),
                         ("end", _format_ddmmyyyy(end_dt)),
                     ],
                 )
@@ -4763,7 +4772,9 @@ def generate_aggregated_report(
         
         # Calcular métricas nocturnas para este nodo
         try:
-            nocturnal_metrics = calculate_nocturnal_metrics(node_id, start_dt, end_dt, company_id=company_id)
+            nocturnal_metrics = calculate_nocturnal_metrics(
+                node_id, _inicio_nodo(node_id), end_dt, company_id=company_id
+            )
             consumo_nocturno = nocturnal_metrics["consumo_nocturno_total"]
             dias_con_consumo_nocturno = nocturnal_metrics["dias_con_consumo_nocturno"]
             dias_con_datos = int(nocturnal_metrics.get("dias_con_datos_horarios", 0) or 0)
@@ -4857,7 +4868,14 @@ def generate_aggregated_report(
             from agregado_extendido_extra import agregar_analisis_nocturno_extendido
 
             agregar_analisis_nocturno_extendido(
-                company_id, doc, nodes_data, start_dt, end_dt, output_dir_path, price_per_m3_clp
+                company_id,
+                doc,
+                nodes_data,
+                start_dt,
+                end_dt,
+                output_dir_path,
+                price_per_m3_clp,
+                node_starts=starts_por_nodo,
             )
         except Exception as e:
             print(f"[ADVERTENCIA] Agregado extendido — análisis nocturno: {e}")
@@ -4968,7 +4986,7 @@ def generate_aggregated_report(
                         
                         if num_dias_periodo >= 7:
                             nocturnal_metrics = calculate_nocturnal_metrics(
-                                node_id, start_dt, end_dt, company_id=company_id
+                                node_id, _inicio_nodo(node_id), end_dt, company_id=company_id
                             )
                             dias_con_consumo = nocturnal_metrics["dias_con_consumo_nocturno"]
                             dias_sin_consumo = nocturnal_metrics["dias_sin_consumo_nocturno"]

@@ -57,6 +57,8 @@ def _run(
     apply_exclusions: bool = True,
     fuente_agua_id: Optional[str] = None,
     company_folder_override: Optional[str] = None,
+    node_start_overrides: Optional[dict] = None,
+    nota_contexto_periodo: Optional[str] = None,
 ) -> None:
     if not node_ids:
         print(f"[ERROR] {label}: sin nodos.\n")
@@ -79,6 +81,8 @@ def _run(
         max_parallel_workers=w,
         fuente_agua_id=fuente_agua_id,
         company_folder_override=company_folder_override,
+        node_start_overrides=node_start_overrides,
+        nota_contexto_periodo=nota_contexto_periodo,
     )
     print(f"[OK] {label}: {out}")
     print(f"[INFO] Tiempo: {time.perf_counter() - t0:.1f} s\n")
@@ -90,7 +94,20 @@ def main() -> None:
             "Fundo Zapallar",
             "000027",
             list(FUNDO_ZAPALLAR_NODE_IDS),
-            dict(apply_exclusions=False, fuente_agua_id="000027-01"),
+            dict(
+                apply_exclusions=False,
+                fuente_agua_id="000027-01",
+                node_start_overrides={
+                    "000027-01": "23/09/2026",
+                    "000027-03": "23/09/2026",
+                },
+                nota_contexto_periodo=(
+                    "Matriz ESVAL y Etapa N°5 se informan desde el 23/09/2026, "
+                    "posterior a la visita del 22/09 (reconfiguración del ultrasonido en la matriz "
+                    "y cambio de memoria en Etapa N°5). El dato previo de esos dos puntos no se usa "
+                    "y no se extrapola al mes."
+                ),
+            ),
         ),
         (
             "Inchcape (ex DERCO)",

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib
 
@@ -483,6 +483,7 @@ def agregar_analisis_nocturno_extendido(
     end_dt: datetime,
     output_dir: Path,
     price_per_m3: float,
+    node_starts: Optional[Dict[str, datetime]] = None,
 ) -> None:
     from generar_reporte_word import (
         add_formatted_heading,
@@ -504,7 +505,8 @@ def agregar_analisis_nocturno_extendido(
     for data in nodes_data:
         node_id = data["node_id"]
         node_name = data["node_name"].replace("\n", " ").strip()
-        nm = calculate_nocturnal_metrics(node_id, start_dt, end_dt, company_id=company_id)
+        node_start = (node_starts or {}).get(node_id, start_dt)
+        nm = calculate_nocturnal_metrics(node_id, node_start, end_dt, company_id=company_id)
         c_noche = float(nm["consumo_nocturno_total"])
         nodos_noct.append(
             {
@@ -643,3 +645,66 @@ def agregar_analisis_nocturno_extendido(
             enf.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
             for run in enf.runs:
                 run.font.color.rgb = RGBColor(0, 0, 0)
+
+
+_MESES_ES = {
+    1: "ene",
+    2: "feb",
+    3: "mar",
+    4: "abr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "ago",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dic",
+}
+
+
+def _meses_ultimos_n(end_dt: datetime, n: int = 6) -> List[Tuple[int, int]]:
+    y, m = end_dt.year, end_dt.month
+    out: List[Tuple[int, int]] = []
+    for _ in range(n):
+        out.append((y, m))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    out.reverse()
+    return out
+
+
+def _serie_mensual_nodo(node_id: str, end_dt: datetime, n_meses: int = 6) -> List[Tuple[str, float]]:
+    from generar_reporte_word import (
+        acl_node_base_url,
+        fetch_json,
+        flatten_measures,
+        normalize_measures_payload,
+    )
+
+    meses = _meses_ultimos_n(end_dt, n_meses)
+    y0, m0 = meses[0]
+    start = datetime(y0, m0, 1)
+    payload_raw = fetch_json(
+        f"{acl_node_base_url()}/nodes/measures/dates",
+        params=[
+            ("id", node_id),
+            ("start", start.strftime("%d%m%Y")),
+            ("end", end_dt.strftime("%d%m%Y")),
+        ],
+    )
+    payload = normalize_measures_payload(payload_raw, node_id)
+    measures = flatten_measures(payload)
+    by_month: Dict[Tuple[int, int], float] = {}
+    for mp in measures:
+        key = (mp.date.year, mp.date.month)
+        by_month[key] = by_month.get(key, 0.0) + float(mp.total_m3)
+    series: List[Tuple[str, float]] = []
+    for y, m in meses:
+        label = f"{_MESES_ES.get(m, str(m))} {y}"
+        if y == end_dt.year and m == end_dt.month:
+            label += "*"
+        series.append((label, float(by_month.get((y, m), 0.0))))
+    return series
