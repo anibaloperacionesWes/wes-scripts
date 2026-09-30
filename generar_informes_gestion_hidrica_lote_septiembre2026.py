@@ -1011,7 +1011,12 @@ def _series_diarias(
             break
     out = []
     for n in picked[:3]:
-        serie = _daily_full(n, start, end)
+        serie_inicio = start
+        if n.get("start_iso"):
+            nodo_inicio = datetime.strptime(n["start_iso"], "%Y-%m-%d")
+            if nodo_inicio > start:
+                serie_inicio = nodo_inicio
+        serie = _daily_full(n, serie_inicio, end)
         missing = _cobertura_huecos(n, start, end)
         if n.get("max_fecha"):
             serie.lectura = (
@@ -1019,12 +1024,15 @@ def _series_diarias(
             )
         else:
             serie.lectura = "Serie del periodo. "
-        if missing:
+        if serie_inicio.date() > start.date():
+            serie.lectura += (
+                f"Serie válida desde el {serie_inicio.strftime('%d/%m/%Y')}, "
+                "día siguiente a la visita. No se usa el dato anterior ni se extrapola."
+            )
+        elif missing:
             serie.lectura += (
                 f"Hay {len(missing)} día(s) sin dato; no se interpolan. "
             )
-        elif start.day != 1 or cfg.get("excluir_meses_6m"):
-            serie.lectura += "La serie cubre los días del periodo informado."
         else:
             serie.lectura += "La serie cubre el mes completo."
         out.append(serie)
@@ -1220,7 +1228,10 @@ def build_spec(
 
     labels_6, vals_6 = [], []
     for item in data["serie_6_meses"]:
-        lab = item["label"].replace("*", "").split()[0].capitalize()
+        raw = item["label"]
+        lab = raw.replace("*", "").split()[0].capitalize()
+        if raw.endswith("*"):
+            lab += "*"
         labels_6.append(lab)
         vals_6.append(float(item["m3"]))
 
