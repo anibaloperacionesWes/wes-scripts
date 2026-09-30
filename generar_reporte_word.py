@@ -468,7 +468,7 @@ COMPANY_NAMES = {
     "000009": "COPEC",
     "000010": "Corporación Puente Alto",
     "000011": "Sistemas Socios Wes",
-    "000012": "DERCO",
+    "000012": "Inchcape",
     "000013": "Lo Barnechea",
     "000014": "Tres Montes Lucchetti",
     "000016": "Renca",
