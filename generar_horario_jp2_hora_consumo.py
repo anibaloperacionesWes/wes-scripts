@@ -1011,6 +1011,27 @@ def construir_facturaciones(
     for r in calc:
         if r["p"].get("es_terreno"):
             r["mejor_placa"] = True
+        if (
+            r["lecturas"]
+            and not r["p"]["estimado"]
+            and r["cob"] == "completa"
+            and r["err_p"] is not None
+            and abs(r["err_p"]) < 5
+        ):
+            extra = f" Muy bueno para validar placa vs cuenta (error {r['err_p']:+.1f} %)."
+            if "Muy bueno para validar placa vs cuenta" not in r["nota"]:
+                r["nota"] = (r["nota"] + extra).strip()
+            r["mejor_placa"] = True
+        elif (
+            r["lecturas"]
+            and not r["p"]["estimado"]
+            and r["err_p"] is not None
+            and abs(r["err_p"]) > 50
+        ):
+            extra = " Error alto: no es de los mejores para validar."
+            if extra.strip() not in r["nota"]:
+                r["nota"] = (r["nota"] + extra).strip()
+        r["nota"] = r["nota"].replace("  ", " ").strip()
 
     tot_cta = tot_placa = tot_lis = 0.0
     n_lis = 0
