@@ -3,7 +3,7 @@ Horario JP2 + Likancura y hoja Facturaciones.
 
 Hojas:
   H. JPII       — Juan Pablo II (000008-14), horas API + fila Listado.
-  H. Likancura  — Likancura (000008-13), pegado app WES F/H/M.
+  H. Likancura  — Likancura (000008-13), pegado app WES F/H/M + fila Listado.
   Duplicados    — horas repetidas del pegado Likancura (no se suman dos veces).
   Facturaciones — comparativo boletas JP2.
 
@@ -41,6 +41,7 @@ DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
 DRIVE_NOMBRE = "Horario_JP2_hora_consumo_20260929_1649.xlsx"
 LIK_JSON = OUT_DIR / "likancura_horario_horas.json"
 LIK_DUPS = OUT_DIR / "likancura_horario_duplicados.json"
+LIK_LISTADO_JSON = OUT_DIR / "likancura_listado.json"
 
 # Listado diario pegado bajo Total, alineado por fecha (marzo–julio en 2026).
 _LISTADO_MAR_JUL = """
@@ -597,6 +598,13 @@ def construir_horario(
     ws.page_setup.paperSize = ws.PAPERSIZE_A3
     ws.print_title_rows = "1:3"
     return wb
+
+
+def _cargar_listado_likancura() -> dict[date, float]:
+    if not LIK_LISTADO_JSON.is_file():
+        raise FileNotFoundError(LIK_LISTADO_JSON)
+    raw = json.loads(LIK_LISTADO_JSON.read_text(encoding="utf-8"))
+    return {date.fromisoformat(str(k)): float(v) for k, v in raw.items()}
 
 
 def _cargar_duplicados_likancura() -> dict:
@@ -1635,18 +1643,22 @@ def main() -> None:
         for h in range(24):
             horas_lik[dia].setdefault(h, 0.0)
     dups = _cargar_duplicados_likancura()
+    listado_lik = _cargar_listado_likancura()
     resaltar = _pares_secuencia_duplicados(dups)
     nota_lik = (
-        "Pegado app WES (F/H/M). Si un horario se repetía, queda una sola vez "
+        "Pegado app WES (F/H/M). Fila Listado = verde (totales diarios de la app). "
+        "Rojo si Listado no coincide con Total. Horas duplicadas: queda una sola vez "
         "(el Total no suma dos veces). Amarillo = hora repetida en la secuencia "
         "(05/04 00:00 y 06/05 02:00). Bloques re-pegados (15-16/02 y 14-31/08) "
-        "en hoja Duplicados. Huecos puntuales rellenados con API. Fila Total = celeste."
+        "en hoja Duplicados: el Listado de la app sí los suma dos veces (rojo en ago). "
+        "Huecos puntuales rellenados con API."
     )
     print(
         f"[INFO] H. Likancura {len(dias_lik)} días "
         f"{D0_LIK.isoformat()}–{D1_LIK.isoformat()} "
         f"m³={sum(sum(horas_lik[d].values()) for d in dias_lik):.2f} "
-        f"dups={dups.get('pares_duplicados')} seq={len(resaltar)}",
+        f"dups={dups.get('pares_duplicados')} seq={len(resaltar)} "
+        f"listado={sum(1 for d in dias_lik if d in listado_lik)}/{len(dias_lik)}",
         flush=True,
     )
 
@@ -1700,7 +1712,7 @@ def main() -> None:
         node=NODE_LIK,
         d0=D0_LIK,
         d1=D1_LIK,
-        listado=None,
+        listado=listado_lik,
         nota=nota_lik,
         resaltar=resaltar,
     )
