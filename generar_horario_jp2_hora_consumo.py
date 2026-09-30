@@ -1,7 +1,10 @@
 """
-Juan Pablo II (000008-14): 1ª columna Hora, consumo por fecha a la derecha.
+Horario JP2 + Likancura y hoja Facturaciones.
 
-Fila 28 = Total (celeste). Fila 29 = Listado (verde). Rojo solo si Listado ≠ Total.
+Hojas:
+  H. JPII       — Juan Pablo II (000008-14), horas API + fila Listado.
+  H. Likancura  — Likancura (000008-13), pegado app WES F/H/M.
+  Facturaciones — comparativo boletas JP2.
 
 Uso:
   python generar_horario_jp2_hora_consumo.py
@@ -9,6 +12,8 @@ Uso:
 
 from __future__ import annotations
 
+import json
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -25,10 +30,15 @@ NODE = "000008-14"
 NOMBRE = "Juan Pablo II"
 D0 = date(2026, 3, 1)
 D1 = date(2026, 9, 28)
+NODE_LIK = "000008-13"
+NOMBRE_LIK = "Likancura"
+D0_LIK = date(2026, 2, 15)
+D1_LIK = date(2026, 8, 31)
 OUT_DIR = Path("reports/CORMUP/Facturaciones_vs_WES")
 DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
 # Mismo archivo de Drive en el que estamos trabajando.
 DRIVE_NOMBRE = "Horario_JP2_hora_consumo_20260929_1649.xlsx"
+LIK_JSON = OUT_DIR / "likancura_horario_horas.json"
 
 # Listado diario pegado bajo Total, alineado por fecha (marzo–julio en 2026).
 _LISTADO_MAR_JUL = """
@@ -305,13 +315,24 @@ def _dias_unicos(d0: date, d1: date) -> list[date]:
     return dias
 
 
-def _cargar_horas_xlsx(path: Path) -> dict[date, dict[int, float]]:
+def _cargar_horas_xlsx(
+    path: Path, sheet_name: str | None = None
+) -> dict[date, dict[int, float]]:
     """Reusa horas ya exportadas para no volver a consultar días viejos."""
     out: dict[date, dict[int, float]] = {}
     if not path.is_file():
         return out
     wb = load_workbook(path, data_only=False)
-    ws = wb.active
+    ws = None
+    if sheet_name and sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+    else:
+        for name in ("H. JPII", "Horario"):
+            if name in wb.sheetnames:
+                ws = wb[name]
+                break
+        else:
+            ws = wb.active
     for col in range(2, ws.max_column + 1):
         hdr = str(ws.cell(2, col).value or "")
         try:
@@ -331,32 +352,132 @@ def _cargar_horas_xlsx(path: Path) -> dict[date, dict[int, float]]:
     return out
 
 
-def _horas_rango(dias: list[date], cache: dict[date, dict[int, float]] | None = None) -> dict[date, dict[int, float]]:
+def _horas_rango(
+    dias: list[date],
+    cache: dict[date, dict[int, float]] | None = None,
+    node: str = NODE,
+) -> dict[date, dict[int, float]]:
     horas: dict[date, dict[int, float]] = dict(cache or {})
     for dia in dias:
         if dia in horas and len(horas[dia]) == 24:
             continue
         try:
-            h = horas_api_chile(NODE, datetime.combine(dia, datetime.min.time()))
+            h = horas_api_chile(node, datetime.combine(dia, datetime.min.time()))
             horas[dia] = {i: float(h.get(i, 0.0)) for i in range(24)}
-            print(f"  API {dia.isoformat()}", flush=True)
+            print(f"  API {node} {dia.isoformat()}", flush=True)
         except Exception as exc:
-            print(f"  API FAIL {dia.isoformat()}: {exc}", flush=True)
+            print(f"  API FAIL {node} {dia.isoformat()}: {exc}", flush=True)
             horas[dia] = {i: 0.0 for i in range(24)}
     return horas
 
 
-def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> Workbook:
+def _parse_horario_fhm_paste(text: str) -> dict[date, dict[int, float]]:
+    """Pegado app WES en grilla F:/H:/M: (hasta 7 columnas, tabuladas)."""
+    ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\^\[\[?[0-9;]*[A-Za-z]")
+    lines = text.splitlines()
+    start = next(
+        (i for i, line in enumerate(lines) if re.search(r"F:\s*\d{2}/\d{2}/\d{4}", line)),
+        0,
+    )
+    cols: list[list[str]] = [[] for _ in range(7)]
+    for line in lines[start:]:
+        cells = ansi.sub("", line).split("\t")
+        for i in range(7):
+            idx = i * 2
+            if idx < len(cells):
+                val = cells[idx].strip()
+                if val:
+                    cols[i].append(val)
+    pat_f = re.compile(r"^F:\s*(\d{2}/\d{2}/\d{4})$")
+    pat_h = re.compile(r"^H:\s*(\d{1,2}):00$")
+    pat_m = re.compile(r"^M:\s*([\d.,]+)")
+    pat_r = re.compile(r"^R:")
+    horas: dict[date, dict[int, float]] = {}
+    for tokens in cols:
+        pending_f: date | None = None
+        pending_h: int | None = None
+        for tok in tokens:
+            mf, mh, mm = pat_f.match(tok), pat_h.match(tok), pat_m.match(tok)
+            if pat_r.match(tok):
+                pending_f = pending_h = None
+                continue
+            if mf:
+                pending_f = datetime.strptime(mf.group(1), "%d/%m/%Y").date()
+                pending_h = None
+                continue
+            if mh and pending_f is not None:
+                pending_h = int(mh.group(1))
+                continue
+            if mm and pending_f is not None and pending_h is not None:
+                horas.setdefault(pending_f, {})[pending_h] = float(
+                    mm.group(1).replace(",", ".")
+                )
+                pending_f = pending_h = None
+    return horas
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Horario"
 
+def _cargar_horas_likancura() -> dict[date, dict[int, float]]:
+    if not LIK_JSON.is_file():
+        raise FileNotFoundError(LIK_JSON)
+    raw = json.loads(LIK_JSON.read_text(encoding="utf-8"))
+    out: dict[date, dict[int, float]] = {}
+    for key, arr in raw.items():
+        dia = date.fromisoformat(key)
+        out[dia] = {
+            h: float(val) for h, val in enumerate(arr) if val is not None
+        }
+    return out
+
+
+def _rellenar_horas_faltantes(horas: dict[date, dict[int, float]], node: str) -> None:
+    for dia, hmap in horas.items():
+        miss = [h for h in range(24) if h not in hmap]
+        if not miss:
+            continue
+        try:
+            api = horas_api_chile(node, datetime.combine(dia, datetime.min.time()))
+            for h in miss:
+                hmap[h] = float(api.get(h, 0.0))
+            print(f"  LIK huecos {dia.isoformat()} {miss} <- API", flush=True)
+        except Exception as exc:
+            print(f"  LIK huecos FAIL {dia.isoformat()}: {exc}", flush=True)
+            for h in miss:
+                hmap[h] = 0.0
+
+
+def construir_horario(
+    dias: list[date],
+    horas: dict[date, dict[int, float]],
+    *,
+    wb: Workbook | None = None,
+    sheet_name: str = "H. JPII",
+    nombre: str = NOMBRE,
+    node: str = NODE,
+    d0: date = D0,
+    d1: date = D1,
+    listado: dict[date, float] | None = None,
+    nota: str | None = None,
+) -> Workbook:
+
+    if wb is None:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = sheet_name
+    else:
+        if sheet_name in wb.sheetnames:
+            del wb[sheet_name]
+        ws = wb.create_sheet(sheet_name)
+
+    extra = nota or (
+        "Fila Total = celeste. Fila Listado = verde. Rojo solo si Listado no coincide con Total."
+        if listado
+        else "Fila Total = celeste (suma de las 24 horas)."
+    )
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=1 + min(8, len(dias)))
     ws["A1"] = (
-        f"{NOMBRE} ({NODE}) — 1ª columna Hora; consumo por fecha a la derecha "
-        f"({D0.strftime('%d-%m')} a {D1.strftime('%d-%m')}). Día repetido no se suma. "
-        "Fila Total = celeste. Fila Listado = verde. Rojo solo si Listado no coincide con Total."
+        f"{nombre} ({node}) — 1ª columna Hora; consumo por fecha a la derecha "
+        f"({d0.strftime('%d-%m')} a {d1.strftime('%d-%m')}). Día repetido no se suma. "
+        f"{extra}"
     )
     ws["A1"].font = Font(bold=True, size=12, color="003366")
     ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
@@ -396,7 +517,8 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
         a.fill = bg
         a.font = Font(bold=True, size=9)
         for i, dia in enumerate(dias):
-            b = ws.cell(r, 2 + i, _num(horas[dia][h]))
+            raw = (horas.get(dia) or {}).get(h)
+            b = ws.cell(r, 2 + i, _num(raw) if raw is not None else None)
             b.number_format = NUM_FMT
             b.alignment = CENTER
             b.border = THIN
@@ -417,42 +539,43 @@ def construir_horario(dias: list[date], horas: dict[date, dict[int, float]]) -> 
         b.border = THIN
         b.fill = CELESTE
 
-    rl = 29
-    lab = ws.cell(rl, 1, "Listado")
-    lab.font = Font(bold=True, size=9)
-    lab.alignment = CENTER
-    lab.border = THIN
-    lab.fill = VERDE
-    n_rojo = 0
-    for i, dia in enumerate(dias):
-        val = LISTADO.get(dia)
-        wes_tot = sum(horas[dia].values())
-        descuadre = _no_cuadra(val, wes_tot)
-        cell = ws.cell(rl, 2 + i, _num(val) if val is not None else None)
-        if val is not None:
-            cell.number_format = NUM_FMT
-        cell.font = FONT_ROJO if descuadre else FONT_OK
-        cell.alignment = CENTER
-        cell.border = THIN
-        cell.fill = ROJO if descuadre else VERDE
-        if descuadre:
-            n_rojo += 1
-            print(
-                f"  ROJO {dia.strftime('%d/%m')} listado={_num(val)} total={_num(wes_tot)} "
-                f"delta={(_num(val) - _num(wes_tot)):+.2f}",
-                flush=True,
-            )
+    if listado is not None:
+        rl = 29
+        lab = ws.cell(rl, 1, "Listado")
+        lab.font = Font(bold=True, size=9)
+        lab.alignment = CENTER
+        lab.border = THIN
+        lab.fill = VERDE
+        n_rojo = 0
+        for i, dia in enumerate(dias):
+            val = listado.get(dia)
+            wes_tot = sum((horas.get(dia) or {}).values())
+            descuadre = _no_cuadra(val, wes_tot)
+            cell = ws.cell(rl, 2 + i, _num(val) if val is not None else None)
+            if val is not None:
+                cell.number_format = NUM_FMT
+            cell.font = FONT_ROJO if descuadre else FONT_OK
+            cell.alignment = CENTER
+            cell.border = THIN
+            cell.fill = ROJO if descuadre else VERDE
+            if descuadre:
+                n_rojo += 1
+                print(
+                    f"  ROJO {dia.strftime('%d/%m')} listado={_num(val)} total={_num(wes_tot)} "
+                    f"delta={(_num(val) - _num(wes_tot)):+.2f}",
+                    flush=True,
+                )
 
-    ultima = get_column_letter(1 + len(dias))
-    ws.conditional_formatting.add(
-        f"B29:{ultima}29",
-        FormulaRule(
-            formula=["ABS(B29-B28)>0.01"],
-            fill=ROJO,
-            font=FONT_ROJO,
-        ),
-    )
-    print(f"[INFO] {n_rojo} días no cuadran (Listado vs Total)", flush=True)
+        ultima = get_column_letter(1 + len(dias))
+        ws.conditional_formatting.add(
+            f"B29:{ultima}29",
+            FormulaRule(
+                formula=["ABS(B29-B28)>0.01"],
+                fill=ROJO,
+                font=FONT_ROJO,
+            ),
+        )
+        print(f"[INFO] {n_rojo} días no cuadran (Listado vs Total)", flush=True)
 
     ws.freeze_panes = "B4"
     ws.page_setup.orientation = "landscape"
@@ -917,7 +1040,7 @@ def construir_facturaciones(
 ) -> None:
     if "Facturaciones" in wb.sheetnames:
         del wb["Facturaciones"]
-    ws = wb.create_sheet("Facturaciones", 1)
+    ws = wb.create_sheet("Facturaciones")
     headers = [
         "Mes",
         "Lectura inicial (12:00)",
@@ -1269,7 +1392,41 @@ def main() -> None:
         flush=True,
     )
     horas = _horas_rango(extra, horas)
-    wb = construir_horario(dias, horas)
+    wb = construir_horario(
+        dias,
+        horas,
+        sheet_name="H. JPII",
+        nombre=NOMBRE,
+        node=NODE,
+        d0=D0,
+        d1=D1,
+        listado=LISTADO,
+    )
+    horas_lik = _cargar_horas_likancura()
+    _rellenar_horas_faltantes(horas_lik, NODE_LIK)
+    dias_lik = _dias_unicos(D0_LIK, D1_LIK)
+    for dia in dias_lik:
+        horas_lik.setdefault(dia, {})
+        for h in range(24):
+            horas_lik[dia].setdefault(h, 0.0)
+    print(
+        f"[INFO] H. Likancura {len(dias_lik)} días "
+        f"{D0_LIK.isoformat()}–{D1_LIK.isoformat()} "
+        f"m³={sum(sum(horas_lik[d].values()) for d in dias_lik):.2f}",
+        flush=True,
+    )
+    construir_horario(
+        dias_lik,
+        horas_lik,
+        wb=wb,
+        sheet_name="H. Likancura",
+        nombre=NOMBRE_LIK,
+        node=NODE_LIK,
+        d0=D0_LIK,
+        d1=D1_LIK,
+        listado=None,
+        nota="Pegado app WES (F/H/M). Huecos puntuales rellenados con API. Fila Total = celeste.",
+    )
     construir_facturaciones(wb, horas, periodos)
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     out = OUT_DIR / f"Horario_JP2_hora_consumo_{ts}.xlsx"
@@ -1277,7 +1434,7 @@ def main() -> None:
     estable = OUT_DIR / DRIVE_NOMBRE
     if out.resolve() != estable.resolve():
         estable.write_bytes(out.read_bytes())
-    print("XLSX", out, "cols", wb.active.max_column)
+    print("XLSX", out, "sheets", wb.sheetnames)
     if credenciales_configuradas():
         info = subir_a_drive(estable, subcarpeta=DRIVE_SUB, nombre=DRIVE_NOMBRE)
         print("DRIVE", info["id"], info["web_view_link"])
