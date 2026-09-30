@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib
 
@@ -30,7 +30,7 @@ AGREGADO_EXTENDIDO_COMPANY_IDS = frozenset({
     "000027",  # Fundo Zapallar
     "000028",  # La Florida
     "000006",  # Colegios Providencia
-    "000012",  # DERCO
+    "000012",  # Inchcape (ex DERCO)
     "000024",  # La Reina
     "000002",  # Lo Valledor
 })
@@ -91,10 +91,10 @@ _CLIENTE: Dict[str, dict] = {
         "total_label": "Total Providencia (periodo):",
     },
     "000012": {
-        "prefijo": "derco",
-        "sujeto": "DERCO",
-        "sujeto_min": "DERCO",
-        "total_label": "Total DERCO (periodo):",
+        "prefijo": "inchcape",
+        "sujeto": "Inchcape",
+        "sujeto_min": "Inchcape",
+        "total_label": "Total Inchcape (periodo):",
     },
     "000024": {
         "prefijo": "reina",
@@ -254,14 +254,31 @@ def narrativa_consumo_total_extendido(company_id: str, nodes_data: List[dict]) -
 
 COPEC_NODE_ESTANQUE_REUTILIZACION = "000009-02"
 AGUILAS_NODE_PISCINA = "000007-05"
+AGUILAS_NODE_ELEMENTARY = "000007-04"
+INCHCAPE_NODE_MATRIZ_PRINCIPAL = "000012-06"
+
+# Sin sección «Día de mayor consumo» ni marcadores/tabla de alertas en rojo.
+OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS = frozenset({
+    "000027",  # Fundo Zapallar
+    "000012",  # Inchcape (ex DERCO)
+    "000002",  # Lo Valledor
+    "000026",  # UDD
+    "000031",  # Club Providencia
+    "000020",  # AGUNSA (Lampa e Intermodal)
+})
 
 
 def _omitir_grafico_dia_mayor(company_id: str, data: dict) -> bool:
+    if company_id in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS:
+        return True
     summary = data.get("summary") or {}
     total = float(summary.get("total") or 0.0)
     if total <= 0:
         return True
     if company_id == "000007" and data.get("node_id") == AGUILAS_NODE_PISCINA:
+        return True
+    # Elementary con consumo residual (turbina pendiente): no tiene sentido el pico diario.
+    if company_id == "000007" and data.get("node_id") == AGUILAS_NODE_ELEMENTARY and total < 1.0:
         return True
     max_m = summary.get("max")
     if max_m and float(max_m.total_m3 or 0) <= 0:
@@ -286,6 +303,68 @@ def _agregar_nota_estanque_reutilizacion_copec(doc: Document) -> None:
     nota = doc.add_paragraph(_nota_estanque_reutilizacion_copec())
     nota.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     for run in nota.runs:
+        run.font.color.rgb = RGBColor(0, 0, 0)
+
+
+def _nota_turbina_elementary() -> str:
+    return (
+        "Nota — Elementary (turbina): se planificó la limpieza de la turbina de este punto; "
+        "sin embargo, por condiciones climáticas y por necesidades operativas del colegio, "
+        "el trabajo aún no se ha ejecutado. Por eso el medidor marca consumo cercano a cero "
+        "en el periodo: no corresponde a una falla del sistema WES, sino a que la intervención "
+        "programada quedó pendiente de realizar."
+    )
+
+
+def _agregar_nota_turbina_elementary(doc: Document) -> None:
+    p = doc.add_paragraph()
+    p.add_run("Detalle operativo").bold = True
+    nota = doc.add_paragraph(_nota_turbina_elementary())
+    nota.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    for run in nota.runs:
+        run.font.color.rgb = RGBColor(0, 0, 0)
+
+
+def _agregar_destacado_matriz_principal_inchcape(
+    doc: Document,
+    nodes_data: List[dict],
+    nodos_noct: List[dict],
+) -> None:
+    """Resalta control nocturno sobre Quilicura Matriz Principal."""
+    from generar_reporte_word import add_formatted_title, format_number_chilean
+
+    matriz = next(
+        (d for d in nodes_data if d.get("node_id") == INCHCAPE_NODE_MATRIZ_PRINCIPAL),
+        None,
+    )
+    noct = next(
+        (
+            n
+            for n in nodos_noct
+            if "matriz principal" in str(n.get("nombre", "")).lower()
+        ),
+        None,
+    )
+    if matriz is None and noct is None:
+        return
+
+    add_formatted_title(doc, "Control destacado — Matriz Principal")
+    total_periodo = float((matriz.get("summary") or {}).get("total") or 0.0) if matriz else 0.0
+    m3_noct = float(noct["m3"]) if noct else 0.0
+    dias_noct = int(noct["dias_con"]) if noct else 0
+    pct = (m3_noct / total_periodo * 100.0) if total_periodo > 0 else 0.0
+    texto = (
+        "El nodo Quilicura Matriz Principal es el punto de control prioritario del sitio: "
+        f"concentra {format_number_chilean(total_periodo, 1)} m³ del periodo y "
+        f"{format_number_chilean(m3_noct, 1)} m³ en horario nocturno (00:00–06:59), "
+        f"equivalente al {format_number_chilean(pct, 1)} % de su consumo del periodo "
+        f"({dias_noct} días con caudal en madrugada). "
+        "Conviene priorizar la revisión y regulación WES sobre esta matriz para reducir "
+        "consumos fuera de operación y reforzar el control del recurso en el predio."
+    )
+    p = doc.add_paragraph(texto)
+    p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    for run in p.runs:
         run.font.color.rgb = RGBColor(0, 0, 0)
 
 
@@ -326,9 +405,8 @@ def agregar_secciones_consumo_diario_y_max_dia(
             continue
         chart_path = output_dir / f"{pref}_diario_{node_id.replace('-', '_')}.png"
         alerts = filtrar_alertas_informativas(data.get("alerts"))
-        # Fundo Zapallar: gráficos diarios sin marcadores ni tabla de alertas
-        # (el cliente pide solo la curva de consumo).
-        alerts_para_grafico = None if company_id == "000027" else alerts
+        # Zapallar, Inchcape y el resto del lote de fin de mes: solo curva de consumo.
+        alerts_para_grafico = None if company_id in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS else alerts
         built = build_consumption_chart(
             measures, chart_path, start_dt, end_dt, alerts_para_grafico
         )
@@ -337,7 +415,10 @@ def agregar_secciones_consumo_diario_y_max_dia(
         doc.add_paragraph("")
         add_formatted_title(doc, node_name.upper())
         add_picture_with_pagination(doc, str(chart_path), Inches(6), keep_with_next=True)
-        if es_agregado_extendido(company_id) and company_id != "000027":
+        if (
+            es_agregado_extendido(company_id)
+            and company_id not in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS
+        ):
             alerts_marcadas = alertas_marcadas_grafico_diario(alerts, measures, start_dt, end_dt)
             if alerts_marcadas:
                 agregar_tabla_alertas_grafico_diario(doc, alerts_marcadas, wes_style=True)
@@ -345,6 +426,14 @@ def agregar_secciones_consumo_diario_y_max_dia(
             total_periodo = float((data.get("summary") or {}).get("total") or 0.0)
             if total_periodo <= 0:
                 _agregar_nota_estanque_reutilizacion_copec(doc)
+        if company_id == "000007" and node_id == AGUILAS_NODE_ELEMENTARY:
+            total_periodo = float((data.get("summary") or {}).get("total") or 0.0)
+            if total_periodo < 1.0:
+                _agregar_nota_turbina_elementary(doc)
+
+    # El lote de fin de mes pide omitir «día de mayor consumo» por punto.
+    if company_id in OMITIR_DIA_MAYOR_Y_ALERTAS_ROJAS:
+        return
 
     add_formatted_heading(doc, "Día de mayor consumo diario por punto", level=1)
     intro2 = doc.add_paragraph(
@@ -394,6 +483,7 @@ def agregar_analisis_nocturno_extendido(
     end_dt: datetime,
     output_dir: Path,
     price_per_m3: float,
+    node_starts: Optional[Dict[str, datetime]] = None,
 ) -> None:
     from generar_reporte_word import (
         add_formatted_heading,
@@ -415,7 +505,8 @@ def agregar_analisis_nocturno_extendido(
     for data in nodes_data:
         node_id = data["node_id"]
         node_name = data["node_name"].replace("\n", " ").strip()
-        nm = calculate_nocturnal_metrics(node_id, start_dt, end_dt, company_id=company_id)
+        node_start = (node_starts or {}).get(node_id, start_dt)
+        nm = calculate_nocturnal_metrics(node_id, node_start, end_dt, company_id=company_id)
         c_noche = float(nm["consumo_nocturno_total"])
         nodos_noct.append(
             {
@@ -527,3 +618,93 @@ def agregar_analisis_nocturno_extendido(
     for run in conc.runs:
         run.font.color.rgb = RGBColor(0, 0, 0)
         run.font.size = Pt(10)
+
+    if company_id == "000012":
+        _agregar_destacado_matriz_principal_inchcape(doc, nodes_data, nodos_noct)
+    elif company_id == "000027":
+        from generar_reporte_word import format_currency_chilean, format_number_chilean
+
+        add_formatted_title(doc, "Énfasis operativo — periodo nocturno")
+        esval_noct = next(
+            (
+                n
+                for n in nodos_noct
+                if "esval" in str(n.get("nombre", "")).lower()
+                or "matriz" in str(n.get("nombre", "")).lower()
+            ),
+            nodos_noct[0] if nodos_noct else None,
+        )
+        if esval_noct and total_m3 > 0:
+            enf = doc.add_paragraph(
+                "En Fundo Zapallar el foco de control queda en el caudal nocturno del periodo "
+                f"({format_number_chilean(total_m3, 1)} m³; {format_currency_chilean(total_clp)}). "
+                f"La Matriz ESVAL concentra {format_number_chilean(esval_noct['m3'], 1)} m³ en madrugada "
+                f"({esval_noct['dias_con']} días con consumo 00:00–06:59): es el punto de entrada "
+                "donde conviene priorizar la regulación y el seguimiento WES."
+            )
+            enf.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+            for run in enf.runs:
+                run.font.color.rgb = RGBColor(0, 0, 0)
+
+
+_MESES_ES = {
+    1: "ene",
+    2: "feb",
+    3: "mar",
+    4: "abr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "ago",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dic",
+}
+
+
+def _meses_ultimos_n(end_dt: datetime, n: int = 6) -> List[Tuple[int, int]]:
+    y, m = end_dt.year, end_dt.month
+    out: List[Tuple[int, int]] = []
+    for _ in range(n):
+        out.append((y, m))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    out.reverse()
+    return out
+
+
+def _serie_mensual_nodo(node_id: str, end_dt: datetime, n_meses: int = 6) -> List[Tuple[str, float]]:
+    from generar_reporte_word import (
+        acl_node_base_url,
+        fetch_json,
+        flatten_measures,
+        normalize_measures_payload,
+    )
+
+    meses = _meses_ultimos_n(end_dt, n_meses)
+    y0, m0 = meses[0]
+    start = datetime(y0, m0, 1)
+    payload_raw = fetch_json(
+        f"{acl_node_base_url()}/nodes/measures/dates",
+        params=[
+            ("id", node_id),
+            ("start", start.strftime("%d%m%Y")),
+            ("end", end_dt.strftime("%d%m%Y")),
+        ],
+    )
+    payload = normalize_measures_payload(payload_raw, node_id)
+    measures = flatten_measures(payload)
+    by_month: Dict[Tuple[int, int], float] = {}
+    for mp in measures:
+        key = (mp.date.year, mp.date.month)
+        by_month[key] = by_month.get(key, 0.0) + float(mp.total_m3)
+    series: List[Tuple[str, float]] = []
+    for y, m in meses:
+        label = f"{_MESES_ES.get(m, str(m))} {y}"
+        if y == end_dt.year and m == end_dt.month:
+            label += "*"
+        series.append((label, float(by_month.get((y, m), 0.0))))
+    return series
