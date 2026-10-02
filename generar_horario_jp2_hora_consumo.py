@@ -466,6 +466,7 @@ def construir_horario(
     listado: dict[date, float] | None = None,
     nota: str | None = None,
     resaltar: set[tuple[date, int]] | None = None,
+    fill_resaltar: PatternFill | None = None,
     etiqueta_total: str = "Total",
     etiqueta_listado: str = "Listado",
     mostrar_fila_listado: bool | None = None,
@@ -514,16 +515,22 @@ def construir_horario(
     ws.cell(3, 1).border = THIN
     ws.cell(3, 1).fill = HDR
 
+    fill_dup = fill_resaltar or AMARILLO_DUP
+    dias_con_dup = {d for d, _h in resaltar} if resaltar else set()
     for i, dia in enumerate(dias):
         col = 2 + i
         top = ws.cell(2, col, f"Fecha  {dia.strftime('%d/%m/%Y')}")
-        top.fill = HDR
-        top.font = Font(bold=True, size=9)
+        if dia in dias_con_dup:
+            top.fill = fill_dup
+            top.font = FONT_ROJO if fill_dup is ROJO else Font(bold=True, size=9)
+        else:
+            top.fill = HDR
+            top.font = Font(bold=True, size=9)
         top.alignment = Alignment(horizontal="center", wrap_text=True, vertical="center")
         top.border = THIN
         sub = ws.cell(3, col, "Consumo")
-        sub.fill = SUB
-        sub.font = Font(bold=True, size=9)
+        sub.fill = fill_dup if dia in dias_con_dup else SUB
+        sub.font = FONT_ROJO if dia in dias_con_dup and fill_dup is ROJO else Font(bold=True, size=9)
         sub.alignment = CENTER
         sub.border = THIN
         ws.column_dimensions[get_column_letter(col)].width = 14
@@ -547,8 +554,8 @@ def construir_horario(
             b.alignment = CENTER
             b.border = THIN
             if resaltar and (dia, h) in resaltar:
-                b.fill = AMARILLO_DUP
-                b.font = Font(bold=True, size=9)
+                b.fill = fill_dup
+                b.font = FONT_ROJO if fill_dup is ROJO else Font(bold=True, size=9)
             else:
                 b.fill = bg
 

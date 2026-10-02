@@ -32,6 +32,7 @@ from generar_horario_jp2_hora_consumo import (
     HDR,
     NARANJA,
     NUM_FMT,
+    ROJO,
     SUB,
     THIN,
     VERDE,
@@ -121,7 +122,9 @@ def descargar_data_de_placas() -> Path:
     return LOCAL_XLSX
 
 
-def _parse_fhm_sheet(ws) -> tuple[dict[date, dict[int, float]], dict]:
+def _parse_fhm_sheet(
+    ws,
+) -> tuple[dict[date, dict[int, float]], dict, set[tuple[date, int]]]:
     """Lee F:/H:/M: por columna. Si un (fecha, hora) se repite, se queda la primera."""
     col_tokens: dict[int, list[str]] = {}
     for col in range(1, ws.max_column + 1):
@@ -137,6 +140,7 @@ def _parse_fhm_sheet(ws) -> tuple[dict[date, dict[int, float]], dict]:
             col_tokens[col] = toks
 
     horas: dict[date, dict[int, float]] = {}
+    dups_pares: set[tuple[date, int]] = set()
     n_triples = 0
     n_dup = 0
     n_conf = 0
@@ -161,6 +165,7 @@ def _parse_fhm_sheet(ws) -> tuple[dict[date, dict[int, float]], dict]:
                 prev = (horas.get(pending_f) or {}).get(pending_h)
                 if prev is not None:
                     n_dup += 1
+                    dups_pares.add((pending_f, pending_h))
                     if abs(prev - val) > 0.001:
                         n_conf += 1
                 else:
@@ -171,13 +176,14 @@ def _parse_fhm_sheet(ws) -> tuple[dict[date, dict[int, float]], dict]:
         "triples": n_triples,
         "unicos": sum(len(h) for h in horas.values()),
         "duplicados": n_dup,
+        "dias_dup": len({d for d, _h in dups_pares}),
         "conflictos": n_conf,
         "dias": len(dias),
         "d0": dias[0] if dias else None,
         "d1": dias[-1] if dias else None,
         "m3": round(sum(sum(h.values()) for h in horas.values()), 2),
     }
-    return horas, stats
+    return horas, stats, dups_pares
 
 
 def _hoja_pendiente(wb: Workbook, sheet_name: str, nombre: str, node: str) -> None:
@@ -235,18 +241,26 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
         "Fuente placa: Colegios / Peñalolén / Facturaciones / data de placas.xlsx. "
         "Una hoja horaria por colegio. Fila data placa = suma de horas de la placa "
         "(si un horario se repetía, queda una sola vez). Fila data app = totales "
-        "diarios de la app, colegio por colegio cuando llegue el dump. "
-        "Rojo si no coinciden. Erasmo Escala, Matilde Huici y CE Valle Hermoso "
-        "están pendientes de descargar."
+        "diarios de la app. En cada hoja, encabezado y hora en rojo = ese día/"
+        "horario se repetía en el pegado de la placa. Fila data app en rojo = no "
+        "cuadra con data placa. Estado: Placa cargada = llegó el pegado F/H/M; "
+        "Pendiente de placa = hay data app pero la hoja de la placa sigue vacía. "
+        "Erasmo Escala, Matilde Huici y CE Valle Hermoso están pendientes de descargar."
     )
     ws["A2"].font = Font(bold=True, size=11, color="003366")
     ws["A2"].alignment = Alignment(wrap_text=True, vertical="center")
-    ws.row_dimensions[2].height = 36
+    ws.row_dimensions[2].height = 52
 
     for info in filas:
         pendiente = info["pendiente"]
         n_app = int(info.get("dias_app") or 0)
         m3_app = info.get("m3_app")
+        if pendiente and n_app:
+            estado = "Pendiente de placa"
+        elif pendiente:
+            estado = "Pendiente de descargar"
+        else:
+            estado = "Placa cargada"
         ws.append(
             [
                 info["nombre"],
@@ -259,9 +273,7 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
                 info["m3"] if not pendiente else None,
                 n_app or None,
                 m3_app if n_app else None,
-                "Pendiente de placa" if pendiente and n_app else (
-                    "Pendiente de descargar" if pendiente else "OK"
-                ),
+                estado,
             ]
         )
         row = ws.max_row
@@ -325,13 +337,14 @@ def main() -> None:
                 }
             )
             continue
-        horas, st = _parse_fhm_sheet(src[src_name])
+        horas, st, dups_pares = _parse_fhm_sheet(src[src_name])
         data_app = _cargar_data_app(node)
         meta_app = _meta_data_app(node)
         pendiente = node in PENDIENTES or not horas
         print(
             f"  {dest:18} {nombre:24} {st['triples']:5} triples "
-            f"únicos={st['unicos']} dups={st['duplicados']} conf={st['conflictos']} "
+            f"únicos={st['unicos']} dups={st['duplicados']} "
+            f"días_dup={st['dias_dup']} conf={st['conflictos']} "
             f"días={st['dias']} m³={st['m3']} app={len(data_app)}"
             f"{' PENDIENTE' if pendiente else ''}",
             flush=True,
@@ -367,10 +380,11 @@ def main() -> None:
             "Fuente placa: data de placas.xlsx (pegado F/H/M). "
             "Fila data placa = celeste (suma de horas de la placa; "
             "si un horario se repetía, queda una sola vez). "
-            "Fila data app = verde (totales diarios de la app; "
-            "se llena colegio por colegio). "
-            "Rojo si data app no coincide con data placa. "
-            f"Duplicados placa={st['duplicados']} (conflictos de valor={st['conflictos']}). "
+            "Fila data app = verde (totales diarios de la app). "
+            "Encabezado y hora en rojo = ese día/horario se repetía en la placa. "
+            "Fila data app en rojo = no coincide con data placa. "
+            f"Duplicados placa={st['duplicados']} "
+            f"(días={st['dias_dup']}, conflictos de valor={st['conflictos']}). "
         )
         if pendiente:
             nota += "Placa pendiente de descargar; esta hoja muestra solo data app. "
@@ -392,6 +406,8 @@ def main() -> None:
             d1=dias[-1],
             listado=data_app,
             nota=nota,
+            resaltar=dups_pares or None,
+            fill_resaltar=ROJO,
             etiqueta_total="data placa",
             etiqueta_listado="data app",
             mostrar_fila_listado=True,
