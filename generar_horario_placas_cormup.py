@@ -3,9 +3,10 @@ Horario por colegio CORMUP desde Drive:
 
   G:\\Mi unidad\\Colegios\\Peñalolén\\Facturaciones\\data de placas.xlsx
 
-Una hoja H.* por establecimiento (F/H/M de la placa). Las últimas 3 hojas de
-esa planilla (Erasmo Escala, Matilde Huici, CE Valle Hermoso) están vacías:
-quedan como pendiente de descargar.
+Una hoja H.* por establecimiento (F/H/M de la placa). Fila 28 = data placa
+(suma de horas). Fila 29 = data app (totales diarios de la app). Las últimas
+3 hojas de esa planilla (Erasmo Escala, Matilde Huici, CE Valle Hermoso)
+están vacías: quedan como pendiente de descargar.
 
 Uso:
   python generar_horario_placas_cormup.py
@@ -13,19 +14,16 @@ Uso:
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import date, datetime
 from pathlib import Path
+from typing import Any
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from generar_comparativo_facturaciones_cormup_penalolen import (
-    _buscar_carpeta_facturaciones,
-    _descargar_archivo,
-    _listar_hijos,
-)
 from generar_horario_jp2_hora_consumo import (
     AZUL_HDR,
     CELESTE,
@@ -46,6 +44,7 @@ DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
 DRIVE_NOMBRE = "Horario_placas_CORMUP.xlsx"
 LOCAL_XLSX = OUT_DIR / "_pdfs" / "data_de_placas.xlsx"
 PLACAS_NOMBRE = "data de placas.xlsx"
+APP_DIR = OUT_DIR / "app_data"
 
 # Nombre en data de placas.xlsx → (nombre, nodo, hoja destino)
 COLEGIOS = [
@@ -72,7 +71,29 @@ PAT_M = re.compile(r"^M:\s*([\d.,]+)")
 PAT_R = re.compile(r"^R:")
 
 
+def _cargar_data_app(node: str) -> dict[date, float]:
+    """Totales diarios de la app (suma de horas del dump), por nodo."""
+    path = APP_DIR / f"{node}_diario.json"
+    if not path.is_file():
+        return {}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return {date.fromisoformat(str(k)): float(v) for k, v in raw.items()}
+
+
+def _meta_data_app(node: str) -> dict[str, Any]:
+    path = APP_DIR / f"{node}_meta.json"
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def descargar_data_de_placas() -> Path:
+    from generar_comparativo_facturaciones_cormup_penalolen import (
+        _buscar_carpeta_facturaciones,
+        _descargar_archivo,
+        _listar_hijos,
+    )
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     LOCAL_XLSX.parent.mkdir(parents=True, exist_ok=True)
     if not credenciales_configuradas():
@@ -197,6 +218,8 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
         "Horas únicas",
         "Duplicados",
         "m³ placa",
+        "Días app",
+        "m³ app",
         "Estado",
     ]
     ws.append(headers)
@@ -209,10 +232,11 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
     ws.row_dimensions[1].height = 28
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
     ws["A2"] = (
-        "Fuente: Colegios / Peñalolén / Facturaciones / data de placas.xlsx. "
-        "Una hoja horaria por colegio. Si un horario se repetía, queda una sola vez "
-        "(el Total no suma dos veces). Erasmo Escala, Matilde Huici y CE Valle Hermoso "
-        "están pendientes de descargar."
+        "Fuente placa: Colegios / Peñalolén / Facturaciones / data de placas.xlsx. "
+        "Una hoja horaria por colegio. Fila data placa = suma de horas de la placa "
+        "(si un horario se repetía, queda una sola vez). Fila data app = totales "
+        "diarios de la app. Rojo si no coinciden. Erasmo Escala, Matilde Huici y "
+        "CE Valle Hermoso están pendientes de descargar."
     )
     ws["A2"].font = Font(bold=True, size=11, color="003366")
     ws["A2"].alignment = Alignment(wrap_text=True, vertical="center")
@@ -220,6 +244,8 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
 
     for info in filas:
         pendiente = info["pendiente"]
+        n_app = int(info.get("dias_app") or 0)
+        m3_app = info.get("m3_app")
         ws.append(
             [
                 info["nombre"],
@@ -230,6 +256,8 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
                 info["unicos"] or None,
                 info["duplicados"] if not pendiente else None,
                 info["m3"] if not pendiente else None,
+                n_app or None,
+                m3_app if n_app else None,
                 "Pendiente de descargar" if pendiente else "OK",
             ]
         )
@@ -247,10 +275,13 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
             ws.cell(row, 8).fill = CELESTE
             if info["duplicados"]:
                 ws.cell(row, 7).fill = PatternFill("solid", fgColor="FFFF99")
-            ws.cell(row, 9).fill = VERDE
-            ws.cell(row, 9).font = FONT_OK
+            if n_app:
+                ws.cell(row, 10).number_format = NUM_FMT
+                ws.cell(row, 10).fill = VERDE
+            ws.cell(row, 11).fill = VERDE
+            ws.cell(row, 11).font = FONT_OK
 
-    anchos = [28, 14, 14, 14, 10, 14, 14, 14, 26]
+    anchos = [28, 14, 14, 14, 10, 14, 14, 14, 12, 14, 26]
     for i, w in enumerate(anchos, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
     ws.freeze_panes = "A3"
@@ -282,42 +313,64 @@ def main() -> None:
                     "unicos": 0,
                     "duplicados": 0,
                     "m3": 0.0,
+                    "dias_app": 0,
+                    "m3_app": None,
                     "pendiente": True,
                 }
             )
             continue
         horas, st = _parse_fhm_sheet(src[src_name])
+        data_app = _cargar_data_app(node)
+        meta_app = _meta_data_app(node)
         pendiente = node in PENDIENTES or not horas
         print(
             f"  {dest:18} {nombre:24} {st['triples']:5} triples "
             f"únicos={st['unicos']} dups={st['duplicados']} conf={st['conflictos']} "
-            f"días={st['dias']} m³={st['m3']}"
+            f"días={st['dias']} m³={st['m3']} app={len(data_app)}"
             f"{' PENDIENTE' if pendiente else ''}",
             flush=True,
         )
+        d0_res = st["d0"]
+        d1_res = st["d1"]
+        if data_app:
+            d0_app, d1_app = min(data_app), max(data_app)
+            d0_res = min(d0_res, d0_app) if d0_res else d0_app
+            d1_res = max(d1_res, d1_app) if d1_res else d1_app
         filas_resumen.append(
             {
                 "nombre": nombre,
                 "node": node,
-                "d0": st["d0"],
-                "d1": st["d1"],
+                "d0": d0_res,
+                "d1": d1_res,
                 "dias": st["dias"],
                 "unicos": st["unicos"],
                 "duplicados": st["duplicados"],
                 "m3": st["m3"],
+                "dias_app": len(data_app),
+                "m3_app": round(sum(data_app.values()), 2) if data_app else None,
                 "pendiente": pendiente,
             }
         )
         if pendiente:
             _hoja_pendiente(wb, dest, nombre, node)
             continue
-        dias = sorted(horas)
+        dias = sorted(set(horas) | set(data_app))
         nota = (
-            "Fuente: data de placas.xlsx (pegado F/H/M de la placa). "
-            "Si un horario se repetía, queda una sola vez; el Total no suma dos veces. "
-            f"Duplicados={st['duplicados']} (conflictos de valor={st['conflictos']}). "
-            "Fila Total = celeste. Solo días con registro."
+            "Fuente placa: data de placas.xlsx (pegado F/H/M). "
+            "Fila data placa = celeste (suma de horas de la placa; "
+            "si un horario se repetía, queda una sola vez). "
+            "Fila data app = verde (totales diarios de la app). "
+            "Rojo si data app no coincide con data placa. "
+            f"Duplicados placa={st['duplicados']} (conflictos de valor={st['conflictos']}). "
+            "Solo días con placa o con data app."
         )
+        if data_app:
+            app_d0, app_d1 = min(data_app), max(data_app)
+            extra_app = meta_app.get("nota") or (
+                f"Dump app {app_d0.strftime('%d/%m')}–{app_d1.strftime('%d/%m')} "
+                f"({len(data_app)} días)."
+            )
+            nota += " " + extra_app
         construir_horario(
             dias,
             horas,
@@ -327,8 +380,11 @@ def main() -> None:
             node=node,
             d0=dias[0],
             d1=dias[-1],
-            listado=None,
+            listado=data_app,
             nota=nota,
+            etiqueta_total="data placa",
+            etiqueta_listado="data app",
+            mostrar_fila_listado=True,
         )
 
     if "_tmp" in wb.sheetnames:

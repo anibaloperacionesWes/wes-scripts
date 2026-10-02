@@ -466,6 +466,9 @@ def construir_horario(
     listado: dict[date, float] | None = None,
     nota: str | None = None,
     resaltar: set[tuple[date, int]] | None = None,
+    etiqueta_total: str = "Total",
+    etiqueta_listado: str = "Listado",
+    mostrar_fila_listado: bool | None = None,
 ) -> Workbook:
 
     if wb is None:
@@ -480,10 +483,17 @@ def construir_horario(
         else:
             ws = wb.create_sheet(sheet_name)
 
+    fila_app = (
+        mostrar_fila_listado
+        if mostrar_fila_listado is not None
+        else listado is not None
+    )
+    data_app = listado or {}
     extra = nota or (
-        "Fila Total = celeste. Fila Listado = verde. Rojo solo si Listado no coincide con Total."
-        if listado
-        else "Fila Total = celeste (suma de las 24 horas)."
+        f"Fila {etiqueta_total} = celeste. Fila {etiqueta_listado} = verde. "
+        f"Rojo solo si {etiqueta_listado} no coincide con {etiqueta_total}."
+        if fila_app
+        else f"Fila {etiqueta_total} = celeste (suma de las 24 horas)."
     )
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=1 + min(8, len(dias)))
     ws["A1"] = (
@@ -493,7 +503,7 @@ def construir_horario(
     )
     ws["A1"].font = Font(bold=True, size=12, color="003366")
     ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
-    ws.row_dimensions[1].height = 48
+    ws.row_dimensions[1].height = 64 if extra and len(extra) > 180 else 48
 
     ws.merge_cells(start_row=2, start_column=1, end_row=3, end_column=1)
     c = ws.cell(2, 1, "Hora")
@@ -517,7 +527,9 @@ def construir_horario(
         sub.alignment = CENTER
         sub.border = THIN
         ws.column_dimensions[get_column_letter(col)].width = 14
-    ws.column_dimensions["A"].width = 12
+    ws.column_dimensions["A"].width = max(
+        12, len(etiqueta_total) + 2, len(etiqueta_listado) + 2 if fila_app else 0
+    )
     ws.row_dimensions[2].height = 22
 
     for h in range(24):
@@ -541,32 +553,35 @@ def construir_horario(
                 b.fill = bg
 
     rt = 28
-    t = ws.cell(rt, 1, "Total")
+    t = ws.cell(rt, 1, etiqueta_total)
     t.font = Font(bold=True, size=9)
     t.alignment = CENTER
     t.border = THIN
     t.fill = CELESTE
     for i, dia in enumerate(dias):
         col = get_column_letter(2 + i)
-        b = ws.cell(rt, 2 + i, f"=SUM({col}4:{col}27)")
-        b.number_format = NUM_FMT
+        tiene_placa = bool(horas.get(dia))
+        b = ws.cell(rt, 2 + i, f"=SUM({col}4:{col}27)" if tiene_placa else None)
+        if tiene_placa:
+            b.number_format = NUM_FMT
         b.font = FONT_OK
         b.alignment = CENTER
         b.border = THIN
         b.fill = CELESTE
 
-    if listado is not None:
+    if fila_app:
         rl = 29
-        lab = ws.cell(rl, 1, "Listado")
+        lab = ws.cell(rl, 1, etiqueta_listado)
         lab.font = Font(bold=True, size=9)
         lab.alignment = CENTER
         lab.border = THIN
         lab.fill = VERDE
         n_rojo = 0
         for i, dia in enumerate(dias):
-            val = listado.get(dia)
+            val = data_app.get(dia)
             wes_tot = sum((horas.get(dia) or {}).values())
-            descuadre = _no_cuadra(val, wes_tot)
+            tiene_placa = bool(horas.get(dia))
+            descuadre = tiene_placa and _no_cuadra(val, wes_tot)
             cell = ws.cell(rl, 2 + i, _num(val) if val is not None else None)
             if val is not None:
                 cell.number_format = NUM_FMT
@@ -577,21 +592,26 @@ def construir_horario(
             if descuadre:
                 n_rojo += 1
                 print(
-                    f"  ROJO {dia.strftime('%d/%m')} listado={_num(val)} total={_num(wes_tot)} "
+                    f"  ROJO {dia.strftime('%d/%m')} {etiqueta_listado}={_num(val)} "
+                    f"{etiqueta_total}={_num(wes_tot)} "
                     f"delta={(_num(val) - _num(wes_tot)):+.2f}",
                     flush=True,
                 )
 
-        ultima = get_column_letter(1 + len(dias))
-        ws.conditional_formatting.add(
-            f"B29:{ultima}29",
-            FormulaRule(
-                formula=["ABS(B29-B28)>0.01"],
-                fill=ROJO,
-                font=FONT_ROJO,
-            ),
+        if dias:
+            ultima = get_column_letter(1 + len(dias))
+            ws.conditional_formatting.add(
+                f"B29:{ultima}29",
+                FormulaRule(
+                    formula=["AND(ISNUMBER(B28),ISNUMBER(B29),ABS(B29-B28)>0.01)"],
+                    fill=ROJO,
+                    font=FONT_ROJO,
+                ),
+            )
+        print(
+            f"[INFO] {n_rojo} días no cuadran ({etiqueta_listado} vs {etiqueta_total})",
+            flush=True,
         )
-        print(f"[INFO] {n_rojo} días no cuadran (Listado vs Total)", flush=True)
 
     ws.freeze_panes = "B4"
     ws.page_setup.orientation = "landscape"

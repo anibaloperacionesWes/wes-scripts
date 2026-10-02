@@ -1,0 +1,10 @@
+{
+  "nodo": "000008-01",
+  "colegio": "Lic. Antonio Hermida F",
+  "desde": "2026-01-01 00:00",
+  "hasta": "2026-03-16 04:00",
+  "dias": 70,
+  "horas": 1638,
+  "m3": 1956.1,
+  "nota": "Dump app Lic. Antonio Hermida F: 01/01 00:00 a 16/03 04:00 (70 días, 1638 h, 1956.1 m³). El pantallazo corta el 16/03 a las 04:00. En el dump no vienen 02–06/01, 08/01 14–23, 09/01 00–09 y 11:00, ni 26/02 11–12."
+}
