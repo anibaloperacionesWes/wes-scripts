@@ -19,13 +19,24 @@ def test_ventana_suma_00_a_06():
     assert consumo_ventana(horas) == float(sum(range(0, 7)))
 
 
-def test_promedio_de_90_noches_anteriores():
-    noche = date(2026, 9, 30)
+def test_promedio_desde_el_23_de_septiembre():
+    noche = date(2026, 10, 2)
     dias = noches_base(noche, 90)
-    assert len(dias) == 90
-    assert dias[0] == date(2026, 7, 2)
-    assert dias[-1] == date(2026, 9, 29)
+    assert dias[0] == date(2026, 9, 23)
+    assert dias[-1] == date(2026, 10, 1)
+    assert date(2026, 7, 2) not in dias
     assert noche not in dias
+    assert len(dias) == 9
+
+    # Con más de 90 noches desde el 23-09, el tope sigue siendo 90.
+    tarde = date(2026, 12, 31)
+    dias_tarde = noches_base(tarde, 90)
+    assert len(dias_tarde) == 90
+    assert dias_tarde[0] == date(2026, 10, 2)
+    assert dias_tarde[-1] == date(2026, 12, 30)
+
+    assert noches_base(date(2026, 9, 23), 90) == []
+    assert noches_base(date(2026, 9, 24), 90) == [date(2026, 9, 23)]
     assert promedio_noches([10.0, 20.0, 30.0]) == 20.0
 
 

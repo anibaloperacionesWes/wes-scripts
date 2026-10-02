@@ -2,7 +2,9 @@
 Alerta nocturna de Fundo Zapallar.
 
 Cada noche completa (00:00 a 06:00, horas 00–06 inclusive) se compara con el
-promedio de las 90 noches anteriores, solo en los puntos de Fundo Zapallar.
+promedio de las noches anteriores desde el 23-09-2026, con un tope de 90 noches,
+solo en los puntos de Fundo Zapallar. Las noches de julio y agosto no entran
+en el promedio.
 
 Si el consumo de la noche supera ese promedio en un 25%
 (umbral = promedio × 1,25), se envía un correo a Aníbal y Juan indicando
@@ -53,6 +55,9 @@ BASE_URL = "http://104.248.53.141:7003/wes/api/acl-node/v1"
 # Horas 00, 01, 02, 03, 04, 05 y 06: consumo entre las 00:00 y las 07:00.
 HORAS_VENTANA: Tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6)
 NOCHES_BASE = 90
+# El promedio de Zapallar no usa noches anteriores a esta fecha: julio y agosto
+# bajaban el promedio y disparaban la alerta.
+INICIO_PROMEDIO = date(2026, 9, 23)
 # La noche alerta cuando supera al promedio en un 25%.
 FACTOR_UMBRAL = 1.25
 HORA_CIERRE_VENTANA = 7
@@ -85,12 +90,24 @@ def ultima_noche_completa(ahora: datetime) -> date:
     return local.date() - timedelta(days=1)
 
 
-def noches_base(noche: date, cantidad: int = NOCHES_BASE) -> List[date]:
-    """Las ``cantidad`` noches anteriores a ``noche``, de la más antigua a la más nueva."""
+def noches_base(
+    noche: date,
+    cantidad: int = NOCHES_BASE,
+    inicio: date = INICIO_PROMEDIO,
+) -> List[date]:
+    """Noches anteriores a ``noche``, como máximo ``cantidad``, y no antes de ``inicio``."""
     if cantidad < 1:
         raise ValueError("cantidad debe ser >= 1")
-    inicio = noche - timedelta(days=cantidad)
-    return [inicio + timedelta(days=i) for i in range(cantidad)]
+    fin = noche - timedelta(days=1)
+    desde = max(noche - timedelta(days=cantidad), inicio)
+    if desde > fin:
+        return []
+    dias: List[date] = []
+    cursor = desde
+    while cursor <= fin:
+        dias.append(cursor)
+        cursor += timedelta(days=1)
+    return dias
 
 
 def consumo_ventana(horas: Dict[int, float]) -> float:
@@ -233,6 +250,11 @@ def evaluar_puntos(
 ) -> List[dict]:
     """Descarga la ventana nocturna y arma el resultado por punto."""
     base = noches_base(noche, noches)
+    if not base:
+        raise ValueError(
+            f"No hay noches de promedio anteriores a {noche.isoformat()} "
+            f"desde {INICIO_PROMEDIO.isoformat()}."
+        )
     dias = list(base) + [noche]
     tareas = [(node_id, dia) for node_id in node_ids for dia in dias]
     serie: Dict[Tuple[str, date], Optional[Dict[int, float]]] = {}
@@ -342,7 +364,8 @@ def _cuerpo_correo(filas_alerta: Sequence[dict], noche: date, factor: float) -> 
         "Alerta nocturna — Fundo Zapallar",
         "",
         f"Noche evaluada: {noche.strftime('%d-%m-%Y')} (00:00 a 06:00, hora Chile).",
-        f"Promedio: últimas {NOCHES_BASE} noches anteriores, misma ventana.",
+        f"Promedio: noches desde el {INICIO_PROMEDIO.strftime('%d-%m-%Y')} "
+        f"hasta la anterior, con un tope de {NOCHES_BASE} noches, misma ventana.",
         f"Criterio: se avisa si el consumo de la noche supera ese promedio en un {pct} % "
         f"(umbral = promedio × {factor:.2f}).",
         "",
