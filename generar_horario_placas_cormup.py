@@ -235,8 +235,9 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
         "Fuente placa: Colegios / Peñalolén / Facturaciones / data de placas.xlsx. "
         "Una hoja horaria por colegio. Fila data placa = suma de horas de la placa "
         "(si un horario se repetía, queda una sola vez). Fila data app = totales "
-        "diarios de la app. Rojo si no coinciden. Erasmo Escala, Matilde Huici y "
-        "CE Valle Hermoso están pendientes de descargar."
+        "diarios de la app, colegio por colegio cuando llegue el dump. "
+        "Rojo si no coinciden. Erasmo Escala, Matilde Huici y CE Valle Hermoso "
+        "están pendientes de descargar."
     )
     ws["A2"].font = Font(bold=True, size=11, color="003366")
     ws["A2"].alignment = Alignment(wrap_text=True, vertical="center")
@@ -354,15 +355,19 @@ def main() -> None:
         if pendiente:
             _hoja_pendiente(wb, dest, nombre, node)
             continue
-        dias = sorted(set(horas) | set(data_app))
+        dias = sorted(horas)
+        if data_app:
+            dias = sorted(set(dias) | set(data_app))
         nota = (
             "Fuente placa: data de placas.xlsx (pegado F/H/M). "
             "Fila data placa = celeste (suma de horas de la placa; "
             "si un horario se repetía, queda una sola vez). "
-            "Fila data app = verde (totales diarios de la app). "
+            "Fila data app = verde (totales diarios de la app; "
+            "se llena colegio por colegio). "
             "Rojo si data app no coincide con data placa. "
             f"Duplicados placa={st['duplicados']} (conflictos de valor={st['conflictos']}). "
-            "Solo días con placa o con data app."
+            "Solo días con placa"
+            + (" o con data app." if data_app else ".")
         )
         if data_app:
             app_d0, app_d1 = min(data_app), max(data_app)
