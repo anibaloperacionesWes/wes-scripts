@@ -259,7 +259,9 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
                 info["m3"] if not pendiente else None,
                 n_app or None,
                 m3_app if n_app else None,
-                "Pendiente de descargar" if pendiente else "OK",
+                "Pendiente de placa" if pendiente and n_app else (
+                    "Pendiente de descargar" if pendiente else "OK"
+                ),
             ]
         )
         row = ws.max_row
@@ -271,6 +273,9 @@ def _escribir_resumen(wb: Workbook, filas: list[dict]) -> None:
         if pendiente:
             for col in range(1, len(headers) + 1):
                 ws.cell(row, col).fill = NARANJA
+            if n_app:
+                ws.cell(row, 10).number_format = NUM_FMT
+                ws.cell(row, 10).fill = VERDE
         else:
             ws.cell(row, 8).number_format = NUM_FMT
             ws.cell(row, 8).fill = CELESTE
@@ -352,7 +357,7 @@ def main() -> None:
                 "pendiente": pendiente,
             }
         )
-        if pendiente:
+        if pendiente and not data_app:
             _hoja_pendiente(wb, dest, nombre, node)
             continue
         dias = sorted(horas)
@@ -366,14 +371,14 @@ def main() -> None:
             "se llena colegio por colegio). "
             "Rojo si data app no coincide con data placa. "
             f"Duplicados placa={st['duplicados']} (conflictos de valor={st['conflictos']}). "
-            "Solo días con placa"
-            + (" o con data app." if data_app else ".")
         )
+        if pendiente:
+            nota += "Placa pendiente de descargar; esta hoja muestra solo data app. "
+        nota += "Solo días con placa" + (" o con data app." if data_app else ".")
         if data_app:
-            app_d0, app_d1 = min(data_app), max(data_app)
             extra_app = meta_app.get("nota") or (
-                f"Dump app {app_d0.strftime('%d/%m')}–{app_d1.strftime('%d/%m')} "
-                f"({len(data_app)} días)."
+                f"Dump app {min(data_app).strftime('%d/%m/%Y')}–"
+                f"{max(data_app).strftime('%d/%m/%Y')} ({len(data_app)} días)."
             )
             nota += " " + extra_app
         construir_horario(
