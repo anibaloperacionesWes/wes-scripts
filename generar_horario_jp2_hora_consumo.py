@@ -1,0 +1,1760 @@
+"""
+Horario JP2 + Likancura y hoja Facturaciones.
+
+Hojas:
+  H. JPII       — Juan Pablo II (000008-14), horas API + fila Listado.
+  H. Likancura  — Likancura (000008-13), pegado app WES F/H/M + fila Listado.
+  Duplicados    — horas repetidas del pegado Likancura (no se suman dos veces).
+  Facturaciones — comparativo boletas JP2.
+
+Uso:
+  python generar_horario_jp2_hora_consumo.py
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from datetime import date, datetime, timedelta
+from pathlib import Path
+
+from openpyxl import Workbook, load_workbook
+from openpyxl.formatting.rule import FormulaRule
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+from copy import copy
+
+from wes_estilo_graficos_app import horas_api_chile
+from wes_google_drive import credenciales_configuradas, subir_a_drive
+
+NODE = "000008-14"
+NOMBRE = "Juan Pablo II"
+D0 = date(2026, 3, 1)
+D1 = date(2026, 9, 28)
+NODE_LIK = "000008-13"
+NOMBRE_LIK = "Likancura"
+D0_LIK = date(2026, 2, 15)
+D1_LIK = date(2026, 8, 31)
+OUT_DIR = Path("reports/CORMUP/Facturaciones_vs_WES")
+DRIVE_SUB = "CORMUP/Facturaciones_vs_WES"
+# Mismo archivo de Drive en el que estamos trabajando.
+DRIVE_NOMBRE = "Horario_JP2_hora_consumo_20260929_1649.xlsx"
+LIK_JSON = OUT_DIR / "likancura_horario_horas.json"
+LIK_DUPS = OUT_DIR / "likancura_horario_duplicados.json"
+LIK_LISTADO_JSON = OUT_DIR / "likancura_listado.json"
+
+# Listado diario pegado bajo Total, alineado por fecha (marzo–julio en 2026).
+_LISTADO_MAR_JUL = """
+2026-03-01 0.35
+2026-03-02 3.81
+2026-03-03 4.26
+2026-03-04 4.11
+2026-03-05 4.89
+2026-03-06 4.61
+2026-03-07 0.14
+2026-03-08 0.04
+2026-03-09 4.14
+2026-03-10 4.44
+2026-03-11 5.19
+2026-03-12 1.04
+2026-03-13 5.41
+2026-03-14 0.01
+2026-03-15 0.03
+2026-03-16 4.01
+2026-03-17 4.59
+2026-03-18 4.21
+2026-03-19 5.21
+2026-03-20 0.45
+2026-03-21 0.03
+2026-03-22 4.4
+2026-03-23 4.41
+2026-03-24 1.21
+2026-03-25 7.85
+2026-03-26 4.83
+2026-03-27 0.21
+2026-03-28 0.01
+2026-03-29 5.79
+2026-03-30 4.16
+2026-03-31 4.75
+2026-04-01 5.06
+2026-04-02 5.3
+2026-04-03 5.53
+2026-04-04 0.26
+2026-04-05 0.03
+2026-04-06 5.3
+2026-04-07 5.45
+2026-04-08 5.14
+2026-04-09 4.77
+2026-04-10 6.26
+2026-04-11 0.26
+2026-04-12 0.03
+2026-04-13 5.96
+2026-04-14 5.36
+2026-04-15 5.28
+2026-04-16 4.87
+2026-04-17 4.38
+2026-04-18 0.27
+2026-04-19 0.02
+2026-04-20 5.04
+2026-04-21 5.08
+2026-04-22 4.26
+2026-04-23 5.77
+2026-04-24 6.36
+2026-04-25 0.47
+2026-04-26 0.03
+2026-04-27 6.04
+2026-04-28 4.57
+2026-04-29 4.38
+2026-04-30 4.36
+2026-05-01 4.87
+2026-05-02 0.25
+2026-05-03 0.03
+2026-05-04 4.28
+2026-05-05 4.81
+2026-05-06 4.34
+2026-05-07 4.91
+2026-05-08 5.34
+2026-05-09 0.26
+2026-05-10 0.03
+2026-05-11 4.88
+2026-05-12 5.06
+2026-05-13 5.16
+2026-05-14 4.52
+2026-05-15 4.44
+2026-05-16 0.28
+2026-05-17 0.03
+2026-05-18 4.28
+2026-05-19 4.24
+2026-05-20 4.36
+2026-05-21 4.18
+2026-05-22 5.06
+2026-05-23 0.27
+2026-05-24 0.03
+2026-05-25 4.26
+2026-05-26 4.38
+2026-05-27 4.42
+2026-05-28 4.08
+2026-05-29 4.14
+2026-05-30 0.26
+2026-05-31 0.03
+2026-06-01 4.08
+2026-06-02 4.06
+2026-06-03 4.5
+2026-06-04 4.08
+2026-06-05 4.14
+2026-06-06 0.26
+2026-06-07 0.04
+2026-06-08 3.56
+2026-06-09 4.12
+2026-06-10 4.14
+2026-06-11 4.08
+2026-06-12 3.13
+2026-06-13 0.22
+2026-06-14 0.02
+2026-06-15 3.12
+2026-06-16 4.08
+2026-06-17 4.06
+2026-06-18 4.04
+2026-06-19 4.03
+2026-06-20 0.22
+2026-06-21 0.04
+2026-06-22 4.06
+2026-06-23 3.13
+2026-06-24 3.08
+2026-06-25 3.06
+2026-06-26 4.03
+2026-06-27 0.23
+2026-06-28 0.03
+2026-06-29 4.08
+2026-06-30 4.04
+2026-07-01 4.06
+2026-07-02 4.12
+2026-07-03 3.12
+2026-07-04 0.22
+2026-07-05 0.03
+2026-07-06 4.02
+2026-07-07 4.05
+2026-07-08 4.04
+2026-07-09 4.08
+2026-07-10 4.05
+2026-07-11 0.22
+2026-07-12 0.04
+2026-07-13 4.04
+2026-07-14 4.06
+2026-07-15 4.06
+2026-07-16 4.18
+2026-07-17 4.08
+2026-07-18 0.23
+2026-07-19 0.03
+2026-07-20 4.02
+2026-07-21 4.03
+2026-07-22 4.12
+2026-07-23 4.14
+2026-07-24 4.08
+2026-07-25 0.22
+2026-07-26 0.03
+2026-07-27 4.05
+2026-07-28 4.7
+"""
+
+
+def _parse_listado_blob(blob: str) -> dict[date, float]:
+    out: dict[date, float] = {}
+    for line in blob.strip().splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            continue
+        y, m, d = (int(x) for x in parts[0].split("-"))
+        out[date(2026, m, d)] = float(parts[1].replace(",", "."))
+    return out
+
+
+LISTADO = {
+    **_parse_listado_blob(_LISTADO_MAR_JUL),
+    date(2026, 7, 29): 4.17,
+    date(2026, 7, 30): 5.16,
+    date(2026, 7, 31): 4.87,
+    date(2026, 8, 1): 5.2,
+    date(2026, 8, 2): 0.02,
+    date(2026, 8, 3): 7.29,
+    date(2026, 8, 4): 6.22,
+    date(2026, 8, 5): 5.49,
+    date(2026, 8, 6): 4.81,
+    date(2026, 8, 7): 5.02,
+    date(2026, 8, 8): 0.41,
+    date(2026, 8, 9): 0.03,
+    date(2026, 8, 10): 4.94,
+    date(2026, 8, 11): 4.14,
+    date(2026, 8, 12): 3.3,
+    date(2026, 8, 13): 3.15,
+    date(2026, 8, 14): 4.01,
+    date(2026, 8, 15): 0.57,
+    date(2026, 8, 16): 0.04,
+    date(2026, 8, 17): 2.98,
+    date(2026, 8, 18): 3.02,
+    date(2026, 8, 19): 3.67,
+    date(2026, 8, 20): 5.14,
+    date(2026, 8, 21): 3.43,
+    date(2026, 8, 22): 0.4,
+    date(2026, 8, 23): 0.03,
+    date(2026, 8, 24): 4.62,
+    date(2026, 8, 25): 4.2,
+    date(2026, 8, 26): 5.26,
+    date(2026, 8, 27): 3.7,
+    date(2026, 8, 28): 3.99,
+    date(2026, 8, 29): 5.17,
+    date(2026, 8, 30): 0.4,
+    date(2026, 8, 31): 3.43,
+    date(2026, 9, 1): 3.26,
+    date(2026, 9, 2): 5.68,
+    date(2026, 9, 3): 4.99,
+    date(2026, 9, 4): 4.69,
+    date(2026, 9, 5): 4.85,
+    date(2026, 9, 6): 0.36,
+    date(2026, 9, 7): 5.42,
+    date(2026, 9, 8): 7.21,
+    date(2026, 9, 9): 5.02,
+    date(2026, 9, 10): 5.43,
+    date(2026, 9, 11): 4.01,
+    date(2026, 9, 12): 0.0,
+    date(2026, 9, 13): 0.0,
+    date(2026, 9, 14): 0.0,
+    date(2026, 9, 15): 0.0,
+    date(2026, 9, 16): 0.0,
+    date(2026, 9, 17): 0.0,
+    date(2026, 9, 18): 0.0,
+    date(2026, 9, 19): 0.0,
+    date(2026, 9, 20): 0.0,
+    date(2026, 9, 21): 10.62,
+    date(2026, 9, 22): 11.28,
+    date(2026, 9, 23): 11.36,
+    date(2026, 9, 24): 11.02,
+    date(2026, 9, 25): 7.58,
+    date(2026, 9, 26): 0.0,
+    date(2026, 9, 27): 0.0,
+    date(2026, 9, 28): 12.44,
+}
+
+HDR = PatternFill("solid", fgColor="D9D9D9")
+SUB = PatternFill("solid", fgColor="F2F2F2")
+CELESTE = PatternFill("solid", fgColor="9DC3E6")
+VERDE = PatternFill("solid", fgColor="C6EFCE")
+ROJO = PatternFill("solid", fgColor="FFC7CE")
+AMARILLO_DUP = PatternFill("solid", fgColor="FFFF99")
+FONT_OK = Font(bold=True, size=9)
+FONT_ROJO = Font(bold=True, size=9, color="9C0006")
+THIN = Border(
+    left=Side(style="thin", color="B0B0B0"),
+    right=Side(style="thin", color="B0B0B0"),
+    top=Side(style="thin", color="B0B0B0"),
+    bottom=Side(style="thin", color="B0B0B0"),
+)
+CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+
+NUM_FMT = "0.00"
+TOL_M3 = 0.01  # descuadre Listado vs Total WES (2 decimales)
+
+
+def _num(v: float) -> float:
+    """Número real con 2 decimales (punto) para que Excel/Sheets pueda sumar."""
+    return round(float(v), 2)
+
+
+def _no_cuadra(listado: float | None, wes_total: float) -> bool:
+    if listado is None:
+        return False
+    return abs(_num(listado) - _num(wes_total)) > TOL_M3
+
+
+def _dias_unicos(d0: date, d1: date) -> list[date]:
+    dias: list[date] = []
+    seen: set[date] = set()
+    d = d0
+    while d <= d1:
+        if d not in seen:
+            seen.add(d)
+            dias.append(d)
+        d += timedelta(days=1)
+    return dias
+
+
+def _cargar_horas_xlsx(
+    path: Path, sheet_name: str | None = None
+) -> dict[date, dict[int, float]]:
+    """Reusa horas ya exportadas para no volver a consultar días viejos."""
+    out: dict[date, dict[int, float]] = {}
+    if not path.is_file():
+        return out
+    wb = load_workbook(path, data_only=False)
+    ws = None
+    if sheet_name:
+        if sheet_name not in wb.sheetnames:
+            return out
+        ws = wb[sheet_name]
+    else:
+        for name in ("H. JPII", "Horario"):
+            if name in wb.sheetnames:
+                ws = wb[name]
+                break
+        else:
+            ws = wb.active
+    if ws is None:
+        return out
+    for col in range(2, ws.max_column + 1):
+        hdr = str(ws.cell(2, col).value or "")
+        try:
+            dia = datetime.strptime(hdr.replace("Fecha", "").strip(), "%d/%m/%Y").date()
+        except ValueError:
+            continue
+        horas: dict[int, float] = {}
+        for h in range(24):
+            v = ws.cell(4 + h, col).value
+            if isinstance(v, (int, float)):
+                horas[h] = float(v)
+            elif isinstance(v, str) and v and not v.startswith("="):
+                horas[h] = float(v.replace(",", "."))
+            else:
+                horas[h] = 0.0
+        out[dia] = horas
+    return out
+
+
+def _horas_rango(
+    dias: list[date],
+    cache: dict[date, dict[int, float]] | None = None,
+    node: str = NODE,
+) -> dict[date, dict[int, float]]:
+    horas: dict[date, dict[int, float]] = dict(cache or {})
+    for dia in dias:
+        if dia in horas and len(horas[dia]) == 24:
+            continue
+        try:
+            h = horas_api_chile(node, datetime.combine(dia, datetime.min.time()))
+            horas[dia] = {i: float(h.get(i, 0.0)) for i in range(24)}
+            print(f"  API {node} {dia.isoformat()}", flush=True)
+        except Exception as exc:
+            print(f"  API FAIL {node} {dia.isoformat()}: {exc}", flush=True)
+            horas[dia] = {i: 0.0 for i in range(24)}
+    return horas
+
+
+def _parse_horario_fhm_paste(text: str) -> dict[date, dict[int, float]]:
+    """Pegado app WES en grilla F:/H:/M: (hasta 7 columnas, tabuladas)."""
+    ansi = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\^\[\[?[0-9;]*[A-Za-z]")
+    lines = text.splitlines()
+    start = next(
+        (i for i, line in enumerate(lines) if re.search(r"F:\s*\d{2}/\d{2}/\d{4}", line)),
+        0,
+    )
+    cols: list[list[str]] = [[] for _ in range(7)]
+    for line in lines[start:]:
+        cells = ansi.sub("", line).split("\t")
+        for i in range(7):
+            idx = i * 2
+            if idx < len(cells):
+                val = cells[idx].strip()
+                if val:
+                    cols[i].append(val)
+    pat_f = re.compile(r"^F:\s*(\d{2}/\d{2}/\d{4})$")
+    pat_h = re.compile(r"^H:\s*(\d{1,2}):00$")
+    pat_m = re.compile(r"^M:\s*([\d.,]+)")
+    pat_r = re.compile(r"^R:")
+    horas: dict[date, dict[int, float]] = {}
+    for tokens in cols:
+        pending_f: date | None = None
+        pending_h: int | None = None
+        for tok in tokens:
+            mf, mh, mm = pat_f.match(tok), pat_h.match(tok), pat_m.match(tok)
+            if pat_r.match(tok):
+                pending_f = pending_h = None
+                continue
+            if mf:
+                pending_f = datetime.strptime(mf.group(1), "%d/%m/%Y").date()
+                pending_h = None
+                continue
+            if mh and pending_f is not None:
+                pending_h = int(mh.group(1))
+                continue
+            if mm and pending_f is not None and pending_h is not None:
+                horas.setdefault(pending_f, {})[pending_h] = float(
+                    mm.group(1).replace(",", ".")
+                )
+                pending_f = pending_h = None
+    return horas
+
+
+def _cargar_horas_likancura() -> dict[date, dict[int, float]]:
+    if not LIK_JSON.is_file():
+        raise FileNotFoundError(LIK_JSON)
+    raw = json.loads(LIK_JSON.read_text(encoding="utf-8"))
+    out: dict[date, dict[int, float]] = {}
+    for key, arr in raw.items():
+        dia = date.fromisoformat(key)
+        out[dia] = {
+            h: float(val) for h, val in enumerate(arr) if val is not None
+        }
+    return out
+
+
+def _rellenar_horas_faltantes(horas: dict[date, dict[int, float]], node: str) -> None:
+    for dia, hmap in horas.items():
+        miss = [h for h in range(24) if h not in hmap]
+        if not miss:
+            continue
+        try:
+            api = horas_api_chile(node, datetime.combine(dia, datetime.min.time()))
+            for h in miss:
+                hmap[h] = float(api.get(h, 0.0))
+            print(f"  LIK huecos {dia.isoformat()} {miss} <- API", flush=True)
+        except Exception as exc:
+            print(f"  LIK huecos FAIL {dia.isoformat()}: {exc}", flush=True)
+            for h in miss:
+                hmap[h] = 0.0
+
+
+def construir_horario(
+    dias: list[date],
+    horas: dict[date, dict[int, float]],
+    *,
+    wb: Workbook | None = None,
+    sheet_name: str = "H. JPII",
+    nombre: str = NOMBRE,
+    node: str = NODE,
+    d0: date = D0,
+    d1: date = D1,
+    listado: dict[date, float] | None = None,
+    nota: str | None = None,
+    resaltar: set[tuple[date, int]] | None = None,
+    fill_resaltar: PatternFill | None = None,
+    etiqueta_total: str = "Total",
+    etiqueta_listado: str = "Listado",
+    mostrar_fila_listado: bool | None = None,
+) -> Workbook:
+
+    if wb is None:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = sheet_name
+    else:
+        if sheet_name in wb.sheetnames:
+            idx = wb.sheetnames.index(sheet_name)
+            del wb[sheet_name]
+            ws = wb.create_sheet(sheet_name, idx)
+        else:
+            ws = wb.create_sheet(sheet_name)
+
+    fila_app = (
+        mostrar_fila_listado
+        if mostrar_fila_listado is not None
+        else listado is not None
+    )
+    data_app = listado or {}
+    extra = nota or (
+        f"Fila {etiqueta_total} = celeste. Fila {etiqueta_listado} = verde. "
+        f"Rojo solo si {etiqueta_listado} no coincide con {etiqueta_total}."
+        if fila_app
+        else f"Fila {etiqueta_total} = celeste (suma de las 24 horas)."
+    )
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=1 + min(8, len(dias)))
+    ws["A1"] = (
+        f"{nombre} ({node}) — 1ª columna Hora; consumo por fecha a la derecha "
+        f"({d0.strftime('%d-%m')} a {d1.strftime('%d-%m')}). Día repetido no se suma. "
+        f"{extra}"
+    )
+    ws["A1"].font = Font(bold=True, size=12, color="003366")
+    ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[1].height = 64 if extra and len(extra) > 180 else 48
+
+    ws.merge_cells(start_row=2, start_column=1, end_row=3, end_column=1)
+    c = ws.cell(2, 1, "Hora")
+    c.fill = HDR
+    c.font = Font(bold=True, size=11)
+    c.alignment = Alignment(horizontal="center", vertical="center")
+    c.border = THIN
+    ws.cell(3, 1).border = THIN
+    ws.cell(3, 1).fill = HDR
+
+    fill_dup = fill_resaltar or AMARILLO_DUP
+    dias_con_dup = {d for d, _h in resaltar} if resaltar else set()
+    for i, dia in enumerate(dias):
+        col = 2 + i
+        top = ws.cell(2, col, f"Fecha  {dia.strftime('%d/%m/%Y')}")
+        if dia in dias_con_dup:
+            top.fill = fill_dup
+            top.font = FONT_ROJO if fill_dup is ROJO else Font(bold=True, size=9)
+        else:
+            top.fill = HDR
+            top.font = Font(bold=True, size=9)
+        top.alignment = Alignment(horizontal="center", wrap_text=True, vertical="center")
+        top.border = THIN
+        sub = ws.cell(3, col, "Consumo")
+        sub.fill = fill_dup if dia in dias_con_dup else SUB
+        sub.font = FONT_ROJO if dia in dias_con_dup and fill_dup is ROJO else Font(bold=True, size=9)
+        sub.alignment = CENTER
+        sub.border = THIN
+        ws.column_dimensions[get_column_letter(col)].width = 14
+    ws.column_dimensions["A"].width = max(
+        12, len(etiqueta_total) + 2, len(etiqueta_listado) + 2 if fila_app else 0
+    )
+    ws.row_dimensions[2].height = 22
+
+    for h in range(24):
+        r = 4 + h
+        bg = PatternFill("solid", fgColor="FFFFFF" if h % 2 == 0 else "FCFCFC")
+        a = ws.cell(r, 1, f"{h:02d}:00")
+        a.alignment = CENTER
+        a.border = THIN
+        a.fill = bg
+        a.font = Font(bold=True, size=9)
+        for i, dia in enumerate(dias):
+            raw = (horas.get(dia) or {}).get(h)
+            b = ws.cell(r, 2 + i, _num(raw) if raw is not None else None)
+            b.number_format = NUM_FMT
+            b.alignment = CENTER
+            b.border = THIN
+            if resaltar and (dia, h) in resaltar:
+                b.fill = fill_dup
+                b.font = FONT_ROJO if fill_dup is ROJO else Font(bold=True, size=9)
+            else:
+                b.fill = bg
+
+    rt = 28
+    t = ws.cell(rt, 1, etiqueta_total)
+    t.font = Font(bold=True, size=9)
+    t.alignment = CENTER
+    t.border = THIN
+    t.fill = CELESTE
+    for i, dia in enumerate(dias):
+        col = get_column_letter(2 + i)
+        tiene_placa = bool(horas.get(dia))
+        b = ws.cell(rt, 2 + i, f"=SUM({col}4:{col}27)" if tiene_placa else None)
+        if tiene_placa:
+            b.number_format = NUM_FMT
+        b.font = FONT_OK
+        b.alignment = CENTER
+        b.border = THIN
+        b.fill = CELESTE
+
+    if fila_app:
+        rl = 29
+        lab = ws.cell(rl, 1, etiqueta_listado)
+        lab.font = Font(bold=True, size=9)
+        lab.alignment = CENTER
+        lab.border = THIN
+        lab.fill = VERDE
+        n_rojo = 0
+        for i, dia in enumerate(dias):
+            val = data_app.get(dia)
+            wes_tot = sum((horas.get(dia) or {}).values())
+            tiene_placa = bool(horas.get(dia))
+            descuadre = tiene_placa and _no_cuadra(val, wes_tot)
+            cell = ws.cell(rl, 2 + i, _num(val) if val is not None else None)
+            if val is not None:
+                cell.number_format = NUM_FMT
+            cell.font = FONT_ROJO if descuadre else FONT_OK
+            cell.alignment = CENTER
+            cell.border = THIN
+            cell.fill = ROJO if descuadre else VERDE
+            if descuadre:
+                n_rojo += 1
+                print(
+                    f"  ROJO {dia.strftime('%d/%m')} {etiqueta_listado}={_num(val)} "
+                    f"{etiqueta_total}={_num(wes_tot)} "
+                    f"delta={(_num(val) - _num(wes_tot)):+.2f}",
+                    flush=True,
+                )
+
+        if dias:
+            ultima = get_column_letter(1 + len(dias))
+            ws.conditional_formatting.add(
+                f"B29:{ultima}29",
+                FormulaRule(
+                    formula=["AND(ISNUMBER(B28),ISNUMBER(B29),ABS(B29-B28)>0.01)"],
+                    fill=ROJO,
+                    font=FONT_ROJO,
+                ),
+            )
+        print(
+            f"[INFO] {n_rojo} días no cuadran ({etiqueta_listado} vs {etiqueta_total})",
+            flush=True,
+        )
+
+    ws.freeze_panes = "B4"
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A3
+    ws.print_title_rows = "1:3"
+    return wb
+
+
+def _cargar_listado_likancura() -> dict[date, float]:
+    if not LIK_LISTADO_JSON.is_file():
+        raise FileNotFoundError(LIK_LISTADO_JSON)
+    raw = json.loads(LIK_LISTADO_JSON.read_text(encoding="utf-8"))
+    return {date.fromisoformat(str(k)): float(v) for k, v in raw.items()}
+
+
+def _cargar_duplicados_likancura() -> dict:
+    if not LIK_DUPS.is_file():
+        return {
+            "triples_totales": 0,
+            "pares_unicos": 0,
+            "pares_duplicados": 0,
+            "conflictos": 0,
+            "secuencia": [],
+            "bloques": [],
+        }
+    return json.loads(LIK_DUPS.read_text(encoding="utf-8"))
+
+
+def _pares_secuencia_duplicados(dups: dict) -> set[tuple[date, int]]:
+    out: set[tuple[date, int]] = set()
+    for item in dups.get("secuencia") or []:
+        out.add((date.fromisoformat(str(item["fecha"])), int(item["hora"])))
+    return out
+
+
+def _fmt_bloque_dt(txt: str) -> str:
+    try:
+        dt = datetime.strptime(txt, "%Y-%m-%d %H:%M")
+    except ValueError:
+        return txt
+    return dt.strftime("%d/%m/%Y %H:%M")
+
+
+def construir_duplicados_likancura(wb: Workbook, dups: dict) -> None:
+    """Hoja con las horas repetidas del pegado F/H/M de Likancura."""
+    name = "Duplicados"
+    idx = wb.sheetnames.index("H. Likancura") + 1 if "H. Likancura" in wb.sheetnames else len(wb.sheetnames)
+    if name in wb.sheetnames:
+        del wb[name]
+        if idx > len(wb.sheetnames):
+            idx = len(wb.sheetnames)
+    ws = wb.create_sheet(name, idx)
+
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
+    ws["A1"] = (
+        f"{NOMBRE_LIK} ({NODE_LIK}) — horarios duplicados en el pegado de la app. "
+        "Cada fecha+hora queda una sola vez en H. Likancura; el Total no suma dos veces. "
+        "Ningún duplicado tenía m³ distintos."
+    )
+    ws["A1"].font = Font(bold=True, size=12, color="003366")
+    ws["A1"].alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[1].height = 36
+
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=2)
+    ws["A3"] = "Resumen del pegado"
+    ws["A3"].font = Font(bold=True, size=11, color="FFFFFF")
+    ws["A3"].fill = AZUL_HDR
+    ws["A3"].alignment = Alignment(horizontal="left", vertical="center")
+    ws["B3"].fill = AZUL_HDR
+
+    resumen = [
+        ("Registros F/H/M", dups.get("triples_totales")),
+        ("Pares fecha+hora únicos", dups.get("pares_unicos")),
+        ("Horas duplicadas (mismo día y hora)", dups.get("pares_duplicados")),
+        ("Conflictos de valor (m³ distintos)", dups.get("conflictos")),
+    ]
+    for i, (label, val) in enumerate(resumen):
+        r = 4 + i
+        a = ws.cell(r, 1, label)
+        a.border = THIN
+        a.alignment = Alignment(horizontal="left", vertical="center")
+        a.fill = SUB
+        b = ws.cell(r, 2, val)
+        b.border = THIN
+        b.alignment = CENTER
+        b.font = FONT_OK
+        if label.startswith("Horas duplicadas"):
+            b.fill = AMARILLO_DUP
+        elif label.startswith("Conflictos") and int(val or 0) == 0:
+            b.fill = VERDE
+        else:
+            b.fill = PatternFill("solid", fgColor="FFFFFF")
+
+    ws.merge_cells(start_row=9, start_column=1, end_row=9, end_column=5)
+    ws["A9"] = (
+        "Tipo 1 — misma hora seguida en la secuencia (no es un re-pegue de bloque). "
+        "Celdas amarillas en H. Likancura."
+    )
+    ws["A9"].font = Font(bold=True, size=11, color="FFFFFF")
+    ws["A9"].fill = AZUL_HDR
+    ws["A9"].alignment = Alignment(wrap_text=True, vertical="center")
+    for col in range(2, 6):
+        ws.cell(9, col).fill = AZUL_HDR
+    ws.row_dimensions[9].height = 22
+
+    seq_hdr = ["Fecha", "Hora", "1.er valor (m³)", "2.º valor (m³)", "Qué se hizo"]
+    for col, h in enumerate(seq_hdr, start=1):
+        c = ws.cell(10, col, h)
+        c.fill = HDR
+        c.font = Font(bold=True, size=9)
+        c.alignment = CENTER
+        c.border = THIN
+
+    seq_rows = dups.get("secuencia") or []
+    if not seq_rows:
+        ws.merge_cells(start_row=11, start_column=1, end_row=11, end_column=5)
+        none = ws.cell(11, 1, "No hubo horas seguidas repetidas.")
+        none.alignment = Alignment(horizontal="left", vertical="center")
+        none.border = THIN
+        r_seq_end = 11
+    else:
+        r_seq_end = 10
+        for item in seq_rows:
+            r_seq_end += 1
+            dia = date.fromisoformat(str(item["fecha"]))
+            hora = int(item["hora"])
+            vals = list(item.get("valores") or [])
+            v1 = _num(vals[0]) if vals else None
+            v2 = _num(vals[1]) if len(vals) > 1 else None
+            fila = [
+                dia.strftime("%d/%m/%Y"),
+                f"{hora:02d}:00",
+                v1,
+                v2,
+                "Queda una sola vez. Amarillo en H. Likancura.",
+            ]
+            for col, val in enumerate(fila, start=1):
+                cell = ws.cell(r_seq_end, col, val)
+                cell.border = THIN
+                cell.alignment = CENTER if col < 5 else Alignment(
+                    horizontal="left", vertical="center", wrap_text=True
+                )
+                cell.fill = AMARILLO_DUP
+                if col in (3, 4) and val is not None:
+                    cell.number_format = NUM_FMT
+                    cell.font = FONT_OK
+
+    r_blk = r_seq_end + 2
+    ws.merge_cells(start_row=r_blk, start_column=1, end_row=r_blk, end_column=5)
+    ws.cell(
+        r_blk,
+        1,
+        "Tipo 2 — bloques re-pegados (la app volvió a tirar el mismo tramo al cambiar de columna).",
+    ).font = Font(bold=True, size=11, color="FFFFFF")
+    ws.cell(r_blk, 1).fill = AZUL_HDR
+    ws.cell(r_blk, 1).alignment = Alignment(wrap_text=True, vertical="center")
+    for col in range(2, 6):
+        ws.cell(r_blk, col).fill = AZUL_HDR
+    ws.row_dimensions[r_blk].height = 22
+
+    blk_hdr = ["Desde", "Hasta", "Horas repetidas", "Qué se hizo", ""]
+    for col, h in enumerate(blk_hdr, start=1):
+        if not h:
+            continue
+        c = ws.cell(r_blk + 1, col, h)
+        c.fill = HDR
+        c.font = Font(bold=True, size=9)
+        c.alignment = CENTER
+        c.border = THIN
+
+    wrap = [b for b in (dups.get("bloques") or []) if int(b.get("n") or 0) > 1]
+    if not wrap:
+        ws.merge_cells(start_row=r_blk + 2, start_column=1, end_row=r_blk + 2, end_column=4)
+        ws.cell(r_blk + 2, 1, "No hubo bloques re-pegados.").border = THIN
+        r_end = r_blk + 2
+    else:
+        r_end = r_blk + 1
+        for b in wrap:
+            r_end += 1
+            fila = [
+                _fmt_bloque_dt(str(b.get("desde") or "")),
+                _fmt_bloque_dt(str(b.get("hasta") or "")),
+                int(b.get("n") or 0),
+                "Mismos m³. En H. Likancura queda una sola vez; el Total no los duplica.",
+            ]
+            for col, val in enumerate(fila, start=1):
+                cell = ws.cell(r_end, col, val)
+                cell.border = THIN
+                cell.alignment = CENTER if col < 4 else Alignment(
+                    horizontal="left", vertical="center", wrap_text=True
+                )
+                cell.fill = NARANJA if col < 4 else PatternFill("solid", fgColor="FFFFFF")
+                if col == 3:
+                    cell.font = FONT_OK
+
+    nota = r_end + 2
+    ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=5)
+    n_dups = int(dups.get("pares_duplicados") or 0)
+    seq_txt = (
+        ", ".join(
+            f"{date.fromisoformat(str(it['fecha'])).strftime('%d/%m')} {int(it['hora']):02d}:00"
+            for it in seq_rows
+        )
+        or "ninguna"
+    )
+    wrap_txt = (
+        " y ".join(
+            f"{int(b.get('n') or 0)} h ({_fmt_bloque_dt(str(b.get('desde') or ''))}"
+            f"–{_fmt_bloque_dt(str(b.get('hasta') or ''))})"
+            for b in wrap
+        )
+        or "ningún bloque"
+    )
+    ws.cell(
+        nota,
+        1,
+        f"Los {n_dups} pares duplicados son esos dos tipos: {len(seq_rows)} hora(s) "
+        f"seguida(s) en la secuencia ({seq_txt}) más {wrap_txt}. Como los valores "
+        "coincidían, da lo mismo quedarse con la primera o la última aparición. "
+        "H. Likancura ya está desduplicada.",
+    )
+    ws.cell(nota, 1).font = Font(size=9, italic=True, color="006100")
+    ws.cell(nota, 1).alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[nota].height = 48
+
+    ws.column_dimensions["A"].width = 42
+    ws.column_dimensions["B"].width = 22
+    ws.column_dimensions["C"].width = 22
+    ws.column_dimensions["D"].width = 22
+    ws.column_dimensions["E"].width = 52
+    ws.freeze_panes = "A3"
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A3
+    ws.sheet_view.showGridLines = False
+
+
+AZUL_HDR = PatternFill("solid", fgColor="1F4E79")
+AZUL_APP = PatternFill("solid", fgColor="2E75B6")
+ROJO_CTA = PatternFill("solid", fgColor="C00000")
+VERDE_PROM = PatternFill("solid", fgColor="C6EFCE")
+GRIS = PatternFill("solid", fgColor="D9E1F2")
+DORADO = PatternFill("solid", fgColor="FFE699")
+NARANJA = PatternFill("solid", fgColor="FCE4D6")
+FONT_BLANCO = Font(color="FFFFFF", bold=True, size=9)
+PCT_FMT = '0.00"%"'
+N_FACT_COLS = 11
+MESES_CORTOS_FACT = {
+    1: "ene",
+    2: "feb",
+    3: "mar",
+    4: "abr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "ago",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dic",
+}
+# Hueco de placa: en enero se cambió la memoria; febrero recién desde el 15.
+PLACA_MEMORIA_INI = date(2026, 1, 1)
+PLACA_OK_DESDE = date(2026, 2, 15)
+
+# Períodos de boleta Juan Pablo II (Aguas Andinas, corte 12:00).
+# Fallback si no se pueden leer los PDF de Drive. Incluye la cuenta anterior
+# a enero con lecturas reales (nov-2025) y el terreno 25-sep.
+PERIODOS_FACTURA = [
+    {
+        "mes": "nov-2025",
+        "d0": date(2025, 9, 29),
+        "d1": date(2025, 10, 29),
+        "ini": "29-09-2025 12:00  (72.009 m³)",
+        "fin": "29-10-2025 12:00  (72.170 m³)",
+        "dif": 161.0,
+        "estimado": False,
+        "hora_fin": 12,
+        "lect_ini": 72009.0,
+        "lect_fin": 72170.0,
+        "es_terreno": False,
+    },
+    {
+        "mes": "ene-2026",
+        "d0": date(2025, 11, 29),
+        "d1": date(2025, 12, 30),
+        "ini": "29-11-2025 12:00",
+        "fin": "30-12-2025 12:00",
+        "dif": 90.0,
+        "estimado": True,
+        "hora_fin": 12,
+        "lect_ini": None,
+        "lect_fin": None,
+        "es_terreno": False,
+    },
+    {
+        "mes": "feb-2026",
+        "d0": date(2025, 12, 30),
+        "d1": date(2026, 1, 29),
+        "ini": "30-12-2025 12:00",
+        "fin": "29-01-2026 12:00",
+        "dif": 159.0,
+        "estimado": True,
+        "hora_fin": 12,
+        "lect_ini": None,
+        "lect_fin": None,
+        "es_terreno": False,
+    },
+    {
+        "mes": "mar-2026",
+        "d0": date(2026, 1, 29),
+        "d1": date(2026, 2, 27),
+        "ini": "29-01-2026 12:00",
+        "fin": "27-02-2026 12:00",
+        "dif": 159.0,
+        "estimado": True,
+        "hora_fin": 12,
+        "lect_ini": None,
+        "lect_fin": None,
+        "es_terreno": False,
+    },
+    {
+        "mes": "abr-2026",
+        "d0": date(2026, 2, 27),
+        "d1": date(2026, 3, 30),
+        "ini": "27-02-2026 12:00",
+        "fin": "30-03-2026 12:00",
+        "dif": 159.0,
+        "estimado": True,
+        "hora_fin": 12,
+        "lect_ini": None,
+        "lect_fin": None,
+        "es_terreno": False,
+    },
+    {
+        "mes": "may-2026",
+        "d0": date(2025, 10, 29),
+        "d1": date(2026, 4, 29),
+        "ini": "29-10-2025 12:00  (72.170 m³)",
+        "fin": "29-04-2026 12:00  (72.937 m³)",
+        "dif": 767.0,
+        "estimado": False,
+        "hora_fin": 12,
+        "lect_ini": 72170.0,
+        "lect_fin": 72937.0,
+        "es_terreno": False,
+    },
+    {
+        "mes": "jun-2026",
+        "d0": date(2026, 4, 29),
+        "d1": date(2026, 5, 29),
+        "ini": "29-04-2026 12:00  (72.937 m³)",
+        "fin": "29-05-2026 12:00  (72.986 m³)",
+        "dif": 49.0,
+        "estimado": False,
+        "hora_fin": 12,
+        "lect_ini": 72937.0,
+        "lect_fin": 72986.0,
+        "es_terreno": False,
+    },
+    {
+        "mes": "jul-2026",
+        "d0": date(2026, 5, 29),
+        "d1": date(2026, 6, 27),
+        "ini": "29-05-2026 12:00  (72.986 m³)",
+        "fin": "27-06-2026 12:00",
+        "dif": 125.0,
+        "estimado": True,
+        "hora_fin": 12,
+        "lect_ini": 72986.0,
+        "lect_fin": None,
+        "es_terreno": False,
+    },
+    {
+        "mes": "ago-2026",
+        "d0": date(2026, 5, 29),
+        "d1": date(2026, 7, 29),
+        "ini": "29-05-2026 12:00  (72.986 m³)",
+        "fin": "29-07-2026 12:00  (73.206 m³)",
+        "dif": 220.0,
+        "estimado": False,
+        "hora_fin": 12,
+        "lect_ini": 72986.0,
+        "lect_fin": 73206.0,
+        "es_terreno": False,
+    },
+    {
+        "mes": "sep-2026",
+        "d0": date(2026, 7, 29),
+        "d1": date(2026, 8, 29),
+        "ini": "29-07-2026 12:00  (73.206 m³)",
+        "fin": "29-08-2026 12:00  (73.303 m³)",
+        "dif": 97.0,
+        "estimado": False,
+        "hora_fin": 12,
+        "lect_ini": 73206.0,
+        "lect_fin": 73303.0,
+        "es_terreno": False,
+    },
+    {
+        "mes": "terreno 25-sep",
+        "d0": date(2026, 8, 29),
+        "d1": date(2026, 9, 25),
+        "ini": "29-08-2026 12:00  (73.303 m³)",
+        "fin": "25-09-2026 11:00  (73.385 m³)",
+        "dif": 82.0,
+        "estimado": False,
+        "hora_fin": 11,
+        "lect_ini": 73303.0,
+        "lect_fin": 73385.0,
+        "es_terreno": True,
+    },
+]
+
+
+def _fmt_lectura(dia: date, m3: float | None, hora: int = 12) -> str:
+    base = f"{dia.strftime('%d-%m-%Y')} {hora:02d}:00"
+    if m3 is None:
+        return base
+    return f"{base}  ({m3 / 1000:.3f} m³)"
+
+
+def _error_pct(registro: float | None, cuenta: float) -> float | None:
+    if registro is None or cuenta is None or abs(float(cuenta)) < 1e-9:
+        return None
+    return 100.0 * (float(registro) - float(cuenta)) / float(cuenta)
+
+
+def _cobertura_placa(d0: date, d1: date, mes: str) -> str:
+    """completa | ausente | parcial — según cambio de memoria (ene) y febrero desde el 15."""
+    if str(mes).startswith("ene-"):
+        return "ausente"
+    if d1 < PLACA_MEMORIA_INI:
+        return "completa"
+    if d1 < PLACA_OK_DESDE:
+        return "ausente"
+    if d0 >= PLACA_OK_DESDE:
+        return "completa"
+    return "parcial"
+
+
+def _nota_validacion(p: dict) -> str:
+    partes: list[str] = []
+    if p.get("es_terreno"):
+        return "MEJOR para validar placa vs turbina (lectura de terreno 25-09 11:00)."
+    cob = _cobertura_placa(p["d0"], p["d1"], p["mes"])
+    lecturas = p.get("lect_ini") is not None and p.get("lect_fin") is not None
+    if p["estimado"]:
+        partes.append("Cobro a promedio: no cruzar con la cuenta.")
+    elif lecturas:
+        partes.append("Lecturas reales (inicio y fin).")
+    else:
+        partes.append("Sin par de lecturas en la boleta.")
+    if cob == "ausente":
+        if str(p["mes"]).startswith("ene-"):
+            partes.append("Sin registro de la placa (cambio de memoria en enero).")
+        else:
+            partes.append("Sin registro de la placa: el período cae en el hueco de enero / febrero antes del 15.")
+    elif cob == "parcial":
+        partes.append("Poco válido: placa de febrero solo desde el 15 (falta el tramo anterior).")
+    if p["d0"] < date(2026, 3, 1) <= p["d1"] or p["d1"] < date(2026, 3, 1):
+        if not p.get("es_terreno"):
+            partes.append("Listado de la app incompleto o vacío (CSV desde 01/03).")
+    return " ".join(partes)
+
+
+def _descargar_pdfs_jp2() -> Path | None:
+    """Baja solo la carpeta Juan Pablo II de Colegios/Peñalolén/Facturaciones."""
+    try:
+        from generar_comparativo_facturaciones_cormup_penalolen import (
+            PDF_CACHE,
+            _buscar_carpeta_facturaciones,
+            _descargar_archivo,
+            _listar_hijos,
+            obtener_servicio_drive,
+        )
+    except Exception as exc:
+        print(f"[WARN] no pude importar descarga de boletas: {exc}", flush=True)
+        return None
+    if not credenciales_configuradas():
+        local = PDF_CACHE / "Juan Pablo II"
+        return local if local.is_dir() else None
+    try:
+        service = obtener_servicio_drive()
+        folder_id = _buscar_carpeta_facturaciones(service)
+        hijos = _listar_hijos(service, folder_id)
+        jp = next((h for h in hijos if h["name"].lower().startswith("juan pablo")), None)
+        if not jp:
+            print("[WARN] no está la carpeta Juan Pablo II en Drive", flush=True)
+            return None
+        local = PDF_CACHE / jp["name"]
+        local.mkdir(parents=True, exist_ok=True)
+        archivos = [
+            a
+            for a in _listar_hijos(service, jp["id"])
+            if a["name"].lower().endswith(".pdf")
+        ]
+        print(f"[Drive] Juan Pablo II: {len(archivos)} PDF", flush=True)
+        for a in archivos:
+            dest = local / a["name"]
+            if dest.is_file() and dest.stat().st_size > 10_000:
+                continue
+            _descargar_archivo(service, a["id"], dest)
+            print(f"  PDF {a['name']}", flush=True)
+        return local
+    except Exception as exc:
+        print(f"[WARN] descarga JP2: {exc}", flush=True)
+        local = Path("reports/CORMUP/Facturaciones_vs_WES/_pdfs/Juan Pablo II")
+        return local if local.is_dir() else None
+
+
+def _periodos_desde_pdfs(local: Path | None) -> list[dict]:
+    if not local or not local.is_dir():
+        return []
+    try:
+        from facturacion_aguas_andinas_pdf import extraer_texto_pdf, listar_periodos_desde_pdf
+        from generar_comparativo_facturaciones_cormup_penalolen import _es_estimado, _extraer_claves
+        from generar_hojas_lecturas_medio_dia_cormup import _lecturas_medidor
+    except Exception as exc:
+        print(f"[WARN] no pude parsear PDF: {exc}", flush=True)
+        return []
+    out: list[dict] = []
+    vistos: set[tuple[date, date]] = set()
+    for pdf in sorted(local.glob("*.pdf")):
+        if " (1)" in pdf.name:
+            continue
+        try:
+            txt = extraer_texto_pdf(pdf)
+            pers = listar_periodos_desde_pdf(pdf)
+        except Exception as exc:
+            print(f"  [ERR] {pdf.name}: {exc}", flush=True)
+            continue
+        if not pers:
+            continue
+        clave_f, clave_l = _extraer_claves(txt)
+        estimado = _es_estimado(clave_f, clave_l)
+        ant, act, dif_l = _lecturas_medidor(txt)
+        per = pers[0]
+        d0, d1 = per.lectura_anterior.date(), per.lectura_actual.date()
+        if (d0, d1) in vistos:
+            continue
+        vistos.add((d0, d1))
+        emi = per.emision
+        mes = f"{MESES_CORTOS_FACT[emi.month]}-{emi.year}"
+        dif = float(dif_l) if dif_l is not None else float(per.m3_cuenta)
+        row = {
+            "mes": mes,
+            "d0": d0,
+            "d1": d1,
+            "ini": _fmt_lectura(d0, ant),
+            "fin": _fmt_lectura(d1, act),
+            "dif": dif,
+            "estimado": estimado,
+            "hora_fin": 12,
+            "lect_ini": ant,
+            "lect_fin": act,
+            "es_terreno": False,
+            "boleta": per.boleta,
+            "pdf": pdf.name,
+        }
+        out.append(row)
+        print(
+            f"  PDF {mes} {d0}→{d1} dif={dif:.1f} lect={ant}/{act} est={estimado}",
+            flush=True,
+        )
+    out.sort(key=lambda p: (p["d1"], p["d0"]))
+    return out
+
+
+def periodos_facturacion() -> list[dict]:
+    """Boletas de Drive + terreno. Fallback a PERIODOS_FACTURA si no hay PDF."""
+    local = _descargar_pdfs_jp2()
+    loaded = _periodos_desde_pdfs(local)
+    terreno = next(p for p in PERIODOS_FACTURA if p.get("es_terreno"))
+    if loaded:
+        loaded.append(dict(terreno))
+        loaded.sort(key=lambda p: (p["d1"], 1 if p.get("es_terreno") else 0, p["d0"]))
+        return loaded
+    print("[INFO] uso períodos hardcodeados (no hubo PDF JP2)", flush=True)
+    return [dict(p) for p in PERIODOS_FACTURA]
+
+
+def _cadena_lecturas_reales(periodos: list[dict]) -> list[dict]:
+    """Cadena consecutiva de boletas con lectura inicio y fin, sin solapes (sin terreno)."""
+    reales = [
+        p
+        for p in periodos
+        if (not p.get("es_terreno"))
+        and p.get("lect_ini") is not None
+        and p.get("lect_fin") is not None
+        and not p["estimado"]
+    ]
+    reales.sort(key=lambda p: (p["d0"], p["d1"]))
+    cadena: list[dict] = []
+    hasta: date | None = None
+    for p in reales:
+        if hasta is None or p["d0"] >= hasta:
+            cadena.append(p)
+            hasta = p["d1"]
+    return cadena
+
+
+def _horas_dia(horas: dict[date, dict[int, float]], dia: date) -> dict[int, float]:
+    return horas.get(dia) or {i: 0.0 for i in range(24)}
+
+
+
+def _total_placa_periodo(
+    horas: dict[date, dict[int, float]],
+    d0: date,
+    d1: date,
+    hora_fin: int = 12,
+) -> float:
+    """Suma horaria WES con corte mediodía: inicio 12:00–23:59, final 00:00–hora_fin."""
+    if d1 < d0:
+        return 0.0
+    h0 = _horas_dia(horas, d0)
+    if d0 == d1:
+        return sum(h0.get(i, 0.0) for i in range(12, hora_fin)) if hora_fin > 12 else 0.0
+    tot = sum(h0.get(i, 0.0) for i in range(12, 24))
+    d = d0 + timedelta(days=1)
+    while d < d1:
+        tot += sum(_horas_dia(horas, d).values())
+        d += timedelta(days=1)
+    h1 = _horas_dia(horas, d1)
+    tot += sum(h1.get(i, 0.0) for i in range(0, hora_fin))
+    return tot
+
+
+def _fraccion_tarde(horas: dict[date, dict[int, float]], dia: date) -> float:
+    h = _horas_dia(horas, dia)
+    tot = sum(h.values())
+    if tot <= 0:
+        return 0.5
+    return sum(h.get(i, 0.0) for i in range(12, 24)) / tot
+
+
+def _fraccion_manana(horas: dict[date, dict[int, float]], dia: date, hora_fin: int) -> float:
+    h = _horas_dia(horas, dia)
+    tot = sum(h.values())
+    if tot <= 0:
+        return 0.5
+    return sum(h.get(i, 0.0) for i in range(0, hora_fin)) / tot
+
+
+def _listado_periodo(
+    horas: dict[date, dict[int, float]],
+    d0: date,
+    d1: date,
+    hora_fin: int = 12,
+) -> float | None:
+    """Suma Listado CSV del período, partiendo inicio/cierre con el mismo corte 12:00."""
+    if d1 < d0:
+        return None
+    hay = False
+    tot = 0.0
+    if d0 == d1:
+        if d0 in LISTADO:
+            return _num(LISTADO[d0] * _fraccion_tarde(horas, d0))
+        return None
+    if d0 in LISTADO:
+        hay = True
+        tot += LISTADO[d0] * _fraccion_tarde(horas, d0)
+    d = d0 + timedelta(days=1)
+    while d < d1:
+        if d in LISTADO:
+            hay = True
+            tot += LISTADO[d]
+        d += timedelta(days=1)
+    if d1 in LISTADO:
+        hay = True
+        tot += LISTADO[d1] * _fraccion_manana(horas, d1, hora_fin)
+    return _num(tot) if hay else None
+
+
+def _pintar_dif(cell, delta: float | None) -> None:
+    if delta is None:
+        return
+    if delta > 0.05:
+        cell.fill = AZUL_APP
+        cell.font = Font(bold=True, color="FFFFFF", size=10)
+    elif delta < -0.05:
+        cell.fill = ROJO_CTA
+        cell.font = Font(bold=True, color="FFFFFF", size=10)
+
+
+def construir_facturaciones(
+    wb: Workbook,
+    horas: dict[date, dict[int, float]],
+    periodos: list[dict] | None = None,
+) -> None:
+    if "Facturaciones" in wb.sheetnames:
+        del wb["Facturaciones"]
+    ws = wb.create_sheet("Facturaciones")
+    headers = [
+        "Mes",
+        "Lectura inicial (12:00)",
+        "Fecha lectura final y lectura (12:00)",
+        "Diferencia entre lecturas (m³)",
+        "Registro de la placa",
+        "Registro en la app",
+        "Diferencia lecturas con registro de la placa",
+        "Diferencia lecturas con registro en la app",
+        "Error placa (%)",
+        "Error app (%)",
+        "Validación",
+    ]
+    ws.append(headers)
+    for col in range(1, N_FACT_COLS + 1):
+        c = ws.cell(1, col)
+        c.fill = AZUL_HDR
+        c.font = FONT_BLANCO
+        c.alignment = Alignment(horizontal="center", wrap_text=True, vertical="center")
+        c.border = THIN
+    ws.row_dimensions[1].height = 48
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=N_FACT_COLS)
+    ws["A2"] = (
+        f"{NOMBRE} ({NODE}) — un renglón por período de facturación. Corte Aguas Andinas 12:00. "
+        "Error % = (registro − cuenta) / cuenta × 100. Amarillo = mejor para validar."
+    )
+    ws["A2"].font = Font(bold=True, size=11, color="003366")
+    ws["A2"].alignment = Alignment(vertical="center", wrap_text=True)
+    ws.row_dimensions[2].height = 22
+
+    periodos = periodos or periodos_facturacion()
+    cadena = _cadena_lecturas_reales(periodos)
+    ids_cadena = {(p["d0"], p["d1"]) for p in cadena}
+    ultima_real = cadena[-1] if cadena else None
+
+    calc: list[dict] = []
+    for p in periodos:
+        placa = _total_placa_periodo(horas, p["d0"], p["d1"], p["hora_fin"])
+        lista = _listado_periodo(horas, p["d0"], p["d1"], p["hora_fin"])
+        dif_cta = float(p["dif"])
+        d_tot = _num(placa) - dif_cta
+        d_lis = (_num(lista) - dif_cta) if lista is not None else None
+        err_p = _error_pct(_num(placa), dif_cta)
+        err_a = _error_pct(_num(lista) if lista is not None else None, dif_cta)
+        cob = _cobertura_placa(p["d0"], p["d1"], p["mes"])
+        lecturas = p.get("lect_ini") is not None and p.get("lect_fin") is not None
+        en_tot = (p["d0"], p["d1"]) in ids_cadena
+        calc.append(
+            {
+                "p": p,
+                "placa": placa,
+                "lista": lista,
+                "dif_cta": dif_cta,
+                "d_tot": d_tot,
+                "d_lis": d_lis,
+                "err_p": err_p,
+                "err_a": err_a,
+                "cob": cob,
+                "lecturas": lecturas,
+                "en_tot": en_tot,
+                "nota": _nota_validacion(p),
+            }
+        )
+
+    # Marca los mejores para validar (menor |error| entre casos usables).
+    usables_placa = [
+        r
+        for r in calc
+        if r["lecturas"]
+        and not r["p"]["estimado"]
+        and r["cob"] == "completa"
+        and r["err_p"] is not None
+    ]
+    usables_app = [
+        r
+        for r in usables_placa
+        if r["lista"] is not None and r["err_a"] is not None and r["p"]["d0"] >= date(2026, 3, 1)
+    ]
+    best_placa = min(usables_placa, key=lambda r: abs(r["err_p"])) if usables_placa else None
+    best_app = min(usables_app, key=lambda r: abs(r["err_a"])) if usables_app else None
+    if best_placa is not None:
+        extra = " MEJOR para validar placa vs cuenta."
+        if extra.strip() not in best_placa["nota"]:
+            best_placa["nota"] = (best_placa["nota"] + extra).strip()
+        best_placa["mejor_placa"] = True
+    if best_app is not None:
+        extra = " MEJOR para cruzar placa vs app (y vs cuenta)."
+        if extra.strip() not in best_app["nota"]:
+            best_app["nota"] = (best_app["nota"] + extra).strip()
+        best_app["mejor_app"] = True
+    for r in calc:
+        if r["p"].get("es_terreno"):
+            r["mejor_placa"] = True
+        if (
+            r["lecturas"]
+            and not r["p"]["estimado"]
+            and r["cob"] == "completa"
+            and r["err_p"] is not None
+            and abs(r["err_p"]) < 5
+        ):
+            extra = f" Muy bueno para validar placa vs cuenta (error {r['err_p']:+.1f} %)."
+            if "Muy bueno para validar placa vs cuenta" not in r["nota"]:
+                r["nota"] = (r["nota"] + extra).strip()
+            r["mejor_placa"] = True
+        elif (
+            r["lecturas"]
+            and not r["p"]["estimado"]
+            and r["err_p"] is not None
+            and abs(r["err_p"]) > 50
+        ):
+            extra = " Error alto: no es de los mejores para validar."
+            if extra.strip() not in r["nota"]:
+                r["nota"] = (r["nota"] + extra).strip()
+        r["nota"] = r["nota"].replace("  ", " ").strip()
+
+    tot_cta = tot_placa = tot_lis = 0.0
+    n_lis = 0
+    for r in calc:
+        p = r["p"]
+        ws.append(
+            [
+                p["mes"],
+                p["ini"],
+                p["fin"],
+                _num(r["dif_cta"]),
+                _num(r["placa"]),
+                _num(r["lista"]) if r["lista"] is not None else None,
+                _num(r["d_tot"]),
+                _num(r["d_lis"]) if r["d_lis"] is not None else None,
+                _num(r["err_p"]) if r["err_p"] is not None else None,
+                _num(r["err_a"]) if r["err_a"] is not None else None,
+                r["nota"],
+            ]
+        )
+        row = ws.max_row
+        r["row"] = row
+        if r["en_tot"]:
+            tot_cta += r["dif_cta"]
+            tot_placa += r["placa"]
+            if r["lista"] is not None:
+                tot_lis += r["lista"]
+                n_lis += 1
+        if p["estimado"]:
+            for col in (1, 2, 3, 4):
+                ws.cell(row, col).fill = VERDE_PROM
+            ws.cell(row, 1).font = Font(bold=True, size=10, color="006100")
+        elif r["cob"] in ("ausente", "parcial"):
+            for col in (1, 2, 3, 4):
+                ws.cell(row, col).fill = NARANJA
+        ws.cell(row, 5).fill = CELESTE
+        if r["lista"] is not None:
+            ws.cell(row, 6).fill = VERDE
+        _pintar_dif(ws.cell(row, 7), r["d_tot"])
+        _pintar_dif(ws.cell(row, 8), r["d_lis"])
+        _pintar_dif(ws.cell(row, 9), r["d_tot"])
+        _pintar_dif(ws.cell(row, 10), r["d_lis"])
+        if r.get("mejor_placa") or r.get("mejor_app"):
+            ws.cell(row, 11).fill = DORADO
+            ws.cell(row, 1).fill = DORADO
+            ws.cell(row, 1).font = Font(bold=True, size=10)
+        ws.cell(row, 11).alignment = Alignment(horizontal="left", wrap_text=True, vertical="center")
+        for col in range(1, N_FACT_COLS + 1):
+            ws.cell(row, col).border = THIN
+            if col != 11:
+                ws.cell(row, col).alignment = Alignment(
+                    horizontal="center", wrap_text=True, vertical="center"
+                )
+        for col in (4, 5, 6, 7, 8):
+            ws.cell(row, col).number_format = NUM_FMT
+        for col in (9, 10):
+            ws.cell(row, col).number_format = PCT_FMT
+        ws.row_dimensions[row].height = 36
+        print(
+            f"  FACT {p['mes']} cta={r['dif_cta']:.1f} placa={r['placa']:.2f} app="
+            f"{r['lista'] if r['lista'] is not None else '-'} "
+            f"err_p={r['err_p'] if r['err_p'] is not None else '-'} "
+            f"tot={r['en_tot']} est={p['estimado']}",
+            flush=True,
+        )
+
+    err_tot_p = _error_pct(_num(tot_placa), tot_cta)
+    err_tot_a = _error_pct(_num(tot_lis) if n_lis else None, tot_cta)
+    etiqueta = "TOTAL lecturas reales (cadena, sin solapes)"
+    if ultima_real:
+        etiqueta += f" hasta {ultima_real['mes']}"
+    ws.append(
+        [
+            etiqueta,
+            "",
+            "",
+            _num(tot_cta),
+            _num(tot_placa),
+            _num(tot_lis) if n_lis else None,
+            _num(tot_placa - tot_cta),
+            _num(tot_lis - tot_cta) if n_lis else None,
+            _num(err_tot_p) if err_tot_p is not None else None,
+            _num(err_tot_a) if err_tot_a is not None else None,
+            "Suma solo de boletas con lectura inicial y final, en cadena consecutiva "
+            "(no incluye promedios ni el terreno). Última boleta con ambos índices "
+            + (ultima_real["mes"] if ultima_real else "—")
+            + ".",
+        ]
+    )
+    last = ws.max_row
+    for col in range(1, N_FACT_COLS + 1):
+        cell = ws.cell(last, col)
+        cell.font = Font(bold=True, size=10)
+        cell.border = THIN
+        cell.fill = GRIS
+        cell.alignment = CENTER
+    ws.cell(last, 11).alignment = Alignment(horizontal="left", wrap_text=True, vertical="center")
+    for col in (4, 5, 6, 7, 8):
+        ws.cell(last, col).number_format = NUM_FMT
+    for col in (9, 10):
+        ws.cell(last, col).number_format = PCT_FMT
+    ws.cell(last, 5).fill = CELESTE
+    ws.cell(last, 5).font = Font(bold=True, size=10)
+    if n_lis:
+        ws.cell(last, 6).fill = VERDE
+        ws.cell(last, 6).font = Font(bold=True, size=10)
+    _pintar_dif(ws.cell(last, 7), tot_placa - tot_cta)
+    _pintar_dif(ws.cell(last, 9), tot_placa - tot_cta)
+    if n_lis:
+        _pintar_dif(ws.cell(last, 8), tot_lis - tot_cta)
+        _pintar_dif(ws.cell(last, 10), tot_lis - tot_cta)
+    ws.row_dimensions[last].height = 36
+
+    terreno = next((r for r in calc if r["p"].get("es_terreno")), None)
+    if terreno:
+        tot2_cta = tot_cta + terreno["dif_cta"]
+        tot2_placa = tot_placa + terreno["placa"]
+        tot2_lis = tot_lis + (terreno["lista"] or 0.0) if (n_lis or terreno["lista"] is not None) else None
+        err2_p = _error_pct(_num(tot2_placa), tot2_cta)
+        err2_a = _error_pct(_num(tot2_lis) if tot2_lis is not None else None, tot2_cta)
+        ws.append(
+            [
+                "TOTAL + terreno 25-sep",
+                "",
+                "",
+                _num(tot2_cta),
+                _num(tot2_placa),
+                _num(tot2_lis) if tot2_lis is not None else None,
+                _num(tot2_placa - tot2_cta),
+                _num((tot2_lis - tot2_cta) if tot2_lis is not None else 0) if tot2_lis is not None else None,
+                _num(err2_p) if err2_p is not None else None,
+                _num(err2_a) if err2_a is not None else None,
+                "Misma cadena de lecturas reales más la visita de terreno (no es boleta).",
+            ]
+        )
+        last = ws.max_row
+        for col in range(1, N_FACT_COLS + 1):
+            cell = ws.cell(last, col)
+            cell.font = Font(bold=True, size=10)
+            cell.border = THIN
+            cell.fill = GRIS
+            cell.alignment = CENTER
+        ws.cell(last, 11).alignment = Alignment(horizontal="left", wrap_text=True, vertical="center")
+        for col in (4, 5, 6, 7, 8):
+            ws.cell(last, col).number_format = NUM_FMT
+        for col in (9, 10):
+            ws.cell(last, col).number_format = PCT_FMT
+        ws.cell(last, 5).fill = CELESTE
+        if tot2_lis is not None:
+            ws.cell(last, 6).fill = VERDE
+        _pintar_dif(ws.cell(last, 7), tot2_placa - tot2_cta)
+        _pintar_dif(ws.cell(last, 9), tot2_placa - tot2_cta)
+        if tot2_lis is not None:
+            _pintar_dif(ws.cell(last, 8), tot2_lis - tot2_cta)
+            _pintar_dif(ws.cell(last, 10), tot2_lis - tot2_cta)
+        ws.row_dimensions[last].height = 32
+
+    ws.freeze_panes = "A3"
+    anchos = [22, 36, 40, 18, 18, 18, 22, 22, 14, 14, 56]
+    for i, w in enumerate(anchos, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    nota = last + 2
+    ws.merge_cells(start_row=nota, start_column=1, end_row=nota, end_column=N_FACT_COLS)
+    ultima_txt = (
+        f"{ultima_real['mes']} ({ultima_real['ini']} → {ultima_real['fin']})"
+        if ultima_real
+        else "—"
+    )
+    ws.cell(
+        nota,
+        1,
+        "Corte 12:00: día inicial 12:00–23:59 + días intermedios + día final 00:00–12:00 "
+        "(terreno 25-09 corta a las 11:00). Registro de la placa = suma horaria API. "
+        "Registro en la app = CSV diario (01/03 a 28/09) partido con el mismo corte. "
+        "Verde en Mes = cobro a promedio. Naranja = placa ausente o parcial "
+        "(enero sin registro por cambio de memoria; febrero solo desde el 15). "
+        "Amarillo = mejor período para validar. Celeste = placa. Verde = app. "
+        "Azul = registro > cuenta. Rojo = cuenta > registro. "
+        f"Última boleta con lectura inicio y fin en Drive: {ultima_txt}. "
+        "No hay boleta posterior a sep-2026 con ambos índices. "
+        "El TOTAL no suma los meses a promedio (solapaban el tramo con lecturas reales).",
+    )
+    ws.cell(nota, 1).font = Font(size=9, italic=True, color="006100")
+    ws.cell(nota, 1).alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[nota].height = 64
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A3
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = "1:2"
+    ws.sheet_view.showGridLines = False
+
+
+def _copiar_a_general(ws) -> Path | None:
+    gen = OUT_DIR / "Lecturas_vs_WES_medio_dia_CORMUP_20260929_1418.xlsx"
+    if not gen.is_file():
+        return None
+    gwb = load_workbook(gen)
+    if "JP2 horario" in gwb.sheetnames:
+        del gwb["JP2 horario"]
+    gws = gwb.create_sheet("JP2 horario", 1)
+    for row in ws.iter_rows():
+        for c in row:
+            dest = gws.cell(c.row, c.column, c.value)
+            dest.font = copy(c.font)
+            dest.fill = copy(c.fill)
+            dest.alignment = copy(c.alignment)
+            dest.border = copy(c.border)
+            dest.number_format = c.number_format
+    for m in ws.merged_cells.ranges:
+        gws.merge_cells(str(m))
+    gws.column_dimensions["A"].width = 12
+    for i in range(2, ws.max_column + 1):
+        gws.column_dimensions[get_column_letter(i)].width = 14
+    gws.freeze_panes = "B4"
+    gws.row_dimensions[1].height = 32
+    gwb.save(gen)
+    return gen
+
+
+def main() -> None:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    prev_files = sorted(OUT_DIR.glob("Horario_JP2_hora_consumo_*.xlsx"))
+    prev = prev_files[-1] if prev_files else None
+
+    horas_lik = _cargar_horas_likancura()
+    if prev is not None:
+        prev_lik = _cargar_horas_xlsx(prev, sheet_name="H. Likancura")
+        n_from_xlsx = 0
+        for dia, hmap in horas_lik.items():
+            src = prev_lik.get(dia) or {}
+            for h in [x for x in range(24) if x not in hmap and x in src]:
+                hmap[h] = src[h]
+                n_from_xlsx += 1
+        if n_from_xlsx:
+            print(f"[INFO] Likancura huecos desde xlsx: {n_from_xlsx}", flush=True)
+    _rellenar_horas_faltantes(horas_lik, NODE_LIK)
+    dias_lik = _dias_unicos(D0_LIK, D1_LIK)
+    for dia in dias_lik:
+        horas_lik.setdefault(dia, {})
+        for h in range(24):
+            horas_lik[dia].setdefault(h, 0.0)
+    dups = _cargar_duplicados_likancura()
+    listado_lik = _cargar_listado_likancura()
+    resaltar = _pares_secuencia_duplicados(dups)
+    nota_lik = (
+        "Pegado app WES (F/H/M). Fila Listado = verde (totales diarios de la app). "
+        "Rojo si Listado no coincide con Total. Horas duplicadas: queda una sola vez "
+        "(el Total no suma dos veces). Amarillo = hora repetida en la secuencia "
+        "(05/04 00:00 y 06/05 02:00). Bloques re-pegados (15-16/02 y 14-31/08) "
+        "en hoja Duplicados: el Listado de la app sí los suma dos veces (rojo en ago). "
+        "Huecos puntuales rellenados con API."
+    )
+    print(
+        f"[INFO] H. Likancura {len(dias_lik)} días "
+        f"{D0_LIK.isoformat()}–{D1_LIK.isoformat()} "
+        f"m³={sum(sum(horas_lik[d].values()) for d in dias_lik):.2f} "
+        f"dups={dups.get('pares_duplicados')} seq={len(resaltar)} "
+        f"listado={sum(1 for d in dias_lik if d in listado_lik)}/{len(dias_lik)}",
+        flush=True,
+    )
+
+    wb: Workbook | None = None
+    reusar = False
+    if prev is not None:
+        try:
+            cand = load_workbook(prev)
+            if "H. JPII" in cand.sheetnames and "Facturaciones" in cand.sheetnames:
+                wb = cand
+                reusar = True
+                print(f"[INFO] reuso {prev.name} (H. JPII + Facturaciones)", flush=True)
+        except Exception as exc:
+            print(f"[WARN] no pude reusar {prev}: {exc}", flush=True)
+
+    if not reusar:
+        dias = _dias_unicos(D0, D1)
+        cache = _cargar_horas_xlsx(prev) if prev else {}
+        print(
+            f"[INFO] cache {len(cache)} días; faltan {sum(1 for d in dias if d not in cache)}",
+            flush=True,
+        )
+        horas = _horas_rango(dias, cache)
+        periodos = periodos_facturacion()
+        d0_extra = min((p["d0"] for p in periodos), default=date(2025, 9, 29))
+        extra = _dias_unicos(d0_extra, D1)
+        print(
+            f"[INFO] facturaciones: extra desde {d0_extra} "
+            f"({sum(1 for d in extra if d not in horas)} días a pedir)",
+            flush=True,
+        )
+        horas = _horas_rango(extra, horas)
+        wb = construir_horario(
+            dias,
+            horas,
+            sheet_name="H. JPII",
+            nombre=NOMBRE,
+            node=NODE,
+            d0=D0,
+            d1=D1,
+            listado=LISTADO,
+        )
+        construir_facturaciones(wb, horas, periodos)
+
+    construir_horario(
+        dias_lik,
+        horas_lik,
+        wb=wb,
+        sheet_name="H. Likancura",
+        nombre=NOMBRE_LIK,
+        node=NODE_LIK,
+        d0=D0_LIK,
+        d1=D1_LIK,
+        listado=listado_lik,
+        nota=nota_lik,
+        resaltar=resaltar,
+    )
+    construir_duplicados_likancura(wb, dups)
+    ts = datetime.now().strftime("%Y%m%d_%H%M")
+    out = OUT_DIR / f"Horario_JP2_hora_consumo_{ts}.xlsx"
+    wb.save(out)
+    estable = OUT_DIR / DRIVE_NOMBRE
+    if out.resolve() != estable.resolve():
+        estable.write_bytes(out.read_bytes())
+    print("XLSX", out, "sheets", wb.sheetnames)
+    if credenciales_configuradas():
+        info = subir_a_drive(estable, subcarpeta=DRIVE_SUB, nombre=DRIVE_NOMBRE)
+        print("DRIVE", info["id"], info["web_view_link"])
+
+
+if __name__ == "__main__":
+    main()
