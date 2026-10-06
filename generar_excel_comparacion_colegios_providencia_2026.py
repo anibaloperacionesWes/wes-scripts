@@ -65,6 +65,20 @@ MESES = [
     "Nov",
     "Dic",
 ]
+MESES_LARGOS = [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+]
 
 FILL_HDR = PatternFill("solid", fgColor="1F4E79")
 FILL_TOTAL = PatternFill("solid", fgColor="D6E3F0")
@@ -247,14 +261,140 @@ def _autosize(ws, widths: dict[int, float]) -> None:
         ws.column_dimensions[get_column_letter(col)].width = w
 
 
+def _m3_mes(cache: dict, nid: str, mes: int) -> tuple[float, float]:
+    app = 0.0
+    deberia = 0.0
+    for key, info in cache.get(nid, {}).items():
+        if info["condicion"] == "SIN_DATOS":
+            continue
+        if int(key[5:7]) != mes:
+            continue
+        app += info["m3_suma"]
+        deberia += info["m3_una_hora"]
+    return round(app, 2), round(deberia, 2)
+
+
+def _hoja_app_vs_deberia(wb: Workbook, cache: dict, fechas: list[date]) -> None:
+    """Primera hoja: por colegio, enero → adelante, app vs 1 hora."""
+    ws = wb.active
+    ws.title = "App_vs_deberia"
+    meses = sorted({d.month for d in fechas})
+    # Carmela primero: es el caso que se pide ver mes a mes.
+    orden = [n for n in NODOS if n[0] == "000006-02"] + [n for n in NODOS if n[0] != "000006-02"]
+
+    ws["A1"] = "Esto marca la app y esto es lo que debería marcar — 2026"
+    ws["A1"].font = Font(bold=True, size=16, name="Calibri", color="1F4E79")
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=2 + len(meses))
+    ws["A2"] = (
+        f"Periodo {INICIO:%d/%m/%Y} al {FIN:%d/%m/%Y}. "
+        "«Esto marca la app» suma la hora cuando el CSV la trae repetida (es el totalM3). "
+        "«Esto es lo que debería marcar» cuenta esa hora una sola vez."
+    )
+    ws["A2"].alignment = Alignment(wrap_text=True, vertical="center")
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=2 + len(meses))
+    ws.row_dimensions[2].height = 32
+
+    fila = 4
+    for nid, nombre in orden:
+        ws.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=2 + len(meses))
+        titulo = ws.cell(fila, 1, f"{nombre}  ({nid})")
+        titulo.font = Font(bold=True, size=14, name="Calibri", color="FFFFFF")
+        titulo.fill = FILL_HDR
+        titulo.alignment = Alignment(horizontal="left", vertical="center")
+        for c in range(1, 3 + len(meses)):
+            ws.cell(fila, c).fill = FILL_HDR
+            ws.cell(fila, c).border = THIN
+        ws.row_dimensions[fila].height = 22
+
+        encabezado = fila + 1
+        ws.cell(encabezado, 1, nombre)
+        for i, mes in enumerate(meses):
+            etiqueta = MESES_LARGOS[mes - 1]
+            if mes == FIN.month and FIN.day < 28:
+                etiqueta = f"{etiqueta} (al {FIN:%d/%m})"
+            ws.cell(encabezado, 2 + i, etiqueta)
+        ws.cell(encabezado, 2 + len(meses), "Total 2026")
+        _style_header(ws, encabezado, 2 + len(meses))
+        ws.cell(encabezado, 1).alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        ws.row_dimensions[encabezado].height = 30
+
+        fila_app = encabezado + 1
+        fila_ok = encabezado + 2
+        fila_dif = encabezado + 3
+        ws.cell(fila_app, 1, "Esto marca la app")
+        ws.cell(fila_ok, 1, "Esto es lo que debería marcar")
+        ws.cell(fila_dif, 1, "Diferencia (app − debería)")
+        for r, bold in ((fila_app, True), (fila_ok, True), (fila_dif, False)):
+            ws.cell(r, 1).font = Font(bold=bold, name="Calibri", size=11)
+            ws.cell(r, 1).alignment = Alignment(horizontal="left", vertical="center")
+            ws.cell(r, 1).border = THIN
+        ws.cell(fila_app, 1).fill = FILL_DOBLE
+        ws.cell(fila_ok, 1).fill = FILL_OK
+        ws.row_dimensions[fila_app].height = 20
+        ws.row_dimensions[fila_ok].height = 20
+
+        total_app = 0.0
+        total_ok = 0.0
+        for i, mes in enumerate(meses):
+            app, deberia = _m3_mes(cache, nid, mes)
+            total_app += app
+            total_ok += deberia
+            dif = round(app - deberia, 2)
+            for r, v, fill in (
+                (fila_app, app, FILL_DOBLE if app > deberia + 0.05 else None),
+                (fila_ok, deberia, None),
+                (fila_dif, dif, FILL_DOBLE if dif > 0.05 else None),
+            ):
+                cell = ws.cell(r, 2 + i, v)
+                cell.number_format = FMT
+                cell.font = FONT_NAME
+                cell.border = THIN
+                cell.alignment = CENTER
+                if fill is not None:
+                    cell.fill = fill
+
+        for r, v, fill in (
+            (fila_app, round(total_app, 2), FILL_TOTAL),
+            (fila_ok, round(total_ok, 2), FILL_TOTAL),
+            (fila_dif, round(total_app - total_ok, 2), FILL_TOTAL),
+        ):
+            cell = ws.cell(r, 2 + len(meses), v)
+            cell.number_format = FMT
+            cell.font = FONT_BOLD
+            cell.border = THIN
+            cell.alignment = CENTER
+            cell.fill = fill
+
+        fila = fila_dif + 2
+
+    ws.column_dimensions["A"].width = 36
+    for i in range(len(meses) + 1):
+        ws.column_dimensions[get_column_letter(2 + i)].width = 16
+    ws.freeze_panes = "B4"
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToPage = True
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.paperSize = ws.PAPERSIZE_TABLOID
+    ws.page_setup.horizontalCentered = True
+    ws.print_title_rows = "1:2"
+    ws.sheet_view.showGridLines = False
+    ws.sheet_view.zoomScale = 120
+    ws.oddHeader.left.text = "App vs lo que debería marcar"
+    ws.oddFooter.right.text = "Naranja = la app está sumando la hora repetida"
+
+
 def _escribir(cache: dict[str, dict[str, dict]]) -> Path:
     wb = Workbook()
     fechas = _fechas()
     hoy = FIN.isoformat()
 
+    # --- Carmela (y el resto): mes a mes, app vs lo que debería marcar ---
+    _hoja_app_vs_deberia(wb, cache, fechas)
+
     # --- Resumen ---
-    ws = wb.active
-    ws.title = "Resumen"
+    ws = wb.create_sheet("Resumen")
     ws["A1"] = "Colegios Providencia — comparación 2026 (horas repetidas = 1 hora)"
     ws["A1"].font = Font(bold=True, size=14, name="Calibri", color="1F4E79")
     ws.merge_cells("A1:H1")
@@ -722,6 +862,7 @@ def _escribir(cache: dict[str, dict[str, dict]]) -> Path:
     ws_dia.oddFooter.right.text = "Celda naranja = ese día la hora venía repetida"
     ws_dia.page_setup.horizontalCentered = True
 
+    wb.active = wb["App_vs_deberia"]
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
     path = OUT_DIR / f"Comparacion_colegios_Providencia_2026_{stamp}.xlsx"
