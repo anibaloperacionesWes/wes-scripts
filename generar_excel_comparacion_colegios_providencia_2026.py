@@ -38,12 +38,10 @@ BASE = "http://104.248.53.141:7003/wes/api/acl-node/v1"
 OUT_DIR = ROOT / "reports" / "Providencia" / "Comparacion_2026"
 CACHE_PATH = OUT_DIR / "cache_horario_2026.json"
 
-# Colegios Providencia que se reportan juntos. 000006-03 se incluye en el
-# barrido: si no tiene serie 2026 queda marcado sin datos.
+# Colegios Providencia del reporte. Arturo Alessandri Palma (000006-03) queda fuera.
 NODOS: list[tuple[str, str]] = [
     ("000006-01", "Liceo Lastarria"),
     ("000006-02", "Carmela Carvajal"),
-    ("000006-03", "Arturo Alessandri Palma"),
     ("000006-04", "Liceo 7 Luisa Saavedra"),
     ("000006-05", "Liceo Juan Pablo Duarte"),
 ]
@@ -376,7 +374,7 @@ def _escribir(cache: dict[str, dict[str, dict]]) -> Path:
                 for r in afectados
             )
             + ". Los días en cero igual traen la hora duplicada: el defecto sigue, aunque el m³ no cambie. "
-            "Lastarria, Alessandri y Duarte no están en esa condición. "
+            "Lastarria y Duarte traen una fila por hora. "
             "Duarte el 08–11/04/2026 repite la hora con valores distintos (no es una copia); "
             "ahí se tomó el mayor y no se sumó. Detalle en Duplicados_IT."
         )
