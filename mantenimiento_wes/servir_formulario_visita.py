@@ -36,6 +36,7 @@ if str(ROOT) not in sys.path:
 if str(ROOT.parent) not in sys.path:
     sys.path.insert(0, str(ROOT.parent))
 
+from comunas_clientes import completar_comuna, cargar_comunas  # noqa: E402
 from enviar_acta_cliente_pdf import enviar_acta_pdf_cliente  # noqa: E402
 from generar_pdf_acta_visita import generar_pdf_acta  # noqa: E402
 from registrar_visita_excel import registrar_visita_en_excel  # noqa: E402
@@ -68,6 +69,7 @@ def _load_catalogos() -> Dict[str, Any]:
         "tipos_falla": json.loads((CAT / "tipos_falla.json").read_text(encoding="utf-8")),
         "opciones": json.loads((CAT / "opciones.json").read_text(encoding="utf-8")),
         "contactos": contactos,
+        "comunas": cargar_comunas(),
     }
 
 
@@ -103,6 +105,7 @@ def _maybe_upload_drive(pdf_path: Path) -> Dict[str, Any]:
 
 
 def procesar_visita(data: Dict[str, Any]) -> Dict[str, Any]:
+    completar_comuna(data)
     SALIDAS.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     stem = _safe_name(

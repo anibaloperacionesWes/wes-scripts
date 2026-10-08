@@ -112,7 +112,7 @@ function doGet() {
   tpl.PROXIMO_FOLIO = String(folioShow);
   return tpl
     .evaluate()
-    .setTitle('Acta de visita WES · 21Z')
+    .setTitle('Acta de visita WES · 21AC')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -215,6 +215,7 @@ function buildCatalogosVivos_() {
     });
   });
   base.clientes_maquinas = map;
+  base.comunas = COMUNAS_WES;
   base.fuente_puntos = 'CONTACTOS_ENVIOS_ACTAS!' + sh.getName();
   // Asegurar técnicos aunque catalogos.html esté vacío/corrupto
   if (!base.opciones) base.opciones = {};
@@ -268,6 +269,9 @@ function getProximoFolio() {
 function procesarVisita(data) {
   if (!data || !data.cliente || !data.maquina) {
     throw new Error('Cliente y máquina son obligatorios');
+  }
+  if (!String(data.comuna || '').trim()) {
+    data.comuna = comunaDeCliente_(data.cliente, data.maquina);
   }
   var enviarCorreo = data.enviar_correo_cliente;
   if (enviarCorreo === undefined || enviarCorreo === null || enviarCorreo === '') {
@@ -362,6 +366,190 @@ function procesarVisita(data) {
   };
 }
 
+/* COMUNAS_WES_BEGIN */
+var COMUNAS_WES = {
+  "por_cliente": {
+    "AEB": "El Bosque",
+    "AGUNSA": "Lampa",
+    "BOM": "Quilicura",
+    "BUPA ANTOFGASTA": "Antofagasta",
+    "CDUC": "Las Condes",
+    "COPEC": "Vitacura",
+    "COR. PUENTE": "Puente Alto",
+    "CORMUP": "Peñalolén",
+    "CUR": "Valparaíso",
+    "DERCO": "Quilicura",
+    "ESTADIO ISRAELITA": "Las Condes",
+    "FUNDO ZAPALLAR": "Zapallar",
+    "HEGC": "San Miguel",
+    "LA FLORIDA": "La Florida",
+    "LA REINA": "La Reina",
+    "LAS CONDES": "Las Condes",
+    "LO VALLEDOR": "Pedro Aguirre Cerda",
+    "MADECCO": "San Miguel",
+    "MAE": "Estación Central",
+    "MAM": "Maipú",
+    "MAQ": "Quilicura",
+    "MOLYMET": "San Bernardo",
+    "NIDO": "Lo Barnechea",
+    "PAE": "Estación Central",
+    "PAK": "Las Condes",
+    "PROVIDENCIA": "Providencia",
+    "RENCA": "Renca",
+    "UDD": "Las Condes"
+  },
+  "alias": {
+    "BUPA ANTOFAGASTA": "BUPA ANTOFGASTA"
+  },
+  "varias_comunas": [
+    "GENCHI"
+  ],
+  "por_sitio": {
+    "AGUNSA": {
+      "INTERMODAL": "San Antonio"
+    },
+    "GENCHI": {
+      "CDP PUENTE ALTO": "Puente Alto",
+      "COLINA 1": "Colina",
+      "COLINA 2 RED SUR": "Colina",
+      "COLINA 2 REDIMPULSION": "Colina",
+      "CPA MODULO": "Santiago",
+      "CPA OVALO": "Santiago",
+      "CPF SAN MIGUEL MATRIZ PRINCIPAL": "San Miguel",
+      "CPF SAN MIGUEL SALA IMPULSION": "San Miguel",
+      "ESC. EL BOSQUE ADMINISTRACION": "El Bosque",
+      "ESC. EL BOSQUE GENCHI ACADEMIA": "El Bosque",
+      "ESC. OF ARTEMIO": "Santiago",
+      "ESC. OF CARMEN": "Santiago",
+      "ESCUELA ANDES DEL SUR": "Puente Alto",
+      "ESFORPEN BOSQUE ADMINISTRACION": "El Bosque",
+      "ESFORPEN BOSQUE GENCHI SIMULACION": "El Bosque",
+      "MONITOREO MATRIZ PRINCIPAL MODULO": "Santiago",
+      "MONITOREO MATRIZ PRINCIPAL OVALO": "Santiago"
+    }
+  },
+  "reglas": [
+    {
+      "cliente": "GENCHI",
+      "contiene": "SAN MIGUEL",
+      "comuna": "San Miguel"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "PUENTE ALTO",
+      "comuna": "Puente Alto"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "ANDES DEL SUR",
+      "comuna": "Puente Alto"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "COLINA",
+      "comuna": "Colina"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "BOSQUE",
+      "comuna": "El Bosque"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "ESFORPEN",
+      "comuna": "El Bosque"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "CARMEN",
+      "comuna": "Santiago"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "ARTEMIO",
+      "comuna": "Santiago"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "OVALO",
+      "comuna": "Santiago"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "CPA",
+      "comuna": "Santiago"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "MODULO",
+      "comuna": "Santiago"
+    },
+    {
+      "cliente": "GENCHI",
+      "contiene": "MONITOREO",
+      "comuna": "Santiago"
+    },
+    {
+      "cliente": "AGUNSA",
+      "contiene": "INTERMODAL",
+      "comuna": "San Antonio"
+    },
+    {
+      "cliente": "AGUNSA",
+      "contiene": "SAN ANTONIO",
+      "comuna": "San Antonio"
+    },
+    {
+      "cliente": "DERCO",
+      "contiene": "LO BOZA",
+      "comuna": "Lampa"
+    },
+    {
+      "cliente": "DERCO",
+      "contiene": "QUILICURA",
+      "comuna": "Quilicura"
+    }
+  ]
+};
+
+function _normComuna(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function resolverComuna(cliente, maquina) {
+  var map = (typeof COMUNAS_WES !== 'undefined' && COMUNAS_WES) || {};
+  var cli = String(cliente || '').trim();
+  var maq = String(maquina || '').trim();
+  if (!cli) return '';
+  var alias = (map.alias && map.alias[cli]) || cli;
+  var sitios = (map.por_sitio && (map.por_sitio[cli] || map.por_sitio[alias])) || {};
+  if (maq && sitios[maq]) return sitios[maq];
+  var maqN = _normComuna(maq);
+  var reglas = map.reglas || [];
+  for (var i = 0; i < reglas.length; i++) {
+    var r = reglas[i];
+    if (r.cliente !== cli && r.cliente !== alias) continue;
+    if (!maqN) continue;
+    if (maqN.indexOf(_normComuna(r.contiene)) >= 0) return r.comuna;
+  }
+  var varias = map.varias_comunas || [];
+  var espera = false;
+  for (var j = 0; j < varias.length; j++) {
+    if (varias[j] === cli || varias[j] === alias) espera = true;
+  }
+  if (espera && !maq) return '';
+  var por = map.por_cliente || {};
+  return por[cli] || por[alias] || '';
+}
+function comunaDeCliente_(cliente, maquina) {
+  return resolverComuna(cliente, maquina);
+}
+/* COMUNAS_WES_END */
+
 /**
  * OT con estado abierta o en_curso (para panel de cierre).
  */
@@ -369,7 +557,7 @@ function procesarVisita(data) {
 function getWesApiVersion() {
   return {
     ok: true,
-    version: '21Z',
+    version: '21AC',
     has_listar_ots: true,
     has_procesar: true,
     formulario_drive_id: FORMULARIO_HTML_DRIVE_ID
