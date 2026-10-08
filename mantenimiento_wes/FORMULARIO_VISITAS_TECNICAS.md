@@ -14,8 +14,8 @@ https://script.google.com/home/projects/1Ivk_JUyxqbR1B5BQyEEfNZJj8yL8OUs4jOpxpWd
 
 | Archivo | Cómo llega al /exec |
 |---------|---------------------|
-| **Formulario** (HTML) | `loadFormularioTemplate_()` lee Drive en cada `doGet`. Subir TXT → refrescar form. Build HTML actual: **21Y**. |
-| **Codigo** (.gs) | Pegar en Apps Script + **Nueva versión** del `/exec`. API actual en repo/Drive: **21Y**. |
+| **Formulario** (HTML) | `loadFormularioTemplate_()` lee Drive en cada `doGet`. Subir TXT → refrescar form. Build HTML actual: **21AC**. |
+| **Codigo** (.gs) | Pegar en Apps Script + **Nueva versión** del `/exec`. API en repo: **21AC** (comuna si el campo viene vacío). |
 
 ### TXT Drive
 
@@ -31,7 +31,7 @@ Ctrl+F en Apps Script → Codigo:
 
 - `procesarVisita`
 - `listarOTsPendientes`
-- `getWesApiVersion` (debe devolver `version: 21Y`)
+- `getWesApiVersion` (en repo debe devolver `version: 21AC`)
 - `getRange(found.row, 1, 1, row.length)` ← fix cierre OT
 
 ## Funciones clave
@@ -53,6 +53,7 @@ Ctrl+F en Apps Script → Codigo:
 - **Checklist:** ▸ Abrir solo con CIR/CPA/SAB/On-Off  
 - **Panel OT:** Continuar/cerrar o Marcar cerrada  
 - **Correo:** desmarcar = PDF interno  
+- **Comuna:** se completa al elegir cliente y sitio (`catalogos/comunas_clientes.json`). GENCHI espera el sitio (varias comunas). El técnico puede corregirla.
 
 ## Registro Excel
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Acta de visita WES · 21AB</title>
+  <title>Acta de visita WES · 21AC</title>
   <style>
     :root {
       --ink: #0f2f4d;
@@ -359,7 +359,8 @@
         <div class="row3">
           <div>
             <label for="comuna">Comuna</label>
-            <input id="comuna" placeholder="Ej: Providencia" spellcheck="true" lang="es" autocomplete="address-level2" />
+            <input id="comuna" placeholder="Se completa al elegir el cliente" spellcheck="true" lang="es" autocomplete="address-level2" />
+            <div class="note" id="comunaNote">Se llena sola según el cliente y el sitio. Si el punto está en otra comuna, podés corregirla.</div>
           </div>
           <div>
             <label for="fecha">Fecha *</label>
@@ -375,7 +376,7 @@
         <p class="note" style="margin:6px 0 0">Visita física = en terreno (firma obligatoria). Soporte a distancia = sin firma; tipo de falla = motivo remoto.</p>
         <label>Tecnología instalada</label>
         <div class="chips" id="tecnologias"></div>
-        <div class="build-tag" id="form_build">WES-build-21AB</div>
+        <div class="build-tag" id="form_build">WES-build-21AC</div>
         <p class="note" id="fold_status" style="margin:8px 0 0">Marcá CIR / CPA / SAB / On-Off y tocá el botón para abrir el checklist.</p>
         <div id="checklist_actions"></div>
         <div id="checklist_slot" aria-live="polite"></div>
@@ -492,7 +493,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21AB";
+    var FORM_BUILD = "WES-build-21AC";
     /** Motivos de falla/trabajo típicos en soporte a distancia (van en tipo_falla). */
     var TIPOS_FALLA_REMOTO = [
       "Programación de auditoría",
@@ -1362,6 +1363,214 @@
     }
 
 
+    /* COMUNAS_WES_BEGIN */
+    const COMUNAS_WES = {
+      "por_cliente": {
+        "AEB": "El Bosque",
+        "AGUNSA": "Lampa",
+        "BOM": "Quilicura",
+        "BUPA ANTOFGASTA": "Antofagasta",
+        "CDUC": "Las Condes",
+        "COPEC": "Vitacura",
+        "COR. PUENTE": "Puente Alto",
+        "CORMUP": "Peñalolén",
+        "CUR": "Valparaíso",
+        "DERCO": "Quilicura",
+        "ESTADIO ISRAELITA": "Las Condes",
+        "FUNDO ZAPALLAR": "Zapallar",
+        "HEGC": "San Miguel",
+        "LA FLORIDA": "La Florida",
+        "LA REINA": "La Reina",
+        "LAS CONDES": "Las Condes",
+        "LO VALLEDOR": "Pedro Aguirre Cerda",
+        "MADECCO": "San Miguel",
+        "MAE": "Estación Central",
+        "MAM": "Maipú",
+        "MAQ": "Quilicura",
+        "MOLYMET": "San Bernardo",
+        "NIDO": "Lo Barnechea",
+        "PAE": "Estación Central",
+        "PAK": "Las Condes",
+        "PROVIDENCIA": "Providencia",
+        "RENCA": "Renca",
+        "UDD": "Las Condes"
+      },
+      "alias": {
+        "BUPA ANTOFAGASTA": "BUPA ANTOFGASTA"
+      },
+      "varias_comunas": [
+        "GENCHI"
+      ],
+      "por_sitio": {
+        "AGUNSA": {
+          "INTERMODAL": "San Antonio"
+        },
+        "GENCHI": {
+          "CDP PUENTE ALTO": "Puente Alto",
+          "COLINA 1": "Colina",
+          "COLINA 2 RED SUR": "Colina",
+          "COLINA 2 REDIMPULSION": "Colina",
+          "CPA MODULO": "Santiago",
+          "CPA OVALO": "Santiago",
+          "CPF SAN MIGUEL MATRIZ PRINCIPAL": "San Miguel",
+          "CPF SAN MIGUEL SALA IMPULSION": "San Miguel",
+          "ESC. EL BOSQUE ADMINISTRACION": "El Bosque",
+          "ESC. EL BOSQUE GENCHI ACADEMIA": "El Bosque",
+          "ESC. OF ARTEMIO": "Santiago",
+          "ESC. OF CARMEN": "Santiago",
+          "ESCUELA ANDES DEL SUR": "Puente Alto",
+          "ESFORPEN BOSQUE ADMINISTRACION": "El Bosque",
+          "ESFORPEN BOSQUE GENCHI SIMULACION": "El Bosque",
+          "MONITOREO MATRIZ PRINCIPAL MODULO": "Santiago",
+          "MONITOREO MATRIZ PRINCIPAL OVALO": "Santiago"
+        }
+      },
+      "reglas": [
+        {
+          "cliente": "GENCHI",
+          "contiene": "SAN MIGUEL",
+          "comuna": "San Miguel"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "PUENTE ALTO",
+          "comuna": "Puente Alto"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "ANDES DEL SUR",
+          "comuna": "Puente Alto"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "COLINA",
+          "comuna": "Colina"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "BOSQUE",
+          "comuna": "El Bosque"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "ESFORPEN",
+          "comuna": "El Bosque"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "CARMEN",
+          "comuna": "Santiago"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "ARTEMIO",
+          "comuna": "Santiago"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "OVALO",
+          "comuna": "Santiago"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "CPA",
+          "comuna": "Santiago"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "MODULO",
+          "comuna": "Santiago"
+        },
+        {
+          "cliente": "GENCHI",
+          "contiene": "MONITOREO",
+          "comuna": "Santiago"
+        },
+        {
+          "cliente": "AGUNSA",
+          "contiene": "INTERMODAL",
+          "comuna": "San Antonio"
+        },
+        {
+          "cliente": "AGUNSA",
+          "contiene": "SAN ANTONIO",
+          "comuna": "San Antonio"
+        },
+        {
+          "cliente": "DERCO",
+          "contiene": "LO BOZA",
+          "comuna": "Lampa"
+        },
+        {
+          "cliente": "DERCO",
+          "contiene": "QUILICURA",
+          "comuna": "Quilicura"
+        }
+      ]
+    };
+
+    function _normComuna(s) {
+      return String(s || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+    function resolverComuna(cliente, maquina) {
+      var map = (typeof COMUNAS_WES !== "undefined" && COMUNAS_WES) || {};
+      var cli = String(cliente || "").trim();
+      var maq = String(maquina || "").trim();
+      if (!cli) return "";
+      var alias = (map.alias && map.alias[cli]) || cli;
+      var sitios = (map.por_sitio && (map.por_sitio[cli] || map.por_sitio[alias])) || {};
+      if (maq && sitios[maq]) return sitios[maq];
+      var maqN = _normComuna(maq);
+      var reglas = map.reglas || [];
+      for (var i = 0; i < reglas.length; i++) {
+        var r = reglas[i];
+        if (r.cliente !== cli && r.cliente !== alias) continue;
+        if (!maqN) continue;
+        if (maqN.indexOf(_normComuna(r.contiene)) >= 0) return r.comuna;
+      }
+      var varias = map.varias_comunas || [];
+      var espera = false;
+      for (var j = 0; j < varias.length; j++) {
+        if (varias[j] === cli || varias[j] === alias) espera = true;
+      }
+      if (espera && !maq) return "";
+      var por = map.por_cliente || {};
+      return por[cli] || por[alias] || "";
+    }
+    function aplicarComuna() {
+      var input = document.getElementById("comuna");
+      if (!input) return;
+      var note = document.getElementById("comunaNote");
+      var cliEl = document.getElementById("cliente");
+      var maqEl = document.getElementById("maquina");
+      var cli = cliEl ? String(cliEl.value || "").trim() : "";
+      var maq = maqEl ? String(maqEl.value || "").trim() : "";
+      var comuna = resolverComuna(cli, maq);
+      var varias = (COMUNAS_WES.varias_comunas || []).indexOf(cli) >= 0;
+      if (!cli) {
+        input.value = "";
+        if (note) note.textContent = "Se llena sola según el cliente y el sitio. Si el punto está en otra comuna, podés corregirla.";
+        return;
+      }
+      if (comuna) {
+        input.value = comuna;
+        if (note) note.textContent = "Comuna: " + comuna + ". Quedó según el cliente y el sitio; podés corregirla.";
+        return;
+      }
+      input.value = "";
+      if (note) {
+        note.textContent = varias
+          ? "Este cliente tiene sitios en distintas comunas. Elegí la máquina para completarla."
+          : "Sin comuna registrada para este punto. Completala a mano.";
+      }
+    }
+    /* COMUNAS_WES_END */
+
     async function boot() {
       // Técnicos YA vienen en el HTML; reforzar antes de cualquier await.
       try { ensureTecnicosSelect(); } catch (eTec0) {}
@@ -1440,10 +1649,12 @@
         const cat = state.catalogos;
         fillSelect(document.getElementById("maquina"), (cat.clientes_maquinas[cli] || []));
         document.getElementById("email_cc").value = "";
+        aplicarComuna();
         aplicarContactosGuardados();
       };
       document.getElementById("maquina").onchange = () => {
         document.getElementById("email_cc").value = "";
+        aplicarComuna();
         aplicarContactosGuardados();
       };
       document.getElementById("tipo_falla").onchange = () => {
