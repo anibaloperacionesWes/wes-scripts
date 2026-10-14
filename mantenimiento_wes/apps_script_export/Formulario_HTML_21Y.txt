@@ -493,7 +493,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21AC";
+    var FORM_BUILD = "WES-build-21AD-retiro-cir";
     /** Motivos de falla/trabajo típicos en soporte a distancia (van en tipo_falla). */
     var TIPOS_FALLA_REMOTO = [
       "Programación de auditoría",
@@ -1598,6 +1598,7 @@
         "Mtto Predictivo",
         "Soporte remoto",
         "Reubicacion CIR",
+        "Retiro CIR",
         "Instalación Valvula On/Off",
         "Instalación sistema CIR",
         "Instalación sistema CPA"

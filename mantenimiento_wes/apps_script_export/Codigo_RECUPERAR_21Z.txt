@@ -151,6 +151,7 @@ function parseCatalogosEmbed_() {
           'Mtto Predictivo',
           'Soporte remoto',
           'Reubicacion CIR',
+          'Retiro CIR',
           'Instalación Valvula On/Off',
           'Instalación sistema CIR',
           'Instalación sistema CPA',

@@ -44,7 +44,7 @@ Ctrl+F en Apps Script → Codigo:
 ## UX
 
 - **Modalidad:** Visita física · Soporte técnico a distancia  
-- **Tipo mtto:** incluye **Soporte remoto** (se auto-elige con modalidad a distancia)  
+- **Tipo mtto:** incluye **Soporte remoto** (se auto-elige con modalidad a distancia), **Retiro CIR**, Reubicación CIR e instalaciones  
 - **Remoto · tipo falla:** Programación de auditoría · Programación especial por requerimiento del establecimiento · Validar correcto funcionamiento  
 - **Remoto:** sin firma en pantalla (PDF indica «sin firma presencial»)  
 - **Ortografía:** spellcheck es en solución, observaciones, cargos y obs. de checklist  
