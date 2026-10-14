@@ -271,8 +271,8 @@ def _chart_daily_compact(measures: List[MeasurePoint], path: Path, title: str) -
         return None
     dates = [m.date for m in measures]
     totals = [m.total_m3 for m in measures]
-    fig, ax = plt.subplots(figsize=(9.2, 2.55))
-    ax.plot(dates, totals, marker="o", markersize=2.5, linestyle="-", color="#0050b3", linewidth=1.4)
+    fig, ax = plt.subplots(figsize=(9.0, 2.25))
+    ax.plot(dates, totals, marker="o", markersize=2.2, linestyle="-", color="#0050b3", linewidth=1.3)
     ax.fill_between(dates, totals, alpha=0.22, color="#0050b3")
     ax.set_title(title, fontsize=11, fontweight="bold", pad=4)
     ax.set_ylabel("m³", fontsize=9)
@@ -293,7 +293,7 @@ def _chart_weekly_compact(weekly_data: dict, path: Path, title: str) -> Optional
         return None
     day_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
     values = [weekly_data["averages"].get(d, 0.0) for d in day_names]
-    fig, ax = plt.subplots(figsize=(9.2, 2.45))
+    fig, ax = plt.subplots(figsize=(9.0, 2.15))
     bars = ax.bar(day_names, values, color="#0050b3", alpha=0.85, edgecolor="#003d8c", linewidth=1.0)
     for bar, value in zip(bars, values):
         ax.text(
@@ -471,19 +471,7 @@ def main() -> None:
     tr.font.size = Pt(15)
     tr.font.color.rgb = RGBColor(0, 51, 102)
     title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-    title.paragraph_format.space_after = Pt(6)
-
-    _add_body(
-        doc,
-        f"Periodo: {_fmt_fecha(START)} al {_fmt_fecha(END)} ({num_dias} días). "
-        f"Inicio 23/07: desde ahí la medición está correcta; los días previos de "
-        f"julio (puesta en marcha) quedan fuera. Cierre: domingo pasado, sin la "
-        f"semana en curso. Sanitaria = 100% del agua de entrada (medición WES, "
-        f"no factura). Principal y Sexto Piso = submediciones de abajo. "
-        f"Sala de Bomba N°2 se reporta en el mismo detalle y en las tablas de "
-        f"participación (aunque en tramos tempranos aporte casi 0%).",
-        space_after=6,
-    )
+    title.paragraph_format.space_after = Pt(8)
 
     # --- 1. Huecos ---
     add_formatted_title(doc, "1. Disponibilidad de data por punto (rangos exactos)")
@@ -578,26 +566,22 @@ def main() -> None:
         tot_gap,
         tot_san,
     )
-    # torta chica, al lado del texto (centrada pero angosta)
-    _add_picture_compact(doc, str(pie_path), 2.6)
-    _add_body(
-        doc,
-        "Gráfico de torta (compacto): solo resume Principal+Sexto vs no monitoreado "
-        "sobre Sanitaria en el periodo. El detalle está en las tablas mensuales/semanales.",
-        space_after=4,
-    )
+    # torta chica
+    _add_picture_compact(doc, str(pie_path), 2.4)
 
-    # --- 3. Cuatro puntos: 1 hoja c/u ---
+    # --- 3. Cuatro puntos: intro + 3.1 en la misma hoja; luego una hoja por punto ---
+    _page_break(doc)
     add_formatted_title(doc, "3. Consumo monitoreado — cuatro puntos")
     _add_body(
         doc,
         "Por cada punto: consumo día a día, promedio por día de la semana (lun–dom) "
         "y tabla de promedios. Cada punto está en una sola hoja.",
-        space_after=4,
+        space_after=2,
     )
 
     for idx, n in enumerate(NODOS, start=1):
-        _page_break(doc)
+        if idx > 1:
+            _page_break(doc)
         nid = n["id"]
         measures = series[nid]
         summary = summarize_consumption(measures)
@@ -628,7 +612,7 @@ def main() -> None:
             f"Consumo diario — {n['corto']} (m³)",
         )
         if chart_d:
-            _add_picture_compact(doc, str(chart_d), 6.1)
+            _add_picture_compact(doc, str(chart_d), 5.9)
 
         weekly = calculate_weekly_averages(measures)
         if weekly:
@@ -638,7 +622,7 @@ def main() -> None:
                 f"Promedio lun–dom — {n['corto']} ({len(weekly['weeks'])} semanas)",
             )
             if chart_w:
-                _add_picture_compact(doc, str(chart_w), 6.1)
+                _add_picture_compact(doc, str(chart_w), 5.9)
             avg = weekly["averages"]
             orden = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
             rows = [("Día", "Promedio (m³)")] + [
