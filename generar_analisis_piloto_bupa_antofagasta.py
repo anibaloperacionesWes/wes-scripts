@@ -121,6 +121,34 @@ def _page_break(doc: Document) -> None:
     p.add_run().add_break(WD_BREAK.PAGE)
 
 
+def _compact_last_table(doc: Document) -> None:
+    """Reduce tipografía/espaciado de la última tabla para que no se parta entre páginas."""
+    if not doc.tables:
+        return
+    table = doc.tables[-1]
+    from docx.oxml import OxmlElement
+
+    # Evitar que filas individuales se partan; encabezado se repite si igual hubiera overflow.
+    tbl = table._tbl
+    tbl_pr = tbl.tblPr
+    if tbl_pr is None:
+        tbl_pr = OxmlElement("w:tblPr")
+        tbl.insert(0, tbl_pr)
+
+    for i, row in enumerate(table.rows):
+        tr_pr = row._tr.get_or_add_trPr()
+        if tr_pr.find(qn("w:cantSplit")) is None:
+            tr_pr.append(OxmlElement("w:cantSplit"))
+        if i == 0 and tr_pr.find(qn("w:tblHeader")) is None:
+            tr_pr.append(OxmlElement("w:tblHeader"))
+        for cell in row.cells:
+            for para in cell.paragraphs:
+                para.paragraph_format.space_before = Pt(0)
+                para.paragraph_format.space_after = Pt(0)
+                for run in para.runs:
+                    run.font.size = Pt(7 if i > 0 else 8)
+
+
 def _fetch_series(node_id: str) -> Tuple[List[MeasurePoint], dict]:
     """Retorna medidas del periodo + meta de validación (duplicados)."""
     raw = fetch_json(
@@ -488,30 +516,6 @@ def main() -> None:
         gap_rows.append((n["nombre"], f"{n_ok} / {num_dias}", huecos, obs))
     add_table(doc, "Cobertura de data", gap_rows, wes_style=True, has_total_row=False)
 
-    # --- Validación duplicados ---
-    add_formatted_title(doc, "1.1 Validación: ¿hay datos duplicados?")
-    any_dup = any(meta_dup[n["id"]]["raw_dups"] or meta_dup[n["id"]]["flat_dups"] for n in NODOS)
-    if not any_dup:
-        _add_body(
-            doc,
-            "Se validó la serie diaria de los cuatro puntos en la API "
-            "(/nodes/measures/dates): no hay fechas duplicadas en el payload ni "
-            "tras aplanar la serie. La anomalía de Sala de Bomba N°2 (lecturas "
-            "que superan a Sanitaria desde septiembre) no se explica por doble "
-            "conteo de días en el extracto; el salto del "
-            f"{_fmt_fecha(SALA2_CAMBIO)} es un cambio de nivel en la medición "
-            "(revisar instalación / factor / empalme).",
-            bold_prefix="Resultado: ",
-        )
-    else:
-        for n in NODOS:
-            m = meta_dup[n["id"]]
-            if m["raw_dups"] or m["flat_dups"]:
-                _add_body(
-                    doc,
-                    f"{n['nombre']}: duplicados raw={m['raw_dups']} flat={m['flat_dups']}",
-                )
-
     # --- 2. Resumen ---
     add_formatted_title(doc, "2. Resumen ejecutivo")
     table_resumen = [
@@ -657,9 +661,7 @@ def main() -> None:
     _add_body(
         doc,
         "Sanitaria = 100%. Se incluye Sala de Bomba N°2 en todas las filas "
-        "(aunque en julio–agosto aporte ~0–1%). El “no monitoreado” se calcula "
-        "como Sanitaria − Principal − Sexto (N°2 no resta del gap porque no entra "
-        "al balance de las dos salas de abajo).",
+        "(aunque en julio–agosto aporte ~0–1%).",
     )
 
     month_wins = _month_windows(START, END)
@@ -670,8 +672,6 @@ def main() -> None:
             "Principal %",
             "Sexto %",
             "Bomba N°2 %",
-            "Princ.+Sexto %",
-            "No mon. %",
         )
     ]
     labels_m, p07_m, p08_m, p10_m = [], [], [], []
@@ -680,13 +680,9 @@ def main() -> None:
         a = _sum_range(by_date[sal_07], d0, d1)
         b = _sum_range(by_date[sal_08], d0, d1)
         c = _sum_range(by_date[sal_10], d0, d1)
-        salas = a + b
-        gap = max(0.0, s - salas)
         pa = 100.0 * a / s if s else 0.0
         pb = 100.0 * b / s if s else 0.0
         pc = 100.0 * c / s if s else 0.0
-        ps = 100.0 * salas / s if s else 0.0
-        pg = 100.0 * gap / s if s else 0.0
         table_m.append(
             (
                 label,
@@ -694,8 +690,6 @@ def main() -> None:
                 f"{format_number_chilean(pa, 1)}%",
                 f"{format_number_chilean(pb, 1)}%",
                 f"{format_number_chilean(pc, 1)}%",
-                f"{format_number_chilean(ps, 1)}%",
-                f"{format_number_chilean(pg, 1)}%",
             )
         )
         labels_m.append(label.split("(")[0].strip())
@@ -703,7 +697,7 @@ def main() -> None:
         p08_m.append(pb)
         p10_m.append(pc)
 
-    add_table(doc, "Participación mensual sobre Sanitaria", table_m, wes_style=True)
+    add_table(doc, "Participación mensual sobre Sanitaria", table_m, wes_style=True, has_total_row=False)
     chart_m = _chart_participacion_barras(
         out_dir / "chart_participacion_mensual.png",
         labels_m,
@@ -714,11 +708,13 @@ def main() -> None:
     )
     _add_picture_compact(doc, str(chart_m), 6.2)
 
-    # --- 5. Participación semanal (con N°2) ---
+    # --- 5. Participación semanal (con N°2): tabla completa en una hoja ---
+    _page_break(doc)
     add_formatted_title(doc, "5. Participación % vs Sanitaria — por semana")
     _add_body(
         doc,
         "Misma lógica semanal (lun–dom), incluyendo Bomba N°2 en cada semana.",
+        space_after=2,
     )
     week_wins = _week_windows(START, END)
     table_w = [
@@ -745,9 +741,11 @@ def main() -> None:
         pc = 100.0 * c / s if s else 0.0
         ps = 100.0 * salas / s if s else 0.0
         pg = 100.0 * gap / s if s else 0.0
+        # Etiqueta corta para que la tabla quepa en una hoja
+        short_label = f"{d0.strftime('%d/%m')}–{d1.strftime('%d/%m')}"
         table_w.append(
             (
-                label,
+                short_label,
                 format_number_chilean(s, 1),
                 f"{format_number_chilean(pa, 1)}%",
                 f"{format_number_chilean(pb, 1)}%",
@@ -761,7 +759,9 @@ def main() -> None:
         p08_w.append(pb)
         p10_w.append(pc)
 
-    add_table(doc, "Participación semanal sobre Sanitaria", table_w, wes_style=True)
+    # Tabla primero (completa en esta hoja); el gráfico va después / puede seguir en la siguiente.
+    add_table(doc, "Participación semanal sobre Sanitaria", table_w, wes_style=True, has_total_row=False)
+    _compact_last_table(doc)
     chart_w = _chart_participacion_barras(
         out_dir / "chart_participacion_semanal.png",
         labels_w,
@@ -770,7 +770,7 @@ def main() -> None:
         p10_w,
         "Participación semanal (% sobre Sanitaria)",
     )
-    _add_picture_compact(doc, str(chart_w), 6.2)
+    _add_picture_compact(doc, str(chart_w), 6.0)
 
     # --- 6. Sala N°2 explicación ---
     add_formatted_title(doc, "6. Qué está pasando en Sala de Bomba N°2")
@@ -788,8 +788,7 @@ def main() -> None:
 
     _add_body(
         doc,
-        "No hay fechas duplicadas que inflen el total. Lo que se ve son dos etapas "
-        "claras en el mismo punto:",
+        "En Sala de Bomba N°2 se ven dos etapas claras:",
     )
     _add_body(
         doc,
@@ -838,12 +837,11 @@ def main() -> None:
         f"1) Periodo limpio 23/07–{_fmt_fecha(END)}.\n"
         f"2) Huecos: solo Sexto Piso {_fmt_fecha(ll_a)}–{_fmt_fecha(ll_b)} (lluvias); "
         f"Sanitaria, Principal y N°2 sin huecos de registro.\n"
-        f"3) Sin duplicados de fecha en la serie diaria de los cuatro puntos.\n"
-        f"4) Balance: Principal+Sexto = {format_number_chilean(pct_salas, 1)}%; "
+        f"3) Balance: Principal+Sexto = {format_number_chilean(pct_salas, 1)}%; "
         f"no monitoreado = {format_number_chilean(pct_gap, 1)}% "
         f"({format_number_chilean(tot_gap, 1)} m³).\n"
-        f"5) N°2: dos etapas; fuera del balance hasta validar medición.\n"
-        f"6) Hipótesis de gap: empalme desde matriz principal antes de impulsión "
+        f"4) N°2: dos etapas; fuera del balance hasta validar medición.\n"
+        f"5) Hipótesis de gap: empalme desde matriz principal antes de impulsión "
         f"2° piso.",
     )
 
