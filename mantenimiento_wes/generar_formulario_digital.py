@@ -65,6 +65,7 @@ TIPOS_MTTO = [
     "Mtto Preventivo",
     "Mtto Predictivo",
     "Reubicacion CIR",
+    "Retiro CIR",
     "Instalación Valvula On/Off",
     "Instalación sistema CIR",
     "Instalación sistema CPA",

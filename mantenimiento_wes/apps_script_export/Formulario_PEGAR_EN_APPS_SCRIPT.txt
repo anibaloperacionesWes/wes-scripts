@@ -493,7 +493,7 @@
      * 3) El técnico toca el botón → se abre abajo; toca de nuevo → cierra.
      * Paneles viven en DocumentFragment (fuera de la página) hasta abrir.
      */
-    var FORM_BUILD = "WES-build-21AC";
+    var FORM_BUILD = "WES-build-21AE-retiro-comuna";
     /** Motivos de falla/trabajo típicos en soporte a distancia (van en tipo_falla). */
     var TIPOS_FALLA_REMOTO = [
       "Programación de auditoría",
@@ -1018,6 +1018,66 @@
       }
     }
 
+
+    /** Garantiza tipo/falla Retiro en catálogo (además de Base3). */
+    function ensureFallasRetiro() {
+      if (!state.catalogos) state.catalogos = {};
+      if (!state.catalogos.tipos_falla) state.catalogos.tipos_falla = {};
+      var cat = state.catalogos.tipos_falla;
+      var retiro = [
+        "Sistema CIR / equipo de control",
+        "Sistema CPA",
+        "Poste Solar",
+        "Retiro equipo de control / CIR"
+      ];
+      if (!cat["Retiro"]) cat["Retiro"] = [];
+      retiro.forEach(function (x) {
+        if (cat["Retiro"].indexOf(x) < 0) cat["Retiro"].push(x);
+      });
+      if (!cat["Up grade"]) cat["Up grade"] = [];
+      if (cat["Up grade"].indexOf("Retiro equipo de control / CIR") < 0) {
+        cat["Up grade"].push("Retiro equipo de control / CIR");
+      }
+    }
+
+    /** Si tipo mtto = Retiro CIR → tipifica falla Retiro / Sistema CIR. */
+    function syncFallaPorRetiroCir() {
+      var mtto = document.getElementById("tipo_mtto");
+      if (!mtto || mtto.value !== "Retiro CIR") return;
+      ensureFallasRetiro();
+      var remoto = false;
+      try { remoto = esSoporteRemoto(); } catch (eR) {}
+      if (remoto) return;
+      syncTipoFallaPorModalidad();
+      var sel = document.getElementById("tipo_falla");
+      var esp = document.getElementById("falla_especifica");
+      if (sel) {
+        if (!sel.value || sel.value === "") sel.value = "Retiro";
+        if (sel.value !== "Retiro") {
+          var has = false;
+          for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === "Retiro") { has = true; break; }
+          }
+          if (!has) {
+            var o = document.createElement("option");
+            o.value = "Retiro";
+            o.textContent = "Retiro";
+            sel.appendChild(o);
+          }
+          sel.value = "Retiro";
+        }
+      }
+      var lista = (state.catalogos.tipos_falla["Retiro"] || []);
+      if (esp) {
+        fillSelect(esp, lista, "— seleccionar —");
+        var want = "Sistema CIR / equipo de control";
+        if (lista.indexOf(want) >= 0) esp.value = want;
+        else if (lista.indexOf("Retiro equipo de control / CIR") >= 0) {
+          esp.value = "Retiro equipo de control / CIR";
+        }
+      }
+    }
+
     /** Remoto: tipo_falla = motivos de soporte a distancia; se oculta falla específica. */
     function syncTipoFallaPorModalidad() {
       var remoto = esSoporteRemoto();
@@ -1035,6 +1095,7 @@
         if (esp) fillSelect(esp, [], "— N/A en remoto —");
       } else {
         if (lab) lab.textContent = "Tipo de falla";
+        ensureFallasRetiro();
         var cat = (state.catalogos && state.catalogos.tipos_falla) || {};
         fillSelect(sel, Object.keys(cat).sort(), "— sin falla / N/A —");
         if (prev && Object.prototype.hasOwnProperty.call(cat, prev)) sel.value = prev;
@@ -1598,6 +1659,7 @@
         "Mtto Predictivo",
         "Soporte remoto",
         "Reubicacion CIR",
+        "Retiro CIR",
         "Instalación Valvula On/Off",
         "Instalación sistema CIR",
         "Instalación sistema CPA"
@@ -1609,6 +1671,7 @@
           try {
             syncFirmaPorModalidad();
             syncTipoFallaPorModalidad();
+            syncFallaPorRetiroCir();
           } catch (eT) {}
         });
       }
@@ -1623,6 +1686,9 @@
         var TECNOLOGIAS_FIJAS = ["CPA y CIR", "SAB", "CPA", "CIR", "On/Off"];
         chips(document.getElementById("tecnologias"), "tecnologia", TECNOLOGIAS_FIJAS, true);
         syncTipoMttoPorModalidad();
+        ensureFallasRetiro();
+        syncTipoFallaPorModalidad();
+        syncFallaPorRetiroCir();
       } catch (eChips) {
         var st0 = document.getElementById("fold_status");
         if (st0) st0.textContent = "Error chips: " + eChips;

@@ -73,7 +73,8 @@
     "Instalación"
   ],
   "Up grade": [
-    "Instalación"
+    "Instalación",
+    "Retiro equipo de control / CIR"
   ],
   "Construccion": [
     "Reparación Camara",
@@ -83,5 +84,11 @@
     "Programación de auditoría",
     "Programación especial por requerimiento del establecimiento",
     "Validar correcto funcionamiento"
+  ],
+  "Retiro": [
+    "Sistema CIR / equipo de control",
+    "Sistema CPA",
+    "Poste Solar",
+    "Retiro equipo de control / CIR"
   ]
 }
