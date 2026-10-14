@@ -28,6 +28,7 @@ matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from docx import Document
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_BREAK, WD_PARAGRAPH_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
@@ -121,32 +122,34 @@ def _page_break(doc: Document) -> None:
     p.add_run().add_break(WD_BREAK.PAGE)
 
 
-def _compact_last_table(doc: Document) -> None:
-    """Reduce tipografía/espaciado de la última tabla para que no se parta entre páginas."""
+def _center_last_table(doc: Document, *, compact: bool = False) -> None:
+    """Centra la última tabla en la página (y opcionalmente compacta filas)."""
     if not doc.tables:
         return
-    table = doc.tables[-1]
     from docx.oxml import OxmlElement
 
-    # Evitar que filas individuales se partan; encabezado se repite si igual hubiera overflow.
-    tbl = table._tbl
-    tbl_pr = tbl.tblPr
-    if tbl_pr is None:
-        tbl_pr = OxmlElement("w:tblPr")
-        tbl.insert(0, tbl_pr)
-
+    table = doc.tables[-1]
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
     for i, row in enumerate(table.rows):
-        tr_pr = row._tr.get_or_add_trPr()
-        if tr_pr.find(qn("w:cantSplit")) is None:
-            tr_pr.append(OxmlElement("w:cantSplit"))
-        if i == 0 and tr_pr.find(qn("w:tblHeader")) is None:
-            tr_pr.append(OxmlElement("w:tblHeader"))
         for cell in row.cells:
             for para in cell.paragraphs:
-                para.paragraph_format.space_before = Pt(0)
-                para.paragraph_format.space_after = Pt(0)
-                for run in para.runs:
-                    run.font.size = Pt(7 if i > 0 else 8)
+                para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                if compact:
+                    para.paragraph_format.space_before = Pt(0)
+                    para.paragraph_format.space_after = Pt(0)
+                    for run in para.runs:
+                        run.font.size = Pt(7 if i > 0 else 8)
+        if compact:
+            tr_pr = row._tr.get_or_add_trPr()
+            if tr_pr.find(qn("w:cantSplit")) is None:
+                tr_pr.append(OxmlElement("w:cantSplit"))
+            if i == 0 and tr_pr.find(qn("w:tblHeader")) is None:
+                tr_pr.append(OxmlElement("w:tblHeader"))
+
+
+def _add_table_centered(doc: Document, title: str, rows, *, wes_style: bool = True, has_total_row: bool = False, compact: bool = False) -> None:
+    add_table(doc, title, rows, wes_style=wes_style, has_total_row=has_total_row)
+    _center_last_table(doc, compact=compact)
 
 
 def _fetch_series(node_id: str) -> Tuple[List[MeasurePoint], dict]:
@@ -502,7 +505,7 @@ def main() -> None:
                 f"{_fmt_fecha(SALA2_CAMBIO)} (ver sección 6)."
             )
         gap_rows.append((n["nombre"], f"{n_ok} / {num_dias}", huecos, obs))
-    add_table(doc, "Cobertura de data", gap_rows, wes_style=True, has_total_row=False)
+    _add_table_centered(doc, "Cobertura de data", gap_rows)
 
     # --- 2. Resumen ---
     add_formatted_title(doc, "2. Resumen ejecutivo")
@@ -545,7 +548,7 @@ def main() -> None:
             f"{format_number_chilean(pct_gap, 1)}%",
         ),
     ]
-    add_table(doc, "Resumen del periodo", table_resumen, wes_style=True)
+    _add_table_centered(doc, "Resumen del periodo", table_resumen, has_total_row=True)
 
     _add_body(
         doc,
@@ -628,13 +631,11 @@ def main() -> None:
             rows = [("Día", "Promedio (m³)")] + [
                 (d, format_number_chilean(avg.get(d, 0), 2)) for d in orden
             ]
-            # Tabla compacta: sin párrafo vacío extra — add_table agrega uno; lo aceptamos
-            add_table(
+            _add_table_centered(
                 doc,
                 f"Promedio lun–dom — {n['corto']}",
                 rows,
-                wes_style=True,
-                has_total_row=False,
+                compact=True,
             )
         else:
             _add_body(doc, "Sin suficientes semanas completas para promedio lun–dom.")
@@ -681,7 +682,7 @@ def main() -> None:
         p08_m.append(pb)
         p10_m.append(pc)
 
-    add_table(doc, "Participación mensual sobre Sanitaria", table_m, wes_style=True, has_total_row=False)
+    _add_table_centered(doc, "Participación mensual sobre Sanitaria", table_m)
     chart_m = _chart_participacion_barras(
         out_dir / "chart_participacion_mensual.png",
         labels_m,
@@ -744,8 +745,7 @@ def main() -> None:
         p10_w.append(pc)
 
     # Tabla primero (completa en esta hoja); el gráfico va después / puede seguir en la siguiente.
-    add_table(doc, "Participación semanal sobre Sanitaria", table_w, wes_style=True, has_total_row=False)
-    _compact_last_table(doc)
+    _add_table_centered(doc, "Participación semanal sobre Sanitaria", table_w, compact=True)
     chart_w = _chart_participacion_barras(
         out_dir / "chart_participacion_semanal.png",
         labels_w,
@@ -791,7 +791,7 @@ def main() -> None:
         f"de Principal+Sexto hasta validar instalación/factor/empalme.",
         bold_prefix="Etapa 2: ",
     )
-    add_table(
+    _add_table_centered(
         doc,
         "Sala de Bomba N°2 — dos etapas",
         [
@@ -809,11 +809,10 @@ def main() -> None:
                 f"{format_number_chilean(pct_post, 1)}%",
             ),
         ],
-        wes_style=True,
-        has_total_row=False,
     )
 
-    # --- 7. Conclusiones ---
+    # --- 7. Conclusiones (última página) ---
+    _page_break(doc)
     add_formatted_title(doc, "7. Conclusiones para cierre")
     ll_a, ll_b = LLUVIAS_SIN_DATA
     _add_body(
