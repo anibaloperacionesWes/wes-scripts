@@ -289,7 +289,14 @@
       "Instalación"
     ],
     "Up grade": [
-      "Instalación"
+      "Instalación",
+      "Retiro equipo de control / CIR"
+    ],
+    "Retiro": [
+      "Sistema CIR / equipo de control",
+      "Sistema CPA",
+      "Poste Solar",
+      "Retiro equipo de control / CIR"
     ],
     "Construccion": [
       "Reparación Camara",
