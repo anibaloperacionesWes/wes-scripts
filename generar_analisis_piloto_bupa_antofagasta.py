@@ -1,12 +1,12 @@
 """
-Análisis piloto — Clínica Bupa Antofagasta (nodos 000029-07..10).
+Análisis piloto — Clínica Bupa Antofagasta.
 
-Periodo: desde habilitación operativa del piloto hasta el domingo recién pasado
-(excluye la semana en curso). Incluye:
-  - Consumo día a día por punto
-  - Promedio por día de la semana (lun–dom), estilo Parque Arauco
-  - Participación % vs Medidor Principal Sanitaria (100%), mensual y semanal
-  - Gap no monitoreado (posible empalme antes de bomba 2° piso)
+Periodo limpio: 23/07/2026 → domingo recién pasado (sin semana en curso).
+Incluye:
+  - Huecos sin data por punto (exactos)
+  - 4 puntos: día a día + promedio lun–dom + tabla (una hoja por punto)
+  - Participación % vs Sanitaria (mensual/semanal) incluyendo Sala N°2
+  - Validación de no-duplicados en la serie diaria
 
 Uso:
   python generar_analisis_piloto_bupa_antofagasta.py
@@ -17,7 +17,7 @@ from __future__ import annotations
 import calendar
 import sys
 import time
-from collections import defaultdict
+from collections import Counter
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -28,7 +28,8 @@ matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from docx import Document
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.enum.text import WD_BREAK, WD_PARAGRAPH_ALIGNMENT
+from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
 if sys.platform == "win32":
@@ -42,10 +43,7 @@ from generar_reporte_word import (
     MeasurePoint,
     acl_node_base_url,
     add_formatted_title,
-    add_picture_with_pagination,
     add_table,
-    build_consumption_chart,
-    build_weekly_averages_chart,
     calculate_weekly_averages,
     fetch_json,
     flatten_measures,
@@ -57,62 +55,23 @@ from generar_reporte_word import (
 # ---------------------------------------------------------------------------
 # Alcance
 # ---------------------------------------------------------------------------
-COMPANY_ID = "000029"
 FOLDER = "Bupa_Antofagasta"
-
-# Desde el 23/07 la serie ya está correcta (días previos de julio = caos de puesta en marcha).
-START = date(2026, 7, 23)
-# Domingo recién pasado (hoy mié 14/10 → domingo 11/10); sin esta semana.
-END = date(2026, 10, 11)
-
-# Hueco sin data en Sexto Piso por lluvias en Antofagasta.
-LLUVIAS_SIN_DATA = (date(2026, 8, 14), date(2026, 8, 17))  # inclusive
-# Sala N°2 cambia de régimen el 10/09 (antes ~1 m³/día; después ~58 m³/día).
+START = date(2026, 7, 23)  # desde aquí la serie está correcta
+END = date(2026, 10, 11)  # domingo pasado; sin esta semana
+LLUVIAS_SIN_DATA = (date(2026, 8, 14), date(2026, 8, 17))  # Sexto Piso
 SALA2_CAMBIO = date(2026, 9, 10)
 
-# Tres puntos principales del pedido (matriz + dos salas abajo).
-# N°2 se reporta aparte por lecturas anómalas desde septiembre.
-NODOS_PRINCIPALES = [
-    {
-        "id": "000029-09",
-        "nombre": "Medidor Principal Sanitaria",
-        "rol": "matriz",
-        "corto": "Sanitaria",
-    },
-    {
-        "id": "000029-07",
-        "nombre": "Sala de Bomba Principal",
-        "rol": "sala",
-        "corto": "Bomba Principal",
-    },
-    {
-        "id": "000029-08",
-        "nombre": "Sala de Bomba Sexto Piso",
-        "rol": "sala",
-        "corto": "Sexto Piso",
-    },
+# Los cuatro puntos monitoreados (orden de presentación).
+NODOS = [
+    {"id": "000029-09", "nombre": "Medidor Principal Sanitaria", "corto": "Sanitaria", "rol": "matriz"},
+    {"id": "000029-07", "nombre": "Sala de Bomba Principal", "corto": "Bomba Principal", "rol": "sala"},
+    {"id": "000029-08", "nombre": "Sala de Bomba Sexto Piso", "corto": "Sexto Piso", "rol": "sala"},
+    {"id": "000029-10", "nombre": "Sala de Bomba N°2", "corto": "Bomba N°2", "rol": "sala2"},
 ]
 
-NODO_EXTRA = {
-    "id": "000029-10",
-    "nombre": "Sala de Bomba N°2",
-    "rol": "sala",
-    "corto": "Bomba N°2",
-}
-
 MESES_ES = {
-    1: "enero",
-    2: "febrero",
-    3: "marzo",
-    4: "abril",
-    5: "mayo",
-    6: "junio",
-    7: "julio",
-    8: "agosto",
-    9: "septiembre",
-    10: "octubre",
-    11: "noviembre",
-    12: "diciembre",
+    1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio",
+    7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre",
 }
 
 
@@ -120,19 +79,50 @@ def _fmt_fecha(d: date) -> str:
     return d.strftime("%d/%m/%Y")
 
 
-def _add_body(doc: Document, text: str, bold_prefix: str = "") -> None:
+def _set_run_black(run) -> None:
+    run.font.color.rgb = RGBColor(0, 0, 0)
+
+
+def _add_body(doc: Document, text: str, bold_prefix: str = "", space_after: int = 4) -> None:
     p = doc.add_paragraph()
     p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     if bold_prefix:
         r = p.add_run(bold_prefix)
         r.bold = True
-        r.font.color.rgb = RGBColor(0, 0, 0)
+        _set_run_black(r)
     r2 = p.add_run(text)
-    r2.font.color.rgb = RGBColor(0, 0, 0)
-    p.paragraph_format.space_after = Pt(6)
+    _set_run_black(r2)
+    p.paragraph_format.space_after = Pt(space_after)
+    p.paragraph_format.space_before = Pt(0)
 
 
-def _fetch_series(node_id: str) -> List[MeasurePoint]:
+def _add_compact_title(doc: Document, text: str) -> None:
+    p = doc.add_paragraph()
+    r = p.add_run(text.upper())
+    r.bold = True
+    r.font.size = Pt(11)
+    r.font.color.rgb = RGBColor(0, 51, 102)
+    p.paragraph_format.space_before = Pt(2)
+    p.paragraph_format.space_after = Pt(2)
+    p.paragraph_format.keep_with_next = True
+
+
+def _add_picture_compact(doc: Document, image_path: str, width_in: float) -> None:
+    p = doc.add_paragraph()
+    p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    p.add_run().add_picture(image_path, width=Inches(width_in))
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(2)
+    p.paragraph_format.keep_with_next = True
+
+
+def _page_break(doc: Document) -> None:
+    p = doc.add_paragraph()
+    p.add_run().add_break(WD_BREAK.PAGE)
+
+
+def _fetch_series(node_id: str) -> Tuple[List[MeasurePoint], dict]:
+    """Retorna medidas del periodo + meta de validación (duplicados)."""
     raw = fetch_json(
         f"{acl_node_base_url()}/nodes/measures/dates",
         params=[
@@ -141,22 +131,64 @@ def _fetch_series(node_id: str) -> List[MeasurePoint]:
             ("end", END.strftime("%d%m%Y")),
         ],
     )
+    # Validar duplicados en payload crudo
+    months = []
+    if isinstance(raw, list) and raw:
+        months = raw[0].get("month") or []
+    elif isinstance(raw, dict):
+        months = raw.get("month") or []
+    dates_raw = [m.get("date") for m in months if m.get("date")]
+    counts = Counter(dates_raw)
+    dups = {d: n for d, n in counts.items() if n > 1}
+
     measures = flatten_measures(normalize_measures_payload(raw, node_id))
-    # Solo días del periodo (API a veces trae bordes)
     out = []
     for m in measures:
         d = m.date.date() if hasattr(m.date, "date") else m.date
         if START <= d <= END:
             out.append(m)
     out.sort(key=lambda x: x.date)
-    return out
+    dates_flat = [(m.date.date() if hasattr(m.date, "date") else m.date) for m in out]
+    flat_dups = {d: n for d, n in Counter(dates_flat).items() if n > 1}
+
+    meta = {
+        "raw_entries": len(dates_raw),
+        "raw_unique": len(counts),
+        "raw_dups": dups,
+        "flat_dups": flat_dups,
+    }
+    return out, meta
 
 
 def _by_date(measures: List[MeasurePoint]) -> Dict[date, float]:
-    return {
-        (m.date.date() if hasattr(m.date, "date") else m.date): float(m.total_m3 or 0.0)
-        for m in measures
-    }
+    # Si hubiera duplicados en flatten, conservar el último (y se reporta en meta).
+    out: Dict[date, float] = {}
+    for m in measures:
+        d = m.date.date() if hasattr(m.date, "date") else m.date
+        out[d] = float(m.total_m3 or 0.0)
+    return out
+
+
+def _gap_ranges(by: Dict[date, float], start: date, end: date) -> List[Tuple[date, date, int]]:
+    missing = []
+    cur = start
+    while cur <= end:
+        if cur not in by:
+            missing.append(cur)
+        cur += timedelta(days=1)
+    if not missing:
+        return []
+    missing.sort()
+    ranges = []
+    s = e = missing[0]
+    for d in missing[1:]:
+        if d == e + timedelta(days=1):
+            e = d
+        else:
+            ranges.append((s, e, (e - s).days + 1))
+            s = e = d
+    ranges.append((s, e, (e - s).days + 1))
+    return ranges
 
 
 def _sum_range(by: Dict[date, float], d0: date, d1: date) -> float:
@@ -191,8 +223,6 @@ def _month_windows(start: date, end: date) -> List[Tuple[date, date, str]]:
 
 
 def _week_windows(start: date, end: date) -> List[Tuple[date, date, str]]:
-    """Semanas lun–dom que intersectan el periodo (recortadas al rango)."""
-    # primer lunes <= start
     first_monday = start - timedelta(days=start.weekday())
     windows = []
     cur = first_monday
@@ -202,11 +232,61 @@ def _week_windows(start: date, end: date) -> List[Tuple[date, date, str]]:
         d0 = max(cur, start)
         d1 = min(week_end, end)
         if d0 <= d1:
-            label = f"Semana {n} ({_fmt_fecha(d0)}–{_fmt_fecha(d1)})"
-            windows.append((d0, d1, label))
+            windows.append((d0, d1, f"Semana {n} ({_fmt_fecha(d0)}–{_fmt_fecha(d1)})"))
             n += 1
         cur += timedelta(days=7)
     return windows
+
+
+def _chart_daily_compact(measures: List[MeasurePoint], path: Path, title: str) -> Optional[Path]:
+    if not measures:
+        return None
+    dates = [m.date for m in measures]
+    totals = [m.total_m3 for m in measures]
+    fig, ax = plt.subplots(figsize=(9.2, 2.55))
+    ax.plot(dates, totals, marker="o", markersize=2.5, linestyle="-", color="#0050b3", linewidth=1.4)
+    ax.fill_between(dates, totals, alpha=0.22, color="#0050b3")
+    ax.set_title(title, fontsize=11, fontweight="bold", pad=4)
+    ax.set_ylabel("m³", fontsize=9)
+    ax.set_ylim(bottom=0)
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(dates) // 10)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%b"))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=35, ha="right", fontsize=7)
+    ax.tick_params(axis="y", labelsize=8)
+    ax.grid(True, linestyle="--", alpha=0.3, axis="y")
+    fig.tight_layout(pad=0.3)
+    fig.savefig(path, dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def _chart_weekly_compact(weekly_data: dict, path: Path, title: str) -> Optional[Path]:
+    if not weekly_data or "averages" not in weekly_data:
+        return None
+    day_names = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    values = [weekly_data["averages"].get(d, 0.0) for d in day_names]
+    fig, ax = plt.subplots(figsize=(9.2, 2.45))
+    bars = ax.bar(day_names, values, color="#0050b3", alpha=0.85, edgecolor="#003d8c", linewidth=1.0)
+    for bar, value in zip(bars, values):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            bar.get_height(),
+            f"{format_number_chilean(value, 1)}",
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
+        )
+    ax.set_title(title, fontsize=11, fontweight="bold", pad=4)
+    ax.set_ylabel("m³", fontsize=9)
+    ax.set_ylim(bottom=0)
+    ax.tick_params(axis="x", labelsize=8)
+    ax.tick_params(axis="y", labelsize=8)
+    ax.grid(True, linestyle="--", alpha=0.3, axis="y")
+    fig.tight_layout(pad=0.3)
+    fig.savefig(path, dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    return path
 
 
 def _chart_participacion_barras(
@@ -214,62 +294,54 @@ def _chart_participacion_barras(
     labels: List[str],
     pct_principal: List[float],
     pct_sexto: List[float],
-    pct_gap: List[float],
+    pct_n2: List[float],
     title: str,
 ) -> Path:
-    fig, ax = plt.subplots(figsize=(11, 5.5))
+    """Barras agrupadas (no apiladas a 100%) para no ocultar N°2 cuando supera cuenta."""
+    fig, ax = plt.subplots(figsize=(10.5, 4.2))
     x = list(range(len(labels)))
-    w = 0.55
-    b1 = ax.bar(x, pct_principal, w, label="Bomba Principal", color="#0050b3")
-    b2 = ax.bar(
-        x, pct_sexto, w, bottom=pct_principal, label="Sexto Piso", color="#40a9ff"
-    )
-    bottom2 = [a + b for a, b in zip(pct_principal, pct_sexto)]
-    ax.bar(x, pct_gap, w, bottom=bottom2, label="No monitoreado", color="#c0392b", alpha=0.85)
-    ax.axhline(100, color="#333", linestyle="--", linewidth=1, alpha=0.5)
-    ax.set_ylabel("% sobre Sanitaria (100%)", fontsize=11, fontweight="bold")
-    ax.set_title(title, fontsize=13, fontweight="bold")
+    w = 0.22
+    ax.bar([i - 1.5 * w for i in x], pct_principal, w, label="Principal", color="#0050b3")
+    ax.bar([i - 0.5 * w for i in x], pct_sexto, w, label="Sexto Piso", color="#40a9ff")
+    ax.bar([i + 0.5 * w for i in x], pct_n2, w, label="Bomba N°2", color="#fa8c16")
+    # gap = 100 - principal - sexto (balance de los dos puntos de abajo; N2 aparte)
+    gap = [max(0.0, 100.0 - a - b) for a, b in zip(pct_principal, pct_sexto)]
+    ax.bar([i + 1.5 * w for i in x], gap, w, label="No mon. (vs Princ.+Sexto)", color="#c0392b", alpha=0.85)
+    ax.axhline(100, color="#333", linestyle="--", linewidth=1, alpha=0.45)
+    ax.set_ylabel("% sobre Sanitaria", fontsize=10, fontweight="bold")
+    ax.set_title(title, fontsize=12, fontweight="bold")
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, rotation=35, ha="right", fontsize=8)
-    ax.set_ylim(0, 110)
-    ax.legend(loc="upper right", fontsize=9)
+    ax.set_xticklabels(labels, rotation=35, ha="right", fontsize=7)
+    ax.set_ylim(0, max(110, max(pct_n2 + pct_principal + [0]) + 10))
+    ax.legend(loc="upper left", fontsize=8, ncol=2)
     ax.grid(True, axis="y", linestyle="--", alpha=0.3)
-    # Etiquetas de suma salas en cada barra
-    for i, (p1, p2) in enumerate(zip(pct_principal, pct_sexto)):
-        s = p1 + p2
-        ax.text(i, s + 1.5, f"{s:.0f}%", ha="center", va="bottom", fontsize=8, fontweight="bold")
     plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
+    fig.savefig(path, dpi=140, bbox_inches="tight")
     plt.close(fig)
     return path
 
 
-def _chart_pie_periodo(path: Path, salas: float, gap: float, sanit: float) -> Path:
-    fig, ax = plt.subplots(figsize=(6.2, 4.8))
+def _chart_pie_small(path: Path, salas: float, gap: float, sanit: float) -> Path:
+    fig, ax = plt.subplots(figsize=(3.4, 2.6))
     vals = [max(salas, 0), max(gap, 0)]
     if sum(vals) <= 0:
         vals = [1, 0]
-    wedges, *_ = ax.pie(
+    wedges, texts, autotexts = ax.pie(
         vals,
-        labels=[
-            f"Principal + Sexto\n({format_number_chilean(salas / sanit * 100 if sanit else 0, 1)}%)",
-            f"No monitoreado\n({format_number_chilean(gap / sanit * 100 if sanit else 0, 1)}%)",
-        ],
+        labels=["Princ.+Sexto", "No mon."],
         colors=["#0050b3", "#c0392b"],
-        autopct=lambda p: f"{p:.1f}%",
+        autopct=lambda p: f"{p:.0f}%",
         startangle=90,
-        textprops={"fontsize": 10},
+        textprops={"fontsize": 8},
     )
+    for t in autotexts:
+        t.set_fontsize(8)
     for w in wedges:
         w.set_edgecolor("white")
-        w.set_linewidth(1.5)
-    ax.set_title(
-        "Participación del periodo\nsobre Medidor Principal Sanitaria",
-        fontsize=12,
-        fontweight="bold",
-    )
-    plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
+        w.set_linewidth(1.0)
+    ax.set_title("Periodo vs Sanitaria", fontsize=9, fontweight="bold", pad=2)
+    plt.tight_layout(pad=0.2)
+    fig.savefig(path, dpi=130, bbox_inches="tight")
     plt.close(fig)
     return path
 
@@ -300,11 +372,18 @@ def _convertir_pdf(docx_path: Path) -> Optional[Path]:
     return None
 
 
+def _setup_margins(doc: Document) -> None:
+    for section in doc.sections:
+        section.top_margin = Inches(0.55)
+        section.bottom_margin = Inches(0.55)
+        section.left_margin = Inches(0.7)
+        section.right_margin = Inches(0.7)
+
+
 def main() -> None:
     print("=" * 70)
-    print("[INFO] Bupa Antofagasta — análisis piloto")
+    print("[INFO] Bupa Antofagasta — análisis piloto (v3)")
     print(f"       Periodo: {_fmt_fecha(START)} → {_fmt_fecha(END)}")
-    print(f"       Días: {(END - START).days + 1}")
     print("=" * 70)
     t0 = time.perf_counter()
 
@@ -314,12 +393,17 @@ def main() -> None:
 
     series: Dict[str, List[MeasurePoint]] = {}
     by_date: Dict[str, Dict[date, float]] = {}
-    for n in NODOS_PRINCIPALES + [NODO_EXTRA]:
-        print(f"[INFO] Descargando {n['id']} {n['nombre']}...")
-        series[n["id"]] = _fetch_series(n["id"])
-        by_date[n["id"]] = _by_date(series[n["id"]])
-        tot = sum(by_date[n["id"]].values())
-        print(f"       {len(series[n['id']])} días · {tot:.1f} m³")
+    meta_dup: Dict[str, dict] = {}
+    for n in NODOS:
+        print(f"[INFO] Descargando {n['nombre']}...")
+        measures, meta = _fetch_series(n["id"])
+        series[n["id"]] = measures
+        by_date[n["id"]] = _by_date(measures)
+        meta_dup[n["id"]] = meta
+        print(
+            f"       {len(measures)} días · {sum(by_date[n['id']].values()):.1f} m³ · "
+            f"dups_raw={meta['raw_dups'] or 'no'} dups_flat={meta['flat_dups'] or 'no'}"
+        )
 
     sanit_id = "000029-09"
     sal_07 = "000029-07"
@@ -334,62 +418,101 @@ def main() -> None:
     tot_gap = max(0.0, tot_san - tot_salas)
     pct_07 = 100.0 * tot_07 / tot_san if tot_san else 0.0
     pct_08 = 100.0 * tot_08 / tot_san if tot_san else 0.0
+    pct_10 = 100.0 * tot_10 / tot_san if tot_san else 0.0
     pct_salas = 100.0 * tot_salas / tot_san if tot_san else 0.0
     pct_gap = 100.0 * tot_gap / tot_san if tot_san else 0.0
-    pct_10 = 100.0 * tot_10 / tot_san if tot_san else 0.0
 
     num_dias = (END - START).days + 1
-    # Promedios sobre días con dato (Sexto tiene hueco por lluvias).
-    n_san = max(len(by_date[sanit_id]), 1)
-    n_07 = max(len(by_date[sal_07]), 1)
-    n_08 = max(len(by_date[sal_08]), 1)
-    prom_san = tot_san / n_san
-    prom_07 = tot_07 / n_07
-    prom_08 = tot_08 / n_08
+    prom_san = tot_san / max(len(by_date[sanit_id]), 1)
+    prom_07 = tot_07 / max(len(by_date[sal_07]), 1)
+    prom_08 = tot_08 / max(len(by_date[sal_08]), 1)
+    prom_10 = tot_10 / max(len(by_date[sal_10]), 1)
 
-    # --- Documento ---
+    # Huecos por punto
+    gaps_por_punto = {n["id"]: _gap_ranges(by_date[n["id"]], START, END) for n in NODOS}
+
     doc = Document()
+    _setup_margins(doc)
+
     title = doc.add_paragraph()
     tr = title.add_run(
         "ANÁLISIS PILOTO — CLÍNICA BUPA ANTOFAGASTA\n"
         f"Consumo {_fmt_fecha(START)} al {_fmt_fecha(END)}"
     )
     tr.bold = True
-    tr.font.size = Pt(16)
+    tr.font.size = Pt(15)
     tr.font.color.rgb = RGBColor(0, 51, 102)
     title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    title.paragraph_format.space_after = Pt(6)
 
     _add_body(
         doc,
-        f"Periodo analizado: {_fmt_fecha(START)} al {_fmt_fecha(END)} "
-        f"({num_dias} días civiles). El inicio es el 23/07/2026: desde esa fecha "
-        f"la medición ya está correcta; los días previos de julio corresponden a "
-        f"la puesta en marcha (caos de habilitación) y se dejan fuera. El cierre "
-        f"es el domingo recién pasado, sin la semana en curso. "
-        f"El Medidor Principal Sanitaria se trata como el 100% del agua de entrada "
-        f"(medición WES del punto sanitaria, no la factura de la sanitaria). "
-        f"Sala de Bomba Principal y Sala de Bomba Sexto Piso son las dos "
-        f"submediciones “de abajo”. La diferencia respecto de Sanitaria es volumen "
-        f"no monitoreado punto a punto (candidato: empalme desde la matriz "
-        f"principal antes de la bomba del segundo piso).",
+        f"Periodo: {_fmt_fecha(START)} al {_fmt_fecha(END)} ({num_dias} días). "
+        f"Inicio 23/07: desde ahí la medición está correcta; los días previos de "
+        f"julio (puesta en marcha) quedan fuera. Cierre: domingo pasado, sin la "
+        f"semana en curso. Sanitaria = 100% del agua de entrada (medición WES, "
+        f"no factura). Principal y Sexto Piso = submediciones de abajo. "
+        f"Sala de Bomba N°2 se reporta en el mismo detalle y en las tablas de "
+        f"participación (aunque en tramos tempranos aporte casi 0%).",
+        space_after=6,
     )
 
-    # Huecos / lluvias
-    add_formatted_title(doc, "1. Periodos sin data (lluvias Antofagasta)")
-    ll_a, ll_b = LLUVIAS_SIN_DATA
-    n_ll = (ll_b - ll_a).days + 1
+    # --- 1. Huecos ---
+    add_formatted_title(doc, "1. Disponibilidad de data por punto (rangos exactos)")
     _add_body(
         doc,
-        f"En el periodo hay un tramo sin registro en Sala de Bomba Sexto Piso: "
-        f"del {_fmt_fecha(ll_a)} al {_fmt_fecha(ll_b)} ({n_ll} días). "
-        f"Ese hueco se asocia al evento de lluvias en Antofagasta que afectó la "
-        f"conectividad / disponibilidad de data de ese punto. "
-        f"Sanitaria y Sala de Bomba Principal sí tienen serie en esas fechas; "
-        f"al calcular promedios y % se trabaja con los días disponibles "
-        f"(no se inventa consumo en el hueco).",
+        "Se revisó día a día cada punto entre el inicio y el fin del periodo. "
+        "Donde falta registro se indica el rango exacto.",
+        space_after=4,
     )
+    gap_rows = [("Punto", "Días con data", "Huecos sin registro", "Observación")]
+    for n in NODOS:
+        nid = n["id"]
+        n_ok = len(by_date[nid])
+        gaps = gaps_por_punto[nid]
+        if gaps:
+            huecos = "; ".join(
+                f"{_fmt_fecha(a)}–{_fmt_fecha(b)} ({nd} día{'s' if nd > 1 else ''})"
+                for a, b, nd in gaps
+            )
+        else:
+            huecos = "Ninguno"
+        obs = "Serie continua en el periodo."
+        if n["corto"] == "Sexto Piso" and gaps:
+            obs = "Hueco asociado a lluvias en Antofagasta (afectó conectividad/data)."
+        if n["corto"] == "Bomba N°2":
+            obs = (
+                f"Sin huecos de registro. Cambio de régimen desde "
+                f"{_fmt_fecha(SALA2_CAMBIO)} (ver sección 6)."
+            )
+        gap_rows.append((n["nombre"], f"{n_ok} / {num_dias}", huecos, obs))
+    add_table(doc, "Cobertura de data", gap_rows, wes_style=True, has_total_row=False)
 
-    # Resumen ejecutivo
+    # --- Validación duplicados ---
+    add_formatted_title(doc, "1.1 Validación: ¿hay datos duplicados?")
+    any_dup = any(meta_dup[n["id"]]["raw_dups"] or meta_dup[n["id"]]["flat_dups"] for n in NODOS)
+    if not any_dup:
+        _add_body(
+            doc,
+            "Se validó la serie diaria de los cuatro puntos en la API "
+            "(/nodes/measures/dates): no hay fechas duplicadas en el payload ni "
+            "tras aplanar la serie. La anomalía de Sala de Bomba N°2 (lecturas "
+            "que superan a Sanitaria desde septiembre) no se explica por doble "
+            "conteo de días en el extracto; el salto del "
+            f"{_fmt_fecha(SALA2_CAMBIO)} es un cambio de nivel en la medición "
+            "(revisar instalación / factor / empalme).",
+            bold_prefix="Resultado: ",
+        )
+    else:
+        for n in NODOS:
+            m = meta_dup[n["id"]]
+            if m["raw_dups"] or m["flat_dups"]:
+                _add_body(
+                    doc,
+                    f"{n['nombre']}: duplicados raw={m['raw_dups']} flat={m['flat_dups']}",
+                )
+
+    # --- 2. Resumen ---
     add_formatted_title(doc, "2. Resumen ejecutivo")
     table_resumen = [
         ("Punto", "Consumo periodo (m³)", "Promedio diario (m³)", "% sobre Sanitaria"),
@@ -412,13 +535,19 @@ def main() -> None:
             f"{format_number_chilean(pct_08, 1)}%",
         ),
         (
-            "TOTAL salas Principal + Sexto",
+            "Sala de Bomba N°2",
+            format_number_chilean(tot_10, 1),
+            format_number_chilean(prom_10, 1),
+            f"{format_number_chilean(pct_10, 1)}%",
+        ),
+        (
+            "TOTAL Principal + Sexto",
             format_number_chilean(tot_salas, 1),
             format_number_chilean(tot_salas / num_dias, 1),
             f"{format_number_chilean(pct_salas, 1)}%",
         ),
         (
-            "NO MONITOREADO (Sanitaria − salas)",
+            "NO MONITOREADO (Sanitaria − Princ. − Sexto)",
             format_number_chilean(tot_gap, 1),
             format_number_chilean(tot_gap / num_dias, 1),
             f"{format_number_chilean(pct_gap, 1)}%",
@@ -428,119 +557,109 @@ def main() -> None:
 
     _add_body(
         doc,
-        f"En el periodo completo, las dos salas de abajo suman el "
-        f"{format_number_chilean(pct_salas, 1)}% de Sanitaria. "
-        f"Queda un diferencial no monitoreado de "
-        f"{format_number_chilean(pct_gap, 1)}% "
+        f"Las dos salas de abajo (Principal + Sexto) suman "
+        f"{format_number_chilean(pct_salas, 1)}% de Sanitaria; queda "
+        f"{format_number_chilean(pct_gap, 1)}% no monitoreado "
         f"({format_number_chilean(tot_gap, 1)} m³). "
-        f"Ejemplo de lectura: si Sanitaria fuera 100 m³, Principal aporta "
-        f"~{format_number_chilean(pct_07, 0)} m³ y Sexto Piso ~{format_number_chilean(pct_08, 0)} m³; "
-        f"el resto (~{format_number_chilean(pct_gap, 0)} m³) no está medido en esos puntos.",
+        f"Sala N°2 se muestra aparte en el % (ver secciones 5–6): no se suma al "
+        f"balance de “abajo” porque en la segunda etapa deja de ser coherente "
+        f"con Sanitaria = 100%.",
         bold_prefix="Lectura: ",
+        space_after=4,
     )
 
-    pie_path = _chart_pie_periodo(
+    pie_path = _chart_pie_small(
         out_dir / "chart_participacion_periodo.png",
         tot_salas,
         tot_gap,
         tot_san,
     )
-    add_picture_with_pagination(doc, str(pie_path), Inches(4.8), keep_with_next=False)
-
-    # --- Por cada punto: día a día + promedio día semana ---
-    add_formatted_title(doc, "3. Consumo día a día y promedio por día de la semana")
+    # torta chica, al lado del texto (centrada pero angosta)
+    _add_picture_compact(doc, str(pie_path), 2.6)
     _add_body(
         doc,
-        "Para cada uno de los tres puntos se grafica el consumo de todos los días "
-        "del periodo y, a continuación, el promedio de cómo se comporta cada día "
-        "de la semana (lunes a domingo) sobre las semanas completas del periodo "
-        "(misma lógica usada en Parque Arauco).",
+        "Gráfico de torta (compacto): solo resume Principal+Sexto vs no monitoreado "
+        "sobre Sanitaria en el periodo. El detalle está en las tablas mensuales/semanales.",
+        space_after=4,
     )
 
-    for n in NODOS_PRINCIPALES:
+    # --- 3. Cuatro puntos: 1 hoja c/u ---
+    add_formatted_title(doc, "3. Consumo monitoreado — cuatro puntos")
+    _add_body(
+        doc,
+        "Por cada punto: consumo día a día, promedio por día de la semana (lun–dom) "
+        "y tabla de promedios. Cada punto está en una sola hoja.",
+        space_after=4,
+    )
+
+    for idx, n in enumerate(NODOS, start=1):
+        _page_break(doc)
         nid = n["id"]
         measures = series[nid]
         summary = summarize_consumption(measures)
-        add_formatted_title(doc, f"3.{NODOS_PRINCIPALES.index(n)+1} {n['nombre']}")
-        nota_lluvia = ""
-        if n["corto"] == "Sexto Piso":
-            nota_lluvia = (
-                f" Incluye el hueco sin data del {_fmt_fecha(LLUVIAS_SIN_DATA[0])} "
-                f"al {_fmt_fecha(LLUVIAS_SIN_DATA[1])} por lluvias en Antofagasta."
-            )
-        _add_body(
-            doc,
-            f"Consumo total: {format_number_chilean(summary['total'], 1)} m³. "
-            f"Promedio diario: {format_number_chilean(summary['promedio_diario'], 1)} m³. "
-            + (
-                f"Día pico: {summary['max'].date.strftime('%d-%m-%y')} "
-                f"({format_number_chilean(summary['max'].total_m3, 1)} m³)."
-                if summary.get("max")
-                else ""
-            )
-            + nota_lluvia,
+        slug = n["corto"].lower().replace(" ", "_").replace("°", "").replace(".", "")
+
+        _add_compact_title(doc, f"3.{idx} {n['nombre']}")
+        line = (
+            f"Total: {format_number_chilean(summary['total'], 1)} m³ · "
+            f"Promedio: {format_number_chilean(summary['promedio_diario'], 1)} m³/día"
         )
-
-        # Día a día
-        chart_daily = out_dir / f"chart_diario_{nid.replace('-', '_')}.png"
-        start_dt = datetime.combine(START, datetime.min.time())
-        end_dt = datetime.combine(END, datetime.max.time())
-        built = build_consumption_chart(measures, chart_daily, start_dt, end_dt)
-        if built:
-            add_formatted_title(doc, f"Consumo diario — {n['corto']}")
-            add_picture_with_pagination(doc, str(built), Inches(6.2), keep_with_next=True)
-            _add_body(
-                doc,
-                f"Serie día a día desde {_fmt_fecha(START)} hasta {_fmt_fecha(END)}.",
+        if summary.get("max"):
+            line += (
+                f" · Pico: {summary['max'].date.strftime('%d-%m-%y')} "
+                f"({format_number_chilean(summary['max'].total_m3, 1)} m³)"
             )
+        gaps = gaps_por_punto[nid]
+        if gaps:
+            line += " · Sin data: " + "; ".join(
+                f"{_fmt_fecha(a)}–{_fmt_fecha(b)}" for a, b, _ in gaps
+            )
+        else:
+            line += " · Sin huecos de registro en el periodo."
+        _add_body(doc, line, space_after=2)
 
-        # Promedio por día de semana
+        chart_d = _chart_daily_compact(
+            measures,
+            out_dir / f"chart_diario_{slug}.png",
+            f"Consumo diario — {n['corto']} (m³)",
+        )
+        if chart_d:
+            _add_picture_compact(doc, str(chart_d), 6.1)
+
         weekly = calculate_weekly_averages(measures)
         if weekly:
-            chart_w = out_dir / f"chart_promedio_dow_{nid.replace('-', '_')}.png"
-            built_w = build_weekly_averages_chart(weekly, chart_w)
-            if built_w:
-                n_weeks = len(weekly["weeks"])
-                add_formatted_title(
-                    doc,
-                    f"Promedio por día de la semana — {n['corto']} "
-                    f"({n_weeks} semanas completas)",
-                )
-                add_picture_with_pagination(doc, str(built_w), Inches(5.8), keep_with_next=True)
-                avg = weekly["averages"]
-                orden = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-                detalle = ", ".join(
-                    f"{d} {format_number_chilean(avg.get(d, 0), 1)} m³" for d in orden
-                )
-                _add_body(
-                    doc,
-                    f"Semanas completas consideradas: "
-                    f"{weekly['first_week_start'].strftime('%d/%m/%Y')} a "
-                    f"{weekly['last_week_end'].strftime('%d/%m/%Y')} "
-                    f"({n_weeks} semanas). Promedios: {detalle}.",
-                )
-                # Tabla compacta
-                rows = [("Día", "Promedio (m³)")]
-                for d in orden:
-                    rows.append((d, format_number_chilean(avg.get(d, 0), 2)))
-                add_table(
-                    doc,
-                    f"Promedio lun–dom — {n['corto']}",
-                    rows,
-                    wes_style=True,
-                )
-        else:
-            _add_body(
-                doc,
-                "No hay suficientes semanas completas (lun–dom) para calcular el promedio por día.",
+            chart_w = _chart_weekly_compact(
+                weekly,
+                out_dir / f"chart_promedio_dow_{slug}.png",
+                f"Promedio lun–dom — {n['corto']} ({len(weekly['weeks'])} semanas)",
             )
+            if chart_w:
+                _add_picture_compact(doc, str(chart_w), 6.1)
+            avg = weekly["averages"]
+            orden = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+            rows = [("Día", "Promedio (m³)")] + [
+                (d, format_number_chilean(avg.get(d, 0), 2)) for d in orden
+            ]
+            # Tabla compacta: sin párrafo vacío extra — add_table agrega uno; lo aceptamos
+            add_table(
+                doc,
+                f"Promedio lun–dom — {n['corto']}",
+                rows,
+                wes_style=True,
+                has_total_row=False,
+            )
+        else:
+            _add_body(doc, "Sin suficientes semanas completas para promedio lun–dom.")
 
-    # --- Participación mensual ---
+    # --- 4. Participación mensual (con N°2) ---
+    _page_break(doc)
     add_formatted_title(doc, "4. Participación % vs Sanitaria — por mes")
     _add_body(
         doc,
-        "Sanitaria = 100%. Para cada mes del piloto se muestra qué porcentaje "
-        "representan Bomba Principal y Sexto Piso, y el remanente no monitoreado.",
+        "Sanitaria = 100%. Se incluye Sala de Bomba N°2 en todas las filas "
+        "(aunque en julio–agosto aporte ~0–1%). El “no monitoreado” se calcula "
+        "como Sanitaria − Principal − Sexto (N°2 no resta del gap porque no entra "
+        "al balance de las dos salas de abajo).",
     )
 
     month_wins = _month_windows(START, END)
@@ -548,59 +667,59 @@ def main() -> None:
         (
             "Mes",
             "Sanitaria m³",
-            "Principal m³ (%)",
-            "Sexto m³ (%)",
-            "Principal + Sexto (%)",
-            "No monitoreado (%)",
+            "Principal %",
+            "Sexto %",
+            "Bomba N°2 %",
+            "Princ.+Sexto %",
+            "No mon. %",
         )
     ]
-    labels_m, p07_m, p08_m, gap_m = [], [], [], []
+    labels_m, p07_m, p08_m, p10_m = [], [], [], []
     for d0, d1, label in month_wins:
         s = _sum_range(by_date[sanit_id], d0, d1)
         a = _sum_range(by_date[sal_07], d0, d1)
         b = _sum_range(by_date[sal_08], d0, d1)
+        c = _sum_range(by_date[sal_10], d0, d1)
         salas = a + b
         gap = max(0.0, s - salas)
         pa = 100.0 * a / s if s else 0.0
         pb = 100.0 * b / s if s else 0.0
+        pc = 100.0 * c / s if s else 0.0
         ps = 100.0 * salas / s if s else 0.0
         pg = 100.0 * gap / s if s else 0.0
         table_m.append(
             (
                 label,
                 format_number_chilean(s, 1),
-                f"{format_number_chilean(a, 1)} ({format_number_chilean(pa, 1)}%)",
-                f"{format_number_chilean(b, 1)} ({format_number_chilean(pb, 1)}%)",
+                f"{format_number_chilean(pa, 1)}%",
+                f"{format_number_chilean(pb, 1)}%",
+                f"{format_number_chilean(pc, 1)}%",
                 f"{format_number_chilean(ps, 1)}%",
                 f"{format_number_chilean(pg, 1)}%",
             )
         )
-        # etiqueta corta para gráfico
-        short = label.split("(")[0].strip()
-        labels_m.append(short)
+        labels_m.append(label.split("(")[0].strip())
         p07_m.append(pa)
         p08_m.append(pb)
-        gap_m.append(pg)
+        p10_m.append(pc)
 
     add_table(doc, "Participación mensual sobre Sanitaria", table_m, wes_style=True)
-
     chart_m = _chart_participacion_barras(
         out_dir / "chart_participacion_mensual.png",
         labels_m,
         p07_m,
         p08_m,
-        gap_m,
-        "Participación mensual (% sobre Sanitaria = 100%)",
+        p10_m,
+        "Participación mensual (% sobre Sanitaria)",
     )
-    add_picture_with_pagination(doc, str(chart_m), Inches(6.2), keep_with_next=False)
+    _add_picture_compact(doc, str(chart_m), 6.2)
 
-    # --- Participación semanal ---
+    # --- 5. Participación semanal (con N°2) ---
     add_formatted_title(doc, "5. Participación % vs Sanitaria — por semana")
     _add_body(
         doc,
-        "Misma lógica, desagregada por semana (lunes a domingo, recortada al periodo del piloto).",
+        "Misma lógica semanal (lun–dom), incluyendo Bomba N°2 en cada semana.",
     )
-
     week_wins = _week_windows(START, END)
     table_w = [
         (
@@ -608,19 +727,22 @@ def main() -> None:
             "Sanitaria m³",
             "Principal %",
             "Sexto %",
-            "Principal + Sexto %",
+            "Bomba N°2 %",
+            "Princ.+Sexto %",
             "No mon. %",
         )
     ]
-    labels_w, p07_w, p08_w, gap_w = [], [], [], []
+    labels_w, p07_w, p08_w, p10_w = [], [], [], []
     for d0, d1, label in week_wins:
         s = _sum_range(by_date[sanit_id], d0, d1)
         a = _sum_range(by_date[sal_07], d0, d1)
         b = _sum_range(by_date[sal_08], d0, d1)
+        c = _sum_range(by_date[sal_10], d0, d1)
         salas = a + b
         gap = max(0.0, s - salas)
         pa = 100.0 * a / s if s else 0.0
         pb = 100.0 * b / s if s else 0.0
+        pc = 100.0 * c / s if s else 0.0
         ps = 100.0 * salas / s if s else 0.0
         pg = 100.0 * gap / s if s else 0.0
         table_w.append(
@@ -629,28 +751,28 @@ def main() -> None:
                 format_number_chilean(s, 1),
                 f"{format_number_chilean(pa, 1)}%",
                 f"{format_number_chilean(pb, 1)}%",
+                f"{format_number_chilean(pc, 1)}%",
                 f"{format_number_chilean(ps, 1)}%",
                 f"{format_number_chilean(pg, 1)}%",
             )
         )
-        labels_w.append(f"{d0.strftime('%d/%m')}")
+        labels_w.append(d0.strftime("%d/%m"))
         p07_w.append(pa)
         p08_w.append(pb)
-        gap_w.append(pg)
+        p10_w.append(pc)
 
     add_table(doc, "Participación semanal sobre Sanitaria", table_w, wes_style=True)
-
     chart_w = _chart_participacion_barras(
         out_dir / "chart_participacion_semanal.png",
         labels_w,
         p07_w,
         p08_w,
-        gap_w,
-        "Participación semanal (% sobre Sanitaria = 100%)",
+        p10_w,
+        "Participación semanal (% sobre Sanitaria)",
     )
-    add_picture_with_pagination(doc, str(chart_w), Inches(6.3), keep_with_next=False)
+    _add_picture_compact(doc, str(chart_w), 6.2)
 
-    # --- Sala N°2: explicación clara en dos etapas ---
+    # --- 6. Sala N°2 explicación ---
     add_formatted_title(doc, "6. Qué está pasando en Sala de Bomba N°2")
     by10 = by_date[sal_10]
     pre = [v for d, v in by10.items() if d < SALA2_CAMBIO]
@@ -659,7 +781,6 @@ def main() -> None:
     avg_post = sum(post) / len(post) if post else 0.0
     tot_pre = sum(pre)
     tot_post = sum(post)
-    # % vs sanitaria in each phase
     san_pre = sum(v for d, v in by_date[sanit_id].items() if d < SALA2_CAMBIO)
     san_post = sum(v for d, v in by_date[sanit_id].items() if d >= SALA2_CAMBIO)
     pct_pre = 100.0 * tot_pre / san_pre if san_pre else 0.0
@@ -667,89 +788,63 @@ def main() -> None:
 
     _add_body(
         doc,
-        "Sala de Bomba N°2 no entra en el balance de “los dos puntos de abajo” "
-        "(Principal + Sexto). La razón es simple: su comportamiento cambia de "
-        "golpe a mitad del piloto y, en la segunda etapa, deja de ser coherente "
-        "con Sanitaria como 100% del agua que entra.",
+        "No hay fechas duplicadas que inflen el total. Lo que se ve son dos etapas "
+        "claras en el mismo punto:",
     )
     _add_body(
         doc,
-        f"Etapa 1 — del {_fmt_fecha(START)} al {_fmt_fecha(SALA2_CAMBIO - timedelta(days=1))}: "
-        f"el punto casi no mueve agua. Promedio "
-        f"{format_number_chilean(avg_pre, 1)} m³/día "
-        f"({format_number_chilean(pct_pre, 1)}% de Sanitaria en ese tramo). "
-        f"En la práctica aporta muy poco al consumo interno medido.",
-        bold_prefix="En fácil: ",
+        f"del {_fmt_fecha(START)} al {_fmt_fecha(SALA2_CAMBIO - timedelta(days=1))} "
+        f"promedia {format_number_chilean(avg_pre, 1)} m³/día "
+        f"({format_number_chilean(pct_pre, 1)}% de Sanitaria) — casi no aporta.",
+        bold_prefix="Etapa 1: ",
     )
     _add_body(
         doc,
-        f"Etapa 2 — desde el {_fmt_fecha(SALA2_CAMBIO)} hasta {_fmt_fecha(END)}: "
-        f"la lectura salta a un promedio de "
+        f"desde el {_fmt_fecha(SALA2_CAMBIO)} promedia "
         f"{format_number_chilean(avg_post, 1)} m³/día "
         f"({format_number_chilean(pct_post, 1)}% aparente de Sanitaria). "
-        f"En varios días e incluso en el acumulado de octubre esa cifra supera "
-        f"el 100% de Sanitaria: eso no cuadra si Sanitaria mide toda el agua de "
-        f"entrada. Por eso se deja fuera del % de participación hasta revisar "
-        f"instalación, factor de pulso o el empalme de ese tramo.",
-        bold_prefix="En fácil: ",
+        f"En varios días supera el 100% de Sanitaria, lo que no cuadra si "
+        f"Sanitaria mide toda el agua de entrada. Por eso no entra al balance "
+        f"de Principal+Sexto hasta validar instalación/factor/empalme.",
+        bold_prefix="Etapa 2: ",
+    )
+    add_table(
+        doc,
+        "Sala de Bomba N°2 — dos etapas",
+        [
+            ("Etapa", "Días", "Promedio (m³/día)", "% aparente vs Sanitaria"),
+            (
+                f"Antes del {_fmt_fecha(SALA2_CAMBIO)}",
+                str(len(pre)),
+                format_number_chilean(avg_pre, 1),
+                f"{format_number_chilean(pct_pre, 1)}%",
+            ),
+            (
+                f"Desde el {_fmt_fecha(SALA2_CAMBIO)}",
+                str(len(post)),
+                format_number_chilean(avg_post, 1),
+                f"{format_number_chilean(pct_post, 1)}%",
+            ),
+        ],
+        wes_style=True,
+        has_total_row=False,
     )
 
-    table_s2 = [
-        ("Etapa", "Días", "Promedio (m³/día)", "% aparente vs Sanitaria"),
-        (
-            f"Antes del {_fmt_fecha(SALA2_CAMBIO)}",
-            str(len(pre)),
-            format_number_chilean(avg_pre, 1),
-            f"{format_number_chilean(pct_pre, 1)}%",
-        ),
-        (
-            f"Desde el {_fmt_fecha(SALA2_CAMBIO)}",
-            str(len(post)),
-            format_number_chilean(avg_post, 1),
-            f"{format_number_chilean(pct_post, 1)}%",
-        ),
-        (
-            "Periodo completo",
-            str(len(by10)),
-            format_number_chilean(tot_10 / num_dias, 1),
-            f"{format_number_chilean(pct_10, 1)}%",
-        ),
-    ]
-    add_table(doc, "Sala de Bomba N°2 — dos etapas", table_s2, wes_style=True)
-
-    measures_10 = series[sal_10]
-    chart_10 = out_dir / "chart_diario_sala_n2.png"
-    built_10 = build_consumption_chart(
-        measures_10,
-        chart_10,
-        datetime.combine(START, datetime.min.time()),
-        datetime.combine(END, datetime.max.time()),
-    )
-    if built_10:
-        add_formatted_title(doc, "Consumo diario — Sala de Bomba N°2")
-        add_picture_with_pagination(doc, str(built_10), Inches(6.0), keep_with_next=True)
-        _add_body(
-            doc,
-            f"Se ve el salto a partir del {_fmt_fecha(SALA2_CAMBIO)}: "
-            f"antes casi plano (~1 m³/día) y después en un nivel mucho más alto.",
-        )
-
-    # --- Conclusiones ---
+    # --- 7. Conclusiones ---
     add_formatted_title(doc, "7. Conclusiones para cierre")
+    ll_a, ll_b = LLUVIAS_SIN_DATA
     _add_body(
         doc,
-        f"1) Periodo limpio: se usa desde el 23/07 (fuera el caos de los últimos "
-        f"días de puesta en marcha de julio) hasta el {_fmt_fecha(END)}.\n"
-        f"2) Lluvias: Sexto Piso sin data del {_fmt_fecha(ll_a)} al {_fmt_fecha(ll_b)}; "
-        f"queda identificado y no se rellena.\n"
-        f"3) Balance: Sanitaria = 100%. Principal + Sexto cubren el "
-        f"{format_number_chilean(pct_salas, 1)}%; queda "
-        f"{format_number_chilean(pct_gap, 1)}% no monitoreado "
+        f"1) Periodo limpio 23/07–{_fmt_fecha(END)}.\n"
+        f"2) Huecos: solo Sexto Piso {_fmt_fecha(ll_a)}–{_fmt_fecha(ll_b)} (lluvias); "
+        f"Sanitaria, Principal y N°2 sin huecos de registro.\n"
+        f"3) Sin duplicados de fecha en la serie diaria de los cuatro puntos.\n"
+        f"4) Balance: Principal+Sexto = {format_number_chilean(pct_salas, 1)}%; "
+        f"no monitoreado = {format_number_chilean(pct_gap, 1)}% "
         f"({format_number_chilean(tot_gap, 1)} m³).\n"
-        f"4) Hipótesis de gap: empalme desde la matriz principal antes de la "
-        f"impulsión del segundo piso; confirmar en terreno.\n"
-        f"5) Sala N°2: dos etapas claras (casi nula hasta el 09/09; salto desde "
-        f"el 10/09). No usar en el % hasta validar la medición.",
+        f"5) N°2: dos etapas; fuera del balance hasta validar medición.\n"
+        f"6) Hipótesis de gap: empalme desde matriz principal antes de impulsión "
+        f"2° piso.",
     )
 
     docx_path = out_dir / (
@@ -762,22 +857,16 @@ def main() -> None:
     pdf_path = _convertir_pdf(docx_path)
     if pdf_path:
         print(f"[OK] PDF:  {pdf_path}")
-    else:
-        print("[ADVERTENCIA] Sin PDF; se subirá solo el Word.")
 
-    # Resumen consola
     print("-" * 70)
-    print(f"Sanitaria: {tot_san:.1f} m³ (100%) · prom {prom_san:.1f}/día")
-    print(f"Principal: {tot_07:.1f} m³ ({pct_07:.1f}%)")
-    print(f"Sexto:     {tot_08:.1f} m³ ({pct_08:.1f}%)")
-    print(f"Salas:     {tot_salas:.1f} m³ ({pct_salas:.1f}%)")
-    print(f"Gap:       {tot_gap:.1f} m³ ({pct_gap:.1f}%)")
-    print(f"N°2:       {tot_10:.1f} m³ ({pct_10:.1f}% aparente) — NO usado en balance")
-    print(f"Tiempo: {time.perf_counter() - t0:.1f}s")
+    print(f"Sanitaria {tot_san:.1f} | Princ {tot_07:.1f} ({pct_07:.1f}%) | "
+          f"Sexto {tot_08:.1f} ({pct_08:.1f}%) | N2 {tot_10:.1f} ({pct_10:.1f}%)")
+    print(f"Salas {tot_salas:.1f} ({pct_salas:.1f}%) | Gap {tot_gap:.1f} ({pct_gap:.1f}%)")
     print(f"OUT_DIR={out_dir}")
+    print(f"DOCX_PATH={docx_path}")
     if pdf_path:
         print(f"PDF_PATH={pdf_path}")
-    print(f"DOCX_PATH={docx_path}")
+    print(f"Tiempo: {time.perf_counter()-t0:.1f}s")
 
 
 if __name__ == "__main__":
