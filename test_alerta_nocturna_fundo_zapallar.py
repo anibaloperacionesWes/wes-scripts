@@ -1,59 +1,72 @@
-"""Criterio de la alerta nocturna de Fundo Zapallar, sin llamar a la API."""
+"""Reglas de alerta de Fundo Zapallar del informe de seguimiento, sin API."""
 
 from datetime import date, datetime
-from zoneinfo import ZoneInfo
 
 from alerta_nocturna_fundo_zapallar import (
     CHILE_TZ,
+    aplicar_persistencia,
     consumo_ventana,
-    exceso_porcentaje,
-    noches_base,
-    promedio_noches,
-    supera_umbral,
+    maximo_hora,
+    nivel_balance,
+    nivel_etapa5,
+    nivel_etapas_14,
+    nivel_matriz,
+    racha_flujo,
     ultima_noche_completa,
 )
 
 
-def test_ventana_suma_00_a_06():
-    horas = {h: float(h) for h in range(24)}
-    assert consumo_ventana(horas) == float(sum(range(0, 7)))
+def test_ventana_00_a_06():
+    horas = {h: 1.0 for h in range(24)}
+    assert consumo_ventana(horas) == 7.0
+    assert maximo_hora({0: 1.0, 4: 2.4, 8: 9.0}) == 2.4
+    assert racha_flujo({0: 0.1, 1: 0.1, 2: 0.0, 3: 1.0, 4: 1.0, 5: 1.0, 6: 1.0}) == 4
 
 
-def test_promedio_desde_el_23_de_septiembre():
-    noche = date(2026, 10, 2)
-    dias = noches_base(noche, 90)
-    assert dias[0] == date(2026, 9, 23)
-    assert dias[-1] == date(2026, 10, 1)
-    assert date(2026, 7, 2) not in dias
-    assert noche not in dias
-    assert len(dias) == 9
-
-    # Con más de 90 noches desde el 23-09, el tope sigue siendo 90.
-    tarde = date(2026, 12, 31)
-    dias_tarde = noches_base(tarde, 90)
-    assert len(dias_tarde) == 90
-    assert dias_tarde[0] == date(2026, 10, 2)
-    assert dias_tarde[-1] == date(2026, 12, 30)
-
-    assert noches_base(date(2026, 9, 23), 90) == []
-    assert noches_base(date(2026, 9, 24), 90) == [date(2026, 9, 23)]
-    assert promedio_noches([10.0, 20.0, 30.0]) == 20.0
+def test_etapa5_ejemplo_del_informe():
+    # Caso A: total entre >1 y ≤5, sin regla crítica.
+    assert nivel_etapa5(3.2, 1.1, 1) == "preventiva"
+    # Caso B: el total sigue bajo 5, pero una hora supera 2 m³/h.
+    assert nivel_etapa5(4.0, 2.4, 1) == "critica"
+    assert nivel_etapa5(5.0, 1.0, 1) == "preventiva"
+    assert nivel_etapa5(5.01, 1.0, 1) == "critica"
+    assert nivel_etapa5(0.4, 0.2, 2) == "preventiva"
+    assert nivel_etapa5(0.4, 0.2, 4) == "critica"
+    assert nivel_etapa5(0.4, 0.2, 1) == "normal"
+    assert nivel_etapa5(3.0, 1.0, 1, "preventiva") == "critica"
 
 
-def test_supera_el_promedio_en_25_porciento():
-    assert supera_umbral(125.01, 100.0, 1.25)
-    assert not supera_umbral(125.0, 100.0, 1.25)
-    assert not supera_umbral(100.0, 100.0, 1.25)
-    assert supera_umbral(0.01, 0.0, 1.25)
-    assert not supera_umbral(0.0, 0.0, 1.25)
-    assert exceso_porcentaje(150.0, 100.0) == 50.0
-    assert exceso_porcentaje(10.0, 0.0) is None
+def test_etapas_14_y_matriz():
+    assert nivel_etapas_14(40.0, 10.0) == "normal"
+    assert nivel_etapas_14(42.0, 10.0) == "preventiva"
+    assert nivel_etapas_14(45.0, 10.0) == "preventiva"
+    assert nivel_etapas_14(45.1, 10.0) == "critica"
+    assert nivel_etapas_14(10.0, 13.0) == "preventiva"
+    assert nivel_etapas_14(10.0, 15.1) == "critica"
+    assert nivel_matriz(60.0, 10.0) == "preventiva"
+    assert nivel_matriz(65.0, 10.0) == "preventiva"
+    assert nivel_matriz(65.1, 10.0) == "critica"
+    assert nivel_matriz(10.0, 28.0) == "preventiva"
+    assert nivel_matriz(10.0, 30.1) == "critica"
+
+
+def test_balance_diario():
+    assert nivel_balance(21.0, 21, 25) == "normal"
+    assert nivel_balance(-22.0, 21, 25) == "preventiva"
+    assert nivel_balance(25.0, 21, 25) == "preventiva"
+    assert nivel_balance(25.1, 21, 25) == "critica"
+    assert nivel_balance(22.0, 21, 25, previo_abs=22.0) == "critica"
+    assert nivel_balance(22.0, 21, 25, previo_abs=10.0) == "preventiva"
+    assert nivel_balance(31.0, 30, 36) == "preventiva"
+    assert nivel_balance(36.1, 30, 36) == "critica"
+    assert nivel_balance(31.0, 30, 36, previo_abs=31.0) == "critica"
+
+
+def test_persistencia_no_sube_un_dia_normal():
+    assert aplicar_persistencia("normal", "preventiva") == "normal"
+    assert aplicar_persistencia("critica", None) == "critica"
 
 
 def test_noche_completa_despues_de_las_07():
-    tarde = datetime(2026, 9, 30, 18, 14, tzinfo=CHILE_TZ)
-    assert ultima_noche_completa(tarde) == date(2026, 9, 30)
-    madrugada = datetime(2026, 10, 1, 5, 30, tzinfo=CHILE_TZ)
-    assert ultima_noche_completa(madrugada) == date(2026, 9, 30)
-    cerrada = datetime(2026, 10, 1, 7, 0, tzinfo=ZoneInfo("America/Santiago"))
-    assert ultima_noche_completa(cerrada) == date(2026, 10, 1)
+    assert ultima_noche_completa(datetime(2026, 10, 14, 18, 0, tzinfo=CHILE_TZ)) == date(2026, 10, 14)
+    assert ultima_noche_completa(datetime(2026, 10, 15, 5, 0, tzinfo=CHILE_TZ)) == date(2026, 10, 14)
