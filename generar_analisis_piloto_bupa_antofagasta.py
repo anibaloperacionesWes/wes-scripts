@@ -60,11 +60,15 @@ from generar_reporte_word import (
 COMPANY_ID = "000029"
 FOLDER = "Bupa_Antofagasta"
 
-# Habilitación operativa del piloto (primeros días con serie usable).
-# 21/07 tiene día parcial / artefactos; arrancamos en el primer día completo.
-START = date(2026, 7, 22)
+# Desde el 23/07 la serie ya está correcta (días previos de julio = caos de puesta en marcha).
+START = date(2026, 7, 23)
 # Domingo recién pasado (hoy mié 14/10 → domingo 11/10); sin esta semana.
 END = date(2026, 10, 11)
+
+# Hueco sin data en Sexto Piso por lluvias en Antofagasta.
+LLUVIAS_SIN_DATA = (date(2026, 8, 14), date(2026, 8, 17))  # inclusive
+# Sala N°2 cambia de régimen el 10/09 (antes ~1 m³/día; después ~58 m³/día).
+SALA2_CAMBIO = date(2026, 9, 10)
 
 # Tres puntos principales del pedido (matriz + dos salas abajo).
 # N°2 se reporta aparte por lecturas anómalas desde septiembre.
@@ -248,7 +252,7 @@ def _chart_pie_periodo(path: Path, salas: float, gap: float, sanit: float) -> Pa
     wedges, *_ = ax.pie(
         vals,
         labels=[
-            f"Salas 07+08\n({format_number_chilean(salas / sanit * 100 if sanit else 0, 1)}%)",
+            f"Principal + Sexto\n({format_number_chilean(salas / sanit * 100 if sanit else 0, 1)}%)",
             f"No monitoreado\n({format_number_chilean(gap / sanit * 100 if sanit else 0, 1)}%)",
         ],
         colors=["#0050b3", "#c0392b"],
@@ -335,16 +339,20 @@ def main() -> None:
     pct_10 = 100.0 * tot_10 / tot_san if tot_san else 0.0
 
     num_dias = (END - START).days + 1
-    prom_san = tot_san / num_dias
-    prom_07 = tot_07 / num_dias
-    prom_08 = tot_08 / num_dias
+    # Promedios sobre días con dato (Sexto tiene hueco por lluvias).
+    n_san = max(len(by_date[sanit_id]), 1)
+    n_07 = max(len(by_date[sal_07]), 1)
+    n_08 = max(len(by_date[sal_08]), 1)
+    prom_san = tot_san / n_san
+    prom_07 = tot_07 / n_07
+    prom_08 = tot_08 / n_08
 
     # --- Documento ---
     doc = Document()
     title = doc.add_paragraph()
     tr = title.add_run(
         "ANÁLISIS PILOTO — CLÍNICA BUPA ANTOFAGASTA\n"
-        f"Consumo desde habilitación hasta {_fmt_fecha(END)}"
+        f"Consumo {_fmt_fecha(START)} al {_fmt_fecha(END)}"
     )
     tr.bold = True
     tr.font.size = Pt(16)
@@ -354,19 +362,35 @@ def main() -> None:
     _add_body(
         doc,
         f"Periodo analizado: {_fmt_fecha(START)} al {_fmt_fecha(END)} "
-        f"({num_dias} días civiles). Se toma como inicio el primer día completo "
-        f"posterior a la habilitación del piloto (21/07/2026) y como cierre el "
-        f"domingo recién pasado, sin incluir la semana en curso. "
-        f"El Medidor Principal Sanitaria (000029-09) se trata como el 100% del "
-        f"agua de entrada (cuenta). Las salas de bomba Principal (000029-07) y "
-        f"Sexto Piso (000029-08) son las dos submediciones “de abajo”. "
-        f"La diferencia respecto de Sanitaria es volumen no monitoreado punto a "
-        f"punto (candidato: empalme desde la matriz principal antes de la bomba "
-        f"del segundo piso).",
+        f"({num_dias} días civiles). El inicio es el 23/07/2026: desde esa fecha "
+        f"la medición ya está correcta; los días previos de julio corresponden a "
+        f"la puesta en marcha (caos de habilitación) y se dejan fuera. El cierre "
+        f"es el domingo recién pasado, sin la semana en curso. "
+        f"El Medidor Principal Sanitaria se trata como el 100% del agua de entrada "
+        f"(medición WES del punto sanitaria, no la factura de la sanitaria). "
+        f"Sala de Bomba Principal y Sala de Bomba Sexto Piso son las dos "
+        f"submediciones “de abajo”. La diferencia respecto de Sanitaria es volumen "
+        f"no monitoreado punto a punto (candidato: empalme desde la matriz "
+        f"principal antes de la bomba del segundo piso).",
+    )
+
+    # Huecos / lluvias
+    add_formatted_title(doc, "1. Periodos sin data (lluvias Antofagasta)")
+    ll_a, ll_b = LLUVIAS_SIN_DATA
+    n_ll = (ll_b - ll_a).days + 1
+    _add_body(
+        doc,
+        f"En el periodo hay un tramo sin registro en Sala de Bomba Sexto Piso: "
+        f"del {_fmt_fecha(ll_a)} al {_fmt_fecha(ll_b)} ({n_ll} días). "
+        f"Ese hueco se asocia al evento de lluvias en Antofagasta que afectó la "
+        f"conectividad / disponibilidad de data de ese punto. "
+        f"Sanitaria y Sala de Bomba Principal sí tienen serie en esas fechas; "
+        f"al calcular promedios y % se trabaja con los días disponibles "
+        f"(no se inventa consumo en el hueco).",
     )
 
     # Resumen ejecutivo
-    add_formatted_title(doc, "1. Resumen ejecutivo")
+    add_formatted_title(doc, "2. Resumen ejecutivo")
     table_resumen = [
         ("Punto", "Consumo periodo (m³)", "Promedio diario (m³)", "% sobre Sanitaria"),
         (
@@ -388,7 +412,7 @@ def main() -> None:
             f"{format_number_chilean(pct_08, 1)}%",
         ),
         (
-            "TOTAL salas 07+08",
+            "TOTAL salas Principal + Sexto",
             format_number_chilean(tot_salas, 1),
             format_number_chilean(tot_salas / num_dias, 1),
             f"{format_number_chilean(pct_salas, 1)}%",
@@ -405,7 +429,7 @@ def main() -> None:
     _add_body(
         doc,
         f"En el periodo completo, las dos salas de abajo suman el "
-        f"{format_number_chilean(pct_salas, 1)}% de la cuenta (Sanitaria). "
+        f"{format_number_chilean(pct_salas, 1)}% de Sanitaria. "
         f"Queda un diferencial no monitoreado de "
         f"{format_number_chilean(pct_gap, 1)}% "
         f"({format_number_chilean(tot_gap, 1)} m³). "
@@ -424,7 +448,7 @@ def main() -> None:
     add_picture_with_pagination(doc, str(pie_path), Inches(4.8), keep_with_next=False)
 
     # --- Por cada punto: día a día + promedio día semana ---
-    add_formatted_title(doc, "2. Consumo día a día y promedio por día de la semana")
+    add_formatted_title(doc, "3. Consumo día a día y promedio por día de la semana")
     _add_body(
         doc,
         "Para cada uno de los tres puntos se grafica el consumo de todos los días "
@@ -437,7 +461,13 @@ def main() -> None:
         nid = n["id"]
         measures = series[nid]
         summary = summarize_consumption(measures)
-        add_formatted_title(doc, f"2.{NODOS_PRINCIPALES.index(n)+1} {n['nombre']} ({nid})")
+        add_formatted_title(doc, f"3.{NODOS_PRINCIPALES.index(n)+1} {n['nombre']}")
+        nota_lluvia = ""
+        if n["corto"] == "Sexto Piso":
+            nota_lluvia = (
+                f" Incluye el hueco sin data del {_fmt_fecha(LLUVIAS_SIN_DATA[0])} "
+                f"al {_fmt_fecha(LLUVIAS_SIN_DATA[1])} por lluvias en Antofagasta."
+            )
         _add_body(
             doc,
             f"Consumo total: {format_number_chilean(summary['total'], 1)} m³. "
@@ -447,7 +477,8 @@ def main() -> None:
                 f"({format_number_chilean(summary['max'].total_m3, 1)} m³)."
                 if summary.get("max")
                 else ""
-            ),
+            )
+            + nota_lluvia,
         )
 
         # Día a día
@@ -505,7 +536,7 @@ def main() -> None:
             )
 
     # --- Participación mensual ---
-    add_formatted_title(doc, "3. Participación % vs Sanitaria — por mes")
+    add_formatted_title(doc, "4. Participación % vs Sanitaria — por mes")
     _add_body(
         doc,
         "Sanitaria = 100%. Para cada mes del piloto se muestra qué porcentaje "
@@ -519,7 +550,7 @@ def main() -> None:
             "Sanitaria m³",
             "Principal m³ (%)",
             "Sexto m³ (%)",
-            "Salas 07+08 (%)",
+            "Principal + Sexto (%)",
             "No monitoreado (%)",
         )
     ]
@@ -564,7 +595,7 @@ def main() -> None:
     add_picture_with_pagination(doc, str(chart_m), Inches(6.2), keep_with_next=False)
 
     # --- Participación semanal ---
-    add_formatted_title(doc, "4. Participación % vs Sanitaria — por semana")
+    add_formatted_title(doc, "5. Participación % vs Sanitaria — por semana")
     _add_body(
         doc,
         "Misma lógica, desagregada por semana (lunes a domingo, recortada al periodo del piloto).",
@@ -577,7 +608,7 @@ def main() -> None:
             "Sanitaria m³",
             "Principal %",
             "Sexto %",
-            "Salas 07+08 %",
+            "Principal + Sexto %",
             "No mon. %",
         )
     ]
@@ -619,31 +650,75 @@ def main() -> None:
     )
     add_picture_with_pagination(doc, str(chart_w), Inches(6.3), keep_with_next=False)
 
-    # --- Nota N°2 ---
-    add_formatted_title(doc, "5. Nota — Sala de Bomba N°2 (000029-10)")
-    # Check months for anomaly
-    anom_txt = []
-    for d0, d1, label in month_wins:
-        s = _sum_range(by_date[sanit_id], d0, d1)
-        t = _sum_range(by_date[sal_10], d0, d1)
-        pct = 100.0 * t / s if s else 0.0
-        anom_txt.append(f"{label}: {format_number_chilean(t, 1)} m³ ({format_number_chilean(pct, 1)}% de Sanitaria)")
+    # --- Sala N°2: explicación clara en dos etapas ---
+    add_formatted_title(doc, "6. Qué está pasando en Sala de Bomba N°2")
+    by10 = by_date[sal_10]
+    pre = [v for d, v in by10.items() if d < SALA2_CAMBIO]
+    post = [v for d, v in by10.items() if d >= SALA2_CAMBIO]
+    avg_pre = sum(pre) / len(pre) if pre else 0.0
+    avg_post = sum(post) / len(post) if post else 0.0
+    tot_pre = sum(pre)
+    tot_post = sum(post)
+    # % vs sanitaria in each phase
+    san_pre = sum(v for d, v in by_date[sanit_id].items() if d < SALA2_CAMBIO)
+    san_post = sum(v for d, v in by_date[sanit_id].items() if d >= SALA2_CAMBIO)
+    pct_pre = 100.0 * tot_pre / san_pre if san_pre else 0.0
+    pct_post = 100.0 * tot_post / san_post if san_post else 0.0
+
     _add_body(
         doc,
-        f"Este punto no se incluyó en el cálculo de los “dos puntos de abajo” "
-        f"porque su serie muestra saltos inconsistentes respecto de la cuenta "
-        f"(en algunos tramos supera el 100% de Sanitaria, lo que no es físicamente "
-        f"coherente si Sanitaria mide toda el agua de entrada). "
-        f"Consumo del periodo: {format_number_chilean(tot_10, 1)} m³ "
-        f"({format_number_chilean(pct_10, 1)}% aparente sobre Sanitaria). "
-        f"Detalle mensual: " + "; ".join(anom_txt) + ". "
-        f"Se recomienda revisar instalación / factor / empalme de N°2 antes de "
-        f"usarlo en el balance de participación.",
+        "Sala de Bomba N°2 no entra en el balance de “los dos puntos de abajo” "
+        "(Principal + Sexto). La razón es simple: su comportamiento cambia de "
+        "golpe a mitad del piloto y, en la segunda etapa, deja de ser coherente "
+        "con Sanitaria como 100% del agua que entra.",
+    )
+    _add_body(
+        doc,
+        f"Etapa 1 — del {_fmt_fecha(START)} al {_fmt_fecha(SALA2_CAMBIO - timedelta(days=1))}: "
+        f"el punto casi no mueve agua. Promedio "
+        f"{format_number_chilean(avg_pre, 1)} m³/día "
+        f"({format_number_chilean(pct_pre, 1)}% de Sanitaria en ese tramo). "
+        f"En la práctica aporta muy poco al consumo interno medido.",
+        bold_prefix="En fácil: ",
+    )
+    _add_body(
+        doc,
+        f"Etapa 2 — desde el {_fmt_fecha(SALA2_CAMBIO)} hasta {_fmt_fecha(END)}: "
+        f"la lectura salta a un promedio de "
+        f"{format_number_chilean(avg_post, 1)} m³/día "
+        f"({format_number_chilean(pct_post, 1)}% aparente de Sanitaria). "
+        f"En varios días e incluso en el acumulado de octubre esa cifra supera "
+        f"el 100% de Sanitaria: eso no cuadra si Sanitaria mide toda el agua de "
+        f"entrada. Por eso se deja fuera del % de participación hasta revisar "
+        f"instalación, factor de pulso o el empalme de ese tramo.",
+        bold_prefix="En fácil: ",
     )
 
-    # Chart diario N°2 for transparency
+    table_s2 = [
+        ("Etapa", "Días", "Promedio (m³/día)", "% aparente vs Sanitaria"),
+        (
+            f"Antes del {_fmt_fecha(SALA2_CAMBIO)}",
+            str(len(pre)),
+            format_number_chilean(avg_pre, 1),
+            f"{format_number_chilean(pct_pre, 1)}%",
+        ),
+        (
+            f"Desde el {_fmt_fecha(SALA2_CAMBIO)}",
+            str(len(post)),
+            format_number_chilean(avg_post, 1),
+            f"{format_number_chilean(pct_post, 1)}%",
+        ),
+        (
+            "Periodo completo",
+            str(len(by10)),
+            format_number_chilean(tot_10 / num_dias, 1),
+            f"{format_number_chilean(pct_10, 1)}%",
+        ),
+    ]
+    add_table(doc, "Sala de Bomba N°2 — dos etapas", table_s2, wes_style=True)
+
     measures_10 = series[sal_10]
-    chart_10 = out_dir / "chart_diario_000029_10.png"
+    chart_10 = out_dir / "chart_diario_sala_n2.png"
     built_10 = build_consumption_chart(
         measures_10,
         chart_10,
@@ -651,24 +726,30 @@ def main() -> None:
         datetime.combine(END, datetime.max.time()),
     )
     if built_10:
-        add_picture_with_pagination(doc, str(built_10), Inches(6.0), keep_with_next=False)
+        add_formatted_title(doc, "Consumo diario — Sala de Bomba N°2")
+        add_picture_with_pagination(doc, str(built_10), Inches(6.0), keep_with_next=True)
+        _add_body(
+            doc,
+            f"Se ve el salto a partir del {_fmt_fecha(SALA2_CAMBIO)}: "
+            f"antes casi plano (~1 m³/día) y después en un nivel mucho más alto.",
+        )
 
     # --- Conclusiones ---
-    add_formatted_title(doc, "6. Conclusiones para cierre")
+    add_formatted_title(doc, "7. Conclusiones para cierre")
     _add_body(
         doc,
-        f"1) Comportamiento diario: en los tres puntos principales se dispone de "
-        f"serie continua de {num_dias} días y de promedios estables por día de la "
-        f"semana (lunes a domingo), útiles para contrastar rutina operativa.\n"
-        f"2) Balance de cuenta: Sanitaria = 100%. En el acumulado del piloto, "
-        f"Bomba Principal + Sexto Piso cubren el {format_number_chilean(pct_salas, 1)}% "
-        f"y queda un {format_number_chilean(pct_gap, 1)}% no monitoreado "
+        f"1) Periodo limpio: se usa desde el 23/07 (fuera el caos de los últimos "
+        f"días de puesta en marcha de julio) hasta el {_fmt_fecha(END)}.\n"
+        f"2) Lluvias: Sexto Piso sin data del {_fmt_fecha(ll_a)} al {_fmt_fecha(ll_b)}; "
+        f"queda identificado y no se rellena.\n"
+        f"3) Balance: Sanitaria = 100%. Principal + Sexto cubren el "
+        f"{format_number_chilean(pct_salas, 1)}%; queda "
+        f"{format_number_chilean(pct_gap, 1)}% no monitoreado "
         f"({format_number_chilean(tot_gap, 1)} m³).\n"
-        f"3) Hipótesis de gap: parte relevante del no monitoreado puede salir por "
-        f"un empalme desde la matriz principal antes de la impulsión del segundo "
-        f"piso; conviene confirmar en terreno y/o instrumentar ese tramo.\n"
-        f"4) Sala de Bomba N°2: no usar por ahora en el % de participación hasta "
-        f"validar la medición (lecturas anómalas vs Sanitaria desde septiembre).",
+        f"4) Hipótesis de gap: empalme desde la matriz principal antes de la "
+        f"impulsión del segundo piso; confirmar en terreno.\n"
+        f"5) Sala N°2: dos etapas claras (casi nula hasta el 09/09; salto desde "
+        f"el 10/09). No usar en el % hasta validar la medición.",
     )
 
     docx_path = out_dir / (
