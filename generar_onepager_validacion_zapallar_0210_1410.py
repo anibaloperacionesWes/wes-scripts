@@ -1,6 +1,6 @@
 """
 One-pager — Validación relojería vs App WES (Fundo Zapallar).
-Ventana 02-10-2026 → 14-10-2026 · Matriz ESVAL + Etapa N°5.
+Ventana 02-10-2026 → 15-10-2026 · Matriz ESVAL + Etapa N°5.
 
 Uso:
   python generar_onepager_validacion_zapallar_0210_1410.py
@@ -32,31 +32,31 @@ GREEN_TXT = HexColor("#1B5E20")
 AMBER = HexColor("#FFF8E1")
 AMBER_TXT = HexColor("#E65100")
 
-# --- Datos validados (02-10 → 14-10) ---
-VENTANA = "02-10-2026 → 14-10-2026"
+# --- Datos validados (02-10 → 15-10, fotos de la mañana del 15) ---
+VENTANA = "02-10-2026 → 15-10-2026"
 MATRIZ = {
     "nombre": "Matriz ESVAL",
     "node": "000027-01",
     "medidor": "Itron FLOSTAR S",
     "ini": "385.430,8 m³ · 02-10 13:22",
-    "fin": "386.822,3 m³ · 14-10 17:08",
-    "reloj": 1391.5,
-    "app": 1425.87,
-    "horas": 291,
-    "suma": "14:00 del 02 → 16:00 del 14",
-    "error": 2.41,
+    "fin": "386.889,7 m³ · 15-10 08:19",
+    "reloj": 1458.9,
+    "app": 1496.32,
+    "horas": 306,
+    "suma": "14:00 del 02 → 07:00 del 15",
+    "error": 2.50,
 }
 ETAPA5 = {
     "nombre": "Etapa N°5",
     "node": "000027-03",
     "medidor": "Sensus MeiStream Plus 100",
     "ini": "5.369 m³ · 02-10 08:44",
-    "fin": "5.611,1 m³ · 14-10 17:00",
-    "reloj": 242.1,
-    "app": 243.4,
-    "horas": 296,
-    "suma": "09:00 del 02 → 16:00 del 14",
-    "error": 0.53,
+    "fin": "5.627 m³ · 15-10 08:36",
+    "reloj": 258.0,
+    "app": 261.7,
+    "horas": 311,
+    "suma": "09:00 del 02 → 07:00 del 15",
+    "error": 1.41,
 }
 
 
@@ -146,7 +146,7 @@ def build_docx(path: Path) -> None:
             _fmt(ETAPA5["app"], 1),
             f"+{_fmt(ETAPA5['app'] - ETAPA5['reloj'], 1)}",
             f"{_fmt(ETAPA5['error'], 1)} %",
-            "Excelente",
+            "Aceptable",
         ],
     )
     doc.add_paragraph()
@@ -174,8 +174,8 @@ def build_docx(path: Path) -> None:
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     r = p.add_run(
-        "Etapa N°5 cierra con error 0,5 % (excelente). Matriz ESVAL cierra con 2,4 %, "
-        "app por encima del Itron, del mismo orden que el cierre anterior (2,1 % el 02-10). "
+        "Etapa N°5 cierra con error 1,4 % (aceptable). Matriz ESVAL cierra con 2,5 %, "
+        "app por encima del Itron, del mismo orden que el cierre del 02-10 (2,1 %) y del 14-10 (2,4 %). "
         "Ambos puntos quedan validados para el período."
     )
     _font_docx(r, size=10)
@@ -255,8 +255,8 @@ def build_pdf(path: Path, logo: Path | None) -> None:
         card_h,
         "Etapa N°5 — error",
         f"{_fmt(ETAPA5['error'], 1)} %",
-        GREEN,
-        GREEN_TXT,
+        AMBER,
+        AMBER_TXT,
     )
     y -= card_h + 0.55 * cm
 
@@ -309,7 +309,7 @@ def build_pdf(path: Path, logo: Path | None) -> None:
             f"{_fmt(ETAPA5['app'], 1)} m³",
             f"+{_fmt(ETAPA5['app'] - ETAPA5['reloj'], 1)}",
             f"{_fmt(ETAPA5['error'], 1)} %",
-            "Excelente",
+            "Aceptable",
         ],
         alt=True,
     )
@@ -318,7 +318,7 @@ def build_pdf(path: Path, logo: Path | None) -> None:
     # Detalle por punto
     for pto, badge_fill, badge_txt in (
         (MATRIZ, AMBER, AMBER_TXT),
-        (ETAPA5, GREEN, GREEN_TXT),
+        (ETAPA5, AMBER, AMBER_TXT),
     ):
         box_h = 3.15 * cm
         _card(c, ml, y - box_h, usable_w, box_h, LIGHT)
@@ -358,8 +358,8 @@ def build_pdf(path: Path, logo: Path | None) -> None:
     c.setFillColor(HexColor("#1B3A1D"))
     c.setFont("Helvetica", 9)
     text = (
-        "Etapa N°5 cierra con error 0,5 % (excelente). Matriz ESVAL cierra con 2,4 %, "
-        "app por encima del Itron, del mismo orden que el cierre anterior (2,1 % el 02-10). "
+        "Etapa N°5 cierra con error 1,4 % (aceptable). Matriz ESVAL cierra con 2,5 %, "
+        "app por encima del Itron, del mismo orden que el cierre del 02-10 (2,1 %) y del 14-10 (2,4 %). "
         "Ambos puntos quedan validados para el período."
     )
     # simple wrap
@@ -393,7 +393,7 @@ def build_pdf(path: Path, logo: Path | None) -> None:
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
-    base = f"OnePager_Validacion_Fundo_Zapallar_0210_1410_{stamp}"
+    base = f"OnePager_Validacion_Fundo_Zapallar_0210_1510_{stamp}"
     docx_path = OUT_DIR / f"{base}.docx"
     pdf_path = OUT_DIR / f"{base}.pdf"
     logo = Path("/tmp/logo_wes.png")
@@ -409,8 +409,8 @@ def main() -> int:
     build_pdf(pdf_path, logo if logo and logo.exists() else None)
 
     # also copy stable names without stamp for easy find
-    stable_pdf = OUT_DIR / "OnePager_Validacion_Fundo_Zapallar_0210_1410.pdf"
-    stable_docx = OUT_DIR / "OnePager_Validacion_Fundo_Zapallar_0210_1410.docx"
+    stable_pdf = OUT_DIR / "OnePager_Validacion_Fundo_Zapallar_0210_1510.pdf"
+    stable_docx = OUT_DIR / "OnePager_Validacion_Fundo_Zapallar_0210_1510.docx"
     stable_pdf.write_bytes(pdf_path.read_bytes())
     stable_docx.write_bytes(docx_path.read_bytes())
     print(f"[OK] estable {stable_pdf}")
