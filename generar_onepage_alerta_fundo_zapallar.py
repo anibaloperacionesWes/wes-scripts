@@ -127,7 +127,7 @@ def construir() -> Path:
         ax.text(0.10, 0.62, grande, fontsize=12, color=NAVY, fontweight="bold", va="center")
         ax.text(0.10, 0.26, etiqueta, fontsize=6.4, color=MUTED, va="center")
 
-    ax = fig.add_axes([0.09, 0.548, 0.84, 0.192])
+    ax = fig.add_axes([0.09, 0.548, 0.70, 0.192])
     xs = list(range(len(dias)))
     valores = [ETAPA5[d] for d in dias]
     colores = []
@@ -140,10 +140,25 @@ def construir() -> Path:
             colores.append(AMBER)
     altos = [0 if v is None else v for v in valores]
     ax.bar(xs, altos, color=colores, width=0.78, zorder=3)
+    for x, valor in zip(xs, valores):
+        if valor is None:
+            continue
+        ax.text(
+            x,
+            valor + 0.18,
+            _fmt(valor),
+            ha="center",
+            va="bottom",
+            rotation=90,
+            fontsize=5.7,
+            color=INK,
+            clip_on=False,
+            zorder=4,
+        )
     ax.axhline(5, color=RED, lw=0.9, ls="--", zorder=2)
     ax.axhline(1, color=AMBER, lw=0.8, ls=":", zorder=2)
     ax.set_xlim(-0.6, len(dias) - 0.4)
-    ax.set_ylim(0, 12.2)
+    ax.set_ylim(0, 13.6)
     ax.set_ylabel("m³ por noche", fontsize=8, color=INK)
     ax.set_title(
         "Etapa N°5 — m³ entre las 00:00 y las 06:00",
@@ -163,15 +178,15 @@ def construir() -> Path:
     ax.set_axisbelow(True)
     ax.legend(
         handles=[
-            Patch(facecolor=RED, label="Crítica por total > 5 m³"),
-            Patch(facecolor=AMBER, label="Crítica por hora > 2 m³/h"),
+            Patch(facecolor=RED, label="Total > 5 m³"),
+            Patch(facecolor=AMBER, label="Hora > 2 m³/h"),
             Patch(facecolor=OK, label="29-09 sin alerta"),
         ],
         frameon=False,
         fontsize=7,
-        loc="upper left",
-        ncol=1,
-        borderaxespad=0.2,
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.72),
+        borderaxespad=0,
     )
 
     fig.text(0.055, 0.505, "Otras reglas que se cumplieron", fontsize=11, color=NAVY, fontweight="bold")
