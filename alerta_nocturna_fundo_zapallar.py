@@ -1,23 +1,22 @@
 """
-Alertas de Fundo Zapallar según el informe de seguimiento (6 de octubre de 2026).
+Alertas de Fundo Zapallar con tres niveles: seguimiento, preventiva y crítica.
 
 No usa el promedio de noches. La ventana nocturna es 00:00 a 06:00 (horas 00 a 06).
-Una condición crítica prevalece sobre la preventiva. Si una preventiva se repite al
-día siguiente, pasa a crítica.
+La crítica queda para consumos excepcionalmente altos. Si un seguimiento se repite
+al día siguiente, pasa a preventiva.
 
 Reglas nocturnas:
-- Etapa N°5: preventiva >1 y ≤5 m³/noche o flujo >0 por 2 horas; crítica >5 m³/noche,
-  >2 m³/h o flujo >0 por 4 horas.
-- Etapas 1-4: preventiva >40 y ≤45 m³/noche o >12 y ≤15 m³/h; crítica >45 m³/noche
-  o >15 m³/h.
-- Matriz ESVAL: preventiva >55 y ≤65 m³/noche o >25 y ≤30 m³/h; crítica >65 m³/noche
-  o >30 m³/h.
+- Etapa N°5: seguimiento >1 a 5 m³; preventiva >5 a 10 m³; crítica >10 m³ o >4 m³/h.
+- Etapas 1-4: seguimiento >40 a 45 m³ o >12 a 15 m³/h; preventiva >45 a 60 m³ o
+  >15 a 20 m³/h; crítica >60 m³ o >20 m³/h.
+- Matriz ESVAL: seguimiento >55 a 65 m³ o >25 a 30 m³/h; preventiva >65 a 80 m³ o
+  >30 a 35 m³/h; crítica >80 m³ o >35 m³/h.
 
 Balances diarios (valor absoluto):
-- Matriz ESVAL − Estanque Inferior (Estanque del Medio del informe): preventiva
-  >21 y ≤25 m³; crítica >25 m³ o >21 m³ durante 2 días.
-- Estanque Inferior − (Etapa N°5 + Etapas 1-4): preventiva >30 y ≤36 m³; crítica
-  >36 m³ o >30 m³ durante 2 días.
+- Matriz ESVAL − Estanque Inferior: seguimiento >21 a 25 m³; preventiva >25 a 42 m³
+  o >21 m³ durante 2 días; crítica >42 m³.
+- Estanque Inferior − (Etapa N°5 + Etapas 1-4): seguimiento >30 a 36 m³; preventiva
+  >36 a 60 m³ o >30 m³ durante 2 días; crítica >60 m³.
 
 El aviso a Aníbal y Juan indica el punto, la regla, el valor, el umbral y el período.
 """
@@ -110,57 +109,70 @@ def consumo_dia(horas: Dict[int, float]) -> float:
 
 
 def aplicar_persistencia(nivel: str, previo: Optional[str]) -> str:
-    """Una preventiva que se repite al día siguiente pasa a crítica."""
-    if nivel == "preventiva" and previo in ("preventiva", "critica"):
-        return "critica"
+    """Un seguimiento que se repite al día siguiente pasa a preventiva."""
+    if nivel == "seguimiento" and previo in ("seguimiento", "preventiva", "critica"):
+        return "preventiva"
     return nivel
 
 
-def nivel_etapa5(total: float, max_h: float, racha: int, previo: Optional[str] = None) -> str:
-    if total > 5 or max_h > 2 or racha >= 4:
+def _nivel_banda(
+    total: float,
+    max_h: float,
+    seguimiento_total: float,
+    preventiva_total: float,
+    critica_total: float,
+    seguimiento_hora: Optional[float],
+    preventiva_hora: Optional[float],
+    critica_hora: Optional[float],
+    previo: Optional[str] = None,
+) -> str:
+    """Los topes de cada banda son inclusivos: >a hasta b queda en esa banda."""
+    if total > critica_total or (critica_hora is not None and max_h > critica_hora):
         return "critica"
-    preventiva = (total > 1 and total <= 5) or racha >= 2
-    if preventiva:
-        return aplicar_persistencia("preventiva", previo)
+    if total > preventiva_total or (preventiva_hora is not None and max_h > preventiva_hora):
+        return "preventiva"
+    en_seguimiento = total > seguimiento_total or (
+        seguimiento_hora is not None and max_h > seguimiento_hora
+    )
+    if en_seguimiento:
+        return aplicar_persistencia("seguimiento", previo)
     return "normal"
+
+
+def nivel_etapa5(total: float, max_h: float, previo: Optional[str] = None) -> str:
+    return _nivel_banda(total, max_h, 1, 5, 10, None, None, 4, previo)
 
 
 def nivel_etapas_14(total: float, max_h: float, previo: Optional[str] = None) -> str:
-    if total > 45 or max_h > 15:
-        return "critica"
-    preventiva = (total > 40 and total <= 45) or (max_h > 12 and max_h <= 15)
-    if preventiva:
-        return aplicar_persistencia("preventiva", previo)
-    return "normal"
+    return _nivel_banda(total, max_h, 40, 45, 60, 12, 15, 20, previo)
 
 
 def nivel_matriz(total: float, max_h: float, previo: Optional[str] = None) -> str:
-    if total > 65 or max_h > 30:
-        return "critica"
-    preventiva = (total > 55 and total <= 65) or (max_h > 25 and max_h <= 30)
-    if preventiva:
-        return aplicar_persistencia("preventiva", previo)
-    return "normal"
+    return _nivel_banda(total, max_h, 55, 65, 80, 25, 30, 35, previo)
 
 
 def nivel_balance(
     delta: float,
     limite_normal: float,
-    limite_preventivo: float,
+    limite_seguimiento: float,
+    limite_preventiva: float,
     previo_abs: Optional[float] = None,
 ) -> str:
     """
     |∆| ≤ limite_normal es normal.
-    Hasta limite_preventivo es preventiva.
-    Sobre limite_preventivo, o sobre limite_normal durante 2 días, es crítica.
+    Hasta limite_seguimiento es seguimiento.
+    Hasta limite_preventiva, o sobre limite_normal durante 2 días, es preventiva.
+    Sobre limite_preventiva es crítica.
     """
     absoluto = abs(float(delta))
-    if absoluto > limite_preventivo or (
-        previo_abs is not None and absoluto > limite_normal and previo_abs > limite_normal
-    ):
+    if absoluto > limite_preventiva:
         return "critica"
-    if absoluto > limite_normal:
+    if absoluto > limite_seguimiento:
         return "preventiva"
+    if absoluto > limite_normal:
+        if previo_abs is not None and previo_abs > limite_normal:
+            return "preventiva"
+        return "seguimiento"
     return "normal"
 
 
@@ -297,7 +309,7 @@ def _alerta(
         "umbral": umbral,
         "detalle": detalle,
         "accion": accion,
-        "notificar": nivel in ("preventiva", "critica"),
+        "notificar": nivel in ("seguimiento", "preventiva", "critica"),
     }
 
 
@@ -313,8 +325,8 @@ def evaluar_noche(horas_por_nodo: Dict[str, Optional[Dict[int, float]]], noche: 
             "etapa5-noche",
             NODO_ETAPA5,
             "Etapa N°5 — noche",
-            lambda total, max_h, racha, previo: nivel_etapa5(total, max_h, racha, previo),
-            "Preventiva: >1 y ≤5 m³/noche, o flujo >0 durante 2 horas. Crítica: >5 m³/noche, >2 m³/h o flujo >0 durante 4 horas.",
+            lambda total, max_h, _racha, previo: nivel_etapa5(total, max_h, previo),
+            "Seguimiento: >1 a 5 m³/noche. Preventiva: >5 a 10 m³/noche. Crítica: >10 m³/noche o >4 m³/h.",
             "Revisar riego abierto o pérdida.",
         ),
         (
@@ -322,7 +334,7 @@ def evaluar_noche(horas_por_nodo: Dict[str, Optional[Dict[int, float]]], noche: 
             NODO_ETAPAS_14,
             "Etapas 1-4 — noche",
             lambda total, max_h, _racha, previo: nivel_etapas_14(total, max_h, previo),
-            "Preventiva: >40 y ≤45 m³/noche, o >12 y ≤15 m³/h. Crítica: >45 m³/noche o >15 m³/h.",
+            "Seguimiento: >40 a 45 m³/noche o >12 a 15 m³/h. Preventiva: >45 a 60 m³/noche o >15 a 20 m³/h. Crítica: >60 m³/noche o >20 m³/h.",
             "Contrastar con el programa de riego.",
         ),
         (
@@ -330,7 +342,7 @@ def evaluar_noche(horas_por_nodo: Dict[str, Optional[Dict[int, float]]], noche: 
             NODO_MATRIZ,
             "Matriz ESVAL — noche",
             lambda total, max_h, _racha, previo: nivel_matriz(total, max_h, previo),
-            "Preventiva: >55 y ≤65 m³/noche, o >25 y ≤30 m³/h. Crítica: >65 m³/noche o >30 m³/h.",
+            "Seguimiento: >55 a 65 m³/noche o >25 a 30 m³/h. Preventiva: >65 a 80 m³/noche o >30 a 35 m³/h. Crítica: >80 m³/noche o >35 m³/h.",
             "Revisar carga de estanques y consumos simultáneos.",
         ),
     )
@@ -351,8 +363,8 @@ def evaluar_noche(horas_por_nodo: Dict[str, Optional[Dict[int, float]]], noche: 
             f"racha con flujo {racha} h. "
             + "; ".join(f"{h:02d}:00={_fmt_m3(float(horas.get(h, 0.0)))}" for h in HORAS_NOCHE)
         )
-        if previo and nivel == "critica" and clasificar(total, max_h, racha, None) == "preventiva":
-            detalle += ". La preventiva del día anterior se mantiene, por eso el nivel pasa a crítico."
+        if nivel == "preventiva" and clasificar(total, max_h, racha, None) == "seguimiento":
+            detalle += ". La alerta de seguimiento se repite, por eso el nivel pasa a preventiva."
         _registrar(estado, noche, regla, nivel, total)
         filas.append(_alerta(noche, periodo, regla, punto, nivel, total, umbral, detalle, accion))
     return filas
@@ -386,7 +398,7 @@ def evaluar_balances(
                 "Matriz ESVAL − Estanque Inferior",
                 "sin_dato",
                 0.0,
-                "Preventiva >21 y ≤25 m³/día. Crítica >25 m³/día o >21 m³ por 2 días.",
+                "Seguimiento >21 a 25 m³/día. Preventiva >25 a 42 m³/día o >21 m³ por 2 días. Crítica >42 m³/día.",
                 "Sin lectura diaria de Matriz o Estanque Inferior.",
                 "Revisar el saldo no explicado por el estanque (capacidad 21 m³).",
             )
@@ -394,8 +406,11 @@ def evaluar_balances(
     else:
         delta = matriz - estanque
         regla = "balance-matriz-estanque"
-        nivel = nivel_balance(delta, 21, 25, _previo_abs(estado, dia, regla))
+        nivel = nivel_balance(delta, 21, 25, 42, _previo_abs(estado, dia, regla))
         _registrar(estado, dia, regla, nivel, delta)
+        detalle_balance = f"Matriz {_fmt_m3(matriz)} m³; Estanque Inferior {_fmt_m3(estanque)} m³; ∆ {_fmt_m3(delta)} m³."
+        if nivel == "preventiva" and nivel_balance(delta, 21, 25, 42) == "seguimiento":
+            detalle_balance += " El saldo supera 21 m³ por segundo día, por eso pasa a preventiva."
         filas.append(
             _alerta(
                 dia,
@@ -404,8 +419,8 @@ def evaluar_balances(
                 "Matriz ESVAL − Estanque Inferior (Estanque del Medio)",
                 nivel,
                 delta,
-                "Normal |∆| ≤21 m³/día. Preventiva >21 y ≤25. Crítica >25, o >21 durante 2 días.",
-                f"Matriz {_fmt_m3(matriz)} m³; Estanque Inferior {_fmt_m3(estanque)} m³; ∆ {_fmt_m3(delta)} m³.",
+                "Seguimiento >21 a 25 m³/día. Preventiva >25 a 42 m³/día o >21 m³ por 2 días. Crítica >42 m³/día.",
+                detalle_balance,
                 "Revisar llenado o descarga del estanque. Sobre 21 m³ hay saldo no explicado por almacenamiento.",
             )
         )
@@ -419,7 +434,7 @@ def evaluar_balances(
                 "Estanque Inferior − etapas",
                 "sin_dato",
                 0.0,
-                "Preventiva >30 y ≤36 m³/día. Crítica >36 m³/día o >30 m³ por 2 días.",
+                "Seguimiento >30 a 36 m³/día. Preventiva >36 a 60 m³/día o >30 m³ por 2 días. Crítica >60 m³/día.",
                 "Sin lectura diaria del estanque o de las etapas.",
                 "Revisar el saldo frente a los estanques de etapa (15 m³ cada uno, 30 m³ en conjunto).",
             )
@@ -428,8 +443,14 @@ def evaluar_balances(
         salida_etapas = etapa5 + etapas14
         delta = estanque - salida_etapas
         regla = "balance-estanque-etapas"
-        nivel = nivel_balance(delta, 30, 36, _previo_abs(estado, dia, regla))
+        nivel = nivel_balance(delta, 30, 36, 60, _previo_abs(estado, dia, regla))
         _registrar(estado, dia, regla, nivel, delta)
+        detalle_balance = (
+            f"Estanque {_fmt_m3(estanque)} m³; Etapa N°5 {_fmt_m3(etapa5)} m³; "
+            f"Etapas 1-4 {_fmt_m3(etapas14)} m³; ∆ {_fmt_m3(delta)} m³."
+        )
+        if nivel == "preventiva" and nivel_balance(delta, 30, 36, 60) == "seguimiento":
+            detalle_balance += " El saldo supera 30 m³ por segundo día, por eso pasa a preventiva."
         filas.append(
             _alerta(
                 dia,
@@ -438,11 +459,8 @@ def evaluar_balances(
                 "Estanque Inferior − (Etapa N°5 + Etapas 1-4)",
                 nivel,
                 delta,
-                "Normal |∆| ≤30 m³/día. Preventiva >30 y ≤36. Crítica >36, o >30 durante 2 días.",
-                (
-                    f"Estanque {_fmt_m3(estanque)} m³; Etapa N°5 {_fmt_m3(etapa5)} m³; "
-                    f"Etapas 1-4 {_fmt_m3(etapas14)} m³; ∆ {_fmt_m3(delta)} m³."
-                ),
+                "Seguimiento >30 a 36 m³/día. Preventiva >36 a 60 m³/día o >30 m³ por 2 días. Crítica >60 m³/día.",
+                detalle_balance,
                 "Sobre 30 m³ debe revisarse el balance de los dos estanques de etapa.",
             )
         )
@@ -480,9 +498,11 @@ def _cuerpo_correo(filas: Sequence[dict]) -> str:
     lineas = [
         "Alerta Fundo Zapallar",
         "",
-        "Reglas del informe de seguimiento: umbrales fijos de noche (00:00 a 06:00) y balance diario.",
-        "Una condición crítica prevalece sobre la preventiva.",
-        "Antes de escalar al fundo, contrastar el evento con riegos, llenados u operaciones extraordinarias.",
+        "Tres niveles: seguimiento, preventiva y crítica. Ventana 00:00 a 06:00 y balance diario.",
+        "La crítica se reserva para consumos excepcionalmente altos.",
+        "Si un seguimiento se repite al día siguiente, pasa a preventiva.",
+        "Seguimiento o preventiva: contrastar con riegos, llenados u operaciones extraordinarias antes de escalar al fundo.",
+        "Crítica: aviso prioritario.",
         "",
     ]
     for fila in filas:
@@ -506,8 +526,12 @@ def enviar_correo(filas: Sequence[dict]) -> None:
         return
     destinatarios = [obtener_email("anibal"), obtener_email("juan")]
     nombres = f"{obtener_nombre('anibal')} y {obtener_nombre('juan')}"
-    hay_critica = any(f["nivel"] == "critica" for f in filas)
-    nivel = "crítica" if hay_critica else "preventiva"
+    if any(f["nivel"] == "critica" for f in filas):
+        nivel = "crítica"
+    elif any(f["nivel"] == "preventiva" for f in filas):
+        nivel = "preventiva"
+    else:
+        nivel = "de seguimiento"
     fechas = sorted({f["fecha"] for f in filas})
     fecha_txt = fechas[0] if len(fechas) == 1 else f"{fechas[0]} a {fechas[-1]}"
     puntos = ", ".join(f["punto"] for f in filas)
@@ -565,7 +589,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     avisos = [f for f in filas if f["notificar"]]
     if not avisos:
-        print("[INFO] Ninguna regla preventiva o crítica. No se envía correo.")
+        print("[INFO] Ninguna regla de seguimiento, preventiva o crítica. No se envía correo.")
         _guardar_estado(estado)
         return 0
 

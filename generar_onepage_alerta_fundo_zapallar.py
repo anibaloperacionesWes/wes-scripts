@@ -1,7 +1,7 @@
 """
 Una página formal de las alertas de Fundo Zapallar, 23-09-2026 al 14-10-2026.
 
-Tres niveles: preventiva (azul), seguimiento (amarillo) y crítica (rojo).
+Tres niveles: seguimiento (azul, tramo bajo), preventiva (amarillo) y crítica (rojo).
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def _fmt(valor: float) -> str:
 
 
 def _color_etapa5(valor: float | None) -> str:
-    """Azul = preventiva (>1 a 5). Amarillo = seguimiento (>5 a 10). Rojo = crítica (>10)."""
+    """Azul = seguimiento (>1 a 5). Amarillo = preventiva (>5 a 10). Rojo = crítica (>10)."""
     if valor is None:
         return OK
     if valor > 10:
@@ -80,7 +80,7 @@ def _color_etapa5(valor: float | None) -> str:
 def _color_nivel(nivel: str) -> str:
     if nivel.startswith("Crítica"):
         return RED
-    if nivel.startswith("Seguimiento"):
+    if nivel.startswith("Preventiva"):
         return AMBER
     return BLUE
 
@@ -121,8 +121,8 @@ def construir() -> Path:
     fig.text(
         0.055,
         0.888,
-        "Tres niveles de aviso: preventiva, seguimiento y crítica. Ventana 00:00 a 06:00. La categoría crítica se reserva para\n"
-        "consumos excepcionalmente altos. Si una preventiva se repite al día siguiente, pasa a seguimiento.\n"
+        "Tres niveles de aviso: seguimiento, preventiva y crítica. Ventana 00:00 a 06:00. La categoría crítica se reserva para\n"
+        "consumos excepcionalmente altos. Si una alerta de seguimiento se repite al día siguiente, pasa a preventiva.\n"
         "Estanque del Medio = Estanque Inferior (000027-02).",
         fontsize=7.6,
         color=INK,
@@ -133,7 +133,7 @@ def construir() -> Path:
     # Tarjetas
     tarjetas = [
         ("49", "alertas en el período"),
-        ("21 / 22", "noches con seguimiento · Etapa N°5"),
+        ("21 / 22", "noches con alerta preventiva · Etapa 5"),
         ("10,30 m³", "máximo nocturno Etapa N°5, 07-10"),
         ("70,82 m³", "máximo nocturno Matriz, 30-09"),
     ]
@@ -209,8 +209,8 @@ def construir() -> Path:
     ax.set_axisbelow(True)
     ax.legend(
         handles=[
-            Patch(facecolor=BLUE, label="Preventiva: >1 a 5 m³"),
-            Patch(facecolor=AMBER, label="Seguimiento: >5 a 10 m³"),
+            Patch(facecolor=BLUE, label="Seguimiento: >1 a 5 m³"),
+            Patch(facecolor=AMBER, label="Preventiva: >5 a 10 m³"),
             Patch(facecolor=RED, label="Crítica: >10 m³ o >4 m³/h"),
             Patch(facecolor=OK, label="29-09 sin alerta"),
         ],
@@ -229,58 +229,58 @@ def construir() -> Path:
     bloques = [
         (
             "Etapas 1-4  ·  noche",
-            "Preventiva >40 a 45 m³ o >12 a 15 m³/h. Seguimiento >45 a 60 m³\n"
+            "Seguimiento >40 a 45 m³ o >12 a 15 m³/h. Preventiva >45 a 60 m³\n"
             "o >15 a 20 m³/h. Crítica >60 m³ o >20 m³/h.",
             [
-                ("23-09", "40,36 m³", "Preventiva"),
-                ("27-09", "39,13 m³ · máx. 12,24", "Preventiva"),
-                ("29-09", "37,02 m³ · máx. 13,08", "Preventiva"),
-                ("30-09", "44,72 m³", "Seguimiento, se repite"),
-                ("02-10", "47,05 m³", "Seguimiento"),
-                ("03-10", "42,78 m³", "Seguimiento, se repite"),
-                ("04-10", "33,37 m³ · máx. 12,49", "Seguimiento, se repite"),
-                ("05-10", "41,62 m³", "Seguimiento, se repite"),
+                ("23-09", "40,36 m³", "Seguimiento"),
+                ("27-09", "39,13 m³ · máx. 12,24", "Seguimiento"),
+                ("29-09", "37,02 m³ · máx. 13,08", "Seguimiento"),
+                ("30-09", "44,72 m³", "Preventiva, se repite"),
+                ("02-10", "47,05 m³", "Preventiva"),
+                ("03-10", "42,78 m³", "Preventiva, se repite"),
+                ("04-10", "33,37 m³ · máx. 12,49", "Preventiva, se repite"),
+                ("05-10", "41,62 m³", "Preventiva, se repite"),
             ],
         ),
         (
             "Matriz ESVAL  ·  noche",
-            "Preventiva >55 a 65 m³ o >25 a 30 m³/h. Seguimiento >65 a 80 m³\n"
+            "Seguimiento >55 a 65 m³ o >25 a 30 m³/h. Preventiva >65 a 80 m³\n"
             "o >30 a 35 m³/h. Crítica >80 m³ o >35 m³/h.",
             [
-                ("28-09", "58,20 m³", "Preventiva"),
-                ("30-09", "70,82 m³", "Seguimiento"),
-                ("01-10", "60,83 m³", "Seguimiento, se repite"),
-                ("02-10", "59,25 m³", "Seguimiento, se repite"),
-                ("03-10", "70,33 m³", "Seguimiento"),
-                ("05-10", "57,30 m³", "Preventiva"),
-                ("07-10", "58,27 m³", "Preventiva"),
+                ("28-09", "58,20 m³", "Seguimiento"),
+                ("30-09", "70,82 m³", "Preventiva"),
+                ("01-10", "60,83 m³", "Preventiva, se repite"),
+                ("02-10", "59,25 m³", "Preventiva, se repite"),
+                ("03-10", "70,33 m³", "Preventiva"),
+                ("05-10", "57,30 m³", "Seguimiento"),
+                ("07-10", "58,27 m³", "Seguimiento"),
             ],
         ),
         (
             "Matriz − Estanque Inferior  ·  día",
-            "Preventiva >21 a 25 m³. Seguimiento >25 a 42 m³ o >21 m³ durante\n"
+            "Seguimiento >21 a 25 m³. Preventiva >25 a 42 m³ o >21 m³ durante\n"
             "2 días. Crítica >42 m³.",
             [
-                ("23-09", "23,02 m³", "Seguimiento, viene de 28,66 el 22-09"),
-                ("01-10", "36,43 m³", "Seguimiento"),
-                ("03-10", "25,96 m³", "Seguimiento"),
-                ("05-10", "23,31 m³", "Preventiva"),
-                ("07-10", "29,47 m³", "Seguimiento"),
-                ("13-10", "23,54 m³", "Preventiva"),
+                ("23-09", "23,02 m³", "Preventiva, viene de 28,66 el 22-09"),
+                ("01-10", "36,43 m³", "Preventiva"),
+                ("03-10", "25,96 m³", "Preventiva"),
+                ("05-10", "23,31 m³", "Seguimiento"),
+                ("07-10", "29,47 m³", "Preventiva"),
+                ("13-10", "23,54 m³", "Seguimiento"),
             ],
         ),
         (
             "Estanque − (Etapa N°5 + Etapas 1-4)  ·  día",
-            "Preventiva >30 a 36 m³. Seguimiento >36 a 60 m³ o >30 m³ durante\n"
+            "Seguimiento >30 a 36 m³. Preventiva >36 a 60 m³ o >30 m³ durante\n"
             "2 días. Crítica >60 m³.",
             [
-                ("23-09", "31,92 m³", "Preventiva"),
-                ("24-09", "41,12 m³", "Seguimiento"),
-                ("26-09", "35,35 m³", "Preventiva"),
-                ("09-10", "40,08 m³", "Seguimiento"),
-                ("10-10", "40,28 m³", "Seguimiento"),
-                ("11-10", "32,88 m³", "Seguimiento, se repite"),
-                ("12-10", "40,60 m³", "Seguimiento"),
+                ("23-09", "31,92 m³", "Seguimiento"),
+                ("24-09", "41,12 m³", "Preventiva"),
+                ("26-09", "35,35 m³", "Seguimiento"),
+                ("09-10", "40,08 m³", "Preventiva"),
+                ("10-10", "40,28 m³", "Preventiva"),
+                ("11-10", "32,88 m³", "Preventiva, se repite"),
+                ("12-10", "40,60 m³", "Preventiva"),
             ],
         ),
     ]
@@ -310,7 +310,7 @@ def construir() -> Path:
     fig.text(
         0.055,
         0.012,
-        "WES SpA  ·  Documento de una página para revisión interna. Una alerta preventiva o de seguimiento requiere contraste con riegos, llenados u operaciones\n"
+        "WES SpA  ·  Documento de una página para revisión interna. Una alerta de seguimiento o preventiva requiere contraste con riegos, llenados u operaciones\n"
         "extraordinarias antes de escalar al fundo. Una alerta crítica requiere aviso prioritario. El 14-10 el día calendario aún no estaba cerrado; el balance no se incluye.",
         fontsize=6.2,
         color=MUTED,
