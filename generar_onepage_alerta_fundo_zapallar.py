@@ -1,7 +1,7 @@
 """
 Una página formal de las alertas de Fundo Zapallar, 23-09-2026 al 14-10-2026.
 
-Usa la serie ya evaluada con las reglas del informe de seguimiento.
+Tres niveles: preventiva (azul), seguimiento (amarillo) y crítica (rojo).
 """
 
 from __future__ import annotations
@@ -66,6 +66,25 @@ def _fmt(valor: float) -> str:
     return f"{valor:.2f}".replace(".", ",")
 
 
+def _color_etapa5(valor: float | None) -> str:
+    """Azul = preventiva (>1 a 5). Amarillo = seguimiento (>5 a 10). Rojo = crítica (>10)."""
+    if valor is None:
+        return OK
+    if valor > 10:
+        return RED
+    if valor > 5:
+        return AMBER
+    return BLUE
+
+
+def _color_nivel(nivel: str) -> str:
+    if nivel.startswith("Crítica"):
+        return RED
+    if nivel.startswith("Seguimiento"):
+        return AMBER
+    return BLUE
+
+
 def construir() -> Path:
     OUT.parent.mkdir(parents=True, exist_ok=True)
     dias = _dias()
@@ -98,13 +117,14 @@ def construir() -> Path:
         ha="right",
     )
 
-    fig.text(0.055, 0.905, "Alertas nocturnas y balances diarios", fontsize=15, color=NAVY, fontweight="bold")
+    fig.text(0.055, 0.908, "Alertas nocturnas y balances diarios", fontsize=15, color=NAVY, fontweight="bold")
     fig.text(
         0.055,
-        0.878,
-        "Umbrales fijos del informe de seguimiento. Ventana 00:00 a 06:00. Una condición crítica prevalece;\n"
-        "si una preventiva se repite al día siguiente, el nivel pasa a crítico. Estanque del Medio = Estanque Inferior (000027-02).",
-        fontsize=8,
+        0.888,
+        "Tres niveles de aviso: preventiva, seguimiento y crítica. Ventana 00:00 a 06:00. La categoría crítica se reserva para\n"
+        "consumos excepcionalmente altos. Si una preventiva se repite al día siguiente, pasa a seguimiento.\n"
+        "Estanque del Medio = Estanque Inferior (000027-02).",
+        fontsize=7.6,
         color=INK,
         va="top",
         linespacing=1.35,
@@ -113,50 +133,60 @@ def construir() -> Path:
     # Tarjetas
     tarjetas = [
         ("49", "alertas en el período"),
-        ("21 / 22", "noches críticas en Etapa N°5"),
+        ("21 / 22", "noches con seguimiento · Etapa N°5"),
         ("10,30 m³", "máximo nocturno Etapa N°5, 07-10"),
         ("70,82 m³", "máximo nocturno Matriz, 30-09"),
     ]
+    acentos = [BLUE, AMBER, RED, "#C5D0D6"]
     for i, (grande, etiqueta) in enumerate(tarjetas):
-        ax = fig.add_axes([0.055 + i * 0.232, 0.785, 0.215, 0.062])
+        ax = fig.add_axes([0.055 + i * 0.232, 0.798, 0.215, 0.055])
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.axis("off")
         ax.add_patch(plt.Rectangle((0, 0), 1, 1, facecolor="#F4F7F9", edgecolor="#D5DEE5", lw=0.6))
-        ax.add_patch(plt.Rectangle((0, 0), 0.025, 1, color=BLUE if i < 3 else RED))
+        ax.add_patch(plt.Rectangle((0, 0), 0.025, 1, color=acentos[i]))
         ax.text(0.10, 0.62, grande, fontsize=12, color=NAVY, fontweight="bold", va="center")
         ax.text(0.10, 0.26, etiqueta, fontsize=6.4, color=MUTED, va="center")
 
-    ax = fig.add_axes([0.09, 0.548, 0.70, 0.192])
+    ax = fig.add_axes([0.055, 0.568, 0.62, 0.188])
     xs = list(range(len(dias)))
     valores = [ETAPA5[d] for d in dias]
-    colores = []
-    for valor in valores:
-        if valor is None:
-            colores.append(OK)
-        elif valor > 5:
-            colores.append(RED)
-        else:
-            colores.append(AMBER)
+    colores = [_color_etapa5(valor) for valor in valores]
     altos = [0 if v is None else v for v in valores]
     ax.bar(xs, altos, color=colores, width=0.78, zorder=3)
     for x, valor in zip(xs, valores):
         if valor is None:
             continue
-        ax.text(
-            x,
-            valor + 0.18,
-            _fmt(valor),
-            ha="center",
-            va="bottom",
-            rotation=90,
-            fontsize=5.7,
-            color=INK,
-            clip_on=False,
-            zorder=4,
-        )
-    ax.axhline(5, color=RED, lw=0.9, ls="--", zorder=2)
-    ax.axhline(1, color=AMBER, lw=0.8, ls=":", zorder=2)
+        # El rótulo vertical de 9,00 cruzaría la línea de crítica (10 m³).
+        if valor <= 10 and valor + 1.35 > 10:
+            ax.text(
+                x,
+                valor - 0.12,
+                _fmt(valor),
+                ha="center",
+                va="top",
+                rotation=90,
+                fontsize=5.7,
+                color="white",
+                clip_on=False,
+                zorder=4,
+            )
+        else:
+            ax.text(
+                x,
+                valor + 0.18,
+                _fmt(valor),
+                ha="center",
+                va="bottom",
+                rotation=90,
+                fontsize=5.7,
+                color=INK,
+                clip_on=False,
+                zorder=4,
+            )
+    ax.axhline(1, color=BLUE, lw=0.8, ls=":", zorder=2)
+    ax.axhline(5, color=AMBER, lw=0.8, ls="--", zorder=2)
+    ax.axhline(10, color=RED, lw=0.9, ls="-", zorder=2)
     ax.set_xlim(-0.6, len(dias) - 0.4)
     ax.set_ylim(0, 13.6)
     ax.set_ylabel("m³ por noche", fontsize=8, color=INK)
@@ -168,7 +198,8 @@ def construir() -> Path:
         pad=8,
     )
     ax.set_xticks(xs)
-    ax.set_xticklabels([d.strftime("%d-%m") for d in dias], rotation=90, fontsize=6.2, color=MUTED)
+    ax.set_xticklabels([d.strftime("%d-%m") for d in dias], rotation=90, fontsize=5.8, color=MUTED)
+    ax.tick_params(axis="x", pad=1)
     ax.tick_params(axis="y", labelsize=7, colors=MUTED)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -178,79 +209,87 @@ def construir() -> Path:
     ax.set_axisbelow(True)
     ax.legend(
         handles=[
-            Patch(facecolor=RED, label="Total > 5 m³"),
-            Patch(facecolor=AMBER, label="Hora > 2 m³/h"),
+            Patch(facecolor=BLUE, label="Preventiva: >1 a 5 m³"),
+            Patch(facecolor=AMBER, label="Seguimiento: >5 a 10 m³"),
+            Patch(facecolor=RED, label="Crítica: >10 m³ o >4 m³/h"),
             Patch(facecolor=OK, label="29-09 sin alerta"),
         ],
         frameon=False,
-        fontsize=7,
+        fontsize=6.4,
         loc="center left",
-        bbox_to_anchor=(1.02, 0.72),
+        bbox_to_anchor=(1.03, 0.62),
         borderaxespad=0,
+        handlelength=1.1,
+        handleheight=0.8,
+        labelspacing=0.55,
     )
 
-    fig.text(0.055, 0.505, "Otras reglas que se cumplieron", fontsize=11, color=NAVY, fontweight="bold")
+    fig.text(0.055, 0.512, "Otras reglas que se cumplieron", fontsize=11, color=NAVY, fontweight="bold")
 
     bloques = [
         (
             "Etapas 1-4  ·  noche",
-            "Preventiva >40 y ≤45 m³, o >12 y ≤15 m³/h. Crítica >45 m³ o >15 m³/h.",
+            "Preventiva >40 a 45 m³ o >12 a 15 m³/h. Seguimiento >45 a 60 m³\n"
+            "o >15 a 20 m³/h. Crítica >60 m³ o >20 m³/h.",
             [
                 ("23-09", "40,36 m³", "Preventiva"),
                 ("27-09", "39,13 m³ · máx. 12,24", "Preventiva"),
                 ("29-09", "37,02 m³ · máx. 13,08", "Preventiva"),
-                ("30-09", "44,72 m³", "Crítica, se repite"),
-                ("02-10", "47,05 m³", "Crítica"),
-                ("03-10", "42,78 m³", "Crítica, se repite"),
-                ("04-10", "33,37 m³ · máx. 12,49", "Crítica, se repite"),
-                ("05-10", "41,62 m³", "Crítica, se repite"),
+                ("30-09", "44,72 m³", "Seguimiento, se repite"),
+                ("02-10", "47,05 m³", "Seguimiento"),
+                ("03-10", "42,78 m³", "Seguimiento, se repite"),
+                ("04-10", "33,37 m³ · máx. 12,49", "Seguimiento, se repite"),
+                ("05-10", "41,62 m³", "Seguimiento, se repite"),
             ],
         ),
         (
             "Matriz ESVAL  ·  noche",
-            "Preventiva >55 y ≤65 m³, o >25 y ≤30 m³/h. Crítica >65 m³ o >30 m³/h.",
+            "Preventiva >55 a 65 m³ o >25 a 30 m³/h. Seguimiento >65 a 80 m³\n"
+            "o >30 a 35 m³/h. Crítica >80 m³ o >35 m³/h.",
             [
                 ("28-09", "58,20 m³", "Preventiva"),
-                ("30-09", "70,82 m³", "Crítica"),
-                ("01-10", "60,83 m³", "Crítica, se repite"),
-                ("02-10", "59,25 m³", "Crítica, se repite"),
-                ("03-10", "70,33 m³", "Crítica"),
+                ("30-09", "70,82 m³", "Seguimiento"),
+                ("01-10", "60,83 m³", "Seguimiento, se repite"),
+                ("02-10", "59,25 m³", "Seguimiento, se repite"),
+                ("03-10", "70,33 m³", "Seguimiento"),
                 ("05-10", "57,30 m³", "Preventiva"),
                 ("07-10", "58,27 m³", "Preventiva"),
             ],
         ),
         (
             "Matriz − Estanque Inferior  ·  día",
-            "Preventiva >21 y ≤25 m³. Crítica >25 m³, o >21 m³ durante 2 días.",
+            "Preventiva >21 a 25 m³. Seguimiento >25 a 42 m³ o >21 m³ durante\n"
+            "2 días. Crítica >42 m³.",
             [
-                ("23-09", "23,02 m³", "Crítica, viene de 28,66 el 22-09"),
-                ("01-10", "36,43 m³", "Crítica"),
-                ("03-10", "25,96 m³", "Crítica"),
+                ("23-09", "23,02 m³", "Seguimiento, viene de 28,66 el 22-09"),
+                ("01-10", "36,43 m³", "Seguimiento"),
+                ("03-10", "25,96 m³", "Seguimiento"),
                 ("05-10", "23,31 m³", "Preventiva"),
-                ("07-10", "29,47 m³", "Crítica"),
+                ("07-10", "29,47 m³", "Seguimiento"),
                 ("13-10", "23,54 m³", "Preventiva"),
             ],
         ),
         (
             "Estanque − (Etapa N°5 + Etapas 1-4)  ·  día",
-            "Preventiva >30 y ≤36 m³. Crítica >36 m³, o >30 m³ durante 2 días.",
+            "Preventiva >30 a 36 m³. Seguimiento >36 a 60 m³ o >30 m³ durante\n"
+            "2 días. Crítica >60 m³.",
             [
                 ("23-09", "31,92 m³", "Preventiva"),
-                ("24-09", "41,12 m³", "Crítica"),
+                ("24-09", "41,12 m³", "Seguimiento"),
                 ("26-09", "35,35 m³", "Preventiva"),
-                ("09-10", "40,08 m³", "Crítica"),
-                ("10-10", "40,28 m³", "Crítica"),
-                ("11-10", "32,88 m³", "Crítica, se repite"),
-                ("12-10", "40,60 m³", "Crítica"),
+                ("09-10", "40,08 m³", "Seguimiento"),
+                ("10-10", "40,28 m³", "Seguimiento"),
+                ("11-10", "32,88 m³", "Seguimiento, se repite"),
+                ("12-10", "40,60 m³", "Seguimiento"),
             ],
         ),
     ]
 
     cajas = [
-        (0.055, 0.255, 0.44, 0.205),
-        (0.515, 0.255, 0.43, 0.205),
-        (0.055, 0.055, 0.44, 0.185),
-        (0.515, 0.055, 0.43, 0.185),
+        (0.055, 0.272, 0.44, 0.210),
+        (0.515, 0.272, 0.43, 0.210),
+        (0.055, 0.046, 0.44, 0.208),
+        (0.515, 0.046, 0.43, 0.208),
     ]
     for (titulo, criterio, filas), (x0, y0, ancho, alto) in zip(bloques, cajas):
         axb = fig.add_axes([x0, y0, ancho, alto])
@@ -258,22 +297,22 @@ def construir() -> Path:
         axb.set_ylim(0, 1)
         axb.axis("off")
         axb.add_patch(plt.Rectangle((0, 0), 1, 1, facecolor="#F8FAFB", edgecolor="#E1E8ED", lw=0.6))
-        axb.text(0.04, 0.90, titulo, fontsize=8, color=NAVY, fontweight="bold", va="center")
-        axb.text(0.04, 0.76, criterio, fontsize=5.7, color=MUTED, va="center")
-        paso = 0.58 / max(len(filas), 1)
+        axb.text(0.04, 0.92, titulo, fontsize=8, color=NAVY, fontweight="bold", va="center")
+        axb.text(0.04, 0.80, criterio, fontsize=5.5, color=MUTED, va="top", linespacing=1.25)
+        paso = 0.62 / max(len(filas), 1)
         for i, (fecha, valor, nivel) in enumerate(filas):
-            yy = 0.62 - i * paso
-            color = RED if nivel.startswith("Crítica") else AMBER
+            yy = 0.64 - i * paso
+            color = _color_nivel(nivel)
             axb.plot([0.045], [yy], marker="o", color=color, markersize=4.5, transform=axb.transAxes)
-            axb.text(0.09, yy, f"{fecha}    {valor}", fontsize=6.7, color=INK, va="center")
-            axb.text(0.97, yy, nivel, fontsize=6.2, color=color, va="center", ha="right")
+            axb.text(0.09, yy, f"{fecha}    {valor}", fontsize=6.5, color=INK, va="center")
+            axb.text(0.97, yy, nivel, fontsize=6.0, color=color, va="center", ha="right")
 
     fig.text(
         0.055,
-        0.028,
-        "WES SpA  ·  Documento de una página para revisión interna. No reemplaza el contraste con riegos, llenados u operaciones extraordinarias\n"
-        "antes de escalar al fundo. El 14-10 el día calendario aún no estaba cerrado: el balance de esa fecha no se incluye. El 29-09 Etapa N°5 no alertó.",
-        fontsize=6.4,
+        0.012,
+        "WES SpA  ·  Documento de una página para revisión interna. Una alerta preventiva o de seguimiento requiere contraste con riegos, llenados u operaciones\n"
+        "extraordinarias antes de escalar al fundo. Una alerta crítica requiere aviso prioritario. El 14-10 el día calendario aún no estaba cerrado; el balance no se incluye.",
+        fontsize=6.2,
         color=MUTED,
         va="bottom",
     )
