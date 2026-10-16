@@ -1,0 +1,15 @@
+{
+  "punto": "Matriz ESVAL",
+  "node_id": "000027-01",
+  "medidor": "Itron FLOSTAR S",
+  "serie": "A1131586B",
+  "fecha_hora": "2026-10-14T17:08:05-03:00",
+  "lectura_m3": 386822.3,
+  "foto": "matriz_esval_20261014_1708.jpg",
+  "ubicacion": "Ruta E-30-F 30, Zapallar, Región de Valparaíso, Chile",
+  "referencia_validacion_anterior": {
+    "fecha_hora": "2026-10-02T13:22:00-03:00",
+    "lectura_m3": 385430.8,
+    "delta_m3": 1391.5
+  }
+}
