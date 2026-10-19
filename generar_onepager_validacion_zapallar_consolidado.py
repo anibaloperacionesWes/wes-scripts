@@ -32,26 +32,11 @@ AMBER_TXT = HexColor("#E65100")
 RED_BG = HexColor("#FFEBEE")
 RED_TXT = HexColor("#B71C1C")
 
-# Campañas (orden cronológico). error = 1 − reloj/app.
+# Campañas desde la 3ª validación en adelante (orden cronológico).
+# error = 1 − reloj/app.
 CAMPANIAS = [
     {
         "id": "1",
-        "ventana": "22-09 (mismo día)",
-        "detalle": "11:50 → 15:00 · ultrasónico vs Itron",
-        "matriz": {"reloj": 21.74, "app": 22.39, "error": 2.9, "lectura": "Aceptable"},
-        "etapa5": None,  # no aplica
-        "nota": "Ajuste DN/mortero/M45 en terreno.",
-    },
-    {
-        "id": "2",
-        "ventana": "22-09 → 28-09",
-        "detalle": "Validación única FINAL (cliente)",
-        "matriz": {"reloj": 758.49, "app": 785.88, "error": 3.5, "lectura": "Aceptable"},
-        "etapa5": {"reloj": 81.0, "app": 65.8, "error": 18.8, "lectura": "Revisar"},
-        "nota": "Etapa 5 incluye día de intervención de placa.",
-    },
-    {
-        "id": "3",
         "ventana": "23-09 → 02-10",
         "detalle": "Relojería post-intervención",
         "matriz": {"reloj": 1281.9, "app": 1309.56, "error": 2.1, "lectura": "Aceptable"},
@@ -59,7 +44,7 @@ CAMPANIAS = [
         "nota": "Cierre con fotos del 02-10.",
     },
     {
-        "id": "4",
+        "id": "2",
         "ventana": "02-10 → 14-10",
         "detalle": "Fotos tarde 14-10 + Excel app",
         "matriz": {"reloj": 1391.5, "app": 1425.87, "error": 2.4, "lectura": "Aceptable"},
@@ -67,7 +52,7 @@ CAMPANIAS = [
         "nota": "Horas completas; excluye hora de cada foto.",
     },
     {
-        "id": "5",
+        "id": "3",
         "ventana": "02-10 → 15-10",
         "detalle": "Fotos mañana 15-10 + mismo Excel",
         "matriz": {"reloj": 1458.9, "app": 1496.32, "error": 2.5, "lectura": "Aceptable"},
@@ -191,9 +176,8 @@ def build_docx(path: Path) -> None:
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     r = p.add_run(
-        "Matriz ESVAL se mantiene estable entre 2,1 % y 3,5 % (app por encima del Itron). "
-        "Etapa N°5 cierra excelente/aceptable en las campañas post-placa (0,3 % → 1,4 %); "
-        "el 18,8 % del 22–28/09 corresponde a la ventana que incluye el día de intervención de memoria. "
+        "Desde la relojería del 23-09 → 02-10, Matriz ESVAL se mantiene entre 2,1 % y 2,5 % "
+        "(app por encima del Itron). Etapa N°5 cierra excelente/aceptable (0,3 % → 1,4 %). "
         "Última campaña vigente: 02-10 → 15-10 (Matriz 2,5 %, Etapa 5 1,4 %)."
     )
     _font_docx(r, size=9)
@@ -373,9 +357,8 @@ def build_pdf(path: Path, logo: Path | None) -> None:
     c.setFillColor(HexColor("#1B3A1D"))
     c.setFont("Helvetica", 7.8)
     lines = [
-        "Matriz ESVAL se mantiene estable entre 2,1 % y 3,5 % (app por encima del Itron).",
-        "Etapa N°5 cierra excelente/aceptable post-placa (0,3 % → 1,4 %). El 18,8 % del 22–28/09",
-        "incluye el día de intervención de memoria de placa.",
+        "Desde la relojería del 23-09 → 02-10, Matriz ESVAL se mantiene entre 2,1 % y 2,5 %",
+        "(app por encima del Itron). Etapa N°5 cierra excelente/aceptable (0,3 % → 1,4 %).",
         "Última campaña vigente: 02-10 → 15-10 · Matriz 2,5 % · Etapa 5 1,4 %.",
     ]
     ty = y - 0.7 * cm
