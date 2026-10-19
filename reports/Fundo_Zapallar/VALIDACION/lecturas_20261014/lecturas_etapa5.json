@@ -1,0 +1,16 @@
+{
+  "punto": "Etapa N°5",
+  "node_id": "000027-03",
+  "medidor": "Sensus MeiStream Plus 100",
+  "serie": "SEN01 2370 9030",
+  "hri": "HRI-Mei B4 · 31730485",
+  "fecha_hora": "2026-10-14T17:00:22",
+  "lectura_m3": 5611.1,
+  "lectura_interpretacion": "rodillos 005611 + decimal rojo 1 → 5611,1 m³",
+  "foto": "etapa5_20261014_1700.png",
+  "referencia_validacion_anterior": {
+    "fecha_hora": "2026-10-02T08:44:00",
+    "lectura_m3": 5369.0,
+    "delta_m3": 242.1
+  }
+}
