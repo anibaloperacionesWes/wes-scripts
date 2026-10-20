@@ -24,11 +24,13 @@ El aviso a Aníbal y Juan indica el punto, la regla, el valor, el umbral y el pe
 from __future__ import annotations
 
 import argparse
+import base64
 import csv
 import json
 import os
 import smtplib
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
@@ -52,6 +54,12 @@ if sys.platform == "win32":
 
 CHILE_TZ = ZoneInfo("America/Santiago")
 BASE_URL = "http://104.248.53.141:7003/wes/api/acl-node/v1"
+# La app entra por api-rest.wes.cl. El puerto 7003 de la IP pública suele no responder desde este agente.
+APP_API = "https://api-rest.wes.cl/wes/api/acl-node/v1"
+APP_LOGIN = "https://api-rest.wes.cl/wes/api/wes-mc-api/v1/login"
+APP_BFF = "https://api-rest.wes.cl/q"
+_TOKEN_APP: Optional[str] = None
+_TOKEN_LOCK = threading.Lock()
 HORAS_NOCHE: Tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6)
 HORA_CIERRE_VENTANA = 7
 
@@ -224,13 +232,83 @@ def _parse_horas_csv(csv_content: str, dia: date) -> Optional[Dict[int, float]]:
     return por_hora
 
 
+def _password_app() -> str:
+    p = os.environ.get("WES_APP_PASSWORD", "").strip()
+    if p:
+        return p
+    f = ROOT / "gmail_oauth" / "wes_app_password.txt"
+    if f.is_file():
+        for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#"):
+                return line
+    return ""
+
+
+def _token_app() -> Optional[str]:
+    """Token de la app (dashboard.wes.cl). None si no hay contraseña configurada."""
+    global _TOKEN_APP
+    with _TOKEN_LOCK:
+        if _TOKEN_APP:
+            return _TOKEN_APP
+        password = _password_app()
+        if not password:
+            return None
+        usuario = os.environ.get("WES_APP_USER", "").strip() or "agente.ia@wes.cl"
+        sobre = json.dumps(
+            {"m": "POST", "u": APP_LOGIN, "b": {"username": usuario, "password": password}},
+            separators=(",", ":"),
+        )
+        resp = requests.post(
+            APP_BFF,
+            data=base64.b64encode(sobre.encode()).decode(),
+            headers={"Content-Type": "text/plain"},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        token = resp.text.strip().strip('"')
+        if token.count(".") != 2:
+            raise requests.RequestException("La app no devolvió un token de sesión")
+        _TOKEN_APP = token
+        return _TOKEN_APP
+
+
+def _descargar_dia_app(node_id: str, dia: date) -> Optional[Dict[int, float]]:
+    token = _token_app()
+    if not token:
+        return None
+    fecha = dia.strftime("%d%m%Y")
+    url = f"{APP_API}/nodes/{node_id}/dates.measures.csv?start={fecha}&end={fecha}"
+    sobre = json.dumps({"m": "GET", "u": url, "b": None}, separators=(",", ":"))
+    resp = requests.post(
+        APP_BFF,
+        data=base64.b64encode(sobre.encode()).decode(),
+        headers={"Content-Type": "text/plain", "authorization": token},
+        timeout=60,
+    )
+    if resp.status_code in (401, 403):
+        global _TOKEN_APP
+        with _TOKEN_LOCK:
+            _TOKEN_APP = None
+        resp.raise_for_status()
+    resp.raise_for_status()
+    return _parse_horas_csv(resp.text, dia)
+
+
 def _descargar_dia(node_id: str, dia: date, intentos: int = 3) -> Optional[Dict[int, float]]:
-    url = f"{BASE_URL}/nodes/{node_id}/dates.measures.csv"
     fecha = dia.strftime("%d%m%Y")
     ultimo_error = ""
+    if _password_app():
+        for intento in range(intentos):
+            try:
+                return _descargar_dia_app(node_id, dia)
+            except requests.RequestException as exc:
+                ultimo_error = str(exc)
+                time.sleep(0.4 * (intento + 1))
+    url = f"{BASE_URL}/nodes/{node_id}/dates.measures.csv"
     for intento in range(intentos):
         try:
-            resp = requests.get(url, params=[("start", fecha), ("end", fecha)], timeout=45)
+            resp = requests.get(url, params=[("start", fecha), ("end", fecha)], timeout=20)
             resp.raise_for_status()
             return _parse_horas_csv(resp.text, dia)
         except requests.RequestException as exc:
