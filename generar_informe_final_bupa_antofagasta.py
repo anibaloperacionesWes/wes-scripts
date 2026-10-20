@@ -113,20 +113,21 @@ def _add_para(
     )
 
 
-def _add_title(doc: Document, text: str, *, size: int = 14) -> None:
+def _add_title(doc: Document, text: str, *, size: int = 13) -> None:
+    """Títulos de sección sobrios (estilo reportes WES, sin bloque navy)."""
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(8)
+    p.paragraph_format.space_before = Pt(10)
     p.paragraph_format.space_after = Pt(6)
     r = p.add_run(text)
-    _set_run(r, size=size, bold=True, color=RGBColor(0, 51, 102))
+    _set_run(r, size=size, bold=True, color=RGBColor(47, 84, 150))
 
 
 def _add_subtitle(doc: Document, text: str) -> None:
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(6)
+    p.paragraph_format.space_before = Pt(8)
     p.paragraph_format.space_after = Pt(4)
     r = p.add_run(text)
-    _set_run(r, size=11, bold=True, color=RGBColor(0, 51, 102))
+    _set_run(r, size=11, bold=True, color=RGBColor(55, 65, 81))
 
 
 def _page_break(doc: Document) -> None:
@@ -159,15 +160,16 @@ def _center_table(table) -> None:
 
 
 def _shade_header(row) -> None:
+    """Cabecera clara estilo WES (D9E1F2), sin rectángulo navy + blanco."""
     for cell in row.cells:
         tcPr = cell._tc.get_or_add_tcPr()
         shd = OxmlElement("w:shd")
-        shd.set(qn("w:fill"), "003366")
+        shd.set(qn("w:fill"), "D9E1F2")
         shd.set(qn("w:val"), "clear")
         tcPr.append(shd)
         for para in cell.paragraphs:
             for run in para.runs:
-                run.font.color.rgb = RGBColor(255, 255, 255)
+                run.font.color.rgb = RGBColor(31, 56, 100)
                 run.bold = True
                 run.font.size = Pt(9)
 
@@ -190,20 +192,28 @@ def _add_table(doc: Document, headers: list, rows: list, *, compact: bool = Fals
 
 
 def _add_kpi_table(doc: Document, rows: List[Tuple[str, str]]) -> None:
-    """Tabla compacta estilo modelo BPA (Indicador | Valor)."""
+    """Tabla compacta Indicador | Valor (sin negritas agresivas)."""
     table = doc.add_table(rows=len(rows), cols=2)
     table.style = "Table Grid"
     for i, (k, v) in enumerate(rows):
         table.rows[i].cells[0].text = ""
         table.rows[i].cells[1].text = ""
+        # fila alternada muy suave
+        if i % 2 == 0:
+            for cell in table.rows[i].cells:
+                tcPr = cell._tc.get_or_add_tcPr()
+                shd = OxmlElement("w:shd")
+                shd.set(qn("w:fill"), "F7F9FC")
+                shd.set(qn("w:val"), "clear")
+                tcPr.append(shd)
         r0 = table.rows[i].cells[0].paragraphs[0].add_run(k)
         r1 = table.rows[i].cells[1].paragraphs[0].add_run(v)
-        _set_run(r0, size=9, bold=True)
-        _set_run(r1, size=9)
+        _set_run(r0, size=9, bold=False, color=RGBColor(55, 65, 81))
+        _set_run(r1, size=9, bold=False, color=RGBColor(17, 24, 39))
         table.rows[i].cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
         table.rows[i].cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    doc.add_paragraph().paragraph_format.space_after = Pt(4)
+    doc.add_paragraph().paragraph_format.space_after = Pt(6)
 
 
 def _setup(doc: Document) -> None:
@@ -240,20 +250,27 @@ def _pick_max_min_near(
 
 
 def _chart_daily(pts: List[Tuple[date, float]], path: Path, title: str) -> None:
-    fig, ax = plt.subplots(figsize=(9.2, 2.55))
+    fig, ax = plt.subplots(figsize=(9.0, 2.45))
     dates = [datetime.combine(d, datetime.min.time()) for d, _ in pts]
     vals = [v for _, v in pts]
-    ax.plot(dates, vals, marker="o", markersize=2.2, color="#0050b3", lw=1.4)
-    ax.fill_between(dates, vals, alpha=0.22, color="#0050b3")
-    ax.set_title(title, fontsize=11, fontweight="bold", pad=4)
-    ax.set_ylabel("m³", fontsize=9)
+    ax.fill_between(dates, vals, color="#B7D4F0", alpha=0.55)
+    ax.plot(dates, vals, color="#3A7CC9", lw=1.5, marker="o", markersize=2.0,
+            markerfacecolor="white", markeredgecolor="#3A7CC9", markeredgewidth=0.8)
+    ax.set_title(title, fontsize=10, color="#1F3864", pad=6, loc="left")
+    ax.set_ylabel("m³", fontsize=8, color="#666666")
     ax.set_ylim(bottom=0)
     ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(dates) // 10)))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%b"))
-    plt.setp(ax.xaxis.get_majorticklabels(), rotation=35, ha="right", fontsize=7)
-    ax.grid(True, ls="--", alpha=0.3, axis="y")
-    fig.tight_layout(pad=0.3)
-    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=30, ha="right", fontsize=7, color="#666666")
+    ax.tick_params(axis="y", labelsize=7, colors="#666666")
+    ax.yaxis.grid(True, color="#EEEEEE", lw=0.8)
+    ax.set_axisbelow(True)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    ax.spines["left"].set_color("#DDDDDD")
+    ax.spines["bottom"].set_color("#DDDDDD")
+    fig.tight_layout(pad=0.35)
+    fig.savefig(path, dpi=160, bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
 
@@ -262,9 +279,9 @@ def _chart_dow(pts: List[Tuple[date, float]], path: Path, title: str) -> Dict[st
     for d, v in pts:
         buckets[d.weekday()].append(v)
     avgs = {DAY_ES[i]: (sum(buckets[i]) / len(buckets[i]) if buckets[i] else 0.0) for i in range(7)}
-    fig, ax = plt.subplots(figsize=(9.0, 2.35))
+    fig, ax = plt.subplots(figsize=(8.8, 2.3))
     values = [avgs[d] for d in DAY_ES]
-    bars = ax.bar(DAY_ES, values, color="#0050b3", alpha=0.85, edgecolor="#003d8c")
+    bars = ax.bar(DAY_ES, values, color="#5B9BD5", alpha=0.9, edgecolor="none", width=0.62)
     for b, v in zip(bars, values):
         ax.text(
             b.get_x() + b.get_width() / 2,
@@ -272,15 +289,21 @@ def _chart_dow(pts: List[Tuple[date, float]], path: Path, title: str) -> Dict[st
             _fmt_m3(v, 1),
             ha="center",
             va="bottom",
-            fontsize=8,
-            fontweight="bold",
+            fontsize=7.5,
+            color="#444444",
         )
-    ax.set_title(title, fontsize=11, fontweight="bold")
-    ax.set_ylabel("m³")
+    ax.set_title(title, fontsize=10, color="#1F3864", pad=6, loc="left")
+    ax.set_ylabel("m³", fontsize=8, color="#666666")
     ax.set_ylim(bottom=0)
-    ax.grid(True, ls="--", alpha=0.3, axis="y")
-    fig.tight_layout(pad=0.3)
-    fig.savefig(path, dpi=150, bbox_inches="tight")
+    ax.tick_params(colors="#666666", labelsize=7.5)
+    ax.yaxis.grid(True, color="#EEEEEE", lw=0.8)
+    ax.set_axisbelow(True)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    ax.spines["left"].set_color("#DDDDDD")
+    ax.spines["bottom"].set_color("#DDDDDD")
+    fig.tight_layout(pad=0.35)
+    fig.savefig(path, dpi=160, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return avgs
 
@@ -311,34 +334,39 @@ def _hourly_for_day(nid: str, day: date, total_m3: float, hourly_cache: dict) ->
 
 
 def _chart_24h_app(vals: List[float], path: Path, day: date) -> None:
-    """Gráfico 24 h estilo App WES (área + línea, no plano)."""
+    """Gráfico 24 h estilo App WES: título, subtítulo debajo, área suave, markers huecos."""
     import math
 
     hours = list(range(24))
-    fig, ax = plt.subplots(figsize=(8.8, 3.15))
-    ax.fill_between(hours, vals, 0, color="#A8CDED", alpha=0.85)
+    fig, ax = plt.subplots(figsize=(8.6, 3.05))
+    # relleno con degradé suave (como la app), no bloque sólido
+    ax.fill_between(hours, vals, 0, color="#C5DCF5", alpha=0.75)
     ax.plot(
         hours,
         vals,
-        color="#3A7CC9",
-        lw=2.2,
+        color="#2F6FBE",
+        lw=1.8,
         marker="o",
-        markersize=4.5,
-        markerfacecolor="#3A7CC9",
-        markeredgecolor="white",
-        markeredgewidth=0.6,
+        markersize=4.0,
+        markerfacecolor="white",
+        markeredgecolor="#2F6FBE",
+        markeredgewidth=1.1,
     )
-    ax.set_title("Consumo (m3/hr)", fontsize=14, fontweight="bold", loc="left", color="#222", pad=14)
     day_label = f"{day.day} {_MESES_APP[day.month]} {day.year}"
-    fig.text(
-        0.125,
-        0.90,
+    ax.set_title("Consumo (m3/hr)", fontsize=12, color="#1F3864", loc="left", pad=18)
+    # subtítulo DEBAJO del título (como en la app), no arriba
+    ax.text(
+        0.0,
+        1.02,
         f"1 dispositivo seleccionado  ›  {day_label}",
-        fontsize=9,
-        color="#777777",
+        transform=ax.transAxes,
+        fontsize=8.5,
+        color="#8A8A8A",
+        va="bottom",
+        ha="left",
     )
     ax.set_xlim(0, 23)
-    ymax = max(vals) * 1.25 if vals else 1.0
+    ymax = max(vals) * 1.28 if vals else 1.0
     step = 5 if ymax >= 8 else (2 if ymax >= 3 else 1)
     nice = int(math.ceil(ymax / step) * step)
     ax.set_ylim(0, max(nice, step))
@@ -347,14 +375,14 @@ def _chart_24h_app(vals: List[float], path: Path, day: date) -> None:
     ax.set_xticklabels(
         [f"{day.day:02d}. {_MESES_XTICK[day.month]}", "06:00", "12:00", "18:00"]
     )
-    ax.yaxis.grid(True, color="#E5E5E5", lw=1)
+    ax.yaxis.grid(True, color="#EFEFEF", lw=0.9)
     ax.set_axisbelow(True)
-    ax.tick_params(colors="#666666", labelsize=9)
+    ax.tick_params(colors="#777777", labelsize=8)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
-    ax.spines["left"].set_color("#DDDDDD")
-    ax.spines["bottom"].set_color("#DDDDDD")
-    fig.subplots_adjust(top=0.82, left=0.08, right=0.98, bottom=0.12)
+    ax.spines["left"].set_color("#E0E0E0")
+    ax.spines["bottom"].set_color("#E0E0E0")
+    fig.subplots_adjust(top=0.78, left=0.07, right=0.98, bottom=0.12)
     fig.savefig(path, dpi=170, facecolor="white")
     plt.close(fig)
 
@@ -430,33 +458,43 @@ def build() -> Path:
     tot_fact_m3 = sum(f["m3"] for f in FACTURAS)
     tot_fact_clp = sum(f["clp"] for f in FACTURAS)
 
-    # pie + facturas chart
-    fig, ax = plt.subplots(figsize=(4.0, 3.0))
-    ax.pie(
+    # pie + facturas chart (estilo sobrio)
+    fig, ax = plt.subplots(figsize=(3.8, 2.9))
+    wedges, texts, autotexts = ax.pie(
         [prin["total"], sexto["total"], gap],
         labels=["Principal", "Sexto", "No mon."],
-        colors=["#0050b3", "#40a9ff", "#c0392b"],
+        colors=["#5B9BD5", "#9DC3E6", "#F4B183"],
         autopct=lambda p: f"{p:.0f}%",
         startangle=90,
-        textprops={"fontsize": 8},
+        textprops={"fontsize": 8, "color": "#444444"},
+        wedgeprops={"linewidth": 1, "edgecolor": "white"},
     )
-    ax.set_title("% vs Sanitaria", fontsize=10, fontweight="bold")
+    for t in autotexts:
+        t.set_fontsize(8)
+        t.set_color("#333333")
+    ax.set_title("% vs Sanitaria", fontsize=9, color="#1F3864", pad=4)
     fig.tight_layout()
-    fig.savefig(CHARTS / "chart_participacion.png", dpi=140, bbox_inches="tight")
+    fig.savefig(CHARTS / "chart_participacion.png", dpi=150, bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
-    fig, ax = plt.subplots(figsize=(7.2, 2.8))
+    fig, ax = plt.subplots(figsize=(7.0, 2.6))
     labs = [f["ciclo"].replace(" 2026", "") for f in FACTURAS]
     vals = [f["m3"] for f in FACTURAS]
-    ax.bar(labs, vals, color="#0050b3", edgecolor="#003d8c")
+    ax.bar(labs, vals, color="#5B9BD5", edgecolor="none", width=0.55)
     for i, v in enumerate(vals):
-        ax.text(i, v, _fmt_m3(v, 0), ha="center", va="bottom", fontsize=8, fontweight="bold")
-    ax.set_ylabel("m³")
-    ax.set_title("Consumo facturado Aguas Antofagasta (m³)", fontsize=11, fontweight="bold")
+        ax.text(i, v, _fmt_m3(v, 0), ha="center", va="bottom", fontsize=7.5, color="#444444")
+    ax.set_ylabel("m³", fontsize=8, color="#666666")
+    ax.set_title("Consumo facturado Aguas Antofagasta (m³)", fontsize=10, color="#1F3864", loc="left")
     ax.set_ylim(bottom=0)
-    ax.grid(True, ls="--", alpha=0.3, axis="y")
+    ax.tick_params(colors="#666666", labelsize=8)
+    ax.yaxis.grid(True, color="#EEEEEE", lw=0.8)
+    ax.set_axisbelow(True)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    ax.spines["left"].set_color("#DDDDDD")
+    ax.spines["bottom"].set_color("#DDDDDD")
     fig.tight_layout()
-    fig.savefig(CHARTS / "chart_facturas_m3.png", dpi=140, bbox_inches="tight")
+    fig.savefig(CHARTS / "chart_facturas_m3.png", dpi=150, bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
     doc = Document()
