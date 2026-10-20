@@ -9,9 +9,15 @@ Datos: cache diario WES + facturas Aguas Antofagasta + fotos oficiales Drive.
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 from docx import Document
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_COLOR_INDEX
@@ -23,14 +29,20 @@ from generar_reporte_word import format_number_chilean
 
 ROOT = Path("reports/Bupa_Antofagasta/INFORME_FINAL")
 CHARTS = ROOT / "charts"
-FOTOS = Path(
-    "reports/Bupa_Antofagasta/INFORME_FINAL/fotos"
+FOTOS = ROOT / "fotos"
+CACHE = Path(
+    "reports/Bupa_Antofagasta/ANALISIS_PILOTO/cache_diario_bupa_antofagasta.json"
 )
-STATS = json.loads(Path("/tmp/bupa_stats.json").read_text(encoding="utf-8"))
 
 START = date(2026, 7, 23)
 END = date(2026, 10, 11)
 NUM_DIAS = (END - START).days + 1  # 81
+DAY_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+NODOS = {
+    "000029-09": ("Sanitaria", "Medidor Principal Sanitaria"),
+    "000029-07": ("Bomba Principal", "Sala de Bomba Principal"),
+    "000029-08": ("Sexto Piso", "Sala de Bomba Sexto Piso"),
+}
 
 # Facturas Aguas Antofagasta — G:\\Mi unidad\\Bupa Antofagasta\\Facturacion
 FACTURAS = [
@@ -75,6 +87,111 @@ FACTURAS = [
         "lect_act": 111860,
     },
 ]
+
+
+def _load_stats_and_charts() -> dict:
+    """Lee cache diario, calcula KPIs y regenera gráficos propios."""
+    CHARTS.mkdir(parents=True, exist_ok=True)
+    cache = json.loads(CACHE.read_text(encoding="utf-8"))
+    stats: dict = {}
+
+    def series(nid: str):
+        s = cache.get(nid, {})
+        out = []
+        cur = START
+        while cur <= END:
+            if cur.isoformat() in s:
+                out.append((cur, float(s[cur.isoformat()])))
+            cur += timedelta(days=1)
+        return out
+
+    for nid, (corto, nombre) in NODOS.items():
+        pts = series(nid)
+        vals = [v for _, v in pts]
+        slug = corto.lower().replace(" ", "_")
+        stats[nid] = {
+            "corto": corto,
+            "nombre": nombre,
+            "total": sum(vals),
+            "n": len(vals),
+            "prom": sum(vals) / len(vals) if vals else 0.0,
+            "mn": min(vals) if vals else 0.0,
+            "mx": max(vals) if vals else 0.0,
+            "dmin": min(pts, key=lambda x: x[1])[0].isoformat() if pts else None,
+            "dmax": max(pts, key=lambda x: x[1])[0].isoformat() if pts else None,
+        }
+        # diario
+        fig, ax = plt.subplots(figsize=(9.2, 2.6))
+        dates = [datetime.combine(d, datetime.min.time()) for d, _ in pts]
+        totals = [v for _, v in pts]
+        ax.plot(dates, totals, marker="o", markersize=2.2, color="#0050b3", lw=1.4)
+        ax.fill_between(dates, totals, alpha=0.22, color="#0050b3")
+        ax.set_title(f"Perfil de consumo diario (m³) — {corto}", fontsize=11, fontweight="bold")
+        ax.set_ylabel("m³")
+        ax.set_ylim(bottom=0)
+        ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(dates) // 10)))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%b"))
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=35, ha="right", fontsize=7)
+        ax.grid(True, ls="--", alpha=0.3, axis="y")
+        fig.tight_layout(pad=0.3)
+        fig.savefig(CHARTS / f"chart_diario_{slug}.png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        # lun-dom
+        buckets: dict = defaultdict(list)
+        for d, v in pts:
+            buckets[d.weekday()].append(v)
+        avgs = [sum(buckets[i]) / len(buckets[i]) if buckets[i] else 0 for i in range(7)]
+        fig, ax = plt.subplots(figsize=(9.0, 2.4))
+        bars = ax.bar(DAY_ES, avgs, color="#0050b3", alpha=0.85, edgecolor="#003d8c")
+        for b, v in zip(bars, avgs):
+            ax.text(
+                b.get_x() + b.get_width() / 2,
+                b.get_height(),
+                f"{v:.1f}".replace(".", ","),
+                ha="center",
+                va="bottom",
+                fontsize=8,
+                fontweight="bold",
+            )
+        ax.set_title(f"Promedio lun–dom (m³) — {corto}", fontsize=11, fontweight="bold")
+        ax.set_ylabel("m³")
+        ax.set_ylim(bottom=0)
+        ax.grid(True, ls="--", alpha=0.3, axis="y")
+        fig.tight_layout(pad=0.3)
+        fig.savefig(CHARTS / f"chart_dow_{slug}.png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
+
+    san = stats["000029-09"]["total"]
+    p = stats["000029-07"]["total"]
+    x = stats["000029-08"]["total"]
+    gap = max(0.0, san - p - x)
+    fig, ax = plt.subplots(figsize=(4.2, 3.2))
+    ax.pie(
+        [p, x, gap],
+        labels=["Principal", "Sexto", "No monitoreado"],
+        colors=["#0050b3", "#40a9ff", "#c0392b"],
+        autopct=lambda pct: f"{pct:.0f}%",
+        startangle=90,
+        textprops={"fontsize": 9},
+    )
+    ax.set_title("% sobre Sanitaria (periodo)", fontsize=10, fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(CHARTS / "chart_participacion.png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
+
+    ciclos = [("Jun-26", 7102), ("Jul-26", 6696), ("Ago-26", 7627), ("Sep-26", 2873)]
+    fig, ax = plt.subplots(figsize=(7.5, 3.0))
+    ax.bar([c[0] for c in ciclos], [c[1] for c in ciclos], color="#0050b3", edgecolor="#003d8c")
+    for i, (_, v) in enumerate(ciclos):
+        ax.text(i, v, f"{v:,}".replace(",", "."), ha="center", va="bottom", fontsize=9, fontweight="bold")
+    ax.set_ylabel("m³")
+    ax.set_title("Consumo facturado Aguas Antofagasta (m³)", fontsize=11, fontweight="bold")
+    ax.set_ylim(bottom=0)
+    ax.grid(True, ls="--", alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(CHARTS / "chart_facturas_m3.png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    return stats
 
 
 def _fmt_clp(v: float) -> str:
@@ -215,9 +332,10 @@ def _setup(doc: Document) -> None:
 
 def build() -> Path:
     ROOT.mkdir(parents=True, exist_ok=True)
-    san = STATS["000029-09"]
-    prin = STATS["000029-07"]
-    sexto = STATS["000029-08"]
+    stats = _load_stats_and_charts()
+    san = stats["000029-09"]
+    prin = stats["000029-07"]
+    sexto = stats["000029-08"]
     tot_salas = prin["total"] + sexto["total"]
     gap = max(0.0, san["total"] - tot_salas)
     pct_prin = 100.0 * prin["total"] / san["total"]
