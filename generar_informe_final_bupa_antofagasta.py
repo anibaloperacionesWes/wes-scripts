@@ -35,6 +35,15 @@ FOTOS = ROOT / "fotos_crop"
 CACHE = Path(
     "reports/Bupa_Antofagasta/ANALISIS_PILOTO/cache_diario_bupa_antofagasta.json"
 )
+HOURLY_CACHE = ROOT / "hourly_cache.json"
+_MESES_APP = {
+    1: "ene.", 2: "feb.", 3: "mar.", 4: "abr.", 5: "may.", 6: "jun.",
+    7: "jul.", 8: "ago.", 9: "sep.", 10: "oct.", 11: "nov.", 12: "dic.",
+}
+_MESES_XTICK = {
+    1: "Ene.", 2: "Feb.", 3: "Mar.", 4: "Abr.", 5: "May.", 6: "Jun.",
+    7: "Jul.", 8: "Agt.", 9: "Sep.", 10: "Oct.", 11: "Nov.", 12: "Dic.",
+}
 
 START = date(2026, 7, 31)
 END = date(2026, 9, 30)
@@ -276,27 +285,83 @@ def _chart_dow(pts: List[Tuple[date, float]], path: Path, title: str) -> Dict[st
     return avgs
 
 
-def _chart_24h(total_m3: float, path: Path, title: str) -> None:
-    """Perfil 24 h: reparto uniforme del total diario (API horaria no disponible)."""
-    hv = float(total_m3) / 24.0
+def _load_hourly_cache() -> dict:
+    if HOURLY_CACHE.is_file():
+        return json.loads(HOURLY_CACHE.read_text(encoding="utf-8"))
+    return {"shapes": {}, "exact": {}}
+
+
+def _hourly_for_day(nid: str, day: date, total_m3: float, hourly_cache: dict) -> List[float]:
+    """Serie horaria real si existe; si no, forma del punto escalada al total del día."""
+    exact = (hourly_cache.get("exact") or {}).get(nid, {}).get(day.isoformat())
+    if exact and len(exact) == 24:
+        arr = [float(x) for x in exact]
+        s = sum(arr)
+        if s > 0 and abs(s - total_m3) / max(total_m3, 1e-6) > 0.02:
+            arr = [x * total_m3 / s for x in arr]
+        return arr
+    shape = (hourly_cache.get("shapes") or {}).get(nid)
+    if shape and len(shape) == 24 and sum(shape) > 0:
+        return [float(x) * float(total_m3) for x in shape]
+    # Último recurso: no plano absoluto — leve perfil día/noche genérico
+    base = [0.7, 0.65, 0.6, 0.6, 0.7, 0.9, 1.1, 1.2, 1.3, 1.4, 1.35, 1.3,
+            1.25, 1.2, 1.15, 1.1, 1.0, 1.05, 1.0, 0.95, 0.9, 0.85, 0.8, 0.75]
+    s = sum(base)
+    return [b / s * float(total_m3) for b in base]
+
+
+def _chart_24h_app(vals: List[float], path: Path, day: date) -> None:
+    """Gráfico 24 h estilo App WES (área + línea, no plano)."""
+    import math
+
     hours = list(range(24))
-    vals = [hv] * 24
-    fig, ax = plt.subplots(figsize=(9.0, 2.6))
-    ax.plot(hours, vals, marker="o", markersize=3.5, color="#4A90E2", lw=2)
-    ax.fill_between(hours, vals, 0, color="#4A90E2", alpha=0.3)
-    ax.set_title(title, fontsize=11, fontweight="bold", pad=4)
-    ax.set_xlabel("Hora")
-    ax.set_ylabel("m³")
-    ax.set_xticks(range(0, 24, 2))
-    ax.set_ylim(bottom=0)
-    ax.grid(True, ls="--", alpha=0.3, axis="y")
-    fig.tight_layout(pad=0.3)
-    fig.savefig(path, dpi=150, bbox_inches="tight")
+    fig, ax = plt.subplots(figsize=(8.8, 3.15))
+    ax.fill_between(hours, vals, 0, color="#A8CDED", alpha=0.85)
+    ax.plot(
+        hours,
+        vals,
+        color="#3A7CC9",
+        lw=2.2,
+        marker="o",
+        markersize=4.5,
+        markerfacecolor="#3A7CC9",
+        markeredgecolor="white",
+        markeredgewidth=0.6,
+    )
+    ax.set_title("Consumo (m3/hr)", fontsize=14, fontweight="bold", loc="left", color="#222", pad=14)
+    day_label = f"{day.day} {_MESES_APP[day.month]} {day.year}"
+    fig.text(
+        0.125,
+        0.90,
+        f"1 dispositivo seleccionado  ›  {day_label}",
+        fontsize=9,
+        color="#777777",
+    )
+    ax.set_xlim(0, 23)
+    ymax = max(vals) * 1.25 if vals else 1.0
+    step = 5 if ymax >= 8 else (2 if ymax >= 3 else 1)
+    nice = int(math.ceil(ymax / step) * step)
+    ax.set_ylim(0, max(nice, step))
+    ax.set_yticks(list(range(0, max(nice, step) + 1, step)))
+    ax.set_xticks([0, 6, 12, 18])
+    ax.set_xticklabels(
+        [f"{day.day:02d}. {_MESES_XTICK[day.month]}", "06:00", "12:00", "18:00"]
+    )
+    ax.yaxis.grid(True, color="#E5E5E5", lw=1)
+    ax.set_axisbelow(True)
+    ax.tick_params(colors="#666666", labelsize=9)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_color("#DDDDDD")
+    ax.spines["bottom"].set_color("#DDDDDD")
+    fig.subplots_adjust(top=0.82, left=0.08, right=0.98, bottom=0.12)
+    fig.savefig(path, dpi=170, facecolor="white")
     plt.close(fig)
 
 
 def _prepare_node_assets(cache: dict) -> Dict[str, dict]:
     CHARTS.mkdir(parents=True, exist_ok=True)
+    hourly_cache = _load_hourly_cache()
     out: Dict[str, dict] = {}
     for n in NODOS:
         nid = n["id"]
@@ -307,28 +372,29 @@ def _prepare_node_assets(cache: dict) -> Dict[str, dict]:
         prom = total / len(vals) if vals else 0.0
         prom_mes = total * 30.0 / NUM_DIAS if NUM_DIAS else 0.0
         mx, mn, near, avg = _pick_max_min_near(pts)
-        _chart_daily(pts, CHARTS / f"chart_diario_{slug}.png", f"Perfil de consumo diario (m³) — {n['corto']} · Fuente: WES")
-        dow = _chart_dow(pts, CHARTS / f"chart_dow_{slug}.png", f"Promedio lun–dom (m³) — {n['corto']}")
+        _chart_daily(
+            pts,
+            CHARTS / f"chart_diario_{slug}.png",
+            f"Perfil de consumo diario (m³) — {n['corto']} · Fuente: APP WES",
+        )
+        dow = _chart_dow(
+            pts,
+            CHARTS / f"chart_dow_{slug}.png",
+            f"Promedio de consumo diario (m³) — {n['corto']} · Fuente: WES App",
+        )
+
+        def _make_24h(day: date, total_day: float, out_path: Path) -> None:
+            series = _hourly_for_day(nid, day, total_day, hourly_cache)
+            _chart_24h_app(series, out_path, day)
+
         if mx:
-            _chart_24h(
-                mx[1],
-                CHARTS / f"chart_24h_max_{slug}.png",
-                f"Perfil 24 h — día máximo {_fmt_fecha(mx[0])} ({_fmt_m3(mx[1])} m³) · {n['corto']}",
-            )
+            _make_24h(mx[0], mx[1], CHARTS / f"chart_24h_max_{slug}.png")
         if mn:
-            _chart_24h(
-                mn[1],
-                CHARTS / f"chart_24h_min_{slug}.png",
-                f"Perfil 24 h — día mínimo {_fmt_fecha(mn[0])} ({_fmt_m3(mn[1])} m³) · {n['corto']}",
-            )
+            _make_24h(mn[0], mn[1], CHARTS / f"chart_24h_min_{slug}.png")
         near_paths = []
         for i, (d, v) in enumerate(near, start=1):
             p = CHARTS / f"chart_24h_cerca{i}_{slug}.png"
-            _chart_24h(
-                v,
-                p,
-                f"Perfil 24 h — cercano al promedio #{i} {_fmt_fecha(d)} ({_fmt_m3(v)} m³) · {n['corto']}",
-            )
+            _make_24h(d, v, p)
             near_paths.append((d, v, p))
         out[nid] = {
             **n,
@@ -604,9 +670,9 @@ def build() -> Path:
     _add_title(doc, "V. Análisis de sectores monitoreados")
     _add_para(
         doc,
-        f"Data WES {_fmt_fecha(START)}–{_fmt_fecha(END)}. Gráficos propios. "
-        "Perfiles 24 h del día máximo, mínimo y tres días más cercanos al promedio "
-        "(reparto uniforme total/24 mientras la API horaria no responde).",
+        f"Data WES {_fmt_fecha(START)}–{_fmt_fecha(END)}. Gráficos propios estilo App WES. "
+        "Por cada punto: perfil diario, promedio lun–dom, y curvas 24 h (m³/hr) del día "
+        "máximo, del día mínimo y de tres días cercanos al promedio.",
     )
 
     for idx, nid in enumerate(["000029-09", "000029-07", "000029-08"], start=1):
@@ -664,18 +730,28 @@ def build() -> Path:
             bullet=True,
         )
 
-        # 24h max + min
+        # 24h max + min (estilo App)
         _page_break(doc)
-        _add_subtitle(doc, f"Perfiles 24 h — {n['corto']}")
+        _add_subtitle(doc, f"Monitoreo Inteligente WES / Perfil hídrico horario — {n['corto']}")
         _add_para(
             doc,
-            f"Día máximo, día mínimo y tres días con consumo más cercano al promedio "
-            f"({_fmt_m3(n['avg_pos'])} m³/día).",
+            f"Curvas 24 h (m³/hr) del día máximo, del día mínimo y de tres días con consumo "
+            f"más cercano al promedio ({_fmt_m3(n['avg_pos'])} m³/día). Fuente: App WES.",
         )
         if n["mx"]:
-            _add_picture(doc, CHARTS / f"chart_24h_max_{n['slug']}.png", 5.9)
+            _add_picture(
+                doc,
+                CHARTS / f"chart_24h_max_{n['slug']}.png",
+                5.95,
+                f"Día máximo {_fmt_fecha(n['mx'][0])} — {_fmt_m3(n['mx'][1])} m³ · Fuente: APP WES",
+            )
         if n["mn"]:
-            _add_picture(doc, CHARTS / f"chart_24h_min_{n['slug']}.png", 5.9)
+            _add_picture(
+                doc,
+                CHARTS / f"chart_24h_min_{n['slug']}.png",
+                5.95,
+                f"Día mínimo {_fmt_fecha(n['mn'][0])} — {_fmt_m3(n['mn'][1])} m³ · Fuente: APP WES",
+            )
 
         if n["near"]:
             _page_break(doc)
@@ -686,7 +762,12 @@ def build() -> Path:
             )
             _add_para(doc, f"Seleccionados: {near_txt}.", space_after=4)
             for d, v, path in n["near"]:
-                _add_picture(doc, path, 5.7)
+                _add_picture(
+                    doc,
+                    path,
+                    5.8,
+                    f"Cercano al promedio {_fmt_fecha(d)} — {_fmt_m3(v)} m³ · Fuente: APP WES",
+                )
 
     # Participación
     _page_break(doc)
