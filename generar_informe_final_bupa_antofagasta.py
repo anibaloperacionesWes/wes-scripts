@@ -1,9 +1,10 @@
 """
 Informe final — Estudio de diagnóstico de gestión hídrica
-Clínica Bupa Antofagasta (solo Antofagasta; sin contenido de otros recintos).
+Clínica Bupa Antofagasta (solo Antofagasta).
 
-Modelo: Informe final WES - BPA (15.10.2026)
-Datos: cache diario WES + facturas Aguas Antofagasta + fotos oficiales Drive.
+Periodo: 31/07/2026 → 30/09/2026.
+Puntos: Sanitaria, Bomba Principal, Sexto Piso (sin Sala N°2).
+Modelo visual: Informe final WES - BPA.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import json
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib
 
@@ -29,169 +31,28 @@ from generar_reporte_word import format_number_chilean
 
 ROOT = Path("reports/Bupa_Antofagasta/INFORME_FINAL")
 CHARTS = ROOT / "charts"
-FOTOS = ROOT / "fotos"
+FOTOS = ROOT / "fotos_crop"
 CACHE = Path(
     "reports/Bupa_Antofagasta/ANALISIS_PILOTO/cache_diario_bupa_antofagasta.json"
 )
 
-START = date(2026, 7, 23)
-END = date(2026, 10, 11)
-NUM_DIAS = (END - START).days + 1  # 81
+START = date(2026, 7, 31)
+END = date(2026, 9, 30)
+NUM_DIAS = (END - START).days + 1  # 62
 DAY_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-NODOS = {
-    "000029-09": ("Sanitaria", "Medidor Principal Sanitaria"),
-    "000029-07": ("Bomba Principal", "Sala de Bomba Principal"),
-    "000029-08": ("Sexto Piso", "Sala de Bomba Sexto Piso"),
-}
-
-# Facturas Aguas Antofagasta — G:\\Mi unidad\\Bupa Antofagasta\\Facturacion
-FACTURAS = [
-    {
-        "ciclo": "Junio 2026",
-        "emision": "02-06-2026",
-        "vence": "17-06-2026",
-        "m3": 7102.0,
-        "clp": 19_662_850.0,
-        "nro": "1453711",
-        "lect_ant": 87562,
-        "lect_act": 94664,
-    },
-    {
-        "ciclo": "Julio 2026",
-        "emision": "03-07-2026",
-        "vence": "20-07-2026",
-        "m3": 6696.0,
-        "clp": 18_538_860.0,
-        "nro": "1460583",
-        "lect_ant": 94664,
-        "lect_act": 101360,
-    },
-    {
-        "ciclo": "Agosto 2026",
-        "emision": "04-08-2026",
-        "vence": "19-08-2026",
-        "m3": 7627.0,
-        "clp": 21_116_260.0,
-        "nro": "1467321",
-        "lect_ant": 101360,
-        "lect_act": 108987,
-    },
-    {
-        "ciclo": "Septiembre 2026",
-        "emision": "27-08-2026",
-        "vence": "11-09-2026",
-        "m3": 2873.0,
-        "clp": 7_955_190.0,
-        "nro": "1474021",
-        "lect_ant": 108987,
-        "lect_act": 111860,
-    },
+NODOS = [
+    {"id": "000029-09", "corto": "Sanitaria", "nombre": "Medidor Principal Sanitaria", "foto": "sanitaria.jpg"},
+    {"id": "000029-07", "corto": "Bomba Principal", "nombre": "Sala de Bomba Principal (Primer Piso)", "foto": "bomba_principal.jpg"},
+    {"id": "000029-08", "corto": "Sexto Piso", "nombre": "Sala de Bomba Sexto Piso", "foto": "sexto_piso.jpg"},
 ]
 
-
-def _load_stats_and_charts() -> dict:
-    """Lee cache diario, calcula KPIs y regenera gráficos propios."""
-    CHARTS.mkdir(parents=True, exist_ok=True)
-    cache = json.loads(CACHE.read_text(encoding="utf-8"))
-    stats: dict = {}
-
-    def series(nid: str):
-        s = cache.get(nid, {})
-        out = []
-        cur = START
-        while cur <= END:
-            if cur.isoformat() in s:
-                out.append((cur, float(s[cur.isoformat()])))
-            cur += timedelta(days=1)
-        return out
-
-    for nid, (corto, nombre) in NODOS.items():
-        pts = series(nid)
-        vals = [v for _, v in pts]
-        slug = corto.lower().replace(" ", "_")
-        stats[nid] = {
-            "corto": corto,
-            "nombre": nombre,
-            "total": sum(vals),
-            "n": len(vals),
-            "prom": sum(vals) / len(vals) if vals else 0.0,
-            "mn": min(vals) if vals else 0.0,
-            "mx": max(vals) if vals else 0.0,
-            "dmin": min(pts, key=lambda x: x[1])[0].isoformat() if pts else None,
-            "dmax": max(pts, key=lambda x: x[1])[0].isoformat() if pts else None,
-        }
-        # diario
-        fig, ax = plt.subplots(figsize=(9.2, 2.6))
-        dates = [datetime.combine(d, datetime.min.time()) for d, _ in pts]
-        totals = [v for _, v in pts]
-        ax.plot(dates, totals, marker="o", markersize=2.2, color="#0050b3", lw=1.4)
-        ax.fill_between(dates, totals, alpha=0.22, color="#0050b3")
-        ax.set_title(f"Perfil de consumo diario (m³) — {corto}", fontsize=11, fontweight="bold")
-        ax.set_ylabel("m³")
-        ax.set_ylim(bottom=0)
-        ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(dates) // 10)))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%b"))
-        plt.setp(ax.xaxis.get_majorticklabels(), rotation=35, ha="right", fontsize=7)
-        ax.grid(True, ls="--", alpha=0.3, axis="y")
-        fig.tight_layout(pad=0.3)
-        fig.savefig(CHARTS / f"chart_diario_{slug}.png", dpi=150, bbox_inches="tight")
-        plt.close(fig)
-        # lun-dom
-        buckets: dict = defaultdict(list)
-        for d, v in pts:
-            buckets[d.weekday()].append(v)
-        avgs = [sum(buckets[i]) / len(buckets[i]) if buckets[i] else 0 for i in range(7)]
-        fig, ax = plt.subplots(figsize=(9.0, 2.4))
-        bars = ax.bar(DAY_ES, avgs, color="#0050b3", alpha=0.85, edgecolor="#003d8c")
-        for b, v in zip(bars, avgs):
-            ax.text(
-                b.get_x() + b.get_width() / 2,
-                b.get_height(),
-                f"{v:.1f}".replace(".", ","),
-                ha="center",
-                va="bottom",
-                fontsize=8,
-                fontweight="bold",
-            )
-        ax.set_title(f"Promedio lun–dom (m³) — {corto}", fontsize=11, fontweight="bold")
-        ax.set_ylabel("m³")
-        ax.set_ylim(bottom=0)
-        ax.grid(True, ls="--", alpha=0.3, axis="y")
-        fig.tight_layout(pad=0.3)
-        fig.savefig(CHARTS / f"chart_dow_{slug}.png", dpi=150, bbox_inches="tight")
-        plt.close(fig)
-
-    san = stats["000029-09"]["total"]
-    p = stats["000029-07"]["total"]
-    x = stats["000029-08"]["total"]
-    gap = max(0.0, san - p - x)
-    fig, ax = plt.subplots(figsize=(4.2, 3.2))
-    ax.pie(
-        [p, x, gap],
-        labels=["Principal", "Sexto", "No monitoreado"],
-        colors=["#0050b3", "#40a9ff", "#c0392b"],
-        autopct=lambda pct: f"{pct:.0f}%",
-        startangle=90,
-        textprops={"fontsize": 9},
-    )
-    ax.set_title("% sobre Sanitaria (periodo)", fontsize=10, fontweight="bold")
-    fig.tight_layout()
-    fig.savefig(CHARTS / "chart_participacion.png", dpi=140, bbox_inches="tight")
-    plt.close(fig)
-
-    ciclos = [("Jun-26", 7102), ("Jul-26", 6696), ("Ago-26", 7627), ("Sep-26", 2873)]
-    fig, ax = plt.subplots(figsize=(7.5, 3.0))
-    ax.bar([c[0] for c in ciclos], [c[1] for c in ciclos], color="#0050b3", edgecolor="#003d8c")
-    for i, (_, v) in enumerate(ciclos):
-        ax.text(i, v, f"{v:,}".replace(",", "."), ha="center", va="bottom", fontsize=9, fontweight="bold")
-    ax.set_ylabel("m³")
-    ax.set_title("Consumo facturado Aguas Antofagasta (m³)", fontsize=11, fontweight="bold")
-    ax.set_ylim(bottom=0)
-    ax.grid(True, ls="--", alpha=0.3, axis="y")
-    fig.tight_layout()
-    fig.savefig(CHARTS / "chart_facturas_m3.png", dpi=140, bbox_inches="tight")
-    plt.close(fig)
-    return stats
+# Facturas Aguas Antofagasta (Centro Médico Antofagasta S.A. · cliente 1110080842)
+FACTURAS = [
+    {"ciclo": "Junio 2026", "emision": "02-06-2026", "m3": 7102.0, "clp": 19_662_850.0, "nro": "1453711", "lect_ant": 87562, "lect_act": 94664},
+    {"ciclo": "Julio 2026", "emision": "03-07-2026", "m3": 6696.0, "clp": 18_538_860.0, "nro": "1460583", "lect_ant": 94664, "lect_act": 101360},
+    {"ciclo": "Agosto 2026", "emision": "04-08-2026", "m3": 7627.0, "clp": 21_116_260.0, "nro": "1467321", "lect_ant": 101360, "lect_act": 108987},
+    {"ciclo": "Septiembre 2026", "emision": "27-08-2026", "m3": 2873.0, "clp": 7_955_190.0, "nro": "1474021", "lect_ant": 108987, "lect_act": 111860},
+]
 
 
 def _fmt_clp(v: float) -> str:
@@ -234,8 +95,7 @@ def _add_para(
     p.paragraph_format.space_before = Pt(space_before)
     if bullet:
         p.style = "List Bullet"
-    prefix = ""
-    r = p.add_run(prefix + text)
+    r = p.add_run(text)
     _set_run(
         r,
         size=size,
@@ -246,7 +106,6 @@ def _add_para(
 
 def _add_title(doc: Document, text: str, *, size: int = 14) -> None:
     p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p.paragraph_format.space_before = Pt(8)
     p.paragraph_format.space_after = Pt(6)
     r = p.add_run(text)
@@ -255,7 +114,7 @@ def _add_title(doc: Document, text: str, *, size: int = 14) -> None:
 
 def _add_subtitle(doc: Document, text: str) -> None:
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(4)
+    p.paragraph_format.space_before = Pt(6)
     p.paragraph_format.space_after = Pt(4)
     r = p.add_run(text)
     _set_run(r, size=11, bold=True, color=RGBColor(0, 51, 102))
@@ -279,7 +138,7 @@ def _add_picture(doc: Document, path: Path, width_in: float, caption: str = "") 
         c.alignment = WD_ALIGN_PARAGRAPH.CENTER
         c.paragraph_format.space_after = Pt(8)
         r = c.add_run(caption)
-        _set_run(r, size=8, bold=False, color=RGBColor(80, 80, 80))
+        _set_run(r, size=8, color=RGBColor(80, 80, 80))
 
 
 def _center_table(table) -> None:
@@ -292,8 +151,7 @@ def _center_table(table) -> None:
 
 def _shade_header(row) -> None:
     for cell in row.cells:
-        tc = cell._tc
-        tcPr = tc.get_or_add_tcPr()
+        tcPr = cell._tc.get_or_add_tcPr()
         shd = OxmlElement("w:shd")
         shd.set(qn("w:fill"), "003366")
         shd.set(qn("w:val"), "clear")
@@ -305,7 +163,7 @@ def _shade_header(row) -> None:
                 run.font.size = Pt(9)
 
 
-def _add_table(doc: Document, headers: list[str], rows: list[list[str]], *, compact=False) -> None:
+def _add_table(doc: Document, headers: list, rows: list, *, compact: bool = False) -> None:
     table = doc.add_table(rows=1 + len(rows), cols=len(headers))
     table.style = "Table Grid"
     for j, h in enumerate(headers):
@@ -316,83 +174,247 @@ def _add_table(doc: Document, headers: list[str], rows: list[list[str]], *, comp
             cell = table.rows[i].cells[j]
             cell.text = ""
             p = cell.paragraphs[0]
-            r = p.add_run(val)
-            _set_run(r, size=8 if compact else 9, bold=(i == len(rows) and "Total" in str(row[0])))
+            r = p.add_run(str(val))
+            _set_run(r, size=8 if compact else 9, bold=("Total" in str(row[0])))
     _center_table(table)
-    doc.add_paragraph().paragraph_format.space_after = Pt(6)
+    doc.add_paragraph().paragraph_format.space_after = Pt(4)
+
+
+def _add_kpi_table(doc: Document, rows: List[Tuple[str, str]]) -> None:
+    """Tabla compacta estilo modelo BPA (Indicador | Valor)."""
+    table = doc.add_table(rows=len(rows), cols=2)
+    table.style = "Table Grid"
+    for i, (k, v) in enumerate(rows):
+        table.rows[i].cells[0].text = ""
+        table.rows[i].cells[1].text = ""
+        r0 = table.rows[i].cells[0].paragraphs[0].add_run(k)
+        r1 = table.rows[i].cells[1].paragraphs[0].add_run(v)
+        _set_run(r0, size=9, bold=True)
+        _set_run(r1, size=9)
+        table.rows[i].cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+        table.rows[i].cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    doc.add_paragraph().paragraph_format.space_after = Pt(4)
 
 
 def _setup(doc: Document) -> None:
     for section in doc.sections:
-        section.top_margin = Inches(0.7)
-        section.bottom_margin = Inches(0.7)
-        section.left_margin = Inches(0.85)
-        section.right_margin = Inches(0.85)
+        section.top_margin = Inches(0.65)
+        section.bottom_margin = Inches(0.65)
+        section.left_margin = Inches(0.8)
+        section.right_margin = Inches(0.8)
+
+
+def _series_from_cache(cache: dict, nid: str) -> List[Tuple[date, float]]:
+    s = cache.get(nid, {})
+    out = []
+    cur = START
+    while cur <= END:
+        if cur.isoformat() in s:
+            out.append((cur, float(s[cur.isoformat()])))
+        cur += timedelta(days=1)
+    return out
+
+
+def _pick_max_min_near(
+    pts: List[Tuple[date, float]],
+) -> Tuple[Optional[Tuple[date, float]], Optional[Tuple[date, float]], List[Tuple[date, float]], float]:
+    positive = [(d, v) for d, v in pts if v > 0.01]
+    if not positive:
+        return None, None, [], 0.0
+    avg = sum(v for _, v in positive) / len(positive)
+    mx = max(positive, key=lambda x: x[1])
+    mn = min(positive, key=lambda x: x[1])
+    excl = {mx[0], mn[0]}
+    near = sorted((p for p in positive if p[0] not in excl), key=lambda x: abs(x[1] - avg))[:3]
+    return mx, mn, near, avg
+
+
+def _chart_daily(pts: List[Tuple[date, float]], path: Path, title: str) -> None:
+    fig, ax = plt.subplots(figsize=(9.2, 2.55))
+    dates = [datetime.combine(d, datetime.min.time()) for d, _ in pts]
+    vals = [v for _, v in pts]
+    ax.plot(dates, vals, marker="o", markersize=2.2, color="#0050b3", lw=1.4)
+    ax.fill_between(dates, vals, alpha=0.22, color="#0050b3")
+    ax.set_title(title, fontsize=11, fontweight="bold", pad=4)
+    ax.set_ylabel("m³", fontsize=9)
+    ax.set_ylim(bottom=0)
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(dates) // 10)))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%d.%b"))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=35, ha="right", fontsize=7)
+    ax.grid(True, ls="--", alpha=0.3, axis="y")
+    fig.tight_layout(pad=0.3)
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _chart_dow(pts: List[Tuple[date, float]], path: Path, title: str) -> Dict[str, float]:
+    buckets: Dict[int, List[float]] = defaultdict(list)
+    for d, v in pts:
+        buckets[d.weekday()].append(v)
+    avgs = {DAY_ES[i]: (sum(buckets[i]) / len(buckets[i]) if buckets[i] else 0.0) for i in range(7)}
+    fig, ax = plt.subplots(figsize=(9.0, 2.35))
+    values = [avgs[d] for d in DAY_ES]
+    bars = ax.bar(DAY_ES, values, color="#0050b3", alpha=0.85, edgecolor="#003d8c")
+    for b, v in zip(bars, values):
+        ax.text(
+            b.get_x() + b.get_width() / 2,
+            b.get_height(),
+            _fmt_m3(v, 1),
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            fontweight="bold",
+        )
+    ax.set_title(title, fontsize=11, fontweight="bold")
+    ax.set_ylabel("m³")
+    ax.set_ylim(bottom=0)
+    ax.grid(True, ls="--", alpha=0.3, axis="y")
+    fig.tight_layout(pad=0.3)
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return avgs
+
+
+def _chart_24h(total_m3: float, path: Path, title: str) -> None:
+    """Perfil 24 h: reparto uniforme del total diario (API horaria no disponible)."""
+    hv = float(total_m3) / 24.0
+    hours = list(range(24))
+    vals = [hv] * 24
+    fig, ax = plt.subplots(figsize=(9.0, 2.6))
+    ax.plot(hours, vals, marker="o", markersize=3.5, color="#4A90E2", lw=2)
+    ax.fill_between(hours, vals, 0, color="#4A90E2", alpha=0.3)
+    ax.set_title(title, fontsize=11, fontweight="bold", pad=4)
+    ax.set_xlabel("Hora")
+    ax.set_ylabel("m³")
+    ax.set_xticks(range(0, 24, 2))
+    ax.set_ylim(bottom=0)
+    ax.grid(True, ls="--", alpha=0.3, axis="y")
+    fig.tight_layout(pad=0.3)
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _prepare_node_assets(cache: dict) -> Dict[str, dict]:
+    CHARTS.mkdir(parents=True, exist_ok=True)
+    out: Dict[str, dict] = {}
+    for n in NODOS:
+        nid = n["id"]
+        slug = n["corto"].lower().replace(" ", "_")
+        pts = _series_from_cache(cache, nid)
+        vals = [v for _, v in pts]
+        total = sum(vals)
+        prom = total / len(vals) if vals else 0.0
+        prom_mes = total * 30.0 / NUM_DIAS if NUM_DIAS else 0.0
+        mx, mn, near, avg = _pick_max_min_near(pts)
+        _chart_daily(pts, CHARTS / f"chart_diario_{slug}.png", f"Perfil de consumo diario (m³) — {n['corto']} · Fuente: WES")
+        dow = _chart_dow(pts, CHARTS / f"chart_dow_{slug}.png", f"Promedio lun–dom (m³) — {n['corto']}")
+        if mx:
+            _chart_24h(
+                mx[1],
+                CHARTS / f"chart_24h_max_{slug}.png",
+                f"Perfil 24 h — día máximo {_fmt_fecha(mx[0])} ({_fmt_m3(mx[1])} m³) · {n['corto']}",
+            )
+        if mn:
+            _chart_24h(
+                mn[1],
+                CHARTS / f"chart_24h_min_{slug}.png",
+                f"Perfil 24 h — día mínimo {_fmt_fecha(mn[0])} ({_fmt_m3(mn[1])} m³) · {n['corto']}",
+            )
+        near_paths = []
+        for i, (d, v) in enumerate(near, start=1):
+            p = CHARTS / f"chart_24h_cerca{i}_{slug}.png"
+            _chart_24h(
+                v,
+                p,
+                f"Perfil 24 h — cercano al promedio #{i} {_fmt_fecha(d)} ({_fmt_m3(v)} m³) · {n['corto']}",
+            )
+            near_paths.append((d, v, p))
+        out[nid] = {
+            **n,
+            "pts": pts,
+            "total": total,
+            "n": len(vals),
+            "prom": prom,
+            "prom_mes": prom_mes,
+            "avg_pos": avg,
+            "mx": mx,
+            "mn": mn,
+            "near": near_paths,
+            "dow": dow,
+            "slug": slug,
+        }
+    return out
 
 
 def build() -> Path:
     ROOT.mkdir(parents=True, exist_ok=True)
-    stats = _load_stats_and_charts()
-    san = stats["000029-09"]
-    prin = stats["000029-07"]
-    sexto = stats["000029-08"]
+    cache = json.loads(CACHE.read_text(encoding="utf-8"))
+    nodes = _prepare_node_assets(cache)
+
+    san = nodes["000029-09"]
+    prin = nodes["000029-07"]
+    sexto = nodes["000029-08"]
     tot_salas = prin["total"] + sexto["total"]
     gap = max(0.0, san["total"] - tot_salas)
-    pct_prin = 100.0 * prin["total"] / san["total"]
-    pct_sexto = 100.0 * sexto["total"] / san["total"]
-    pct_salas = 100.0 * tot_salas / san["total"]
-    pct_gap = 100.0 * gap / san["total"]
+    pct_prin = 100.0 * prin["total"] / san["total"] if san["total"] else 0.0
+    pct_sexto = 100.0 * sexto["total"] / san["total"] if san["total"] else 0.0
+    pct_salas = 100.0 * tot_salas / san["total"] if san["total"] else 0.0
+    pct_gap = 100.0 * gap / san["total"] if san["total"] else 0.0
     tot_fact_m3 = sum(f["m3"] for f in FACTURAS)
     tot_fact_clp = sum(f["clp"] for f in FACTURAS)
+
+    # pie + facturas chart
+    fig, ax = plt.subplots(figsize=(4.0, 3.0))
+    ax.pie(
+        [prin["total"], sexto["total"], gap],
+        labels=["Principal", "Sexto", "No mon."],
+        colors=["#0050b3", "#40a9ff", "#c0392b"],
+        autopct=lambda p: f"{p:.0f}%",
+        startangle=90,
+        textprops={"fontsize": 8},
+    )
+    ax.set_title("% vs Sanitaria", fontsize=10, fontweight="bold")
+    fig.tight_layout()
+    fig.savefig(CHARTS / "chart_participacion.png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(7.2, 2.8))
+    labs = [f["ciclo"].replace(" 2026", "") for f in FACTURAS]
+    vals = [f["m3"] for f in FACTURAS]
+    ax.bar(labs, vals, color="#0050b3", edgecolor="#003d8c")
+    for i, v in enumerate(vals):
+        ax.text(i, v, _fmt_m3(v, 0), ha="center", va="bottom", fontsize=8, fontweight="bold")
+    ax.set_ylabel("m³")
+    ax.set_title("Consumo facturado Aguas Antofagasta (m³)", fontsize=11, fontweight="bold")
+    ax.set_ylim(bottom=0)
+    ax.grid(True, ls="--", alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(CHARTS / "chart_facturas_m3.png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
 
     doc = Document()
     _setup(doc)
 
     # ===== PORTADA =====
-    for _ in range(4):
+    for _ in range(5):
         doc.add_paragraph()
-    _add_para(
-        doc,
-        "Estudio de diagnóstico de gestión hídrica",
-        size=20,
-        bold=True,
-        align=WD_ALIGN_PARAGRAPH.CENTER,
-        space_after=12,
-    )
-    _add_para(
-        doc,
-        "Clínica Bupa Antofagasta",
-        size=16,
-        bold=True,
-        align=WD_ALIGN_PARAGRAPH.CENTER,
-        space_after=8,
-    )
-    _add_para(
-        doc,
-        "WES — Monitoreo Inteligente",
-        size=12,
-        align=WD_ALIGN_PARAGRAPH.CENTER,
-        space_after=20,
-    )
-    _add_para(
-        doc,
-        "Octubre 2026",
-        size=12,
-        bold=True,
-        align=WD_ALIGN_PARAGRAPH.CENTER,
-    )
+    _add_para(doc, "Estudio de diagnóstico de gestión hídrica", size=20, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=10)
+    _add_para(doc, "Clínica Bupa Antofagasta", size=16, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=8)
+    _add_para(doc, "WES — Monitoreo Inteligente", size=12, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=18)
+    _add_para(doc, "Octubre 2026", size=12, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
     _add_para(
         doc,
         f"Periodo de monitoreo: {_fmt_fecha(START)} – {_fmt_fecha(END)} ({NUM_DIAS} días)",
         size=10,
         align=WD_ALIGN_PARAGRAPH.CENTER,
-        space_before=8,
+        space_before=10,
     )
 
     # ===== ÍNDICE =====
     _page_break(doc)
     _add_title(doc, "Índice", size=16)
-    indice = [
+    for titulo, pag in [
         ("Resumen Ejecutivo", "2"),
         ("I. Antecedentes", "3"),
         ("II. Objetivos y resultados esperados", "4"),
@@ -400,22 +422,18 @@ def build() -> Path:
         ("IV. Fotografías de instalación", "5"),
         ("V. Análisis de sectores monitoreados", "6"),
         ("    1) Medidor Principal Sanitaria", "6"),
-        ("    2) Sala de Bomba Principal", "7"),
-        ("    3) Sala de Bomba Sexto Piso", "8"),
-        ("    4) Sala de Bomba N°2 (nota operativa)", "8"),
-        ("VI. Facturación sanitaria (Aguas Antofagasta)", "9"),
-        ("VII. Conclusiones y hallazgos", "10"),
-        ("VIII. Recomendaciones y próximos pasos", "11"),
-    ]
-    for titulo, pag in indice:
+        ("    2) Sala de Bomba Principal", "8"),
+        ("    3) Sala de Bomba Sexto Piso", "10"),
+        ("VI. Facturación sanitaria (Aguas Antofagasta)", "12"),
+        ("VII. Conclusiones y hallazgos", "13"),
+        ("VIII. Recomendaciones y próximos pasos", "13"),
+    ]:
         p = doc.add_paragraph()
         p.paragraph_format.space_after = Pt(2)
-        r1 = p.add_run(titulo)
-        _set_run(r1, size=10)
-        tab = p.add_run("\t" + pag)
-        _set_run(tab, size=10)
+        r = p.add_run(f"{titulo}\t{pag}")
+        _set_run(r, size=10)
 
-    # ===== RESUMEN EJECUTIVO (pág. 3 del pedido) =====
+    # ===== RESUMEN =====
     _page_break(doc)
     _add_title(doc, "Resumen Ejecutivo")
     _add_subtitle(doc, "Propósito y Alcance")
@@ -428,37 +446,34 @@ def build() -> Path:
     )
     _add_para(
         doc,
-        f"El estudio contempló el monitoreo en línea de 4 puntos críticos durante un periodo de "
-        f"{NUM_DIAS} días ({_fmt_fecha(START)} al {_fmt_fecha(END)}), permitiendo identificar perfiles "
-        f"de consumo diario y semanal, y detectar anomalías operacionales.",
+        f"El estudio contempló el monitoreo en línea de 3 puntos críticos durante {_fmt_fecha(START)}–"
+        f"{_fmt_fecha(END)} ({NUM_DIAS} días), con perfiles diarios, lun–dom y curvas 24 h del día "
+        "pico, del día mínimo y de tres días cercanos al promedio.",
         bullet=True,
     )
 
     _add_subtitle(doc, "Hallazgos Principales de Consumo")
     _add_para(
         doc,
-        f"Brecha de visibilidad (agua no contabilizada en salas monitoreadas): existe una diferencia "
-        f"de {_fmt_m3(gap)} m³ ({_fmt_m3(pct_gap)}% del total Sanitaria) entre el Medidor Principal "
-        f"Sanitaria ({_fmt_m3(san['total'])} m³) y la suma de Bomba Principal + Sexto Piso "
-        f"({_fmt_m3(tot_salas)} m³). Las hipótesis apuntan a tramos de red no instrumentados "
-        f"(p. ej. empalmes previos a impulsión / otros consumos del recinto) y a la exclusión "
-        f"analítica de Sala de Bomba N°2 por lecturas inconsistentes desde septiembre.",
+        f"Brecha de visibilidad: {_fmt_m3(gap)} m³ ({_fmt_m3(pct_gap)}% del total Sanitaria) entre "
+        f"Medidor Principal Sanitaria ({_fmt_m3(san['total'])} m³) y la suma de Bomba Principal + "
+        f"Sexto Piso ({_fmt_m3(tot_salas)} m³). Hipótesis: tramos de red no instrumentados "
+        "(empalmes previos a impulsión / otros consumos del recinto).",
         highlight=True,
         bullet=True,
     )
     _add_para(
         doc,
-        f"Sanitaria concentra el 100% de la cuenta: promedio {_fmt_m3(san['prom'])} m³/día "
-        f"(rango {_fmt_m3(san['mn'])}–{_fmt_m3(san['mx'])} m³/día). Bomba Principal representa "
-        f"{_fmt_m3(pct_prin)}% y Sexto Piso {_fmt_m3(pct_sexto)}% del volumen Sanitaria.",
+        f"Sanitaria = 100% de la cuenta WES del periodo: promedio {_fmt_m3(san['prom'])} m³/día "
+        f"(rango {_fmt_m3(san['mn'][1] if san['mn'] else 0)}–{_fmt_m3(san['mx'][1] if san['mx'] else 0)} m³/día). "
+        f"Principal {_fmt_m3(pct_prin)}% · Sexto {_fmt_m3(pct_sexto)}%.",
         highlight=True,
         bullet=True,
     )
     _add_para(
         doc,
-        f"Facturación Aguas Antofagasta (jun–sep 2026, 4 ciclos): {_fmt_m3(tot_fact_m3, 0)} m³ y "
-        f"{_fmt_clp(tot_fact_clp)}. El salto de volumen respecto del ritmo histórico se confirma "
-        f"en lecturas encadenadas del medidor 534 (sin cambio de medidor ni estimación).",
+        f"Facturación Aguas Antofagasta (jun–sep 2026): {_fmt_m3(tot_fact_m3, 0)} m³ y "
+        f"{_fmt_clp(tot_fact_clp)} (cliente 1110080842 · medidor 534 · Centro Médico Antofagasta S.A.).",
         highlight=True,
         bullet=True,
     )
@@ -466,8 +481,7 @@ def build() -> Path:
     _add_subtitle(doc, "Recomendaciones Estratégicas")
     _add_para(
         doc,
-        "Monitoreo incremental: extender la medición a tramos no visualizados (incluye revisar "
-        "Sala N°2 con validación en terreno y eventual recalibración) para cerrar la brecha "
+        f"Monitoreo incremental: extender medición a tramos no visualizados para cerrar la brecha "
         f"del {_fmt_m3(pct_gap)}%.",
         highlight=True,
         bullet=True,
@@ -475,289 +489,211 @@ def build() -> Path:
     _add_para(
         doc,
         "Apoyo tecnológico: implementar Control Inteligente WES en sectores de alto consumo "
-        "para gestionar demanda en horarios inhábiles (prioritario) y hábiles.",
+        "(horarios inhábiles prioritario).",
         highlight=True,
         bullet=True,
     )
     _add_para(
         doc,
-        "Seguimiento factura vs WES: mantener contraste ciclo a ciclo entre boletas de Aguas "
-        "Antofagasta (medidor 534) y el Medidor Principal Sanitaria WES.",
+        "Seguimiento factura vs WES: contrastar cada ciclo de Aguas Antofagasta con Sanitaria WES.",
         highlight=True,
         bullet=True,
     )
 
-    # ===== I. ANTECEDENTES =====
+    # ===== ANTECEDENTES =====
     _page_break(doc)
     _add_title(doc, "I. Antecedentes")
     _add_para(
         doc,
-        "La Clínica Bupa tiene interés en avanzar en la gestión hídrica de su recinto y solicitó "
-        "a WES el desarrollo de un estudio de diagnóstico en Clínica Bupa Antofagasta para el "
-        "monitoreo en línea de sus redes hídricas.",
+        "La Clínica Bupa solicitó a WES un estudio de diagnóstico de gestión hídrica en "
+        "Clínica Bupa Antofagasta para el monitoreo en línea de sus redes.",
         bullet=True,
     )
     _add_para(
         doc,
-        "El objetivo del Estudio es construir una línea de base detallada del consumo hídrico "
-        "de los distintos sectores de la red del recinto.",
+        "El objetivo es construir una línea de base detallada del consumo hídrico de los "
+        "sectores instrumentados del recinto.",
         bullet=True,
     )
     _add_para(
         doc,
-        f"El proyecto se extendió entre julio y octubre 2026; por un periodo de {NUM_DIAS} días "
-        f"se llevó adelante monitoreo en línea de 4 puntos seleccionados en Clínica Bupa Antofagasta.",
+        f"Periodo analizado en este informe: {_fmt_fecha(START)} al {_fmt_fecha(END)} "
+        f"({NUM_DIAS} días), con tres puntos de medición.",
         bullet=True,
     )
-
-    _add_subtitle(doc, "a. Hitos y Carta Gantt")
-    _add_para(doc, "Previo a la implementación de los equipos, se ejecutaron hitos preparativos:")
-    for hito in [
+    _add_subtitle(doc, "a. Hitos")
+    for h in [
         "Reunión de Kick-off / 3 de junio",
         "Visita de inspección técnica / 24 de junio",
         "Habilitación empalmes eléctricos / junio – julio",
         "Instalación y habilitación equipos WES / 20 y 21 julio",
         "Capacitación equipo BUPA Plataforma WES / 31 julio",
     ]:
-        _add_para(doc, hito, bullet=True, space_after=2)
-
+        _add_para(doc, h, bullet=True, space_after=2)
     _add_subtitle(doc, "Ubicación")
-    _add_table(
-        doc,
-        ["Recinto", "Dirección"],
-        [["Clínica Bupa Antofagasta", "Manuel Antonio Matta 1945, Antofagasta"]],
-    )
+    _add_table(doc, ["Recinto", "Dirección"], [["Clínica Bupa Antofagasta", "Manuel Antonio Matta 1945, Antofagasta"]])
 
-    # ===== II + III =====
+    # ===== OBJETIVOS + SECTORES =====
     _page_break(doc)
     _add_title(doc, "II. Objetivos y resultados esperados")
-    _add_para(
-        doc,
-        "El diagnóstico de gestión hídrica en Clínica Bupa Antofagasta se estructuró sobre tres ejes técnicos centrales:",
-    )
-    _add_para(
-        doc,
-        "(A) Línea de base: construir una línea de base hídrica respaldada por datos empíricos "
-        "de alta frecuencia temporal.",
-        bullet=True,
-    )
-    _add_para(
-        doc,
-        "(B) Perfil de consumo: elaborar perfiles diario y semanal (lun–dom) por sector, "
-        "identificando variaciones en días hábiles e inhábiles.",
-        bullet=True,
-    )
-    _add_para(
-        doc,
-        "(C) Detección y cuantificación: identificar ineficiencias, huecos de data y desacoples "
-        "operacionales en las redes monitoreadas.",
-        bullet=True,
-    )
+    _add_para(doc, "Tres ejes técnicos centrales:")
+    _add_para(doc, "(A) Línea de base hídrica con data de alta frecuencia.", bullet=True)
+    _add_para(doc, "(B) Perfiles diario, lun–dom y 24 h (pico, mínimo y cercanos al promedio).", bullet=True)
+    _add_para(doc, "(C) Detección de ineficiencias, huecos de data y desacoples operacionales.", bullet=True)
 
     _add_title(doc, "III. Definición de sectores a monitorear")
     _add_para(
         doc,
-        "Tras visita técnica y reuniones Bupa–WES (junio–julio), y con base en facturación "
-        "sanitaria y prioridades operacionales, se definieron los siguientes puntos:",
+        "Tras visita técnica y reuniones Bupa–WES (junio–julio), se instrumentaron:",
     )
     _add_para(
         doc,
-        "1. Medidor Principal Sanitaria: matriz de cobre de 2\" a la entrada del recinto. "
-        "Mide el 100% del volumen de agua potable entregado por Aguas Antofagasta.",
+        "1. Medidor Principal Sanitaria: matriz de cobre de 2\" a la entrada. Mide el 100% del "
+        "volumen entregado por Aguas Antofagasta.",
         bullet=True,
     )
     _add_para(
         doc,
-        "2. Sala de Bomba Principal (Primer Piso): impulsión de cobre de 2\" en planta baja. "
-        "Distribuye agua potable a gran parte de la infraestructura y alimenta acumulación "
-        "hacia Sala de Bomba N°2.",
+        "2. Sala de Bomba Principal (Primer Piso): impulsión de cobre de 2\" en planta baja; "
+        "distribuye agua a gran parte de la infraestructura.",
         bullet=True,
     )
     _add_para(
         doc,
-        "3. Sala de Bomba N°2 (Primer Piso): impulsión en cobre de 2\" cuya función de diseño "
-        "es traspasar agua hacia la sala del sexto piso. En este informe se mantiene como punto "
-        "instalado, pero se excluye del balance cuantitativo por lecturas inconsistentes desde septiembre.",
-        bullet=True,
-    )
-    _add_para(
-        doc,
-        "4. Sala de Bomba Sexto Piso: red de 2\" en cobre del sexto nivel; presuriza y abastece "
+        "3. Sala de Bomba Sexto Piso: red de 2\" en cobre del sexto nivel; presuriza y abastece "
         "el resto del recinto.",
         bullet=True,
     )
 
-    # ===== IV. FOTOS (pedido pág. 6) =====
+    # ===== FOTOS (3) =====
     _page_break(doc)
     _add_title(doc, "IV. Fotografías de instalación")
     _add_para(
         doc,
-        "Entre el 20 y 21 de julio se ejecutaron trabajos de instalación de equipos WES de "
-        "Monitoreo Inteligente. A continuación, fotografías de los puntos instrumentados "
+        "Instalación de equipos WES (20–21 julio). Se muestra el gabinete y el sector de cada punto "
         "(fuente: Bupa Antofagasta / Fotografias).",
     )
-
-    fotos = [
-        ("Matriz Sanitaria.jpeg", "Medidor Principal Sanitaria — matriz de entrada"),
-        ("Sala de bomba matriz principal.jpeg", "Sala de Bomba Principal (1er piso)"),
-        ("Sala de bomna N°2.jpeg", "Sala de Bomba N°2 (1er piso)"),
-        ("Sala de bomba Sexto Piso.jpeg", "Sala de Bomba Sexto Piso"),
-    ]
-    # Tabla 2×2 para mantener las 4 fotos en una sola página
-    table = doc.add_table(rows=2, cols=2)
+    table = doc.add_table(rows=1, cols=3)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    for idx, (fname, cap) in enumerate(fotos):
-        cell = table.rows[idx // 2].cells[idx % 2]
+    caps = [
+        ("sanitaria.jpg", "Medidor Principal Sanitaria"),
+        ("bomba_principal.jpg", "Sala de Bomba Principal"),
+        ("sexto_piso.jpg", "Sala de Bomba Sexto Piso"),
+    ]
+    for i, (fname, cap) in enumerate(caps):
+        cell = table.rows[0].cells[i]
         cell.text = ""
         p = cell.paragraphs[0]
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         img = FOTOS / fname
         if img.is_file():
-            p.add_run().add_picture(str(img), width=Inches(2.85))
+            p.add_run().add_picture(str(img), width=Inches(2.05))
         c = cell.add_paragraph()
         c.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r = c.add_run(cap)
         _set_run(r, size=7, color=RGBColor(80, 80, 80))
-    doc.add_paragraph().paragraph_format.space_after = Pt(4)
-
+    doc.add_paragraph().paragraph_format.space_after = Pt(6)
     _add_para(
         doc,
-        "Usuarios BUPA habilitados en plataforma WES App: Catherine Velásquez (Supervisora de "
-        "Proyectos e Infraestructura), Joel Cartes (Jefe de Proyecto e Infraestructura) y "
-        "Jonathan Chaparro (Subgerente de Operaciones).",
+        "Usuarios BUPA en WES App: Catherine Velásquez, Joel Cartes y Jonathan Chaparro.",
         size=9,
     )
 
-    # ===== V. ANÁLISIS (págs 7-8) =====
+    # ===== ANÁLISIS POR PUNTO =====
     _page_break(doc)
     _add_title(doc, "V. Análisis de sectores monitoreados")
     _add_para(
         doc,
-        f"Consumos en m³ según data WES del periodo {_fmt_fecha(START)} al {_fmt_fecha(END)}. "
-        "Gráficos propios (sin pantallazos de la aplicación).",
+        f"Data WES {_fmt_fecha(START)}–{_fmt_fecha(END)}. Gráficos propios. "
+        "Perfiles 24 h del día máximo, mínimo y tres días más cercanos al promedio "
+        "(reparto uniforme total/24 mientras la API horaria no responde).",
     )
 
-    # --- Sanitaria ---
-    _add_subtitle(doc, "1) Medidor Principal Sanitaria")
-    _add_table(
-        doc,
-        ["Indicador", "Valor"],
-        [
-            ["Total (m³)", _fmt_m3(san["total"])],
-            ["Promedio diario (m³)", _fmt_m3(san["prom"])],
-            ["Días con data", f"{san['n']} / {NUM_DIAS}"],
-            [
-                "Rango min – max diario (m³)",
-                f"{_fmt_m3(san['mn'])} – {_fmt_m3(san['mx'])} "
-                f"({_fmt_fecha(san['dmin'])} / {_fmt_fecha(san['dmax'])})",
-            ],
-            ["% sobre Sanitaria", "100,0%"],
-        ],
-    )
-    _add_picture(
-        doc,
-        CHARTS / "chart_diario_sanitaria.png",
-        6.0,
-        "Perfil de consumo diario (m³) — Medidor Sanitaria · Fuente: WES",
-    )
-    _add_para(
-        doc,
-        f"Patrón con picos hasta {_fmt_m3(san['mx'])} m³/día y mínimos del orden de "
-        f"{_fmt_m3(san['mn'])} m³/día. El promedio del periodo es {_fmt_m3(san['prom'])} m³/día.",
-        highlight=True,
-        bullet=True,
-    )
-    _add_picture(
-        doc,
-        CHARTS / "chart_dow_sanitaria.png",
-        5.8,
-        "Promedio lun–dom (m³) — Medidor Sanitaria · Fuente: WES",
-    )
-    _add_para(
-        doc,
-        "En el promedio lun–dom se observa menor consumo relativo en fin de semana, "
-        "consistente con menor afluencia de público y de servicios.",
-        highlight=True,
-        bullet=True,
-    )
+    for idx, nid in enumerate(["000029-09", "000029-07", "000029-08"], start=1):
+        if idx > 1:
+            _page_break(doc)
+        n = nodes[nid]
+        _add_subtitle(doc, f"{idx}) {n['nombre']}")
 
-    # --- Principal ---
-    _page_break(doc)
-    _add_subtitle(doc, "2) Sala de Bomba Principal (Primer Piso)")
-    _add_table(
-        doc,
-        ["Indicador", "Valor"],
-        [
-            ["Total (m³)", _fmt_m3(prin["total"])],
-            ["Promedio diario (m³)", _fmt_m3(prin["prom"])],
-            ["Días con data", f"{prin['n']} / {NUM_DIAS}"],
-            [
-                "Rango min – max diario (m³)",
-                f"{_fmt_m3(prin['mn'])} – {_fmt_m3(prin['mx'])} "
-                f"({_fmt_fecha(prin['dmin'])} / {_fmt_fecha(prin['dmax'])})",
-            ],
-            ["% sobre Sanitaria", f"{_fmt_m3(pct_prin)}%"],
-        ],
-    )
-    _add_picture(
-        doc,
-        CHARTS / "chart_diario_bomba_principal.png",
-        6.0,
-        "Perfil de consumo diario (m³) — Bomba Principal · Fuente: WES",
-    )
-    _add_picture(
-        doc,
-        CHARTS / "chart_dow_bomba_principal.png",
-        5.8,
-        "Promedio lun–dom (m³) — Bomba Principal · Fuente: WES",
-    )
+        # KPI table estilo modelo (incluye rango pico/mínimo)
+        rango = "—"
+        if n["mx"] and n["mn"]:
+            rango = (
+                f"{_fmt_m3(n['mn'][1])} – {_fmt_m3(n['mx'][1])} m³\n"
+                f"({_fmt_fecha(n['mn'][0])} / {_fmt_fecha(n['mx'][0])})"
+            )
+        kpi = [
+            ("Total (m³)", _fmt_m3(n["total"])),
+            ("Promedio mensual (m³)", _fmt_m3(n["prom_mes"])),
+            ("Promedio diario (m³)", _fmt_m3(n["prom"])),
+            ("Días con data", f"{n['n']} / {NUM_DIAS}"),
+            ("Rango min y max diario (m³)", rango.replace("\n", " ")),
+        ]
+        if nid == "000029-08":
+            kpi.append(("Hueco sin registro", "14/08/2026 – 17/08/2026 (lluvias)"))
+        if nid != "000029-09":
+            pct = 100.0 * n["total"] / san["total"] if san["total"] else 0.0
+            kpi.append(("% sobre Sanitaria", f"{_fmt_m3(pct)}%"))
+        else:
+            kpi.append(("% sobre Sanitaria", "100,0%"))
+        _add_kpi_table(doc, kpi)
 
-    # --- Sexto ---
-    _page_break(doc)
-    _add_subtitle(doc, "3) Sala de Bomba Sexto Piso")
-    _add_table(
-        doc,
-        ["Indicador", "Valor"],
-        [
-            ["Total (m³)", _fmt_m3(sexto["total"])],
-            ["Promedio diario (m³)", _fmt_m3(sexto["prom"])],
-            ["Días con data", f"{sexto['n']} / {NUM_DIAS}"],
-            ["Hueco sin registro", "14/08/2026 – 17/08/2026 (lluvias / conectividad)"],
-            [
-                "Rango min – max diario (m³)",
-                f"{_fmt_m3(sexto['mn'])} – {_fmt_m3(sexto['mx'])} "
-                f"({_fmt_fecha(sexto['dmin'])} / {_fmt_fecha(sexto['dmax'])})",
-            ],
-            ["% sobre Sanitaria", f"{_fmt_m3(pct_sexto)}%"],
-        ],
-    )
-    _add_picture(
-        doc,
-        CHARTS / "chart_diario_sexto_piso.png",
-        6.0,
-        "Perfil de consumo diario (m³) — Sexto Piso · Fuente: WES",
-    )
-    _add_picture(
-        doc,
-        CHARTS / "chart_dow_sexto_piso.png",
-        5.8,
-        "Promedio lun–dom (m³) — Sexto Piso · Fuente: WES",
-    )
+        _add_picture(
+            doc,
+            CHARTS / f"chart_diario_{n['slug']}.png",
+            5.95,
+            f"Perfil de consumo diario (m³) — {n['corto']} · Fuente: WES",
+        )
+        if n["mx"] and n["mn"]:
+            _add_para(
+                doc,
+                f"Patrón del periodo con pico {_fmt_m3(n['mx'][1])} m³/día "
+                f"({_fmt_fecha(n['mx'][0])}) y mínimo {_fmt_m3(n['mn'][1])} m³/día "
+                f"({_fmt_fecha(n['mn'][0])}). Promedio {_fmt_m3(n['prom'])} m³/día.",
+                highlight=True,
+                bullet=True,
+            )
 
-    _add_subtitle(doc, "4) Sala de Bomba N°2 — nota operativa")
-    _add_para(
-        doc,
-        "El punto está instalado y fotografiado; sin embargo, desde septiembre las lecturas "
-        "presentan inconsistencias que impiden usarlo en el balance primario del periodo. "
-        "Se recomienda validación en terreno y, de confirmarse el desvío, recalibración o "
-        "reemplazo del sensor antes de reincorporarlo al análisis.",
-    )
+        _add_picture(doc, CHARTS / f"chart_dow_{n['slug']}.png", 5.8)
+        dow_rows = [[d, _fmt_m3(n["dow"].get(d, 0), 2)] for d in DAY_ES]
+        _add_table(doc, ["Día", "Promedio (m³)"], dow_rows, compact=True)
+        _add_para(
+            doc,
+            "El promedio lun–dom permite contrastar días hábiles e inhábiles.",
+            highlight=True,
+            bullet=True,
+        )
+
+        # 24h max + min
+        _page_break(doc)
+        _add_subtitle(doc, f"Perfiles 24 h — {n['corto']}")
+        _add_para(
+            doc,
+            f"Día máximo, día mínimo y tres días con consumo más cercano al promedio "
+            f"({_fmt_m3(n['avg_pos'])} m³/día).",
+        )
+        if n["mx"]:
+            _add_picture(doc, CHARTS / f"chart_24h_max_{n['slug']}.png", 5.9)
+        if n["mn"]:
+            _add_picture(doc, CHARTS / f"chart_24h_min_{n['slug']}.png", 5.9)
+
+        if n["near"]:
+            _page_break(doc)
+            _add_subtitle(doc, f"Días cercanos al promedio — {n['corto']}")
+            near_txt = "; ".join(
+                f"{_fmt_fecha(d)} ({_fmt_m3(v)} m³, Δ {_fmt_m3(abs(v - n['avg_pos']))})"
+                for d, v, _ in n["near"]
+            )
+            _add_para(doc, f"Seleccionados: {near_txt}.", space_after=4)
+            for d, v, path in n["near"]:
+                _add_picture(doc, path, 5.7)
 
     # Participación
+    _page_break(doc)
     _add_subtitle(doc, "Participación sobre Sanitaria (periodo)")
     _add_table(
         doc,
-        ["Punto", "Consumo (m³)", "% sobre Sanitaria"],
+        ["Punto", "Consumo (m³)", "%"],
         [
             ["Medidor Principal Sanitaria", _fmt_m3(san["total"]), "100,0%"],
             ["Sala de Bomba Principal", _fmt_m3(prin["total"]), f"{_fmt_m3(pct_prin)}%"],
@@ -766,142 +702,88 @@ def build() -> Path:
             ["No monitoreado (brecha)", _fmt_m3(gap), f"{_fmt_m3(pct_gap)}%"],
         ],
     )
-    _add_picture(doc, CHARTS / "chart_participacion.png", 3.6, "Distribución % vs Sanitaria")
+    _add_picture(doc, CHARTS / "chart_participacion.png", 3.4)
 
-    # ===== VI. FACTURACIÓN (pedido pág. 13) =====
+    # ===== FACTURAS =====
     _page_break(doc)
     _add_title(doc, "VI. Facturación sanitaria — Aguas Antofagasta")
     _add_para(
         doc,
-        "Consolidación de las boletas del cliente Centro Médico Antofagasta S.A. "
-        "(N° cliente 1110080842 · medidor 534 · diámetro 50 mm · dirección Manuel Antonio Matta 1957). "
-        "Fuente: carpeta Bupa Antofagasta / Facturacion (4 PDF).",
+        "Boletas Centro Médico Antofagasta S.A. (N° cliente 1110080842 · medidor 534 · "
+        "Manuel Antonio Matta 1957). Fuente: Bupa Antofagasta / Facturacion.",
     )
-    _add_picture(
-        doc,
-        CHARTS / "chart_facturas_m3.png",
-        5.5,
-        "Consumo facturado por ciclo (m³)",
-    )
-    rows = []
-    for f in FACTURAS:
-        rows.append(
-            [
-                f["ciclo"],
-                f["emision"],
-                _fmt_m3(f["m3"], 0),
-                _fmt_clp(f["clp"]),
-                f["nro"],
-            ]
-        )
-    rows.append(
-        [
-            "Total",
-            "—",
-            _fmt_m3(tot_fact_m3, 0),
-            _fmt_clp(tot_fact_clp),
-            "—",
-        ]
-    )
+    _add_picture(doc, CHARTS / "chart_facturas_m3.png", 5.4)
+    rows = [
+        [f["ciclo"], f["emision"], _fmt_m3(f["m3"], 0), _fmt_clp(f["clp"]), f["nro"]]
+        for f in FACTURAS
+    ]
+    rows.append(["Total", "—", _fmt_m3(tot_fact_m3, 0), _fmt_clp(tot_fact_clp), "—"])
     _add_table(
         doc,
         ["Periodo", "Emisión", "Consumo (m³)", "Monto facturado", "N° factura"],
         rows,
         compact=True,
     )
-    _add_subtitle(doc, "Lecturas encadenadas del medidor 534")
-    lect_rows = [
-        [
-            f["ciclo"],
-            str(f["lect_ant"]),
-            str(f["lect_act"]),
-            _fmt_m3(f["m3"], 0),
-            f["nro"],
-        ]
-        for f in FACTURAS
-    ]
+    _add_subtitle(doc, "Lecturas encadenadas — medidor 534")
     _add_table(
         doc,
-        ["Ciclo", "Lectura anterior", "Lectura actual", "m³", "N° factura"],
-        lect_rows,
+        ["Ciclo", "Lect. anterior", "Lect. actual", "m³", "N° factura"],
+        [
+            [f["ciclo"], str(f["lect_ant"]), str(f["lect_act"]), _fmt_m3(f["m3"], 0), f["nro"]]
+            for f in FACTURAS
+        ],
         compact=True,
     )
-    _add_para(
-        doc,
-        "No hay cambio de medidor, m³ por abonar en la factura siguiente ni lectura estimada: "
-        "el salto de volumen está en el medidor. Tarifa publicada (El Mercurio de Antofagasta, "
-        "15-11-2025) implica del orden de $2.769 CLP/m³ con IVA (agua + alcantarillado + tratamiento + cargo fijo prorrateado).",
-    )
 
-    # ===== VII. CONCLUSIONES =====
+    # ===== CONCLUSIONES =====
     _page_break(doc)
     _add_title(doc, "VII. Conclusiones y hallazgos")
     _add_para(
         doc,
-        f"1) Periodo WES {_fmt_fecha(START)}–{_fmt_fecha(END)}: Sanitaria {_fmt_m3(san['total'])} m³ "
+        f"1) Periodo {_fmt_fecha(START)}–{_fmt_fecha(END)}: Sanitaria {_fmt_m3(san['total'])} m³ "
         f"({_fmt_m3(san['prom'])} m³/día).",
         bullet=True,
     )
     _add_para(
         doc,
-        f"2) Principal + Sexto = {_fmt_m3(pct_salas)}% de Sanitaria; brecha no monitoreada = "
-        f"{_fmt_m3(pct_gap)}% ({_fmt_m3(gap)} m³).",
+        f"2) Principal+Sexto = {_fmt_m3(pct_salas)}%; brecha = {_fmt_m3(pct_gap)}% "
+        f"({_fmt_m3(gap)} m³).",
         bullet=True,
     )
     _add_para(
         doc,
-        "3) Sexto Piso: único hueco de data 14–17/08/2026 (asociado a lluvias / conectividad). "
-        "Sanitaria y Principal sin huecos en el periodo.",
+        "3) Hueco de data solo en Sexto Piso 14–17/08/2026; Sanitaria y Principal sin huecos.",
         bullet=True,
     )
     _add_para(
         doc,
-        "4) Sala N°2 queda fuera del balance cuantitativo hasta validación/recalibración.",
+        f"4) Facturación jun–sep 2026 Antofagasta: {_fmt_m3(tot_fact_m3, 0)} m³ / {_fmt_clp(tot_fact_clp)}.",
         bullet=True,
     )
     _add_para(
         doc,
-        f"5) Facturación jun–sep 2026: {_fmt_m3(tot_fact_m3, 0)} m³ / {_fmt_clp(tot_fact_clp)} "
-        "(4 ciclos Aguas Antofagasta, lecturas encadenadas).",
+        "5) Por cada punto se presentan perfiles 24 h del día máximo, mínimo y tres cercanos al promedio.",
         bullet=True,
     )
 
-    # ===== VIII. RECOMENDACIONES =====
     _add_title(doc, "VIII. Recomendaciones y próximos pasos")
-    _add_para(
-        doc,
-        "Acción 1 — Cerrar brecha de visibilidad: priorizar instrumentación de tramos no medidos "
-        "y resolver el estado de Sala N°2.",
-        bullet=True,
-    )
-    _add_para(
-        doc,
-        "Acción 2 — Control en horarios inhábiles: evaluar Control Inteligente WES donde el "
-        "consumo nocturno/fin de semana no se justifique operativamente.",
-        bullet=True,
-    )
-    _add_para(
-        doc,
-        "Acción 3 — Contraste factura vs WES: al cierre de cada ciclo de Aguas Antofagasta, "
-        "comparar m³ boleta (medidor 534) con Sanitaria WES y documentar diferencias.",
-        bullet=True,
-    )
-    _add_para(
-        doc,
-        "Acción 4 — Mantener usuarios BUPA activos en la App y revisión periódica de alertas "
-        "con el equipo de infraestructura.",
-        bullet=True,
-    )
+    _add_para(doc, "Acción 1 — Instrumentar tramos no medidos para cerrar la brecha.", bullet=True)
+    _add_para(doc, "Acción 2 — Evaluar Control Inteligente WES en horarios inhábiles.", bullet=True)
+    _add_para(doc, "Acción 3 — Contraste ciclo a ciclo factura Aguas Antofagasta vs Sanitaria WES.", bullet=True)
+    _add_para(doc, "Acción 4 — Mantener usuarios BUPA activos y revisión periódica de alertas.", bullet=True)
 
     _add_para(
         doc,
         f"Documento generado {datetime.now().strftime('%d/%m/%Y %H:%M')} · WES · Clínica Bupa Antofagasta",
         size=8,
         align=WD_ALIGN_PARAGRAPH.CENTER,
-        space_before=18,
+        space_before=16,
     )
 
-    out = ROOT / f"Informe_final_WES_Bupa_Antofagasta_{START.strftime('%Y%m%d')}_{END.strftime('%Y%m%d')}.docx"
+    out = ROOT / (
+        f"Informe_final_WES_Bupa_Antofagasta_{START.strftime('%Y%m%d')}_"
+        f"{END.strftime('%Y%m%d')}.docx"
+    )
     doc.save(str(out))
     return out
 
