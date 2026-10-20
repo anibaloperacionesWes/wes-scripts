@@ -12,6 +12,8 @@ Uso:
 from __future__ import annotations
 
 import calendar
+import json
+import os
 import sys
 import time
 from collections import Counter
@@ -56,12 +58,20 @@ FOLDER = "Bupa_Antofagasta"
 START = date(2026, 7, 31)
 END = date(2026, 9, 30)
 LLUVIAS_SIN_DATA = (date(2026, 8, 14), date(2026, 8, 17))  # Sexto Piso
+CACHE_DIARIO = (
+    Path("reports") / FOLDER / "ANALISIS_PILOTO" / "cache_diario_bupa_antofagasta.json"
+)
 
 NODOS = [
     {"id": "000029-09", "nombre": "Medidor Principal Sanitaria", "corto": "Sanitaria", "rol": "matriz"},
     {"id": "000029-07", "nombre": "Sala de Bomba Principal", "corto": "Bomba Principal", "rol": "sala"},
     {"id": "000029-08", "nombre": "Sala de Bomba Sexto Piso", "corto": "Sexto Piso", "rol": "sala"},
 ]
+
+# Preferir cache local si existe (API acl-node a veces cae).
+USE_CACHE = os.environ.get("BUPA_FORCE_API", "").strip() not in ("1", "true", "yes")
+_HOURLY_API_OK: Optional[bool] = None
+_HOURLY_SYNTHETIC_USED = False
 
 MESES_ES = {
     1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio",
@@ -152,7 +162,41 @@ def _add_table_centered(
     _center_last_table(doc, compact=compact)
 
 
-def _fetch_series(node_id: str) -> Tuple[List[MeasurePoint], dict]:
+def _load_cache_diario() -> Dict[str, Dict[str, float]]:
+    if not CACHE_DIARIO.is_file():
+        return {}
+    raw = json.loads(CACHE_DIARIO.read_text(encoding="utf-8"))
+    out: Dict[str, Dict[str, float]] = {}
+    for nid, series in raw.items():
+        if not isinstance(series, dict):
+            continue
+        out[nid] = {str(k): float(v) for k, v in series.items()}
+    return out
+
+
+def _measures_from_cache(
+    node_id: str, cache: Dict[str, Dict[str, float]]
+) -> List[MeasurePoint]:
+    series = cache.get(node_id) or {}
+    out: List[MeasurePoint] = []
+    for ds, val in series.items():
+        try:
+            d = date.fromisoformat(ds)
+        except ValueError:
+            continue
+        if START <= d <= END:
+            out.append(
+                MeasurePoint(
+                    date=datetime.combine(d, datetime.min.time()),
+                    total_m3=float(val),
+                    details={"source": "cache_diario"},
+                )
+            )
+    out.sort(key=lambda x: x.date)
+    return out
+
+
+def _fetch_series_api(node_id: str) -> Tuple[List[MeasurePoint], dict]:
     raw = fetch_json(
         f"{acl_node_base_url()}/nodes/measures/dates",
         params=[
@@ -180,12 +224,32 @@ def _fetch_series(node_id: str) -> Tuple[List[MeasurePoint], dict]:
     dates_flat = [(m.date.date() if hasattr(m.date, "date") else m.date) for m in out]
     flat_dups = {d: n for d, n in Counter(dates_flat).items() if n > 1}
     meta = {
+        "source": "api",
         "raw_entries": len(dates_raw),
         "raw_unique": len(counts),
         "raw_dups": dups,
         "flat_dups": flat_dups,
     }
     return out, meta
+
+
+def _fetch_series(node_id: str) -> Tuple[List[MeasurePoint], dict]:
+    """Preferir cache diario local; API solo si se fuerza o no hay cache."""
+    cache = _load_cache_diario() if USE_CACHE else {}
+    if node_id in cache and cache[node_id]:
+        out = _measures_from_cache(node_id, cache)
+        dates_flat = [_measure_day(m) for m in out]
+        flat_dups = {d: n for d, n in Counter(dates_flat).items() if n > 1}
+        return out, {
+            "source": "cache",
+            "raw_entries": len(out),
+            "raw_unique": len(set(dates_flat)),
+            "raw_dups": {},
+            "flat_dups": flat_dups,
+            "cache_path": str(CACHE_DIARIO),
+        }
+    print(f"[ADVERTENCIA] Sin cache para {node_id}; intentando API...")
+    return _fetch_series_api(node_id)
 
 
 def _by_date(measures: List[MeasurePoint]) -> Dict[date, float]:
@@ -392,17 +456,42 @@ def _chart_pie_small(path: Path, salas: float, gap: float, sanit: float) -> Path
     return path
 
 
+def _synthetic_hourly(total_m3: float) -> List[Tuple[int, float]]:
+    hv = float(total_m3 or 0.0) / 24.0
+    return [(h, hv) for h in range(24)]
+
+
 def _build_hourly_chart(
     node_id: str,
     day_m: MeasurePoint,
     out_path: Path,
     suffix: str,
 ) -> Optional[Path]:
+    """Curva 24 h: API si se fuerza; con cache diario se usa total/24 (API suele estar caída)."""
+    global _HOURLY_API_OK, _HOURLY_SYNTHETIC_USED
     day_dt = datetime.combine(_measure_day(day_m), datetime.min.time())
-    hourly = get_hourly_measures_for_day(node_id, day_dt)
+    hourly = None
+    force_hourly_api = os.environ.get("BUPA_FORCE_HOURLY_API", "").strip() in (
+        "1",
+        "true",
+        "yes",
+    )
+    # Con cache diario no martillar la API (timeouts largos). Solo si se fuerza.
+    if force_hourly_api and _HOURLY_API_OK is not False:
+        try:
+            hourly = get_hourly_measures_for_day(node_id, day_dt)
+            _HOURLY_API_OK = bool(hourly)
+        except Exception as e:
+            print(f"[ADVERTENCIA] API horaria falló ({e}); uso total/24")
+            _HOURLY_API_OK = False
+            hourly = None
     if not hourly:
-        print(f"[ADVERTENCIA] Sin horario {node_id} {_measure_day(day_m)}")
-        return None
+        hourly = _synthetic_hourly(day_m.total_m3 or 0.0)
+        _HOURLY_SYNTHETIC_USED = True
+        print(
+            f"[INFO] 24h sintético (total/24) {node_id} {_measure_day(day_m)} "
+            f"= {day_m.total_m3:.2f} m³"
+        )
     return build_hourly_consumption_line_chart(hourly, out_path, day_dt, suffix)
 
 
@@ -452,16 +541,21 @@ def main() -> None:
     out_dir = Path("reports") / FOLDER / "ANALISIS_PILOTO" / f"PILOTO_{stamp}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    if USE_CACHE and CACHE_DIARIO.is_file():
+        print(f"[INFO] Fuente diaria: cache local → {CACHE_DIARIO}")
+    else:
+        print("[INFO] Fuente diaria: API acl-node (sin cache usable)")
+
     series: Dict[str, List[MeasurePoint]] = {}
     by_date: Dict[str, Dict[date, float]] = {}
     for n in NODOS:
-        print(f"[INFO] Descargando {n['nombre']}...")
+        print(f"[INFO] Cargando {n['nombre']}...")
         measures, meta = _fetch_series(n["id"])
         series[n["id"]] = measures
         by_date[n["id"]] = _by_date(measures)
         print(
             f"       {len(measures)} días · {sum(by_date[n['id']].values()):.1f} m³ · "
-            f"dups={meta['raw_dups'] or 'no'}"
+            f"fuente={meta.get('source', '?')} · dups={meta['raw_dups'] or 'no'}"
         )
 
     sanit_id = "000029-09"
@@ -813,7 +907,14 @@ def main() -> None:
         f"({format_number_chilean(tot_gap, 1)} m³).\n"
         f"4) Sala de Bomba N°2 excluida del análisis (lecturas erradas desde septiembre).\n"
         f"5) Por cada punto se presentan perfiles 24 h del día pico, del día mínimo "
-        f"y de tres días cercanos al promedio.\n"
+        f"y de tres días cercanos al promedio"
+        + (
+            " (cuando la API horaria no respondió, se usó reparto uniforme total/24 "
+            "a partir del consumo diario)."
+            if _HOURLY_SYNTHETIC_USED
+            else "."
+        )
+        + "\n"
         f"6) Hipótesis de gap: empalme desde matriz principal antes de impulsión "
         f"2° piso.",
     )
