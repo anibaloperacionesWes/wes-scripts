@@ -1,0 +1,14 @@
+---
+description: Acta oficial de visita técnica WES (no un informe libre)
+alwaysApply: true
+---
+
+# Acta de visita técnica
+
+Cuando pidan un formulario de visita, un acta de visita, una visita remota o una visita en terreno:
+
+1. Usá el acta oficial `mantenimiento_wes/generar_pdf_acta_visita.py` (ACTA DE VISITA TÉCNICA WES), con los campos del formulario: cliente, máquina, comuna, fecha, hora, técnico, folio/OT, motivo, tecnología, tipo de mantenimiento, tipo de falla, falla específica, solución y checklists. No reemplaces esa acta por un informe Word libre.
+2. El folio es el máximo del Registro de fallas (Sheet `1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM`, hoja Datos) más uno.
+3. Guardá el PDF en Drive en **Actas de Mantencion** (`1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ`), ruta `{Cliente}/{año}/{mes}`, nombre `folio_{folio}_{fecha}_{CLIENTE}_{MAQUINA}_{yyyyMMdd_HHmmss}.pdf`.
+4. El correo del acta va solo a quien corresponda del cliente. En CORMUP el destinatario del acta es David Campos (`dcampos.henriquez@cormup.cl`). No copies al equipo WES salvo que lo pidan.
+5. El correo pide acusar recibo y adjunta el PDF.
