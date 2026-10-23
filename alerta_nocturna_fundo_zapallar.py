@@ -664,6 +664,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     csv_path = _guardar_csv(filas, noche)
     _imprimir(filas)
     print(f"[INFO] Detalle: {csv_path}")
+    try:
+        from generar_pdf_alerta_fundo_zapallar import guardar_pdf_dia
+
+        pdf_path = guardar_pdf_dia(filas, noche)
+        print(f"[INFO] PDF: {pdf_path}")
+    except Exception as exc:
+        print(f"[WARN] No se generó el PDF: {exc}", file=sys.stderr)
 
     avisos = [f for f in filas if f["notificar"]]
     if not avisos:

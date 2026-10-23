@@ -100,6 +100,45 @@ def test_persistencia_no_sube_un_dia_normal():
     assert aplicar_persistencia("critica", "seguimiento") == "critica"
 
 
+def test_pdf_de_un_dia_marca_la_critica():
+    import pypdfium2 as pdfium
+
+    from generar_pdf_alerta_fundo_zapallar import pagina_dia
+
+    filas = [
+        {
+            "fecha": "2026-10-23",
+            "periodo": "23-10-2026 00:00 a 06:00",
+            "regla": "etapa5-noche",
+            "punto": "Etapa N°5 — noche",
+            "nivel": "preventiva",
+            "valor": "3.5",
+            "umbral": "Seguimiento: >1 a 5 m³/noche. Preventiva: >5 a 10 m³/noche. Crítica: >10 m³/noche o >4 m³/h.",
+            "detalle": "Total 3,50 m³; máximo 3,50 m³/h; racha con flujo 1 h. 00:00=0,00; 06:00=3,50. La alerta de seguimiento se repite, por eso el nivel pasa a preventiva.",
+            "accion": "Revisar riego abierto o pérdida.",
+        },
+        {
+            "fecha": "2026-10-22",
+            "periodo": "22-10-2026 día completo",
+            "regla": "balance-estanque-etapas",
+            "punto": "Estanque Inferior − (Etapa N°5 + Etapas 1-4)",
+            "nivel": "critica",
+            "valor": "102.5",
+            "umbral": "Seguimiento >30 a 36 m³/día. Preventiva >36 a 60 m³/día o >30 m³ por 2 días. Crítica >60 m³/día.",
+            "detalle": "Estanque 116,40 m³; Etapa N°5 13,90 m³; Etapas 1-4 0,00 m³; ∆ 102,50 m³.",
+            "accion": "Sobre 30 m³ debe revisarse el balance de los dos estanques de etapa.",
+        },
+    ]
+    fig = pagina_dia(filas)
+    destino = "/tmp/alerta_zapallar_test.pdf"
+    fig.savefig(destino, format="pdf")
+    texto = pdfium.PdfDocument(destino)[0].get_textpage().get_text_bounded()
+    assert "Alerta crítica" in texto
+    assert "102,50 m³" in texto
+    assert "3,50 m³" in texto
+    assert "se repite" in texto
+
+
 def test_noche_completa_despues_de_las_07():
     assert ultima_noche_completa(datetime(2026, 10, 14, 18, 0, tzinfo=CHILE_TZ)) == date(2026, 10, 14)
     assert ultima_noche_completa(datetime(2026, 10, 15, 5, 0, tzinfo=CHILE_TZ)) == date(2026, 10, 14)
