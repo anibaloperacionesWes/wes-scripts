@@ -24,3 +24,14 @@ Cuando el usuario pida un reporte y el agente corra **en la nube** (sin PC local
 
 No dependas de `G:\Mi unidad\...`: en la nube esa ruta no existe. Drive se alcanza solo por API.
 No uses carpetas sueltas tipo `Reportes_Cloud_*` en la raíz de Drive.
+
+## Puntos en cero: tarea diaria
+
+El reporte de puntos en cero **no es un pedido de un solo día**. Es la tarea diaria de las **08:30 America/Santiago** (ventana de las últimas 24 horas, `python reporte_puntos_en_cero.py --dias 1`).
+
+Cada corrida tiene que dejar el Word y el PDF del día en las dos partes:
+
+1. En el repositorio, carpeta `reports/Puntos_En_Cero/` (commitear esos archivos para que queden en el proyecto).
+2. En Google Drive, subcarpeta `Puntos_En_Cero`, con el link `web_view_link` en la respuesta.
+
+No alcanza con guardarlo solo en `reporte en cero/`. El script ya copia y sube al terminar; igual hay que commitear lo que quede en `reports/Puntos_En_Cero/`.

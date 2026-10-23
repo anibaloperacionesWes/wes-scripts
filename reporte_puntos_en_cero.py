@@ -4,6 +4,8 @@ Conecta con todos los puntos del sistema y genera un reporte Word con los que es
 """
 
 import os
+import shutil
+import subprocess
 import sys
 import time
 import requests
@@ -1313,6 +1315,82 @@ def crear_reporte_word(
     return output_path
 
 
+def _intentar_pdf(docx_path: Path) -> Optional[Path]:
+    """Convierte el Word a PDF con LibreOffice si está instalado."""
+    pdf_path = docx_path.with_suffix(".pdf")
+    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    if not soffice:
+        return pdf_path if pdf_path.is_file() else None
+    try:
+        subprocess.run(
+            [
+                soffice,
+                "--headless",
+                "--nologo",
+                "--nofirststartwizard",
+                "--convert-to",
+                "pdf",
+                "--outdir",
+                str(docx_path.parent),
+                str(docx_path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception as exc:
+        print(f"[ADVERTENCIA] No se pudo convertir a PDF: {exc}")
+        return pdf_path if pdf_path.is_file() else None
+    return pdf_path if pdf_path.is_file() else None
+
+
+def publicar_reporte_diario_en_proyecto(reporte_path: Path) -> None:
+    """Deja el reporte del día en reports/Puntos_En_Cero y en Drive.
+
+    El reporte de puntos en cero es una tarea diaria: el archivo tiene que
+    quedar en el proyecto, no solo en ``reporte en cero``.
+    """
+    reporte_path = Path(reporte_path)
+    if not reporte_path.is_file():
+        print(f"[ADVERTENCIA] No se publica: no existe {reporte_path}")
+        return
+
+    dest_dir = Path(__file__).resolve().parent / "reports" / "Puntos_En_Cero"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    def _copiar(src: Path) -> Path:
+        dest = dest_dir / src.name
+        if src.resolve() != dest.resolve():
+            shutil.copy2(src, dest)
+        return dest
+
+    publicados = [_copiar(reporte_path)]
+    pdf_src = reporte_path.with_suffix(".pdf")
+    if not pdf_src.is_file():
+        pdf_src = _intentar_pdf(publicados[0])
+    if pdf_src is not None and pdf_src.is_file():
+        publicados.append(_copiar(pdf_src))
+
+    print(f"[OK] Reporte diario en el proyecto: {dest_dir}")
+    for publicado in publicados:
+        print(f"  {publicado.name}")
+
+    try:
+        from wes_google_drive import credenciales_configuradas, subir_a_drive
+
+        if not credenciales_configuradas():
+            print(
+                "[INFO] Sin secretos GOOGLE_DRIVE_*: el archivo quedó en el proyecto, "
+                "sin subir a Drive."
+            )
+            return
+        for publicado in publicados:
+            info = subir_a_drive(publicado, subcarpeta="Puntos_En_Cero")
+            print(f"[OK] Drive: {info.get('web_view_link')}")
+    except Exception as exc:
+        print(f"[ADVERTENCIA] No se pudo subir a Drive: {exc}")
+
+
 def main(
     output_dir: Optional[Path] = None,
     fecha_generacion_utc: Optional[datetime] = None,
@@ -1507,6 +1585,7 @@ def main(
             print(f"Advertencia: {fallos_verificacion} punto(s) con error al verificar (revisar mensajes [ERROR] arriba).")
         print()
         print(f"Reporte guardado en: {reporte_path.absolute()}")
+        publicar_reporte_diario_en_proyecto(reporte_path)
     except Exception as e:
         print(f"[ERROR] Error al generar reporte: {e}")
         import traceback
@@ -1617,6 +1696,7 @@ def regenerar_reporte_sin_api(output_dir: Optional[Path] = None) -> None:
         print(f"Reporte anterior: {ultimo_reporte.name}")
         print(f"Reporte nuevo: {nuevo_reporte.name}")
         print(f"Ubicación: {nuevo_reporte.absolute()}")
+        publicar_reporte_diario_en_proyecto(nuevo_reporte)
         
     except Exception as e:
         print(f"[ERROR] Error al regenerar reporte: {e}")
