@@ -189,6 +189,43 @@ def _nro(node_id: str) -> int:
     return int(suf) if suf.isdigit() else 10**6
 
 
+def restaurar_base_si_falta() -> None:
+    """Si esta máquina no tiene la base, la baja de Drive para no perder el respaldo."""
+    if DB_PATH.exists() and DB_PATH.stat().st_size > 0:
+        return
+    try:
+        from googleapiclient.http import MediaIoBaseDownload
+        from wes_google_drive import asegurar_carpeta, obtener_servicio_drive
+    except Exception as exc:
+        print(f"No se pudo preparar la bajada desde Drive: {exc}", flush=True)
+        return
+    try:
+        service = obtener_servicio_drive()
+        folder_id = asegurar_carpeta(service, "Respaldo_WES")["id"]
+        query = (
+            "name='respaldo_wes.sqlite' and "
+            f"'{folder_id}' in parents and trashed=false"
+        )
+        files = (
+            service.files()
+            .list(q=query, fields="files(id, name, size)", pageSize=1)
+            .execute()
+            .get("files", [])
+        )
+        if not files:
+            return
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        request = service.files().get_media(fileId=files[0]["id"])
+        with DB_PATH.open("wb") as fh:
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+        print(f"Base recuperada desde Drive ({DB_PATH.name}).", flush=True)
+    except Exception as exc:
+        print(f"No había base previa en Drive o no se pudo bajar: {exc}", flush=True)
+
+
 def abrir_db() -> sqlite3.Connection:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(DB_PATH)
@@ -757,7 +794,10 @@ def subir(paths: list[Path]) -> list[str]:
     from wes_google_drive import subir_a_drive
 
     links = []
-    for path in paths:
+    extras = list(paths)
+    if DB_PATH.exists():
+        extras.append(DB_PATH)
+    for path in extras:
         info = subir_a_drive(path, subcarpeta="Respaldo_WES")
         links.append(info.get("web_view_link") or "")
         print(f"Drive: {info.get('name')} {info.get('web_view_link')}", flush=True)
@@ -811,6 +851,7 @@ def main() -> int:
     args = parser.parse_args()
 
     socket.setdefaulttimeout(40)
+    restaurar_base_si_falta()
     hoy = chile_today()
     if args.ayer:
         desde = hasta = hoy - timedelta(days=1)
