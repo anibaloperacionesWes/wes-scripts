@@ -59,6 +59,17 @@ MIN_DIAS_BASELINE = 14
 BATCH_SIZE = 8
 WORKERS = 6
 
+# Empresas fuera de este informe (además de exclusiones_reportes)
+EXCLUDED_COMPANY_IDS_DESVIACION = {
+    "000010",  # Corporación Puente Alto
+}
+
+# Baseline especial: fin inclusive del periodo “normal” (antes de la caída).
+# Calle de Servicio (CDUC) se vino abajo en agosto-2026 → promedio hasta 31/07/2026.
+BASELINE_END_OVERRIDE: Dict[str, date] = {
+    "000021-05": date(2026, 7, 31),
+}
+
 
 @dataclass
 class NodoInfo:
@@ -72,6 +83,8 @@ class NodoInfo:
 class ResultadoNodo:
     info: NodoInfo
     dias_baseline: int = 0
+    baseline_start: Optional[date] = None
+    baseline_end: Optional[date] = None
     avg_all: Optional[float] = None
     avg_lv: Optional[float] = None
     avg_sd: Optional[float] = None
@@ -123,6 +136,10 @@ def listar_nodos(company_id: Optional[str] = None) -> List[NodoInfo]:
         cname = str(c.get("name") or cid).strip()
         if company_id and cid != company_id:
             continue
+        if cid in EXCLUDED_COMPANY_IDS_DESVIACION:
+            continue
+        if "PUENTE ALTO" in cname.upper():
+            continue
         for n in c.get("nodes") or []:
             nid = str(n.get("nodeId") or "").strip()
             nname = str(n.get("name") or nid).strip()
@@ -140,6 +157,21 @@ def listar_nodos(company_id: Optional[str] = None) -> List[NodoInfo]:
             )
     out.sort(key=lambda x: (x.company_name.lower(), x.node_id))
     return out
+
+
+def _baseline_window(
+    node_id: str,
+    *,
+    hoy: date,
+    meses: int,
+) -> Tuple[date, date]:
+    """Retorna (baseline_start, baseline_end) inclusive."""
+    default_end = hoy - timedelta(days=1)
+    end = BASELINE_END_OVERRIDE.get(node_id, default_end)
+    if end > default_end:
+        end = default_end
+    start = end - timedelta(days=meses * 30 + 5)
+    return start, end
 
 
 def _promedio(vals: List[float]) -> Optional[float]:
@@ -170,12 +202,15 @@ def analizar_serie(
     baseline_end: date,
 ) -> ResultadoNodo:
     r = ResultadoNodo(info=info, hoy=hoy)
+    r.baseline_start = baseline_start
+    r.baseline_end = baseline_end
     serie = sorted((d, v) for d, v in daily.items() if baseline_start <= d <= hoy)
     r.serie = serie
 
     base_vals = [
-        (d, v) for d, v in serie if baseline_start <= d <= baseline_end
+        (d, v) for d, v in daily.items() if baseline_start <= d <= baseline_end
     ]
+    base_vals.sort(key=lambda x: x[0])
     r.dias_baseline = len(base_vals)
     if r.dias_baseline < MIN_DIAS_BASELINE:
         r.error = f"Pocos días baseline ({r.dias_baseline})"
@@ -250,10 +285,12 @@ def procesar_todos(
     hoy: date,
     meses: int = 6,
 ) -> List[ResultadoNodo]:
-    baseline_end = hoy - timedelta(days=1)
-    baseline_start = baseline_end - timedelta(days=meses * 30 + 5)
-    start_s = baseline_start.strftime("%d%m%Y")
-    end_s = hoy.strftime("%d%m%Y")
+    # Rango de descarga: cubre el baseline más antiguo (overrides) hasta hoy
+    windows = {_baseline_window(n.node_id, hoy=hoy, meses=meses) for n in nodos}
+    fetch_start = min(s for s, _ in windows)
+    fetch_end = hoy
+    start_s = fetch_start.strftime("%d%m%Y")
+    end_s = fetch_end.strftime("%d%m%Y")
 
     batches = [nodos[i : i + BATCH_SIZE] for i in range(0, len(nodos), BATCH_SIZE)]
     daily_by_node: Dict[str, Dict[date, float]] = {}
@@ -267,9 +304,12 @@ def procesar_todos(
 
     print(
         f"[INFO] {len(nodos)} nodos en {len(batches)} lotes "
-        f"({baseline_start} → {hoy})",
+        f"(data {fetch_start} → {hoy})",
         flush=True,
     )
+    for nid, end in BASELINE_END_OVERRIDE.items():
+        print(f"  [INFO] baseline especial {nid}: hasta {end.isoformat()} (pre-caída)", flush=True)
+
     done = 0
     with ThreadPoolExecutor(max_workers=WORKERS) as ex:
         futs = {ex.submit(_one, b): b for b in batches}
@@ -300,13 +340,14 @@ def procesar_todos(
             resultados.append(r)
             continue
         daily = daily_by_node.get(n.node_id) or {}
+        b_start, b_end = _baseline_window(n.node_id, hoy=hoy, meses=meses)
         resultados.append(
             analizar_serie(
                 n,
                 daily,
                 hoy=hoy,
-                baseline_start=baseline_start,
-                baseline_end=baseline_end,
+                baseline_start=b_start,
+                baseline_end=b_end,
             )
         )
     return resultados
@@ -342,12 +383,12 @@ def graficar_serie(r: ResultadoNodo, path: Path) -> None:
     fig, ax = plt.subplots(figsize=(10, 3.6))
     ax.plot(fechas, vals, color="#2e7ac8", linewidth=1.2, label="Consumo diario")
     if r.avg_all is not None:
-        ax.axhline(r.avg_all, color="#666666", linestyle="--", linewidth=1, label=f"Prom. 6m ({_fmt(r.avg_all)})")
+        ax.axhline(r.avg_all, color="#666666", linestyle="--", linewidth=1, label=f"Prom. baseline ({_fmt(r.avg_all)})")
     if r.avg_lv is not None:
         ax.axhline(r.avg_lv, color="#2e7d32", linestyle=":", linewidth=1, label=f"Prom. L–V ({_fmt(r.avg_lv)})")
     if r.avg_sd is not None:
         ax.axhline(r.avg_sd, color="#ef6c00", linestyle=":", linewidth=1, label=f"Prom. S–D ({_fmt(r.avg_sd)})")
-    ax.set_title(f"{r.info.company_name} — {r.info.node_name} ({r.info.node_id})")
+    ax.set_title(f"{r.info.company_name} — {r.info.node_name}")
     ax.set_ylabel("m³/día")
     ax.grid(True, alpha=0.3)
     ax.legend(loc="upper right", fontsize=8)
@@ -358,74 +399,86 @@ def graficar_serie(r: ResultadoNodo, path: Path) -> None:
     plt.close(fig)
 
 
-def escribir_excel(resultados: List[ResultadoNodo], path: Path, hoy: date) -> None:
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Desviaciones"
-    headers = [
-        "Alerta ayer",
-        "Alerta hoy",
-        "Empresa",
-        "Punto",
-        "Node ID",
-        "Días baseline",
-        "Prom. 6 meses (m³)",
-        "Prom. L–V (m³)",
-        "N L–V",
-        "Prom. S–D (m³)",
-        "N S–D",
-        "Ayer fecha",
-        "Ayer tipo",
-        "Ayer m³",
-        "Ayer ref tipo (m³)",
-        "Ayer ratio",
-        "Hoy fecha",
-        "Hoy tipo",
-        "Hoy m³ (parcial)",
-        "Hoy ref tipo (m³)",
-        "Hoy ratio",
-        "Error",
-    ]
-    ws.append(headers)
-    fill_header = PatternFill("solid", fgColor="1F4E79")
-    for c in ws[1]:
-        c.font = Font(bold=True, color="FFFFFF")
-        c.fill = fill_header
+def _sheet_title(company_name: str, used: Dict[str, int]) -> str:
+    """Nombre de hoja Excel válido (máx. 31) y único."""
+    bad = '[]:*?/\\'
+    base = "".join(ch if ch not in bad else " " for ch in company_name).strip() or "Cliente"
+    base = " ".join(base.split())[:31]
+    if base not in used:
+        used[base] = 1
+        return base
+    used[base] += 1
+    suffix = f"_{used[base]}"
+    return (base[: 31 - len(suffix)] + suffix)
 
+
+EXCEL_HEADERS = [
+    "Alerta ayer",
+    "Alerta hoy",
+    "Punto",
+    "Días baseline",
+    "Baseline desde",
+    "Baseline hasta",
+    "Prom. baseline (m³)",
+    "Prom. L–V (m³)",
+    "N L–V",
+    "Prom. S–D (m³)",
+    "N S–D",
+    "Ayer fecha",
+    "Ayer tipo",
+    "Ayer m³",
+    "Ayer ref tipo (m³)",
+    "Ayer ratio",
+    "Hoy fecha",
+    "Hoy tipo",
+    "Hoy m³ (parcial)",
+    "Hoy ref tipo (m³)",
+    "Hoy ratio",
+    "Error",
+]
+
+
+def _fila_excel(r: ResultadoNodo, hoy: date) -> list:
+    return [
+        r.ayer_alerta,
+        r.hoy_alerta,
+        r.info.node_name,
+        r.dias_baseline,
+        r.baseline_start.isoformat() if r.baseline_start else "",
+        r.baseline_end.isoformat() if r.baseline_end else "",
+        None if r.avg_all is None else round(r.avg_all, 3),
+        None if r.avg_lv is None else round(r.avg_lv, 3),
+        r.n_lv,
+        None if r.avg_sd is None else round(r.avg_sd, 3),
+        r.n_sd,
+        r.ayer.isoformat() if r.ayer else "",
+        r.ayer_tipo,
+        None if r.ayer_m3 is None else round(r.ayer_m3, 3),
+        None if r.ayer_ref is None else round(r.ayer_ref, 3),
+        None if r.ayer_ratio is None else round(r.ayer_ratio, 3),
+        hoy.isoformat(),
+        r.hoy_tipo,
+        None if r.hoy_m3 is None else round(r.hoy_m3, 3),
+        None if r.hoy_ref is None else round(r.hoy_ref, 3),
+        None if r.hoy_ratio is None else round(r.hoy_ratio, 3),
+        r.error,
+    ]
+
+
+def _estilo_hoja_cliente(ws, hoy: date, filas: List[ResultadoNodo]) -> None:
+    fill_header = PatternFill("solid", fgColor="1F4E79")
     fill_alto = PatternFill("solid", fgColor="F4B183")
     fill_bajo = PatternFill("solid", fgColor="F8CBAD")
     fill_ok = PatternFill("solid", fgColor="C6EFCE")
 
-    ordered = sorted(
-        resultados,
-        key=lambda r: (-_alerta_prioridad(r), r.info.company_name, r.info.node_id),
-    )
+    ws.append(EXCEL_HEADERS)
+    for c in ws[1]:
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = fill_header
+
+    ordered = sorted(filas, key=lambda r: (-_alerta_prioridad(r), r.info.node_name.lower()))
     for r in ordered:
-        row = [
-            r.ayer_alerta,
-            r.hoy_alerta,
-            r.info.company_name,
-            r.info.node_name,
-            r.info.node_id,
-            r.dias_baseline,
-            None if r.avg_all is None else round(r.avg_all, 3),
-            None if r.avg_lv is None else round(r.avg_lv, 3),
-            r.n_lv,
-            None if r.avg_sd is None else round(r.avg_sd, 3),
-            r.n_sd,
-            r.ayer.isoformat() if r.ayer else "",
-            r.ayer_tipo,
-            None if r.ayer_m3 is None else round(r.ayer_m3, 3),
-            None if r.ayer_ref is None else round(r.ayer_ref, 3),
-            None if r.ayer_ratio is None else round(r.ayer_ratio, 3),
-            hoy.isoformat(),
-            r.hoy_tipo,
-            None if r.hoy_m3 is None else round(r.hoy_m3, 3),
-            None if r.hoy_ref is None else round(r.hoy_ref, 3),
-            None if r.hoy_ratio is None else round(r.hoy_ratio, 3),
-            r.error,
-        ]
-        ws.append(row)
+        ws.append(_fila_excel(r, hoy))
         alerta = r.ayer_alerta if r.ayer_alerta in ("ALTO", "BAJO") else r.hoy_alerta
         fill = {"ALTO": fill_alto, "BAJO": fill_bajo, "OK": fill_ok}.get(alerta)
         if fill:
@@ -438,18 +491,57 @@ def escribir_excel(resultados: List[ResultadoNodo], path: Path, hoy: date) -> No
         width = min(36, max(10, max(len(str(c.value or "")) for c in col) + 2))
         ws.column_dimensions[letter].width = width
 
-    ws2 = wb.create_sheet("Resumen")
+
+def escribir_excel(resultados: List[ResultadoNodo], path: Path, hoy: date) -> None:
+    """Una hoja por cliente (todos los puntos del cliente) + hoja Resumen."""
+    wb = Workbook()
+    # Resumen primero
+    ws_res = wb.active
+    ws_res.title = "Resumen"
     n_alto = sum(1 for r in resultados if "ALTO" in (r.ayer_alerta, r.hoy_alerta))
     n_bajo = sum(1 for r in resultados if "BAJO" in (r.ayer_alerta, r.hoy_alerta))
-    ws2.append(["Fecha generación", datetime.now().strftime("%Y-%m-%d %H:%M")])
-    ws2.append(["Día evaluación (hoy)", hoy.isoformat()])
-    ws2.append(["Día de la semana", WD_NAMES[hoy.weekday()]])
-    ws2.append(["Puntos analizados", len(resultados)])
-    ws2.append(["Alertas ALTO", n_alto])
-    ws2.append(["Alertas BAJO", n_bajo])
-    ws2.append(["Umbral ALTO", f">= {RATIO_ALTO}× promedio tipo día"])
-    ws2.append(["Umbral BAJO", f"<= {RATIO_BAJO}× promedio tipo día"])
-    ws2.append(["Baseline", "Últimos ~6 meses hasta ayer"])
+    clientes = sorted({r.info.company_name for r in resultados}, key=str.lower)
+    ws_res.append(["Fecha generación", datetime.now().strftime("%Y-%m-%d %H:%M")])
+    ws_res.append(["Día evaluación (hoy)", hoy.isoformat()])
+    ws_res.append(["Día de la semana", WD_NAMES[hoy.weekday()]])
+    ws_res.append(["Puntos analizados", len(resultados)])
+    ws_res.append(["Clientes (hojas)", len(clientes)])
+    ws_res.append(["Alertas ALTO", n_alto])
+    ws_res.append(["Alertas BAJO", n_bajo])
+    ws_res.append(["Umbral ALTO", f">= {RATIO_ALTO}× promedio tipo día"])
+    ws_res.append(["Umbral BAJO", f"<= {RATIO_BAJO}× promedio tipo día"])
+    ws_res.append(["Baseline default", "Últimos ~6 meses hasta ayer"])
+    ws_res.append(
+        [
+            "Baseline Calle de Servicio",
+            "Hasta 2026-07-31 (antes de la caída de agosto)",
+        ]
+    )
+    ws_res.append(["Excluidos", "Puente Alto (000010)"])
+    ws_res.append([])
+    ws_res.append(["Cliente", "Puntos", "Alertas"])
+    for cname in clientes:
+        filas = [r for r in resultados if r.info.company_name == cname]
+        n_al = sum(
+            1
+            for r in filas
+            if r.ayer_alerta in ("ALTO", "BAJO") or r.hoy_alerta in ("ALTO", "BAJO")
+        )
+        ws_res.append([cname, len(filas), n_al])
+    for col in ws_res.columns:
+        letter = col[0].column_letter
+        width = min(48, max(12, max(len(str(c.value or "")) for c in col) + 2))
+        ws_res.column_dimensions[letter].width = width
+
+    used_titles: Dict[str, int] = {}
+    by_company: Dict[str, List[ResultadoNodo]] = {}
+    for r in resultados:
+        by_company.setdefault(r.info.company_name, []).append(r)
+
+    for cname in sorted(by_company.keys(), key=str.lower):
+        title = _sheet_title(cname, used_titles)
+        ws = wb.create_sheet(title)
+        _estilo_hoja_cliente(ws, hoy, by_company[cname])
 
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
@@ -471,8 +563,8 @@ def escribir_csv_alertas(resultados: List[ResultadoNodo], path: Path) -> None:
                 "alerta_hoy",
                 "empresa",
                 "punto",
-                "node_id",
-                "prom_6m",
+                "baseline_hasta",
+                "prom_baseline",
                 "prom_lv",
                 "prom_sd",
                 "ayer_m3",
@@ -488,7 +580,7 @@ def escribir_csv_alertas(resultados: List[ResultadoNodo], path: Path) -> None:
                     r.hoy_alerta,
                     r.info.company_name,
                     r.info.node_name,
-                    r.info.node_id,
+                    r.baseline_end.isoformat() if r.baseline_end else "",
                     _fmt(r.avg_all),
                     _fmt(r.avg_lv),
                     _fmt(r.avg_sd),
@@ -518,7 +610,9 @@ def escribir_word(
         f"Baseline: promedio diario de los últimos ~6 meses (hasta ayer), "
         f"separado en L–V y S–D. "
         f"ALTO ≥ {RATIO_ALTO:.2f}× el promedio del tipo de día; "
-        f"BAJO ≤ {RATIO_BAJO:.2f}× (baseline ≥ {MIN_BASELINE_M3} m³)."
+        f"BAJO ≤ {RATIO_BAJO:.2f}× (baseline ≥ {MIN_BASELINE_M3} m³). "
+        f"Calle de Servicio: baseline hasta 2026-07-31 (antes de la caída de agosto). "
+        f"Puente Alto excluido."
     )
 
     alertas = [
@@ -549,7 +643,7 @@ def escribir_word(
             [
                 "Alerta",
                 "Empresa / Punto",
-                "Prom 6m",
+                "Prom baseline",
                 "Prom L–V",
                 "Prom S–D",
                 "Ayer m³",
@@ -566,7 +660,7 @@ def escribir_word(
             row = table.add_row().cells
             flag = _flag_display(r)
             row[0].text = flag
-            row[1].text = f"{r.info.company_name}\n{r.info.node_name}\n({r.info.node_id})"
+            row[1].text = f"{r.info.company_name}\n{r.info.node_name}"
             row[2].text = _fmt(r.avg_all)
             row[3].text = _fmt(r.avg_lv)
             row[4].text = _fmt(r.avg_sd)
@@ -587,17 +681,20 @@ def escribir_word(
             chart_path = charts_dir / f"chart_{r.info.node_id}.png"
             graficar_serie(r, chart_path)
             doc.add_heading(
-                f"{r.info.company_name} — {r.info.node_name} ({r.info.node_id})",
+                f"{r.info.company_name} — {r.info.node_name}",
                 level=2,
             )
             flag = _flag_display(r)
+            bl = ""
+            if r.baseline_end:
+                bl = f" Baseline hasta {r.baseline_end.isoformat()}."
             doc.add_paragraph(
-                f"Alerta: {flag}. "
+                f"Alerta: {flag}.{bl} "
                 f"Ayer ({r.ayer} {r.ayer_tipo}): {_fmt(r.ayer_m3)} m³ "
                 f"vs ref {_fmt(r.ayer_ref)} m³ ({_fmt(r.ayer_ratio, 2)}×). "
                 f"Hoy parcial ({hoy} {r.hoy_tipo}): {_fmt(r.hoy_m3)} m³ "
                 f"vs ref {_fmt(r.hoy_ref)} m³ ({_fmt(r.hoy_ratio, 2)}×). "
-                f"Promedios 6m: total {_fmt(r.avg_all)}, L–V {_fmt(r.avg_lv)}, "
+                f"Promedios: total {_fmt(r.avg_all)}, L–V {_fmt(r.avg_lv)}, "
                 f"S–D {_fmt(r.avg_sd)}."
             )
             if chart_path.is_file():
