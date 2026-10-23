@@ -23,6 +23,7 @@ import argparse
 import base64
 import json
 import os
+import socket
 import sqlite3
 import time
 import urllib.error
@@ -122,8 +123,10 @@ class Wes:
                 return resp.status, resp.read()
         except urllib.error.HTTPError as exc:
             return exc.code, exc.read()
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            return 0, str(exc).encode()
 
-    def get(self, url: str, timeout: int = 60, retries: int = 4) -> tuple[int, bytes]:
+    def get(self, url: str, timeout: int = 35, retries: int = 3) -> tuple[int, bytes]:
         last = (0, b"")
         for attempt in range(retries):
             code, body = self._raw("GET", url, None, self.token, timeout=timeout)
@@ -802,11 +805,12 @@ def main() -> int:
     parser.add_argument("--desde", help="AAAA-MM-DD")
     parser.add_argument("--hasta", help="AAAA-MM-DD")
     parser.add_argument("--ayer", action="store_true", help="Solo el día que acaba de cerrar en Chile")
-    parser.add_argument("--workers", type=int, default=12)
+    parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--subir", action="store_true", help="Subir el Excel a Google Drive")
     parser.add_argument("--solo-excel", action="store_true", help="Rearmar el Excel con lo ya guardado")
     args = parser.parse_args()
 
+    socket.setdefaulttimeout(40)
     hoy = chile_today()
     if args.ayer:
         desde = hasta = hoy - timedelta(days=1)
