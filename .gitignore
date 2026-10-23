@@ -8,3 +8,9 @@ gmail_oauth/token_drive.pickle
 gmail_oauth/*.pickle
 gmail_oauth/client_secret_*.json
 gmail_oauth/_prueba*
+
+# Respaldo diario WES (datos, no el script)
+reports/Respaldo_WES/*.xlsx
+reports/Respaldo_WES/*.sqlite
+reports/Respaldo_WES/*.sqlite-*
+wes_app_login.json
