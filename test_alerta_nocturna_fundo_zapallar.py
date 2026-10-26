@@ -165,6 +165,38 @@ def test_el_correo_adjunta_el_pdf():
     assert "Se adjunta el PDF" in msg.get_payload()[0].get_payload(decode=True).decode("utf-8")
 
 
+def test_punto_en_cero_avisa_desde_el_segundo_dia():
+    from alerta_nocturna_fundo_zapallar import (
+        NODO_ESTANQUE,
+        NODO_ETAPA5,
+        NODO_ETAPAS_14,
+        NODO_MATRIZ,
+        evaluar_puntos_en_cero,
+    )
+
+    estado = {"evaluaciones": {}, "enviados": []}
+    cero = {h: 0.0 for h in range(24)}
+    con_consumo = {h: 0.0 for h in range(24)}
+    con_consumo[12] = 4.0
+    nodos = {
+        NODO_MATRIZ: con_consumo,
+        NODO_ESTANQUE: con_consumo,
+        NODO_ETAPA5: con_consumo,
+        NODO_ETAPAS_14: cero,
+    }
+    assert evaluar_puntos_en_cero(nodos, date(2026, 10, 17), estado) == []
+    filas = evaluar_puntos_en_cero(nodos, date(2026, 10, 18), estado)
+    assert len(filas) == 1
+    assert filas[0]["nivel"] == "cero"
+    assert filas[0]["notificar"] is True
+    assert "2 días" in filas[0]["detalle"]
+    assert "17-10-2026" in filas[0]["detalle"]
+    cortado = dict(nodos)
+    cortado[NODO_ETAPAS_14] = con_consumo
+    assert evaluar_puntos_en_cero(cortado, date(2026, 10, 19), estado) == []
+    assert evaluar_puntos_en_cero(nodos, date(2026, 10, 20), estado) == []
+
+
 def test_noche_completa_despues_de_las_07():
     assert ultima_noche_completa(datetime(2026, 10, 14, 18, 0, tzinfo=CHILE_TZ)) == date(2026, 10, 14)
     assert ultima_noche_completa(datetime(2026, 10, 15, 5, 0, tzinfo=CHILE_TZ)) == date(2026, 10, 14)

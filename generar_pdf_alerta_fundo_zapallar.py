@@ -48,6 +48,7 @@ def _color(nivel: str) -> str:
         "seguimiento": BLUE,
         "preventiva": AMBER,
         "critica": RED,
+        "cero": NAVY,
         "sin_dato": OK,
     }.get(nivel, OK)
 
@@ -58,12 +59,13 @@ def _etiqueta(nivel: str) -> str:
         "seguimiento": "Seguimiento",
         "preventiva": "Preventiva",
         "critica": "Crítica",
+        "cero": "En cero",
         "sin_dato": "Sin dato",
     }.get(nivel, nivel)
 
 
 def _nivel_maximo(filas: list[dict]) -> str:
-    orden = {"critica": 3, "preventiva": 2, "seguimiento": 1}
+    orden = {"critica": 4, "cero": 3, "preventiva": 2, "seguimiento": 1}
     mejor = "normal"
     for fila in filas:
         if orden.get(fila["nivel"], 0) > orden.get(mejor, 0):
@@ -74,6 +76,7 @@ def _nivel_maximo(filas: list[dict]) -> str:
 def _titulo_nivel(nivel: str) -> str:
     return {
         "critica": "Alerta crítica",
+        "cero": "Punto en cero",
         "preventiva": "Alerta preventiva",
         "seguimiento": "Alerta de seguimiento",
     }.get(nivel, "Sin alerta")

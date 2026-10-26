@@ -19,6 +19,7 @@ Balances diarios (valor absoluto):
   >36 a 60 m³ o >30 m³ durante 2 días; crítica >60 m³.
 
 El aviso a Aníbal y Juan indica el punto, la regla, el valor, el umbral y el período.
+Si un punto marca 0,00 m³ durante más de un día completo, también se avisa.
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ import base64
 import csv
 import json
 import os
+import re
 import smtplib
 import sys
 import threading
@@ -388,8 +390,118 @@ def _alerta(
         "umbral": umbral,
         "detalle": detalle,
         "accion": accion,
-        "notificar": nivel in ("seguimiento", "preventiva", "critica"),
+        "notificar": nivel in ("seguimiento", "preventiva", "critica", "cero"),
     }
+
+
+def _dias_en_cero_previos(estado: dict, dia: date, regla: str) -> int:
+    """Días seguidos en cero que terminan el día anterior."""
+    total = 0
+    cursor = dia - timedelta(days=1)
+    while total < 120:
+        bloque = (estado.get("evaluaciones") or {}).get(cursor.isoformat()) or {}
+        nivel = (bloque.get(regla) or {}).get("nivel")
+        if nivel not in ("primer_dia", "cero"):
+            break
+        total += 1
+        cursor -= timedelta(days=1)
+    return total
+
+
+def evaluar_puntos_en_cero(
+    horas_por_nodo: Dict[str, Optional[Dict[int, float]]],
+    dia: date,
+    estado: dict,
+) -> List[dict]:
+    """Avisa cuando el día completo de un punto lleva más de un día en 0,00 m³."""
+    filas: List[dict] = []
+    periodo = f"{dia.strftime('%d-%m-%Y')} día completo"
+    for node_id in NODOS:
+        regla = f"cero-{node_id}"
+        horas = horas_por_nodo.get(node_id)
+        if horas is None:
+            continue
+        total = consumo_dia(horas)
+        if total > 0:
+            _registrar(estado, dia, regla, "normal", total)
+            continue
+        dias = _dias_en_cero_previos(estado, dia, regla) + 1
+        nivel = "cero" if dias > 1 else "primer_dia"
+        _registrar(estado, dia, regla, nivel, 0.0)
+        if nivel != "cero":
+            continue
+        inicio = dia - timedelta(days=dias - 1)
+        filas.append(
+            _alerta(
+                dia,
+                periodo,
+                regla,
+                f"{NOMBRES[node_id]} — en cero",
+                "cero",
+                0.0,
+                "Se avisa si el día completo marca 0,00 m³ por más de un día.",
+                (
+                    f"0,00 m³ desde el {inicio.strftime('%d-%m-%Y')}. "
+                    f"Lleva {dias} días seguidos. El medidor respondió en cero."
+                ),
+                "Revisar si el medidor se detuvo antes de interpretar el balance.",
+            )
+        )
+    return filas
+
+
+def _numero_informe(texto: str) -> float:
+    limpio = texto.strip().replace(" ", "")
+    if "," in limpio:
+        limpio = limpio.replace(".", "").replace(",", ".")
+    return float(limpio)
+
+
+def _sembrar_ceros_desde_informes(estado: dict) -> None:
+    """Completa la racha con los balances ya guardados, sin pisar una evaluación nueva."""
+    patrones = {
+        NODO_MATRIZ: re.compile(r"Matriz ([0-9.,]+) m³"),
+        NODO_ESTANQUE: re.compile(r"Estanque(?: Inferior)? ([0-9.,]+) m³"),
+        NODO_ETAPA5: re.compile(r"Etapa N°5 ([0-9.,]+) m³"),
+        NODO_ETAPAS_14: re.compile(r"Etapas 1-4 ([0-9.,]+) m³"),
+    }
+    totales: Dict[str, Dict[str, float]] = {}
+    for path in sorted(SALIDA_DIR.glob("alerta_fundo_zapallar_*.csv")):
+        try:
+            with path.open(encoding="utf-8", newline="") as fh:
+                filas = list(csv.DictReader(fh))
+        except OSError:
+            continue
+        for fila in filas:
+            if not str(fila.get("regla", "")).startswith("balance-"):
+                continue
+            dia = str(fila.get("fecha") or "")
+            if not dia:
+                continue
+            bucket = totales.setdefault(dia, {})
+            detalle = str(fila.get("detalle") or "")
+            for node_id, patron in patrones.items():
+                hallazgo = patron.search(detalle)
+                if hallazgo:
+                    bucket[node_id] = _numero_informe(hallazgo.group(1))
+    for dia in sorted(totales):
+        try:
+            fecha = date.fromisoformat(dia)
+        except ValueError:
+            continue
+        for node_id, total in totales[dia].items():
+            regla = f"cero-{node_id}"
+            bloque = (estado.get("evaluaciones") or {}).get(dia) or {}
+            if regla in bloque:
+                continue
+            previo = _previo_nivel(estado, fecha, regla)
+            if total > 0:
+                nivel = "normal"
+            elif previo in ("primer_dia", "cero"):
+                nivel = "cero"
+            else:
+                nivel = "primer_dia"
+            _registrar(estado, fecha, regla, nivel, total)
 
 
 def evaluar_noche(horas_por_nodo: Dict[str, Optional[Dict[int, float]]], noche: date, estado: dict) -> List[dict]:
@@ -582,6 +694,7 @@ def _cuerpo_correo(filas: Sequence[dict]) -> str:
         "Si un seguimiento se repite al día siguiente, pasa a preventiva.",
         "Seguimiento o preventiva: contrastar con riegos, llenados u operaciones extraordinarias antes de escalar al fundo.",
         "Crítica: aviso prioritario.",
+        "Un punto en 0,00 m³ por más de un día completo también se avisa.",
         "",
     ]
     for fila in filas:
@@ -605,6 +718,8 @@ def _mensaje_correo(filas: Sequence[dict], pdf: Optional[Path] = None) -> MIMEMu
     nombres = f"{obtener_nombre('anibal')} y {obtener_nombre('juan')}"
     if any(f["nivel"] == "critica" for f in filas):
         nivel = "crítica"
+    elif any(f["nivel"] == "cero" for f in filas):
+        nivel = "punto en cero"
     elif any(f["nivel"] == "preventiva" for f in filas):
         nivel = "preventiva"
     else:
@@ -666,12 +781,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     serie = _descargar_mapa(fechas, workers=args.workers)
     estado = _cargar_estado()
+    _sembrar_ceros_desde_informes(estado)
 
     # El día anterior al balance solo alimenta la persistencia de 2 días.
     evaluar_balances(_por_nodo(serie, dia_balance - timedelta(days=1)), dia_balance - timedelta(days=1), estado)
     filas_noche_previa = evaluar_noche(_por_nodo(serie, dia_balance), dia_balance, estado)
     filas = evaluar_noche(_por_nodo(serie, noche), noche, estado)
     filas.extend(evaluar_balances(_por_nodo(serie, dia_balance), dia_balance, estado))
+    evaluar_puntos_en_cero(_por_nodo(serie, dia_balance - timedelta(days=1)), dia_balance - timedelta(days=1), estado)
+    filas.extend(evaluar_puntos_en_cero(_por_nodo(serie, dia_balance), dia_balance, estado))
     # La noche previa queda registrada para la persistencia, pero no se reavisa.
     _ = filas_noche_previa
 
@@ -689,7 +807,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     avisos = [f for f in filas if f["notificar"]]
     if not avisos:
-        print("[INFO] Ninguna regla de seguimiento, preventiva o crítica. No se envía correo.")
+        print("[INFO] Ninguna regla de seguimiento, preventiva, crítica o punto en cero. No se envía correo.")
         _guardar_estado(estado)
         return 0
 
