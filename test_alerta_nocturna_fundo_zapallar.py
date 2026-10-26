@@ -1,6 +1,7 @@
 """Reglas de alerta de Fundo Zapallar: seguimiento, preventiva y crítica."""
 
 from datetime import date, datetime
+from pathlib import Path
 
 from alerta_nocturna_fundo_zapallar import (
     CHILE_TZ,
@@ -137,6 +138,31 @@ def test_pdf_de_un_dia_marca_la_critica():
     assert "102,50 m³" in texto
     assert "3,50 m³" in texto
     assert "se repite" in texto
+
+
+def test_el_correo_adjunta_el_pdf():
+    from alerta_nocturna_fundo_zapallar import _mensaje_correo
+
+    pdf = Path("/tmp/alerta_zapallar_adjunto.pdf")
+    pdf.write_bytes(b"%PDF-1.4\n%alerta\n")
+    filas = [
+        {
+            "fecha": "2026-10-26",
+            "periodo": "26-10-2026 00:00 a 06:00",
+            "regla": "etapa5-noche",
+            "punto": "Etapa N°5 — noche",
+            "nivel": "preventiva",
+            "valor": 3.4,
+            "umbral": "Seguimiento: >1 a 5 m³/noche.",
+            "detalle": "Total 3,40 m³.",
+            "accion": "Revisar riego abierto o pérdida.",
+        }
+    ]
+    msg = _mensaje_correo(filas, pdf)
+    partes = msg.get_payload()
+    assert any(parte.get_content_type() == "application/pdf" for parte in partes)
+    assert msg.get_payload()[1].get_filename() == "alerta_zapallar_adjunto.pdf"
+    assert "Se adjunta el PDF" in msg.get_payload()[0].get_payload(decode=True).decode("utf-8")
 
 
 def test_noche_completa_despues_de_las_07():

@@ -34,6 +34,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
@@ -599,9 +600,7 @@ def _cuerpo_correo(filas: Sequence[dict]) -> str:
     return "\n".join(lineas).rstrip() + "\n"
 
 
-def enviar_correo(filas: Sequence[dict]) -> None:
-    if not filas:
-        return
+def _mensaje_correo(filas: Sequence[dict], pdf: Optional[Path] = None) -> MIMEMultipart:
     destinatarios = [obtener_email("anibal"), obtener_email("juan")]
     nombres = f"{obtener_nombre('anibal')} y {obtener_nombre('juan')}"
     if any(f["nivel"] == "critica" for f in filas):
@@ -612,14 +611,29 @@ def enviar_correo(filas: Sequence[dict]) -> None:
         nivel = "de seguimiento"
     fechas = sorted({f["fecha"] for f in filas})
     fecha_txt = fechas[0] if len(fechas) == 1 else f"{fechas[0]} a {fechas[-1]}"
-    puntos = ", ".join(f["punto"] for f in filas)
     msg = MIMEMultipart()
     msg["From"] = SMTP_USUARIO
     msg["To"] = ", ".join(destinatarios)
     msg["Subject"] = f"Alerta {nivel} Fundo Zapallar {fecha_txt}"
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid(domain="wes.cl")
-    msg.attach(MIMEText(f"Hola {nombres},\n\n{_cuerpo_correo(filas)}", "plain", "utf-8"))
+    cuerpo = f"Hola {nombres},\n\n{_cuerpo_correo(filas)}"
+    if pdf is not None and pdf.is_file():
+        cuerpo = cuerpo.rstrip() + "\n\nSe adjunta el PDF de esta alerta.\n"
+    msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
+    if pdf is not None and pdf.is_file():
+        adjunto = MIMEApplication(pdf.read_bytes(), _subtype="pdf")
+        adjunto.add_header("Content-Disposition", "attachment", filename=pdf.name)
+        msg.attach(adjunto)
+    return msg
+
+
+def enviar_correo(filas: Sequence[dict], pdf: Optional[Path] = None) -> None:
+    if not filas:
+        return
+    destinatarios = [obtener_email("anibal"), obtener_email("juan")]
+    puntos = ", ".join(f["punto"] for f in filas)
+    msg = _mensaje_correo(filas, pdf)
     with smtplib.SMTP(SMTP_SERVIDOR, SMTP_PUERTO, timeout=60) as server:
         server.ehlo()
         server.starttls()
@@ -664,6 +678,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     csv_path = _guardar_csv(filas, noche)
     _imprimir(filas)
     print(f"[INFO] Detalle: {csv_path}")
+    pdf_path: Optional[Path] = None
     try:
         from generar_pdf_alerta_fundo_zapallar import guardar_pdf_dia
 
@@ -695,9 +710,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         _guardar_estado(estado)
         return 0
 
-    enviar_correo(pendientes)
+    enviar_correo(pendientes, pdf_path)
     for fila in pendientes:
-        estado["enviados"].append(_clave_envio(date.fromisoformat(fila["fecha"]), fila["regla"]))
+        clave = _clave_envio(date.fromisoformat(fila["fecha"]), fila["regla"])
+        if clave not in estado["enviados"]:
+            estado["enviados"].append(clave)
     _guardar_estado(estado)
     return 0
 
