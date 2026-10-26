@@ -734,7 +734,10 @@ def _mensaje_correo(filas: Sequence[dict], pdf: Optional[Path] = None) -> MIMEMu
     msg["Message-ID"] = make_msgid(domain="wes.cl")
     cuerpo = f"Hola {nombres},\n\n{_cuerpo_correo(filas)}"
     if pdf is not None and pdf.is_file():
-        cuerpo = cuerpo.rstrip() + "\n\nSe adjunta el PDF de esta alerta.\n"
+        cuerpo = (
+            cuerpo.rstrip()
+            + "\n\nSe adjunta el informe de una página, con el gráfico de Etapa N°5 y las reglas del período.\n"
+        )
     msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
     if pdf is not None and pdf.is_file():
         adjunto = MIMEApplication(pdf.read_bytes(), _subtype="pdf")
@@ -798,9 +801,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(f"[INFO] Detalle: {csv_path}")
     pdf_path: Optional[Path] = None
     try:
-        from generar_pdf_alerta_fundo_zapallar import guardar_pdf_dia
+        from generar_onepage_alertas_consumo_zapallar import construir
 
-        pdf_path = guardar_pdf_dia(filas, noche)
+        pdf_path = construir(date(2026, 10, 15), noche)
         print(f"[INFO] PDF: {pdf_path}")
     except Exception as exc:
         print(f"[WARN] No se generó el PDF: {exc}", file=sys.stderr)

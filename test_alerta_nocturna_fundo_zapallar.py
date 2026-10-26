@@ -162,7 +162,7 @@ def test_el_correo_adjunta_el_pdf():
     partes = msg.get_payload()
     assert any(parte.get_content_type() == "application/pdf" for parte in partes)
     assert msg.get_payload()[1].get_filename() == "alerta_zapallar_adjunto.pdf"
-    assert "Se adjunta el PDF" in msg.get_payload()[0].get_payload(decode=True).decode("utf-8")
+    assert "informe de una página" in msg.get_payload()[0].get_payload(decode=True).decode("utf-8")
 
 
 def test_punto_en_cero_avisa_desde_el_segundo_dia():

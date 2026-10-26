@@ -68,10 +68,10 @@ def _color_nivel(nivel: str) -> str:
     return BLUE
 
 
-def _leer() -> dict[date, list[dict]]:
+def _leer(inicio: date, fin: date) -> dict[date, list[dict]]:
     por_dia: dict[date, list[dict]] = {}
-    cursor = INICIO
-    while cursor <= FIN:
+    cursor = inicio
+    while cursor <= fin:
         path = CARPETA / f"alerta_fundo_zapallar_{cursor.strftime('%Y%m%d')}.csv"
         if path.is_file():
             with path.open(encoding="utf-8", newline="") as fh:
@@ -92,8 +92,8 @@ def _fila(por_dia: dict[date, list[dict]], noche: date, regla: str) -> dict | No
     return None
 
 
-def _noches(por_dia: dict[date, list[dict]]) -> list[date]:
-    return [dia for dia in sorted(por_dia) if INICIO <= dia <= FIN]
+def _noches(por_dia: dict[date, list[dict]], inicio: date, fin: date) -> list[date]:
+    return [dia for dia in sorted(por_dia) if inicio <= dia <= fin]
 
 
 def _etiqueta(fila: dict) -> str:
@@ -111,9 +111,9 @@ def _maximo(fila: dict) -> str:
     return f" · máx. {_fmt(_num(hallazgo.group(1)))}"
 
 
-def construir() -> Path:
-    por_dia = _leer()
-    dias = _noches(por_dia)
+def construir(inicio: date = INICIO, fin: date = FIN) -> Path:
+    por_dia = _leer(inicio, fin)
+    dias = _noches(por_dia, inicio, fin)
     if not dias:
         raise FileNotFoundError("No hay CSV de alerta para el informe de consumo.")
     etapa5 = []
@@ -128,7 +128,7 @@ def construir() -> Path:
             if fila is None or fila["nivel"] == "normal":
                 continue
             fecha_fila = date.fromisoformat(fila["fecha"])
-            if regla.startswith("balance-") and not (INICIO <= fecha_fila < FIN):
+            if regla.startswith("balance-") and not (inicio <= fecha_fila < fin):
                 continue
             fecha = fecha_fila.strftime("%d-%m")
             valor = f"{_fmt(float(fila['valor']))} m³{_maximo(fila)}"
@@ -141,7 +141,7 @@ def construir() -> Path:
         if fila is None:
             continue
         fecha_fila = date.fromisoformat(fila["fecha"])
-        if not (INICIO <= fecha_fila < FIN):
+        if not (inicio <= fecha_fila < fin):
             continue
         hallazgo = _ETAPAS.search(fila.get("detalle", ""))
         if hallazgo and _num(hallazgo.group(1)) == 0:
@@ -155,7 +155,7 @@ def construir() -> Path:
             if fila is None or fila["nivel"] == "normal":
                 continue
             fecha_fila = date.fromisoformat(fila["fecha"])
-            if regla.startswith("balance-") and not (INICIO <= fecha_fila < FIN):
+            if regla.startswith("balance-") and not (inicio <= fecha_fila < fin):
                 continue
             alertas += 1
             if regla == "etapa5-noche" and fila["nivel"] == "preventiva":
@@ -163,7 +163,7 @@ def construir() -> Path:
     max_e5 = max(v for v in etapa5 if v is not None)
     dia_max_e5 = dias[etapa5.index(max_e5)].strftime("%d-%m")
 
-    destino = CARPETA / f"Alerta_Fundo_Zapallar_{INICIO.strftime('%Y%m%d')}_{FIN.strftime('%Y%m%d')}.pdf"
+    destino = CARPETA / f"Alerta_Fundo_Zapallar_{inicio.strftime('%Y%m%d')}_{fin.strftime('%Y%m%d')}.pdf"
     destino.parent.mkdir(parents=True, exist_ok=True)
     fig = plt.figure(figsize=(8.27, 11.69), facecolor="white")
 
@@ -178,7 +178,7 @@ def construir() -> Path:
     encabezado.text(
         0.955,
         0.30,
-        f"{INICIO.strftime('%d-%m-%Y')}  ·  {FIN.strftime('%d-%m-%Y')}",
+        f"{inicio.strftime('%d-%m-%Y')}  ·  {fin.strftime('%d-%m-%Y')}",
         color="#D6E4EE",
         fontsize=8,
         va="center",
@@ -202,7 +202,7 @@ def construir() -> Path:
         (str(alertas), "alertas de consumo en el período"),
         (f"{preventiva_e5} / {len(dias)}", "noches con alerta preventiva · Etapa 5"),
         (f"{_fmt(max_e5)} m³", f"máximo nocturno Etapa N°5, {dia_max_e5}"),
-        (str(len(ceros)), "días en cero · Etapas 1-4, desde el 17-10"),
+        (str(len(ceros)), f"días en cero · Etapas 1-4, desde el {ceros[0].strftime('%d-%m') if ceros else '—'}"),
     ]
     acentos = [BLUE, AMBER, RED, NAVY]
     for i, (grande, etiqueta) in enumerate(tarjetas):
@@ -262,13 +262,26 @@ def construir() -> Path:
     for i, dia in enumerate(ceros):
         marca = "Primer día en cero" if i == 0 else "En cero, se avisa"
         filas_cero.append((dia.strftime("%d-%m"), "0,00 m³ día", marca))
-    if ceros:
-        filas_cero.append(("17-10 al 26-10", "0,00 m³ noche", "Sin consumo nocturno"))
+    noches_cero = []
+    for dia in dias:
+        fila_noche = _fila(por_dia, dia, "etapas14-noche")
+        if fila_noche is not None and float(fila_noche["valor"]) == 0:
+            noches_cero.append(dia)
+    if noches_cero:
+        filas_cero.append(
+            (
+                f"{noches_cero[0].strftime('%d-%m')} al {noches_cero[-1].strftime('%d-%m')}",
+                "0,00 m³ noche",
+                "Sin consumo nocturno",
+            )
+        )
+    dia_previo = (ceros[0] - timedelta(days=1)).strftime("%d-%m") if ceros else ""
 
     bloques = [
         (
             "Etapas 1-4  ·  en cero",
-            "Se avisa si el día completo marca 0,00 m³ más de un día.\nEl 16-10 todavía tuvo consumo.",
+            "Se avisa si el día completo marca 0,00 m³ más de un día.\n"
+            + (f"El {dia_previo} todavía tuvo consumo." if dia_previo else "El primer día en cero no se avisa."),
             filas_cero,
         ),
         (
@@ -317,7 +330,7 @@ def construir() -> Path:
         0.055,
         0.012,
         "WES SpA  ·  Documento de una página para revisión interna. Seguimiento o preventiva: contrastar con riegos, llenados u operaciones extraordinarias\n"
-        "antes de escalar al fundo. Crítica: aviso prioritario. El 26-10 el día calendario aún no estaba cerrado; el balance de ese día no se incluye.",
+        f"antes de escalar al fundo. Crítica: aviso prioritario. El {fin.strftime('%d-%m')} el día calendario aún no estaba cerrado; el balance de ese día no se incluye.",
         fontsize=6.1,
         color=MUTED,
         va="bottom",
