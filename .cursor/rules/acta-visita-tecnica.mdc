@@ -31,7 +31,10 @@ Guardado también en `mantenimiento_wes/LINK_FIJO_FORMULARIO_WEB.txt`.
    ruta `{Cliente}/{año}/{mes}`, nombre
    `folio_{folio}_{fecha}_{CLIENTE}_{MAQUINA}_{yyyyMMdd_HHmmss}.pdf`
    (`--subir-drive`).
-5. Correo solo al cliente que corresponda (`--enviar-correo`), pidiendo
-   «Acuso recibo». En CORMUP → `dcampos.henriquez@cormup.cl`. Sin CC al
-   equipo WES salvo que lo pidan.
-6. Destacá el link de Drive en la respuesta final.
+5. **Nunca enviar correo al cliente hasta que el usuario apruebe el borrador
+   del formulario/acta.** Primero generar PDF, dejarlo a la vista (Drive /
+   chat) y esperar OK explícito. Recién ahí `--enviar-correo`.
+6. Correo solo al cliente que corresponda, pidiendo «Acuso recibo». En
+   CORMUP → `dcampos.henriquez@cormup.cl`. Sin CC al equipo WES salvo que
+   lo pidan.
+7. Destacá el link de Drive en la respuesta final.

@@ -1,0 +1,47 @@
+{
+  "cliente": "FUNDO ZAPALLAR",
+  "maquina": "ETAPA 1-4",
+  "comuna": "Zapallar",
+  "fecha": "2026-10-28",
+  "hora": "12:00",
+  "tecnico": "Anibal Aranda",
+  "ot": "2343",
+  "folio": 2343,
+  "estado_visita": "cerrada",
+  "motivos": ["Visita física"],
+  "tecnologias": ["CIR"],
+  "tipo_mtto": "Mtto Correctivo",
+  "tipo_falla": "Auditoría",
+  "falla_especifica": "Validación Data",
+  "lectura_medidor": "0 m³ (desde 17/10/2026)",
+  "solucion": "Se revisó el punto ETAPA 1-4 (000027-04), que marcaba consumo cero desde el 17/10/2026.\n\nHallazgo: el punto de medición donde está instalado el equipo ultrasónico WES corresponde a la tubería en la que se cortó el agua para realizar el vaciado, limpieza e impermeabilización de la cuba N°2 del estanque superior. Por esa condición operativa el caudal por esa tubería es nulo y el punto registra cero; no corresponde a falla del equipo de medición ni de comunicación.\n\nEl jefe de mantenimiento indicó que este trabajo debería extenderse al menos unas dos semanas más.",
+  "observaciones": "Proyección / próxima configuración: cuando las dos cubas estén con agua, las válvulas 2 y 3 a la salida del estanque (ubicación actual del punto) se unirán para repartir agua hacia las etapas 1 a 4.\n\nPor las condiciones físicas del terreno, en el futuro —cuando esas dos tuberías alimenten la etapa 1 al 4— se debería contemplar otro punto de monitoreo para medir ambas cañerías y así obtener el consumo total de las etapas 1 a 4.\n\nBORRADOR PARA APROBACIÓN INTERNA — no enviar al cliente hasta confirmación explícita.",
+  "recibido_por": "Fesel Ojeda",
+  "cargo": "Supervisor de mantenimiento",
+  "email_cliente": "supervisorfundozapallar@gmail.com",
+  "email_cc": "german.garib@gmail.com, mbelenlarrain@lgadministracion.cl",
+  "enviar_correo_cliente": false,
+  "checklist_cir": [
+    {
+      "elemento": "Conectividad App",
+      "estado": "OK",
+      "obs": "Punto en cero por corte operativo de la tubería, no por falla de comunicación"
+    },
+    {
+      "elemento": "Equipo ultrasónico",
+      "estado": "OK",
+      "obs": "Instalado en tubería cortada por vaciado/limpieza/impermeabilización cuba N°2 estanque superior"
+    },
+    {
+      "elemento": "Transductores",
+      "estado": "OK",
+      "obs": ""
+    }
+  ],
+  "checklist_cpa": [],
+  "checklist_sab": [],
+  "firma_png": "",
+  "_borrador": true,
+  "_no_enviar_correo": true,
+  "node_id": "000027-04"
+}
