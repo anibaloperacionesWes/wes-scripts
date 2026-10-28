@@ -1,8 +1,9 @@
 """
 Informe de una página de las alertas de consumo de Fundo Zapallar.
 
-Mismo formato que la revisión 23-09 a 14-10: gráfico de Etapa N°5,
-tarjetas y las reglas que se cumplieron. Agrega el aviso de punto en cero.
+Mismo formato que la revisión 23-09 a 14-10: cuatro tarjetas, gráfico de
+Etapa N°5 y las cuatro reglas que se cumplieron. Si un punto marca 0,00 m³
+más de un día completo, esa racha entra como una fila en su caja.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
+
 
 CARPETA = Path("reports/Fundo_Zapallar/alerta_nocturna")
 INICIO = date(2026, 10, 15)
@@ -47,6 +49,7 @@ def _num(texto: str) -> float:
 
 
 def _color_volumen(valor: float | None) -> str:
+    """El color de la barra sigue el volumen, igual que la revisión."""
     if valor is None or valor <= 1:
         return OK
     if valor > 10:
@@ -63,8 +66,6 @@ def _color_nivel(nivel: str) -> str:
         return AMBER
     if "cero" in nivel.lower():
         return NAVY
-    if nivel.startswith("Sin consumo"):
-        return MUTED
     return BLUE
 
 
@@ -80,26 +81,32 @@ def _leer(inicio: date, fin: date) -> dict[date, list[dict]]:
     return por_dia
 
 
-def _fila(por_dia: dict[date, list[dict]], noche: date, regla: str) -> dict | None:
-    for fila in por_dia.get(noche, []):
-        if fila["regla"] == regla and date.fromisoformat(fila["fecha"]) == (
-            noche if "noche" in regla or regla.startswith("cero") else noche - timedelta(days=1)
-        ):
-            return fila
-    for fila in por_dia.get(noche, []):
-        if fila["regla"] == regla:
-            return fila
-    return None
+def _indice(por_dia: dict[date, list[dict]]) -> dict[tuple[str, str], dict]:
+    indice: dict[tuple[str, str], dict] = {}
+    for filas in por_dia.values():
+        for fila in filas:
+            indice[(fila["regla"], fila["fecha"])] = fila
+    return indice
+
+
+def _fila(indice: dict[tuple[str, str], dict], noche: date, regla: str) -> dict | None:
+    if "noche" in regla or regla.startswith("cero"):
+        return indice.get((regla, noche.isoformat()))
+    return indice.get((regla, (noche - timedelta(days=1)).isoformat())) or indice.get((regla, noche.isoformat()))
 
 
 def _noches(por_dia: dict[date, list[dict]], inicio: date, fin: date) -> list[date]:
     return [dia for dia in sorted(por_dia) if inicio <= dia <= fin]
 
 
-def _etiqueta(fila: dict) -> str:
+def _etiqueta(fila: dict, previa: dict | None) -> str:
     nivel = fila["nivel"]
     nombre = {"seguimiento": "Seguimiento", "preventiva": "Preventiva", "critica": "Crítica"}.get(nivel, nivel)
-    if "se repite" in fila.get("detalle", "") and nivel == "preventiva":
+    detalle = fila.get("detalle", "")
+    if nivel == "preventiva" and "segundo día" in detalle and previa is not None:
+        fecha = date.fromisoformat(previa["fecha"]).strftime("%d-%m")
+        return f"Preventiva, viene de {_fmt(float(previa['valor']))} el {fecha}"
+    if nivel == "preventiva" and "se repite" in detalle:
         return "Preventiva, se repite"
     return nombre
 
@@ -111,57 +118,73 @@ def _maximo(fila: dict) -> str:
     return f" · máx. {_fmt(_num(hallazgo.group(1)))}"
 
 
+def _en_periodo(fila: dict, regla: str, inicio: date, fin: date) -> bool:
+    fecha_fila = date.fromisoformat(fila["fecha"])
+    if regla.startswith("balance-") or regla.startswith("cero"):
+        return inicio <= fecha_fila < fin
+    return inicio <= fecha_fila <= fin
+
+
 def construir(inicio: date = INICIO, fin: date = FIN) -> Path:
-    por_dia = _leer(inicio, fin)
+    por_dia = _leer(inicio - timedelta(days=1), fin)
+    indice = _indice(por_dia)
     dias = _noches(por_dia, inicio, fin)
     if not dias:
         raise FileNotFoundError("No hay CSV de alerta para el informe de consumo.")
-    etapa5 = []
+
+    etapa5: list[float | None] = []
     for dia in dias:
-        fila = _fila(por_dia, dia, "etapa5-noche")
+        fila = _fila(indice, dia, "etapa5-noche")
         etapa5.append(None if fila is None else float(fila["valor"]))
 
     def reglas(regla: str) -> list[tuple[str, str, str]]:
         salida = []
         for dia in dias:
-            fila = _fila(por_dia, dia, regla)
-            if fila is None or fila["nivel"] == "normal":
+            fila = _fila(indice, dia, regla)
+            if fila is None or fila["nivel"] == "normal" or not _en_periodo(fila, regla, inicio, fin):
                 continue
-            fecha_fila = date.fromisoformat(fila["fecha"])
-            if regla.startswith("balance-") and not (inicio <= fecha_fila < fin):
-                continue
-            fecha = fecha_fila.strftime("%d-%m")
+            previa = indice.get((regla, (date.fromisoformat(fila["fecha"]) - timedelta(days=1)).isoformat()))
+            fecha = date.fromisoformat(fila["fecha"]).strftime("%d-%m")
             valor = f"{_fmt(float(fila['valor']))} m³{_maximo(fila)}"
-            salida.append((fecha, valor, _etiqueta(fila)))
+            salida.append((fecha, valor, _etiqueta(fila, previa)))
         return salida
 
-    ceros = []
+    ceros: list[date] = []
     for dia in dias:
-        fila = _fila(por_dia, dia, "balance-estanque-etapas")
-        if fila is None:
-            continue
-        fecha_fila = date.fromisoformat(fila["fecha"])
-        if not (inicio <= fecha_fila < fin):
+        fila = _fila(indice, dia, "balance-estanque-etapas")
+        if fila is None or not _en_periodo(fila, "balance-estanque-etapas", inicio, fin):
             continue
         hallazgo = _ETAPAS.search(fila.get("detalle", ""))
         if hallazgo and _num(hallazgo.group(1)) == 0:
             ceros.append(date.fromisoformat(fila["fecha"]))
 
     alertas = 0
-    preventiva_e5 = 0
+    noches_con_alerta = 0
     for dia in dias:
-        for regla in ("etapa5-noche", "etapas14-noche", "matriz-noche", "balance-matriz-estanque", "balance-estanque-etapas"):
-            fila = _fila(por_dia, dia, regla)
-            if fila is None or fila["nivel"] == "normal":
-                continue
-            fecha_fila = date.fromisoformat(fila["fecha"])
-            if regla.startswith("balance-") and not (inicio <= fecha_fila < fin):
+        fila_e5 = _fila(indice, dia, "etapa5-noche")
+        if fila_e5 is not None and fila_e5["nivel"] != "normal":
+            noches_con_alerta += 1
+        for regla in (
+            "etapa5-noche",
+            "etapas14-noche",
+            "matriz-noche",
+            "balance-matriz-estanque",
+            "balance-estanque-etapas",
+        ):
+            fila = _fila(indice, dia, regla)
+            if fila is None or fila["nivel"] == "normal" or not _en_periodo(fila, regla, inicio, fin):
                 continue
             alertas += 1
-            if regla == "etapa5-noche" and fila["nivel"] == "preventiva":
-                preventiva_e5 += 1
-    max_e5 = max(v for v in etapa5 if v is not None)
+
+    volumenes = [valor for valor in etapa5 if valor is not None]
+    max_e5 = max(volumenes)
     dia_max_e5 = dias[etapa5.index(max_e5)].strftime("%d-%m")
+    matrices = []
+    for dia in dias:
+        fila = _fila(indice, dia, "matriz-noche")
+        if fila is not None and _en_periodo(fila, "matriz-noche", inicio, fin):
+            matrices.append((float(fila["valor"]), dia))
+    max_matriz, dia_max_matriz = max(matrices, key=lambda item: item[0])
 
     destino = CARPETA / f"Alerta_Fundo_Zapallar_{inicio.strftime('%Y%m%d')}_{fin.strftime('%Y%m%d')}.pdf"
     destino.parent.mkdir(parents=True, exist_ok=True)
@@ -191,20 +214,20 @@ def construir(inicio: date = INICIO, fin: date = FIN) -> Path:
         0.888,
         "Tres niveles de aviso: seguimiento, preventiva y crítica. Ventana 00:00 a 06:00. La categoría crítica se reserva para\n"
         "consumos excepcionalmente altos. Si una alerta de seguimiento se repite al día siguiente, pasa a preventiva.\n"
-        "Un punto que marca 0,00 m³ más de un día completo también se avisa. Estanque del Medio = Estanque Inferior (000027-02).",
-        fontsize=7.4,
+        "Estanque del Medio = Estanque Inferior (000027-02).",
+        fontsize=7.6,
         color=INK,
         va="top",
         linespacing=1.35,
     )
 
     tarjetas = [
-        (str(alertas), "alertas de consumo en el período"),
-        (f"{preventiva_e5} / {len(dias)}", "noches con alerta preventiva · Etapa 5"),
+        (str(alertas), "alertas en el período"),
+        (f"{noches_con_alerta} / {len(dias)}", "noches con alerta preventiva · Etapa 5"),
         (f"{_fmt(max_e5)} m³", f"máximo nocturno Etapa N°5, {dia_max_e5}"),
-        (str(len(ceros)), f"días en cero · Etapas 1-4, desde el {ceros[0].strftime('%d-%m') if ceros else '—'}"),
+        (f"{_fmt(max_matriz)} m³", f"máximo nocturno Matriz, {dia_max_matriz.strftime('%d-%m')}"),
     ]
-    acentos = [BLUE, AMBER, RED, NAVY]
+    acentos = [BLUE, AMBER, RED, "#C5D0D6"]
     for i, (grande, etiqueta) in enumerate(tarjetas):
         ax = fig.add_axes([0.055 + i * 0.232, 0.798, 0.215, 0.055])
         ax.set_xlim(0, 1)
@@ -213,25 +236,29 @@ def construir(inicio: date = INICIO, fin: date = FIN) -> Path:
         ax.add_patch(plt.Rectangle((0, 0), 1, 1, facecolor="#F4F7F9", edgecolor="#D5DEE5", lw=0.6))
         ax.add_patch(plt.Rectangle((0, 0), 0.025, 1, color=acentos[i]))
         ax.text(0.10, 0.62, grande, fontsize=12, color=NAVY, fontweight="bold", va="center")
-        ax.text(0.10, 0.26, etiqueta, fontsize=6.2, color=MUTED, va="center")
+        ax.text(0.10, 0.26, etiqueta, fontsize=6.4, color=MUTED, va="center")
 
-    ax = fig.add_axes([0.055, 0.610, 0.62, 0.158])
+    ax = fig.add_axes([0.055, 0.568, 0.62, 0.188])
     xs = list(range(len(dias)))
     colores = [_color_volumen(valor) for valor in etapa5]
-    ax.bar(xs, [0 if v is None else v for v in etapa5], color=colores, width=0.72, zorder=3)
+    ax.bar(xs, [0 if v is None else v for v in etapa5], color=colores, width=0.78, zorder=3)
     for x, valor in zip(xs, etapa5):
         if valor is None:
             continue
-        ax.text(x, valor + 0.25, _fmt(valor), ha="center", va="bottom", rotation=90, fontsize=6.2, color=INK, clip_on=False)
+        if valor > 10 or (valor <= 10 and valor + 1.35 > 10):
+            ax.text(x, valor - 0.15, _fmt(valor), ha="center", va="top", rotation=90, fontsize=5.7, color="white", clip_on=False, zorder=4)
+        else:
+            ax.text(x, valor + 0.18, _fmt(valor), ha="center", va="bottom", rotation=90, fontsize=5.7, color=INK, clip_on=False, zorder=4)
     ax.axhline(1, color=BLUE, lw=0.8, ls=":", zorder=2)
     ax.axhline(5, color=AMBER, lw=0.8, ls="--", zorder=2)
     ax.axhline(10, color=RED, lw=0.9, ls="-", zorder=2)
     ax.set_xlim(-0.6, len(dias) - 0.4)
-    ax.set_ylim(0, 16.2)
+    ax.set_ylim(0, max(13.6, max_e5 + 2.4))
     ax.set_ylabel("m³ por noche", fontsize=8, color=INK)
     ax.set_title("Etapa N°5 — m³ entre las 00:00 y las 06:00", loc="left", fontsize=9, color=NAVY, pad=8)
     ax.set_xticks(xs)
-    ax.set_xticklabels([d.strftime("%d-%m") for d in dias], rotation=0, fontsize=6.0, color=MUTED)
+    ax.set_xticklabels([d.strftime("%d-%m") for d in dias], rotation=90, fontsize=5.8, color=MUTED)
+    ax.tick_params(axis="x", pad=1)
     ax.tick_params(axis="y", labelsize=7, colors=MUTED)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -239,50 +266,39 @@ def construir(inicio: date = INICIO, fin: date = FIN) -> Path:
     ax.spines["bottom"].set_color("#D5DEE5")
     ax.yaxis.grid(True, color=GRID, zorder=0)
     ax.set_axisbelow(True)
+    sin_alerta = [dia for dia, valor in zip(dias, etapa5) if valor is None or valor <= 1]
+    if len(sin_alerta) == 1:
+        leyenda_gris = f"{sin_alerta[0].strftime('%d-%m')} sin alerta"
+    else:
+        leyenda_gris = "Sin alerta"
     ax.legend(
         handles=[
             Patch(facecolor=BLUE, label="Seguimiento: >1 a 5 m³"),
             Patch(facecolor=AMBER, label="Preventiva: >5 a 10 m³"),
             Patch(facecolor=RED, label="Crítica: >10 m³ o >4 m³/h"),
-            Patch(facecolor=OK, label="Sin alerta"),
+            Patch(facecolor=OK, label=leyenda_gris),
         ],
         frameon=False,
         fontsize=6.4,
         loc="center left",
-        bbox_to_anchor=(1.03, 0.55),
+        bbox_to_anchor=(1.03, 0.62),
         borderaxespad=0,
         handlelength=1.1,
         handleheight=0.8,
         labelspacing=0.55,
     )
 
-    fig.text(0.055, 0.575, "Otras reglas que se cumplieron", fontsize=11, color=NAVY, fontweight="bold")
+    fig.text(0.055, 0.512, "Otras reglas que se cumplieron", fontsize=11, color=NAVY, fontweight="bold")
 
-    filas_cero = []
-    for i, dia in enumerate(ceros):
-        marca = "Primer día en cero" if i == 0 else "En cero, se avisa"
-        filas_cero.append((dia.strftime("%d-%m"), "0,00 m³ día", marca))
-    noches_cero = []
-    for dia in dias:
-        fila_noche = _fila(por_dia, dia, "etapas14-noche")
-        if fila_noche is not None and float(fila_noche["valor"]) == 0:
-            noches_cero.append(dia)
-    if noches_cero:
-        filas_cero.append(
-            (
-                f"{noches_cero[0].strftime('%d-%m')} al {noches_cero[-1].strftime('%d-%m')}",
-                "0,00 m³ noche",
-                "Sin consumo nocturno",
-            )
-        )
-    dia_previo = (ceros[0] - timedelta(days=1)).strftime("%d-%m") if ceros else ""
+    filas_etapas = reglas("etapas14-noche")
+    if len(ceros) > 1:
+        filas_etapas.append((f"{ceros[0].strftime('%d-%m')} al {ceros[-1].strftime('%d-%m')}", "0,00 m³ día", "En cero"))
 
     bloques = [
         (
-            "Etapas 1-4  ·  en cero",
-            "Se avisa si el día completo marca 0,00 m³ más de un día.\n"
-            + (f"El {dia_previo} todavía tuvo consumo." if dia_previo else "El primer día en cero no se avisa."),
-            filas_cero,
+            "Etapas 1-4  ·  noche",
+            "Seguimiento >40 a 45 m³ o >12 a 15 m³/h. Preventiva >45 a 60 m³\no >15 a 20 m³/h. Crítica >60 m³ o >20 m³/h.",
+            filas_etapas,
         ),
         (
             "Matriz ESVAL  ·  noche",
@@ -301,10 +317,10 @@ def construir(inicio: date = INICIO, fin: date = FIN) -> Path:
         ),
     ]
     cajas = [
-        (0.055, 0.292, 0.44, 0.258),
-        (0.515, 0.292, 0.43, 0.258),
-        (0.055, 0.042, 0.44, 0.210),
-        (0.515, 0.042, 0.43, 0.210),
+        (0.055, 0.272, 0.44, 0.210),
+        (0.515, 0.272, 0.43, 0.210),
+        (0.055, 0.046, 0.44, 0.208),
+        (0.515, 0.046, 0.43, 0.208),
     ]
     for (titulo, criterio, filas), (x0, y0, ancho, alto) in zip(bloques, cajas):
         axb = fig.add_axes([x0, y0, ancho, alto])
@@ -312,26 +328,26 @@ def construir(inicio: date = INICIO, fin: date = FIN) -> Path:
         axb.set_ylim(0, 1)
         axb.axis("off")
         axb.add_patch(plt.Rectangle((0, 0), 1, 1, facecolor="#F8FAFB", edgecolor="#E1E8ED", lw=0.6))
-        axb.text(0.04, 0.90, titulo, fontsize=8, color=NAVY, fontweight="bold", va="center")
-        axb.text(0.04, 0.76, criterio, fontsize=5.5, color=MUTED, va="top", linespacing=1.25)
+        axb.text(0.04, 0.92, titulo, fontsize=8, color=NAVY, fontweight="bold", va="center")
+        axb.text(0.04, 0.80, criterio, fontsize=5.5, color=MUTED, va="top", linespacing=1.25)
         if not filas:
-            axb.text(0.04, 0.40, "Sin alerta de consumo en el período.", fontsize=7, color=MUTED, va="center")
+            axb.text(0.04, 0.42, "Sin alerta en el período.", fontsize=7, color=MUTED, va="center")
             continue
-        paso = 0.62 / max(len(filas), 1)
-        tam_fecha = 6.2 if len(filas) <= 8 else 5.7
+        tam = 6.5 if len(filas) <= 8 else 5.3
+        paso = min(0.078, 0.58 / len(filas))
         for i, (fecha, valor, nivel) in enumerate(filas):
             yy = 0.62 - i * paso
             color = _color_nivel(nivel)
             axb.plot([0.045], [yy], marker="o", color=color, markersize=4.2)
-            axb.text(0.09, yy, f"{fecha}    {valor}", fontsize=tam_fecha, color=INK, va="center")
-            axb.text(0.97, yy, nivel, fontsize=tam_fecha - 0.3, color=color, va="center", ha="right")
+            axb.text(0.09, yy, f"{fecha}    {valor}", fontsize=tam, color=INK, va="center")
+            axb.text(0.97, yy, nivel, fontsize=tam - 0.4, color=color, va="center", ha="right")
 
     fig.text(
         0.055,
         0.012,
-        "WES SpA  ·  Documento de una página para revisión interna. Seguimiento o preventiva: contrastar con riegos, llenados u operaciones extraordinarias\n"
-        f"antes de escalar al fundo. Crítica: aviso prioritario. El {fin.strftime('%d-%m')} el día calendario aún no estaba cerrado; el balance de ese día no se incluye.",
-        fontsize=6.1,
+        "WES SpA  ·  Documento de una página para revisión interna. Una alerta de seguimiento o preventiva requiere contraste con riegos, llenados u operaciones\n"
+        f"extraordinarias antes de escalar al fundo. Una alerta crítica requiere aviso prioritario. El {fin.strftime('%d-%m')} el día calendario aún no estaba cerrado; el balance no se incluye.",
+        fontsize=6.2,
         color=MUTED,
         va="bottom",
     )

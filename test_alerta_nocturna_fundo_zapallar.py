@@ -200,3 +200,93 @@ def test_punto_en_cero_avisa_desde_el_segundo_dia():
 def test_noche_completa_despues_de_las_07():
     assert ultima_noche_completa(datetime(2026, 10, 14, 18, 0, tzinfo=CHILE_TZ)) == date(2026, 10, 14)
     assert ultima_noche_completa(datetime(2026, 10, 15, 5, 0, tzinfo=CHILE_TZ)) == date(2026, 10, 14)
+
+
+def test_la_persistencia_de_balance_nombra_el_dia_anterior():
+    from generar_onepage_alertas_consumo_zapallar import _etiqueta
+
+    fila = {
+        "nivel": "preventiva",
+        "detalle": "El saldo supera 21 m³ por segundo día, por eso pasa a preventiva.",
+    }
+    previa = {"fecha": "2026-09-22", "valor": "28.66"}
+    assert _etiqueta(fila, previa) == "Preventiva, viene de 28,66 el 22-09"
+    assert _etiqueta({"nivel": "preventiva", "detalle": "La alerta de seguimiento se repite."}, None) == "Preventiva, se repite"
+    assert _etiqueta({"nivel": "seguimiento", "detalle": ""}, None) == "Seguimiento"
+
+
+def test_el_pdf_de_consumo_sigue_el_formato_de_revision(tmp_path, monkeypatch):
+    import csv
+
+    import pypdfium2 as pdfium
+
+    import generar_onepage_alertas_consumo_zapallar as gen
+
+    monkeypatch.setattr(gen, "CARPETA", tmp_path)
+    campos = ["fecha", "periodo", "regla", "punto", "nivel", "valor", "umbral", "detalle", "accion", "notificar"]
+
+    def escribir(noche: date, filas: list[dict]) -> None:
+        path = tmp_path / f"alerta_fundo_zapallar_{noche.strftime('%Y%m%d')}.csv"
+        with path.open("w", encoding="utf-8", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=campos)
+            writer.writeheader()
+            writer.writerows(filas)
+
+    def fila(fecha, regla, nivel, valor, detalle):
+        return {
+            "fecha": fecha.isoformat(),
+            "periodo": fecha.isoformat(),
+            "regla": regla,
+            "punto": regla,
+            "nivel": nivel,
+            "valor": valor,
+            "umbral": "",
+            "detalle": detalle,
+            "accion": "",
+            "notificar": "True",
+        }
+
+    noche = date(2026, 10, 15)
+    escribir(
+        noche,
+        [
+            fila(noche, "etapa5-noche", "preventiva", "7.30", "Total 7,30 m³; máximo 2,10 m³/h."),
+            fila(noche, "etapas14-noche", "seguimiento", "40.36", "Total 40,36 m³; máximo 12,24 m³/h."),
+            fila(noche, "matriz-noche", "preventiva", "70.82", "Total 70,82 m³; máximo 18,00 m³/h."),
+            fila(date(2026, 10, 14), "balance-matriz-estanque", "normal", "10.00", "∆ 10,00 m³."),
+            fila(date(2026, 10, 14), "balance-estanque-etapas", "normal", "8.00", "Etapas 1-4 12,00 m³."),
+        ],
+    )
+    escribir(
+        date(2026, 10, 16),
+        [
+            fila(date(2026, 10, 16), "etapa5-noche", "preventiva", "3.40", "Total 3,40 m³. La alerta de seguimiento se repite, por eso el nivel pasa a preventiva."),
+            fila(date(2026, 10, 16), "etapas14-noche", "normal", "0.00", "Total 0,00 m³; máximo 0,00 m³/h."),
+            fila(date(2026, 10, 16), "matriz-noche", "normal", "39.61", "Total 39,61 m³; máximo 8,00 m³/h."),
+            fila(date(2026, 10, 15), "balance-matriz-estanque", "preventiva", "23.02", "∆ 23,02 m³. El saldo supera 21 m³ por segundo día, por eso pasa a preventiva."),
+            fila(date(2026, 10, 15), "balance-estanque-etapas", "critica", "87.19", "Estanque 100,39 m³; Etapa N°5 13,20 m³; Etapas 1-4 0,00 m³; ∆ 87,19 m³."),
+        ],
+    )
+    escribir(
+        date(2026, 10, 17),
+        [
+            fila(date(2026, 10, 17), "etapa5-noche", "normal", "0.40", "Total 0,40 m³; máximo 0,20 m³/h."),
+            fila(date(2026, 10, 17), "etapas14-noche", "normal", "0.00", "Total 0,00 m³; máximo 0,00 m³/h."),
+            fila(date(2026, 10, 17), "matriz-noche", "normal", "20.00", "Total 20,00 m³; máximo 4,00 m³/h."),
+            fila(date(2026, 10, 16), "balance-matriz-estanque", "seguimiento", "21.81", "∆ 21,81 m³."),
+            fila(date(2026, 10, 16), "balance-estanque-etapas", "critica", "80.00", "Etapas 1-4 0,00 m³; ∆ 80,00 m³."),
+        ],
+    )
+
+    destino = gen.construir(date(2026, 10, 15), date(2026, 10, 17))
+    texto = pdfium.PdfDocument(str(destino))[0].get_textpage().get_text_bounded()
+    assert "Alertas nocturnas y balances diarios" in texto
+    assert "máximo nocturno Matriz, 15-10" in texto
+    assert "70,82 m³" in texto
+    assert "Etapas 1-4 · noche" in texto
+    assert "Matriz ESVAL · noche" in texto
+    assert "Otras reglas que se cumplieron" in texto
+    assert "17-10 sin alerta" in texto
+    assert "En cero" in texto
+    assert "días en cero" not in texto
+    assert "viene de" in texto
