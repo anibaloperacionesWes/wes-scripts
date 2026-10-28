@@ -1,0 +1,39 @@
+{
+  "cliente": "CORMUP",
+  "maquina": "TOBALABA",
+  "comuna": "Providencia",
+  "fecha": "2026-10-28",
+  "hora": "10:30",
+  "tecnico": "Anibal Aranda",
+  "ot": "2343",
+  "folio": 2343,
+  "estado_visita": "cerrada",
+  "motivos": ["Visita física"],
+  "tecnologias": ["CPA y CIR"],
+  "tipo_mtto": "Mtto Correctivo",
+  "tipo_falla": "Ultrasonido",
+  "falla_especifica": "Equipo Dañado",
+  "lectura_medidor": "—",
+  "solucion": "Describir aquí el diagnóstico y las acciones realizadas en terreno o remoto.",
+  "observaciones": "Pendientes, seguimiento o notas para la próxima intervención.",
+  "recibido_por": "Nombre de quien recibió en terreno o por teléfono",
+  "cargo": "Cargo",
+  "email_cliente": "cliente@ejemplo.cl",
+  "email_cc": "",
+  "enviar_correo_cliente": false,
+  "checklist_cir": [
+    {"elemento": "Conectividad App", "estado": "OK", "obs": ""},
+    {"elemento": "Enlace CIR", "estado": "OK", "obs": ""},
+    {"elemento": "Estado exterior caja CIR", "estado": "OK", "obs": ""},
+    {"elemento": "Estado interior caja CIR", "estado": "OK", "obs": ""},
+    {"elemento": "Equipo ultrasónico", "estado": "OK", "obs": ""},
+    {"elemento": "Transductores", "estado": "OK", "obs": ""},
+    {"elemento": "Sensor de pulso", "estado": "N/A", "obs": ""}
+  ],
+  "checklist_cpa": [
+    {"elemento": "Func. medidor", "estado": "OK", "obs": ""},
+    {"elemento": "Estado cámara CPA", "estado": "OK", "obs": ""}
+  ],
+  "checklist_sab": [],
+  "firma_png": ""
+}
