@@ -1,0 +1,52 @@
+{
+  "cliente": "FUNDO ZAPALLAR",
+  "maquina": "ETAPA 3",
+  "comuna": "Zapallar",
+  "fecha": "2026-10-28",
+  "hora": "12:30",
+  "tecnico": "Anibal Aranda",
+  "ot": "2344",
+  "folio": 2344,
+  "estado_visita": "cerrada",
+  "motivos": ["Visita física"],
+  "tecnologias": ["CIR"],
+  "tipo_mtto": "Mtto Correctivo",
+  "tipo_falla": "Electrónica",
+  "falla_especifica": "Placa WES",
+  "lectura_medidor": "—",
+  "solucion": "Se revisó el punto Etapa N°3 (000027-08), que se encontraba desconectado desde el domingo 25/10/2026 a las 20:00.\n\nHallazgo: falla electrónica en la placa WES. La falla en la placa estaba quemando el dispositivo en la parte del reloj y no contaba la hora.\n\nAcciones: se realizó el cambio de placa completa. Se normalizó el funcionamiento y se dejó el equipo 100 % operativo.",
+  "observaciones": "Sin observaciones adicionales. Punto dejado en operación normal tras el cambio de placa.",
+  "recibido_por": "Fesel Ojeda",
+  "cargo": "Supervisor de mantenimiento",
+  "email_cliente": "supervisorfundozapallar@gmail.com",
+  "email_cc": "german.garib@gmail.com, mbelenlarrain@lgadministracion.cl",
+  "enviar_correo_cliente": false,
+  "checklist_cir": [
+    {
+      "elemento": "Conectividad App",
+      "estado": "OK",
+      "obs": "Desconectado desde domingo 25/10 20:00; normalizado tras cambio de placa"
+    },
+    {
+      "elemento": "Enlace CIR",
+      "estado": "OK",
+      "obs": ""
+    },
+    {
+      "elemento": "Estado interior caja CIR",
+      "estado": "OK",
+      "obs": "Cambio de placa WES completa por falla electrónica (reloj / conteo de hora)"
+    },
+    {
+      "elemento": "Equipo ultrasónico",
+      "estado": "OK",
+      "obs": "Equipo 100 % operativo tras intervención"
+    }
+  ],
+  "checklist_cpa": [],
+  "checklist_sab": [],
+  "firma_png": "",
+  "_borrador": true,
+  "_no_enviar_correo": true,
+  "node_id": "000027-08"
+}

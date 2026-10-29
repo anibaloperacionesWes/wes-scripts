@@ -1,0 +1,66 @@
+{
+  "cliente": "FUNDO ZAPALLAR",
+  "maquina": "ETAPA 2",
+  "comuna": "Zapallar",
+  "fecha": "2026-10-28",
+  "hora": "13:15",
+  "tecnico": "Anibal Aranda",
+  "ot": "2346",
+  "folio": 2346,
+  "estado_visita": "cerrada",
+  "motivos": [
+    "Visita física"
+  ],
+  "tecnologias": [
+    "CIR"
+  ],
+  "tipo_mtto": "Mtto Preventivo",
+  "tipo_falla": "Auditoría",
+  "falla_especifica": "Validación Data",
+  "lectura_medidor": "—",
+  "solucion": "Chequeo preventivo del correcto funcionamiento del equipo en el punto ETAPA 2 (000027-07).\n\nSe verificó operación, conectividad y estado general del sistema WES. El equipo se encuentra funcionando de forma correcta / operativa.",
+  "observaciones": "Visita del 28/10/2026 junto con revisión de ETAPA 1-4 y ETAPA 3. Sin hallazgos de falla en este punto.",
+  "recibido_por": "Fesel Ojeda",
+  "cargo": "Supervisor de mantenimiento",
+  "email_cliente": "supervisorfundozapallar@gmail.com",
+  "email_cc": "german.garib@gmail.com, mbelenlarrain@lgadministracion.cl",
+  "enviar_correo_cliente": false,
+  "checklist_cir": [
+    {
+      "elemento": "Conectividad App",
+      "estado": "OK",
+      "obs": "Chequeo preventivo"
+    },
+    {
+      "elemento": "Enlace CIR",
+      "estado": "OK",
+      "obs": ""
+    },
+    {
+      "elemento": "Estado exterior caja CIR",
+      "estado": "OK",
+      "obs": ""
+    },
+    {
+      "elemento": "Estado interior caja CIR",
+      "estado": "OK",
+      "obs": ""
+    },
+    {
+      "elemento": "Equipo ultrasónico",
+      "estado": "OK",
+      "obs": "Funcionamiento correcto"
+    },
+    {
+      "elemento": "Transductores",
+      "estado": "OK",
+      "obs": ""
+    }
+  ],
+  "checklist_cpa": [],
+  "checklist_sab": [],
+  "firma_png": "",
+  "_borrador": true,
+  "_no_enviar_correo": true,
+  "node_id": "000027-07"
+}

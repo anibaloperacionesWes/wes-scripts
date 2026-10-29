@@ -1,0 +1,40 @@
+---
+description: Formulario web = acta de visita técnica WES (mismo documento)
+alwaysApply: true
+---
+
+# Formulario / acta de visita técnica
+
+**Formulario web y acta son lo mismo.** El documento oficial es el PDF
+«ACTA DE VISITA TÉCNICA WES» que sale del formulario de técnicos. No inventes
+un Word libre ni otra plantilla.
+
+## Link fijo (usar siempre este)
+
+https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+
+Guardado también en `mantenimiento_wes/LINK_FIJO_FORMULARIO_WEB.txt`.
+
+## Cuando pidan acta / formulario / visita (física o remota)
+
+1. Completá los campos del formulario: cliente, máquina, comuna, fecha, hora,
+   técnico, folio/OT, motivo, tecnología, tipo mtto, tipo falla, falla
+   específica, solución, checklists, recibido por.
+2. Generá el PDF oficial con
+   `python generar_acta_visita_tecnica.py --json visita.json`
+   (`mantenimiento_wes/generar_pdf_acta_visita.py`). Plantilla:
+   `mantenimiento_wes/ejemplos/acta_ejemplo.json`. Guía:
+   `PROMPT_ACTA_VISITA_TECNICA.md`.
+3. Folio = máximo del Registro de fallas
+   (Sheet `1GlRn7QXWEre7ziau29ojR5lTl-bZ8T3mCT3cD93HZgM`, hoja Datos) + 1.
+4. Subí a Drive **Actas de Mantencion** (`1-gDG2ND4beTpiqJqUG7d3dsT6wiHbKeQ`),
+   ruta `{Cliente}/{año}/{mes}`, nombre
+   `folio_{folio}_{fecha}_{CLIENTE}_{MAQUINA}_{yyyyMMdd_HHmmss}.pdf`
+   (`--subir-drive`).
+5. **Nunca enviar correo al cliente hasta que el usuario apruebe el borrador
+   del formulario/acta.** Primero generar PDF, dejarlo a la vista (Drive /
+   chat) y esperar OK explícito. Recién ahí `--enviar-correo`.
+6. Correo solo al cliente que corresponda, pidiendo «Acuso recibo». En
+   CORMUP → `dcampos.henriquez@cormup.cl`. Sin CC al equipo WES salvo que
+   lo pidan.
+7. Destacá el link de Drive en la respuesta final.
