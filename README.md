@@ -73,6 +73,19 @@ Este script analiza un incidente completo, obteniendo:
 - Datos horarios para días con alertas
 - Precio del agua (si está disponible)
 
+### Alerta de desviación de consumo (vs 6 meses)
+
+Compara cada punto operativo con el promedio diario de los últimos ~6 meses,
+separado en **L–V** y **S–D**. Marca **ALTO** (≥1,5×) y **BAJO** (≤0,5×).
+Usa la API pública vía BFF (`api-rest.wes.cl`), sin login de dashboard.
+
+```powershell
+python reporte_desviacion_consumo.py
+python reporte_desviacion_consumo.py --company-id 000021
+```
+
+Salida en `reports/Desviacion_Consumo/` (Excel, Word, PDF, CSV).
+
 ### Generar Reporte de Incidentes del Día Anterior
 
 Requiere Python 3.10+ y las dependencias `requests` y `python-docx`:
