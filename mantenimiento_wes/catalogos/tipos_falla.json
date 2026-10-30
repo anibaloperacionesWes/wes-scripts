@@ -1,0 +1,87 @@
+{
+  "Eléctrica": [
+    "Cortocircuito",
+    "Empalme electrico",
+    "Fusible Cortado",
+    "Falla Fuente switching",
+    "Intervencion de terceros",
+    "Cargador Solar",
+    "Bateria Descargada"
+  ],
+  "Electrónica": [
+    "Componente dañado",
+    "Ruido",
+    "Placa Pegada",
+    "Reloj Malo",
+    "Memoria mala",
+    "Válvulas sin Voltaje",
+    "Router sin Voltaje",
+    "Placa RS232 LAN sin voltaje",
+    "Intervencion de terceros",
+    "Cortocircuito",
+    "Revisión tecnica",
+    "Sensor de movimiento",
+    "Up grade"
+  ],
+  "Comunicación": [
+    "Max 232",
+    "Placa Conversor RS232 mala",
+    "Conector DB9",
+    "Router",
+    "Amplimax",
+    "Sim",
+    "Conector tx rx",
+    "ID Erróneo",
+    "Desconfiguracion",
+    "Intervencion de terceros",
+    "Revisión tecnica",
+    "Up grade",
+    "Cable de Red Dañado"
+  ],
+  "Hídrica": [
+    "Sensor de Pulso",
+    "Medidor defectuoso",
+    "By Pass abierto",
+    "Solenoide",
+    "Membrana",
+    "Regulación",
+    "Reparación",
+    "Intervencion de terceros",
+    "Revisión tecnica",
+    "Llave de paso",
+    "Valvula",
+    "Fatiga de material",
+    "Habilitacion CPA"
+  ],
+  "Software": [
+    "Pick Dañado",
+    "Actualizacion de Código",
+    "Desprogramacion",
+    "Descalibracion Peso Pulso"
+  ],
+  "Auditoría": [
+    "Toma de Lectura Inicial",
+    "Toma de Lectura Final",
+    "Validación Data"
+  ],
+  "Ultrasonido": [
+    "Renovación Silicona",
+    "Transductor Defectuoso",
+    "Q bajo 60%",
+    "Desconfiguracion",
+    "Equipo Dañado",
+    "Instalación"
+  ],
+  "Up grade": [
+    "Instalación"
+  ],
+  "Construccion": [
+    "Reparación Camara",
+    "Canalización"
+  ],
+  "Soporte remoto": [
+    "Programación de auditoría",
+    "Programación especial por requerimiento del establecimiento",
+    "Validar correcto funcionamiento"
+  ]
+}

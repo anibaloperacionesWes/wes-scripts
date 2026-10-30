@@ -1,0 +1,2 @@
+id_ot,fecha,hora,tecnico,cliente,sitio,nodo_id,tipo_trabajo,tipo_falla,descripcion,estado,prioridad_cliente,proxima_accion,fecha_proxima,origen,notas
+OT-2026-0001,2026-08-01,10:30,Ejemplo Técnico,Cliente Demo,Sitio A,000025-12,correctivo,fuga sensor,Cambio de sensor,cerrada,2,revisión 30 días,2026-09-01,formulario,ejemplo — reemplazar con datos reales

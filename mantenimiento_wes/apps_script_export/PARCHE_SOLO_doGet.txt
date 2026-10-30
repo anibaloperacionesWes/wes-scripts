@@ -1,0 +1,42 @@
+PARCHE SOLO doGet — si no querés pegar Codigo entero
+====================================================
+
+En archivo Codigo:
+
+1) Después de la línea LOGO_WES_ID, agregá:
+var FORMULARIO_HTML_DRIVE_ID = '1UVCdra_Xsvozajx-32xnAOQh4Z6rNc2C';
+
+2) Reemplazá TODA la función doGet() por esto
+   (y pegá loadFormularioTemplate_ justo arriba de doGet):
+
+function loadFormularioTemplate_() {
+  try {
+    var raw = DriveApp.getFileById(FORMULARIO_HTML_DRIVE_ID).getBlob().getDataAsString('UTF-8');
+    if (raw && raw.indexOf('<html') >= 0) {
+      return HtmlService.createTemplate(raw);
+    }
+  } catch (e) {}
+  return HtmlService.createTemplateFromFile('Formulario');
+}
+
+function doGet() {
+  var tpl = loadFormularioTemplate_();
+  tpl.CATALOGOS_JSON = JSON.stringify(parseCatalogosEmbed_());
+  var folioShow = FOLIO_INICIAL;
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var n = Number(props.getProperty('NEXT_FOLIO') || FOLIO_INICIAL);
+    if (!isNaN(n) && n >= FOLIO_INICIAL) folioShow = n;
+  } catch (e) {}
+  tpl.PROXIMO_FOLIO = String(folioShow);
+  return tpl
+    .evaluate()
+    .setTitle('Acta de visita WES · 21k')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+3) Guardar → Nueva versión del /exec oficial → abrir:
+https://script.google.com/a/macros/wes.cl/s/AKfycbx5DTddldWVkvK7QLxS85UbDDLQFG93_gJx3MYlL52gdPpq-FY3mRX9nxGQ7OOCbtxC/exec
+
+Debe verse: Acta de visita técnica · 21k

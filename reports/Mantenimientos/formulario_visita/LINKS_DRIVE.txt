@@ -1,0 +1,16 @@
+Formulario vistoso + flujo PDF/correo/Excel
+
+PDF demo acta:
+https://drive.google.com/file/d/1FFNpW4_EX6zd1mLAno39Eycd8vpwtEDw/view?usp=drivesdk
+
+Excel digital (análisis):
+https://docs.google.com/spreadsheets/d/1m6IuEvD7ZuEFtONiYuG21Oy1LHQCp8t6/edit?usp=drivesdk
+
+HTML formulario:
+https://drive.google.com/file/d/1MM4WtJtcdZVwV-5jwTk5v3x0Kzfan4Sp/view?usp=drivesdk
+
+README:
+https://drive.google.com/file/d/1ZQVFgA6q2pBYnAzsT9i4rCsjHzZaWkuD/view?usp=drivesdk
+
+Carpeta mantenimiento wes (Drive):
+https://drive.google.com/drive/folders/150GFVtGFlPXb_7bQfe7AS4SClKEXLEuX
