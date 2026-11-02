@@ -186,7 +186,64 @@ WANTED = {
     "zapallar",
     "udd",
     "valledor",
+    "copec",
 }
+
+# 11 puntos vigentes en la app. 000009-07 ya no está. La Matriz Principal es la
+# entrada real; lavados, riego, baños, tienda y oficina están aguas abajo.
+CLIENTES_COPEC = [
+    {
+        "key": "copec",
+        "company_id": "000009",
+        "folder": "COPEC",
+        "cliente": "COPEC",
+        "sitio": "COPEC",
+        "sujeto": "la estación",
+        "node_ids": [
+            "000009-06",
+            "000009-00",
+            "000009-01",
+            "000009-02",
+            "000009-03",
+            "000009-04",
+            "000009-05",
+            "000009-08",
+            "000009-09",
+            "000009-10",
+            "000009-11",
+        ],
+        "apply_exclusions": False,
+        "matriz_id": "000009-06",
+        "matriz_name": "Matriz Principal",
+        "additive": False,
+        "nocturnal_explain": None,
+        "kpi_label": "Consumo de entrada",
+        "usar_kpi_ultimo_mes_6m": True,
+        "short_names": {
+            "000009-06": "Matriz Principal",
+            "000009-00": "Costanera",
+            "000009-01": "Oficina Admin.",
+            "000009-02": "Estanque reutilización",
+            "000009-03": "Lavado auto norte",
+            "000009-04": "Lavado auto sur",
+            "000009-05": "Riego",
+            "000009-08": "Pronto baños",
+            "000009-09": "Autolavado norte",
+            "000009-10": "Autolavado sur",
+            "000009-11": "Pronto tienda",
+        },
+        "leyenda": ("Matriz Principal (entrada real)", "Puntos internos (parte de la matriz)"),
+        "chart_nota": (
+            "la Matriz Principal representa el consumo real de la estación. Los demás "
+            "medidores están aguas abajo y miden derivaciones del mismo caudal; por lo tanto, "
+            "sus consumos no se suman."
+        ),
+        "nocturno_nota": (
+            "El volumen nocturno de la referencia es el de la Matriz Principal. "
+            "Los medidores interiores no se suman a esa entrada."
+        ),
+    }
+]
 
 
 def _preparar(cfg: dict) -> dict:
@@ -229,6 +286,17 @@ def _preparar(cfg: dict) -> dict:
             "Octubre comprende 31 días. Matriz ESVAL y Etapa N.º 5 se informan "
             "el mes completo. No se extrapola."
         )
+    if cfg["key"] == "copec":
+        cfg["hallazgo_dato"] = {
+            "prioridad": "INFORMATIVA",
+            "titulo": "Estanque de reutilización y Costanera en cero",
+            "dato": "0,0 m³ en octubre en ambos puntos.",
+            "lectura": (
+                "El estanque guarda agua reutilizada y, si ese aporte no alcanza, "
+                "se completa con agua potable desde otros puntos. El cero de ese medidor "
+                "no es una falla. Costanera tampoco registró consumo en el mes."
+            ),
+        }
     return cfg
 
 
@@ -243,7 +311,7 @@ def main() -> None:
         raise SystemExit(f"Clientes no reconocidos: {sorted(desconocidos)}")
     catalogo = []
     seen = set()
-    for grupo in (lote.CLIENTES, CLIENTES_CDUC, CLIENTES_COLEGIOS):
+    for grupo in (lote.CLIENTES, CLIENTES_CDUC, CLIENTES_COLEGIOS, CLIENTES_COPEC):
         for cfg in grupo:
             if cfg["key"] in objetivo and cfg["key"] not in seen:
                 seen.add(cfg["key"])
@@ -264,6 +332,7 @@ def main() -> None:
         "zapallar",
         "udd",
         "valledor",
+        "copec",
     ]
     by = {c["key"]: c for c in catalogo}
     lote.run_lote(
