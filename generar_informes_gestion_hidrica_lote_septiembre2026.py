@@ -1134,7 +1134,7 @@ def build_spec(
     hallazgos, evento_fuerte = _hallazgos(cfg, data)
     clasificacion, motivo = _clasificar(cfg, pct, evento_fuerte, salto=_salto_mensual(data))
     sin_hora = all(int(n.get("nocturno_cobertura") or 0) == 0 for n in nodos)
-    if sin_hora and entrada > 0:
+    if sin_hora and entrada > 0 and cfg.get("cpa_estado") != "instalado_pendiente":
         clasificacion = "EN OBSERVACIÓN"
         motivo = (
             "los totales diarios están medidos, pero la serie horaria no estuvo disponible "

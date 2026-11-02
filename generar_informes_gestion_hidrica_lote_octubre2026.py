@@ -3,7 +3,10 @@ Informes de gestión hídrica — octubre 2026 (modelo Fundo Zapallar).
 
 One pager + informe mensual para:
   CDUC, AGUNSA Lampa, AGUNSA Intermodal, Inchcape, Colegios Providencia,
-  CORMUP, La Reina, Club Providencia y Nido de Águilas.
+  CORMUP, La Reina, Club Providencia, Nido de Águilas, Fundo Zapallar,
+  UDD y Mercado Lo Valledor.
+
+  python generar_informes_gestion_hidrica_lote_octubre2026.py zapallar udd valledor
 
 La API interna no es alcanzable desde el agente: las medidas diarias salen
 por el BFF público. El CSV horario exige sesión y no se inventa un nocturno.
@@ -133,6 +136,9 @@ WANTED = {
     "reina",
     "club",
     "nido",
+    "zapallar",
+    "udd",
+    "valledor",
 }
 
 
@@ -144,6 +150,7 @@ def _preparar(cfg: dict) -> dict:
     cfg.pop("nota_agosto", None)
     cfg.pop("panorama_nota", None)
     cfg.pop("periodo_corto", None)
+    cfg.pop("node_desde", None)
     if cfg["key"] == "providencia":
         cfg["cliente"] = "Corporación Providencia"
         cfg["sitio"] = "Corporación Providencia"
@@ -163,24 +170,54 @@ def _preparar(cfg: dict) -> dict:
             "Octubre se informa completo, del 1 al 31. Julio queda fuera del "
             "comparativo por la falla del sensor de pulso. No se extrapola."
         )
+    if cfg["key"] == "valledor":
+        cfg["sitio"] = "Mercado Lo Valledor"
+        cfg["panorama_nota"] = (
+            "Octubre se evalúa del 1 al 31 y no se extrapola. "
+            "El equipo CPA está instalado y falta activar y programar."
+        )
+    if cfg["key"] == "zapallar":
+        cfg["usar_kpi_ultimo_mes_6m"] = True
+        cfg["nota_agosto"] = (
+            "Octubre comprende 31 días. Matriz ESVAL y Etapa N.º 5 se informan "
+            "el mes completo. No se extrapola."
+        )
     return cfg
 
 
 def main() -> None:
+    pedidos = [a.strip().lower() for a in sys.argv[1:] if a.strip()]
+    objetivo = set(pedidos) if pedidos else set(WANTED)
+    desconocidos = objetivo - WANTED
+    if desconocidos:
+        raise SystemExit(f"Clientes no reconocidos: {sorted(desconocidos)}")
     catalogo = []
     seen = set()
     for grupo in (lote.CLIENTES, CLIENTES_CDUC, CLIENTES_COLEGIOS):
         for cfg in grupo:
-            if cfg["key"] in WANTED and cfg["key"] not in seen:
+            if cfg["key"] in objetivo and cfg["key"] not in seen:
                 seen.add(cfg["key"])
                 catalogo.append(_preparar(cfg))
-    faltan = WANTED - seen
+    faltan = objetivo - seen
     if faltan:
         raise SystemExit(f"Faltan clientes en el catálogo: {sorted(faltan)}")
-    orden = ["cduc", "lampa", "intermodal", "inchcape", "providencia", "cormup", "reina", "club", "nido"]
+    orden = [
+        "cduc",
+        "lampa",
+        "intermodal",
+        "inchcape",
+        "providencia",
+        "cormup",
+        "reina",
+        "club",
+        "nido",
+        "zapallar",
+        "udd",
+        "valledor",
+    ]
     by = {c["key"]: c for c in catalogo}
     lote.run_lote(
-        [by[k] for k in orden],
+        [by[k] for k in orden if k in by],
         "GESTIÓN HÍDRICA — octubre 2026 — modelo Fundo Zapallar",
     )
 
