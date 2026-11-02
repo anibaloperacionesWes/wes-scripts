@@ -8,16 +8,21 @@ One pager + informe mensual para:
 
   python generar_informes_gestion_hidrica_lote_octubre2026.py zapallar udd valledor
 
-La API interna no es alcanzable desde el agente: las medidas diarias salen
-por el BFF público. El CSV horario exige sesión y no se inventa un nocturno.
+La API interna no es alcanzable desde el agente. Los totales diarios salen
+por el BFF público. El Excel horario (dates.measures.csv) se baja con la
+sesión de la app: variables WES_APP_USER y WES_APP_PASSWORD. No van en el código.
 """
 
 from __future__ import annotations
 
+import base64
 import copy
 import json
+import os
 import sys
 import threading
+import urllib.error
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode, urlparse, urlunparse
@@ -31,8 +36,10 @@ if str(ROOT) not in sys.path:
 from wes_api_bff import bff_request  # noqa: E402
 
 _cache_lock = threading.Lock()
+_token_lock = threading.Lock()
 _cache: dict[str, tuple[int, str, bytes]] = {}
 _ORIG = requests.Session.request
+_TOKEN = ""
 
 
 def _full_url(url: str, params) -> str:
@@ -55,32 +62,90 @@ def _to_public(url: str) -> str:
     )
 
 
+def _app_session() -> str:
+    """Token de la app (POST login vía BFF). No se imprime ni se guarda en el repo."""
+    global _TOKEN
+    with _token_lock:
+        if _TOKEN:
+            return _TOKEN
+        user = os.environ.get("WES_APP_USER", "").strip()
+        password = os.environ.get("WES_APP_PASSWORD", "").strip()
+        if not user or not password:
+            raise SystemExit("Faltan WES_APP_USER y WES_APP_PASSWORD para el Excel horario.")
+        login_url = "https://api-rest.wes.cl/wes/api/wes-mc-api/v1/login"
+        payload = {"m": "POST", "u": login_url, "b": {"username": user, "password": password}}
+        raw = base64.b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()
+        req = urllib.request.Request(
+            "https://api-rest.wes.cl/q",
+            data=raw.encode(),
+            headers={
+                "Content-Type": "text/plain",
+                "Origin": "https://dashboard.wes.cl",
+                "Referer": "https://dashboard.wes.cl/",
+                "Accept": "text/plain, */*",
+                "User-Agent": "Mozilla/5.0 (compatible; WES-Scripts/1.0)",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            token = resp.read().decode("utf-8", errors="replace").strip().strip('"')
+        if token.count(".") < 2:
+            raise SystemExit("La app no entregó sesión para bajar el Excel horario.")
+        _TOKEN = token
+        return _TOKEN
+
+
+def _csv_autenticado(url: str) -> bytes:
+    token = _app_session()
+    payload = {"m": "GET", "u": url, "b": None}
+    raw = base64.b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()
+    req = urllib.request.Request(
+        "https://api-rest.wes.cl/q",
+        data=raw.encode(),
+        headers={
+            "Content-Type": "text/plain",
+            "authorization": token,
+            "Origin": "https://dashboard.wes.cl",
+            "Referer": "https://dashboard.wes.cl/",
+            "Accept": "text/csv, text/plain, */*",
+            "User-Agent": "Mozilla/5.0 (compatible; WES-Scripts/1.0)",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            return resp.read()
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            global _TOKEN
+            with _token_lock:
+                _TOKEN = ""
+        raise
+
+
 def _bff_request(self, method, url, **kwargs):
     if (method or "GET").upper() != "GET" or "104.248.53.141" not in str(url):
         return _ORIG(self, method, url, **kwargs)
     full = _to_public(_full_url(str(url), kwargs.get("params")))
-    if "dates.measures.csv" in full or "realtime.measures.csv" in full:
-        resp = requests.Response()
-        resp.status_code = 401
-        resp.url = full
-        resp._content = b'{"e":"unauthorized"}'
-        resp.headers["Content-Type"] = "application/json"
-        resp.encoding = "utf-8"
-        return resp
     with _cache_lock:
         hit = _cache.get(full)
     if hit is None:
-        data = bff_request(full, timeout=120)
-        if isinstance(data, (dict, list)):
-            body = json.dumps(data).encode("utf-8")
-            ctype = "application/json"
-        elif isinstance(data, str):
-            body = data.encode("utf-8")
-            ctype = "text/plain"
+        if "dates.measures.csv" in full or "realtime.measures.csv" in full:
+            body = _csv_autenticado(full)
+            ctype = "text/csv"
+            hit = (200, ctype, body)
         else:
-            body = b""
-            ctype = "application/json"
-        hit = (200, ctype, body)
+            data = bff_request(full, timeout=120)
+            if isinstance(data, (dict, list)):
+                body = json.dumps(data).encode("utf-8")
+                ctype = "application/json"
+            elif isinstance(data, str):
+                body = data.encode("utf-8")
+                ctype = "text/plain"
+            else:
+                body = b""
+                ctype = "application/json"
+            hit = (200, ctype, body)
         with _cache_lock:
             _cache[full] = hit
     status, ctype, body = hit
@@ -95,30 +160,12 @@ def _bff_request(self, method, url, **kwargs):
 
 requests.Session.request = _bff_request  # type: ignore
 
-import generar_reporte_word as grw  # noqa: E402
-
-
-def _sin_serie_horaria(node_id, start_date, end_date, company_id=None):
-    dias = (end_date.date() - start_date.date()).days + 1
-    return {
-        "dias_con_consumo_nocturno": 0,
-        "dias_sin_consumo_nocturno": 0,
-        "dias_sin_datos_horarios": max(dias, 0),
-        "dias_con_datos_horarios": 0,
-        "consumo_nocturno_total": 0.0,
-        "consumo_diurno_efectivo": 0.0,
-    }
-
-
-grw.calculate_nocturnal_metrics = _sin_serie_horaria
-
 import generar_informes_gestion_hidrica_lote_septiembre2026 as lote  # noqa: E402
 from generar_informes_gestion_hidrica_cduc_agosto2026 import CLIENTES as CLIENTES_CDUC  # noqa: E402
 from generar_informes_gestion_hidrica_colegios_agosto2026 import (  # noqa: E402
     CLIENTES as CLIENTES_COLEGIOS,
 )
 
-lote.calculate_nocturnal_metrics = _sin_serie_horaria
 lote.START = "01/10/2026"
 lote.END = "31/10/2026"
 lote.START_DT = datetime(2026, 10, 1)
@@ -186,6 +233,9 @@ def _preparar(cfg: dict) -> dict:
 
 
 def main() -> None:
+    if lote.CACHE_DIR.exists():
+        for viejo in lote.CACHE_DIR.glob("*.json"):
+            viejo.unlink()
     pedidos = [a.strip().lower() for a in sys.argv[1:] if a.strip()]
     objetivo = set(pedidos) if pedidos else set(WANTED)
     desconocidos = objetivo - WANTED
