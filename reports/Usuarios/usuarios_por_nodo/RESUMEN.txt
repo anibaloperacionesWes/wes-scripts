@@ -1,0 +1,23 @@
+Usuarios WES por Node ID (ranking mayor a menor)
+Generado: 26/08/2026 14:56 hora Chile
+
+Fuente: GET /configuration/companies + GET /users?email= + receivers FILTRATION
+Limitación: la API no lista todos los usuarios; se consultaron correos del repo
+y de las alertas de cada nodo.
+
+Filtro: solo puntos activos (88 inactivos omitidos). Puntos activos: 111.
+Todos los puntos activos tienen al menos 1 usuario.
+
+Fundo Zapallar 000027-06 / 000027-07 / 000027-08 (Etapa N°1/2/3):
+3 usuarios cada uno:
+  - mbelenlarrain@lgadministracion.cl (Belén Larraín)
+  - operaciones@lgadministracion.cl (Operaciones lga)
+  - supervisor,fundozapallar@gmail.com (Cristobal Villarroel)
+
+PDF: ranking compacto, 3 páginas (tope 5). Correos completos en el Excel.
+
+Archivos
+- usuarios_por_nodo_ranking.csv
+- usuarios_por_nodo_ranking.xlsx
+- usuarios_por_nodo_ranking.docx
+- usuarios_por_nodo_ranking.pdf

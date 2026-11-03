@@ -1,0 +1,10 @@
+Aplicación: dashboard.wes.cl (API acl-entities)
+Generado: 2026-09-21T20:37
+Correos consultados: 45
+Cuentas encontradas: 18
+Sin cuenta en API: 27
+Empresas con usuarios: 3
+
+LIMITACIÓN: la API no lista todos los usuarios ni el último acceso.
+Este reporte cubre el universo de correos conocidos en el proyecto.
+Para listado exhaustivo solicitar export al backoffice WES.
