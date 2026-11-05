@@ -94,12 +94,21 @@ def listar_companias() -> List[Dict[str, Any]]:
     return data
 
 
+def auth_token() -> str:
+    """Token de sesión dashboard (localStorage x-auth-token). Env ``WES_X_AUTH_TOKEN``."""
+    return (
+        os.environ.get("WES_X_AUTH_TOKEN", "").strip()
+        or os.environ.get("WES_AUTH_TOKEN", "").strip()
+    )
+
+
 def measures_dates(
     node_ids: List[str],
     start_ddmmyyyy: str,
     end_ddmmyyyy: str,
     *,
     timeout: float = 120.0,
+    token: str = "",
 ) -> List[Dict[str, Any]]:
     """Consumo diario por nodo (campo month[].totalM3)."""
     if not node_ids:
@@ -109,7 +118,7 @@ def measures_dates(
         f"{ACL_NODE}/nodes/measures/dates?{qs}"
         f"&start={start_ddmmyyyy}&end={end_ddmmyyyy}"
     )
-    data = bff_request(url, timeout=timeout)
+    data = bff_request(url, timeout=timeout, token=token or auth_token())
     if data is None:
         return []
     if isinstance(data, dict) and data.get("e"):
@@ -117,3 +126,66 @@ def measures_dates(
     if not isinstance(data, list):
         raise RuntimeError(f"Respuesta inesperada measures/dates: {type(data)}")
     return data
+
+
+def dates_measures_csv(
+    node_ids: List[str],
+    start_ddmmyyyy: str,
+    end_ddmmyyyy: str,
+    *,
+    timeout: float = 180.0,
+    token: Optional[str] = None,
+) -> str:
+    """CSV horario de la app: GET nodes/dates.measures.csv (requiere x-auth-token)."""
+    if not node_ids:
+        return "TIME,VALUE\n"
+    tok = auth_token() if token is None else token
+    if not tok:
+        raise RuntimeError(
+            "CSV horario requiere WES_X_AUTH_TOKEN (x-auth-token del dashboard)."
+        )
+    qs = "&".join(f"id={urllib.parse.quote(nid)}" for nid in node_ids)
+    url = (
+        f"{ACL_NODE}/nodes/dates.measures.csv?{qs}"
+        f"&start={start_ddmmyyyy}&end={end_ddmmyyyy}"
+    )
+    data = bff_request(url, timeout=timeout, token=tok)
+    if data is None:
+        return "TIME,VALUE\n"
+    if isinstance(data, dict) and data.get("e"):
+        raise RuntimeError(f"BFF error CSV: {data}")
+    if not isinstance(data, str):
+        raise RuntimeError(f"Respuesta CSV inesperada: {type(data)}")
+    return data
+
+
+def listar_nodos_companias(
+    *,
+    exclude_company_ids: Optional[set] = None,
+) -> List[Dict[str, str]]:
+    """Lista nodos por compañía vía BFF. Cada ítem: companyId, companyName, nodeId, nodeName."""
+    excluded = exclude_company_ids or set()
+    out: List[Dict[str, str]] = []
+    for c in listar_companias():
+        cid = str(c.get("companyId", "")).strip()
+        cname = str(c.get("name", "")).strip()
+        if not cid or cid in excluded:
+            continue
+        raw = bff_request(f"{ACL_ENTITIES}/companies/{cid}")
+        nodes = raw.get("nodes") if isinstance(raw, dict) else None
+        if not nodes:
+            continue
+        for n in nodes:
+            nid = str(n.get("nodeId", "")).strip()
+            nname = str(n.get("name", "")).strip()
+            if nid:
+                out.append(
+                    {
+                        "companyId": cid,
+                        "companyName": cname,
+                        "nodeId": nid,
+                        "nodeName": nname or nid,
+                    }
+                )
+    out.sort(key=lambda x: (x["companyId"], x["nodeId"]))
+    return out
